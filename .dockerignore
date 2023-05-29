@@ -1,0 +1,16 @@
+# git files
+**/.git/
+**/.gitattributes
+**/.gitignore
+
+# docker files
+.docker/
+.dockerignore*
+.env*
+Dockerfile
+compose*.yaml
+
+# installation files
+data/
+internal_data/
+src/addons/

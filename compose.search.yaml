@@ -1,0 +1,11 @@
+services:
+  search:
+    image: elasticsearch:${ELASTICSEARCH_VERSION:-7.17.10}
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - xf-search:/usr/share/elasticsearch/data
+
+volumes:
+  xf-search:

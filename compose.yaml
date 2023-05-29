@@ -1,0 +1,46 @@
+services:
+  xf:
+    image: xf:${XF_VERSION:-latest}
+    build:
+      context: .
+      args:
+        - PHP_VARIANT=${PHP_VARIANT:-fpm}
+        - PHP_VERSION=${PHP_VERSION:-8.2}
+        - PHP_VERSION_COMPOSER=${PHP_VERSION_COMPOSER:-2.5}
+        - PHP_VERSION_IGBINARY=${PHP_VERSION_IGBINARY:-3.2.14}
+        - PHP_VERSION_IMAGICK=${PHP_VERSION_IMAGICK:-3.7.0}
+        - PHP_VERSION_REDIS=${PHP_VERSION_REDIS:-5.3.7}
+        - PHP_VERSION_XDEBUG=${PHP_VERSION_XDEBUG:-3.2.1}
+        - PHP_VERSION_XDEBUG_OLD=${PHP_VERSION_XDEBUG_OLD:-3.1.6}
+        - PHP_VERSION_YAML=${PHP_VERSION_YAML:-2.2.3}
+        - PHP_BUILD_IMAGICK=${PHP_BUILD_IMAGICK:-0}
+        - PHP_BUILD_REDIS=${PHP_BUILD_REDIS:-0}
+        - PHP_BUILD_PGSQL=${PHP_BUILD_PGSQL:-0}
+        - PHP_INSTALL_FFMPEG=${PHP_INSTALL_FFMPEG:-0}
+    env_file:
+      - .env
+    volumes:
+      - xf:/var/www/html
+
+  web:
+    image: nginx:${NGINX_VERSION:-1.25}
+    ports:
+      - ${XF_PORT:-80}:80
+    volumes:
+      - ./.docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - xf:/var/www/html:ro
+
+  db:
+    image: mariadb:${MARIADB_VERSION:-10.11}
+    environment:
+      MYSQL_USER: ${XF_DB_USER}
+      MYSQL_PASSWORD: ${XF_DB_PASSWORD}
+      MYSQL_DATABASE: ${XF_DB_DATABASE}
+      MYSQL_RANDOM_ROOT_PASSWORD: 1
+      MARIADB_AUTO_UPGRADE: 1
+    volumes:
+      - xf-db:/var/lib/mysql
+
+volumes:
+  xf:
+  xf-db:
