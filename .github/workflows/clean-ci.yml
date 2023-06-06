@@ -1,0 +1,32 @@
+name: Clean up CI images
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: '0 0 * * WED'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  PACKAGE: php-ci
+
+jobs:
+  clean-ci:
+    name: Clean up CI images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete old versions
+        uses: actions/delete-package-versions@v4
+        with:
+          package-type: container
+          package-name: ${{ env.PACKAGE }}
+          delete-only-untagged-versions: true
+          min-versions-to-keep: 0
