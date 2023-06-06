@@ -81,6 +81,7 @@ jobs:
             PHP_VERSION=${{ matrix.php-version }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+          provenance: false
           cache-from: type=gha,scope=${{ github.ref_name }}-${{ matrix.php-version }}
           cache-to: type=gha,scope=${{ github.ref_name }}-${{ matrix.php-version }},mode=max
           push: ${{ github.event_name != 'pull_request' }}
