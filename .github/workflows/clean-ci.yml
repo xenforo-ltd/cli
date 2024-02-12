@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Delete old versions
-        uses: actions/delete-package-versions@v4
+        uses: actions/delete-package-versions@v5
         with:
           package-type: container
           package-name: ${{ env.PACKAGE }}
