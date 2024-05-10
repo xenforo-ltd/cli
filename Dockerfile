@@ -61,6 +61,12 @@ RUN set -eux; \
     docker-php-ext-install -j$(nproc) mysqli;
 
 RUN set -eux; \
+    apk add --no-cache --virtual .php-deps-intl icu-libs; \
+    apk add --no-cache --virtual .php-deps-intl-build icu-dev; \
+    docker-php-ext-install -j$(nproc) intl; \
+    apk del .php-deps-intl-build;
+
+RUN set -eux; \
     apk add --no-cache --virtual .php-deps-zip libzip; \
     apk add --no-cache --virtual .php-deps-zip-build libzip-dev; \
     docker-php-ext-install -j$(nproc) zip; \
