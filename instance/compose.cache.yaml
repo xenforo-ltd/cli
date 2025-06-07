@@ -12,7 +12,7 @@ services:
       - cache
 
   cache:
-    image: redis:${REDIS_VERSION:-7.0}-alpine
+    image: redis:${REDIS_VERSION:-8.0}-alpine
     networks:
       - cache
     volumes:
