@@ -349,6 +349,36 @@ xf::compose()
 	docker compose --project-name "${instance}" "${compose_files[@]}" "$@"
 }
 
+# xf::get_url()
+#
+# Usage:
+#   xf::get_url
+#
+# Description:
+#   Prints the URL of the environment. An error is returned if $XF_INSTANCE is
+#   not set or the ephemeral port cannot be detected.
+xf::get_url()
+{
+	local instance
+	instance="$(xf::get_variable XF_INSTANCE)"
+	if [[ -z "${instance}" ]]; then
+		return 1
+	fi
+
+	local port
+	port=$(xf::compose port web 80 | sed 's/.*://')
+	if [[ -z "${port}" || "${port}" == "0" ]]; then
+		return 1
+	fi
+
+	local url
+	if [[ $(docker info --format '{{.OperatingSystem}}' 2>/dev/null) == "OrbStack" ]]; then
+		printf 'https://%s.xf.local' "${instance}"
+	else
+		printf 'http://localhost:%s' "${port}"
+	fi
+}
+
 # xf::main()
 #
 # Usage:
@@ -385,6 +415,13 @@ xf::main()
 			;;
 		up)
 			xf::compose up --detach
+
+			local url
+			url=$(xf::get_url)
+			if [[ -n "${url}" ]]; then
+				printf '\n'
+				printf 'XenForo running at: %s\n' "${url}"
+			fi
 			;;
 		down)
 			xf::compose down
@@ -392,6 +429,13 @@ xf::main()
 		reboot)
 			xf::compose down
 			xf::compose up --detach
+
+			local url
+			url=$(xf::get_url)
+			if [[ -n "${url}" ]]; then
+				printf '\n'
+				printf 'XenForo running at: %s\n' "${url}"
+			fi
 			;;
 		ps)
 			xf::compose ps "$@"

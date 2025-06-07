@@ -10,5 +10,9 @@ services:
       - ./src/config.docker.php:/var/www/html/src/config.php:ro
 
   web:
+    ports:
+      - 80
+    labels:
+        - dev.orbstack.domains=${XF_INSTANCE:-}.xf.local
     volumes:
       - .:/var/www/html:ro
