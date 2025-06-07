@@ -9,6 +9,3 @@ services:
   web:
     volumes:
       - .:/var/www/html:ro
-
-  adminer:
-    image: adminer:${ADMINER_VERSION:-4}-fastcgi
