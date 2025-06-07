@@ -96,18 +96,20 @@ RUN set -eux; \
     apk del .php-deps-zip-build;
 
 RUN set -eux; \
-    if [ "$PHP_INSTALL_FFMPEG" -ne 0 ]; then \
-        apk add --no-cache ffmpeg \
-        ; \
+    if [ "${PHP_INSTALL_FFMPEG}" -ne 0 ]; then \
+        apk add --no-cache ffmpeg; \
     fi;
 
 RUN set -eux; \
-    if [ "$PHP_BUILD_IMAGICK" -ne 0 ]; then \
-        apk add --no-cache --virtual .php-deps-imagick imagemagick libgomp; \
+    if [ "${PHP_BUILD_IMAGICK}" -ne 0 ]; then \
+        apk add --no-cache --virtual .php-deps-imagick \
+            imagemagick \
+            libgomp \
+        ; \
         apk add --no-cache --virtual .php-deps-imagick-build \
             ${PHPIZE_DEPS} \
             imagemagick-dev \
-            ; \
+        ; \
         pecl install imagick-${PHP_VERSION_IMAGICK}; \
         docker-php-ext-enable imagick; \
         rm -rf /tmp/pear; \
@@ -115,26 +117,29 @@ RUN set -eux; \
     fi;
 
 RUN set -eux; \
-    if [ "$PHP_BUILD_REDIS" -ne 0 ]; then \
+    if [ "${PHP_BUILD_REDIS}" -ne 0 ]; then \
         apk add --no-cache --virtual .php-deps-redis-build ${PHPIZE_DEPS}; \
         pecl install igbinary-${PHP_VERSION_IGBINARY}; \
-        docker-php-ext-enable igbinary; \
         pecl install \
             --configureoptions 'enable-redis-igbinary="yes"' \
             redis-${PHP_VERSION_REDIS}; \
+        docker-php-ext-enable igbinary; \
         docker-php-ext-enable redis; \
         rm -rf /tmp/pear; \
         apk del .php-deps-redis-build; \
     fi;
 
 RUN set -eux; \
-    if [ "$PHP_BUILD_PGSQL" -ne 0 ]; then \
-        apk add --no-cache --virtual .php-deps-pgsql postgresql-libs yaml; \
+    if [ "${PHP_BUILD_PGSQL}" -ne 0 ]; then \
+        apk add --no-cache --virtual .php-deps-pgsql \
+            postgresql-libs \
+            yaml \
+        ; \
         apk add --no-cache --virtual .php-deps-pgsql-build \
             ${PHPIZE_DEPS} \
             postgresql-dev \
             yaml-dev \
-            ; \
+        ; \
         docker-php-ext-install -j$(nproc) pgsql; \
         docker-php-ext-install -j$(nproc) pdo_pgsql; \
         pecl install yaml-${PHP_VERSION_YAML}; \
