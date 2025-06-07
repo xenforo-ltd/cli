@@ -2,8 +2,6 @@ services:
   xf:
     build:
       target: development
-    extra_hosts:
-      - host.docker.internal:host-gateway
     volumes:
       - .:/var/www/html
       - ./src/config.docker.php:/var/www/html/src/config.php:ro
