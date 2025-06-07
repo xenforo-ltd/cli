@@ -9,6 +9,11 @@ services:
     image: redis:${REDIS_VERSION:-7.0}-alpine
     networks:
       - cache
+    volumes:
+      - cache:/data
 
 networks:
+  cache:
+
+volumes:
   cache:
