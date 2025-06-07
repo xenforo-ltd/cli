@@ -140,9 +140,7 @@ RUN set -eux; \
     fi; \
     docker-php-ext-enable xdebug; \
     rm -rf /tmp/pear; \
-    apk del .php-deps-xdebug-build; \
-    echo "xdebug.mode=debug" >> "$PHP_INI_DIR/conf.d/docker-php-ext-xdebug.ini"; \
-    echo "xdebug.client_host=host.docker.internal" >> "$PHP_INI_DIR/conf.d/docker-php-ext-xdebug.ini";
+    apk del .php-deps-xdebug-build;
 
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 
