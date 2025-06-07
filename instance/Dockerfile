@@ -120,6 +120,10 @@ RUN set -eux; \
         apk del .php-deps-pgsql-build; \
     fi;
 
+RUN set -eux; \
+    echo "post_max_size=128M" >> "${PHP_INI_DIR}/conf.d/xenforo.ini"; \
+    echo "upload_max_filesize=128M" >> "${PHP_INI_DIR}/conf.d/xenforo.ini";
+
 VOLUME /var/www/html
 
 FROM composer:${PHP_VERSION_COMPOSER} AS composer
