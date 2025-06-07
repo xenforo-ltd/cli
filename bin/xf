@@ -8,7 +8,7 @@
 #
 # A management utility for Docker-powered XenForo installations.
 #
-# Copyright (c) 2023 XenForo Ltd.
+# Copyright (c) 2025 XenForo Ltd.
 # https://github.com/xenforo-ltd/docker
 
 # print command traces when $TRACE is set
