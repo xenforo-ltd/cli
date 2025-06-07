@@ -182,7 +182,7 @@ Usage:
   ${XF_SELF} kill
   ${XF_SELF} build
   ${XF_SELF} pull
-  ${XF_SELF} ps
+  ${XF_SELF} ps [<options>] [<arguments]
   ${XF_SELF} logs [<options>] [<arguments>]
   ${XF_SELF} run [<options>] <arguments>
   ${XF_SELF} compose [<options>] [<arguments>]
@@ -329,7 +329,7 @@ xf::main()
 			xf::compose pull --ignore-buildable
 			;;
 		ps)
-			xf::compose ps --services
+			xf::compose ps "$@"
 			;;
 		logs)
 			xf::compose logs "$@"
