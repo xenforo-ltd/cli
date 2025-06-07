@@ -1,0 +1,20 @@
+services:
+  xf:
+    build:
+      args:
+        - PHP_BUILD_SQLSRV=1
+    depends_on:
+      - mssql
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:${MSSQL_VERSION:-2022-latest}
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: ${XF_MSSQL_PASSWORD}
+    networks:
+      - db
+    volumes:
+      - mssql:/var/opt/mssql
+
+volumes:
+  mssql:

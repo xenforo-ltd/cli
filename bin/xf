@@ -211,6 +211,7 @@ xf::init()
 		"Dockerfile"
 		"compose.cache.yaml"
 		"compose.development.yaml"
+		"compose.mssql.yaml"
 		"compose.postgres.yaml"
 		"compose.replication.yaml"
 		"compose.search.yaml"

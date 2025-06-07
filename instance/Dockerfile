@@ -13,6 +13,7 @@ ARG PHP_VERSION_YAML=2.2.4
 ARG PHP_BUILD_IMAGICK=0
 ARG PHP_BUILD_PGSQL=0
 ARG PHP_BUILD_REDIS=0
+ARG PHP_BUILD_SQLSRV=0
 ARG PHP_INSTALL_FFMPEG=0
 
 FROM php:${PHP_VERSION}-${PHP_VARIANT}-alpine AS php
@@ -26,6 +27,7 @@ ARG PHP_VERSION_YAML
 ARG PHP_BUILD_IMAGICK
 ARG PHP_BUILD_PGSQL
 ARG PHP_BUILD_REDIS
+ARG PHP_BUILD_SQLSRV
 ARG PHP_INSTALL_FFMPEG
 
 RUN set -eux; \
@@ -139,6 +141,24 @@ RUN set -eux; \
         docker-php-ext-enable yaml; \
         rm -rf /tmp/pear; \
         apk del .php-deps-pgsql-build; \
+    fi;
+
+RUN set -eux; \
+    if [ "${PHP_BUILD_SQLSRV}" -ne 0 ]; then \
+        curl -O https://download.microsoft.com/download/fae28b9a-d880-42fd-9b98-d779f0fdd77f/msodbcsql18_18.5.1.1-1_arm64.apk; \
+        apk add --allow-untrusted msodbcsql18_18.5.1.1-1_arm64.apk; \
+        rm msodbcsql18_18.5.1.1-1_arm64.apk; \
+        apk add --no-cache --virtual .php-deps-sqlsrv unixodbc; \
+        apk add --no-cache --virtual .php-deps-sqlsrv-build \
+            ${PHPIZE_DEPS} \
+            unixodbc-dev \
+        ; \
+        pecl install sqlsrv; \
+        pecl install pdo_sqlsrv; \
+        docker-php-ext-enable sqlsrv; \
+        docker-php-ext-enable pdo_sqlsrv; \
+        rm -rf /tmp/pear; \
+        apk del .php-deps-sqlsrv-build; \
     fi;
 
 RUN set -eux; \
