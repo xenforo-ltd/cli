@@ -110,7 +110,7 @@ RUN set -eux; \
         apk add --no-cache --virtual .php-deps-pgsql postgresql-libs yaml; \
         apk add --no-cache --virtual .php-deps-pgsql-build \
             ${PHPIZE_DEPS} \
-            pgsql-dev \
+            postgresql-dev \
             yaml-dev \
             ; \
         docker-php-ext-install -j$(nproc) pgsql; \
