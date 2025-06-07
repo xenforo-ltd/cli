@@ -19,6 +19,8 @@ services:
         - PHP_INSTALL_FFMPEG=${PHP_INSTALL_FFMPEG:-0}
     env_file:
       - .env
+    depends_on:
+      - db
     volumes:
       - xf:/var/www/html
 
@@ -26,6 +28,8 @@ services:
     image: nginx:${NGINX_VERSION:-1.25}
     ports:
       - ${XF_PORT:-80}:80
+    depends_on:
+      - xf
     volumes:
       - ./.docker/nginx.conf:/etc/nginx/nginx.conf:ro
       - xf:/var/www/html:ro

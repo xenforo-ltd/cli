@@ -1,4 +1,8 @@
 services:
+  xf:
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:${POSTGRES_VERSION:-15.3}-alpine
     environment:

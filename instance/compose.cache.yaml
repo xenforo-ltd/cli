@@ -1,3 +1,7 @@
 services:
+  xf:
+    depends_on:
+      - cache
+
   cache:
     image: redis:${REDIS_VERSION:-7.0}-alpine
