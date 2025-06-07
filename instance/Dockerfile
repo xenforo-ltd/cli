@@ -84,7 +84,8 @@ RUN set -eux; \
     echo "opcache.jit_buffer_size=128M" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
 RUN set -eux; \
-    docker-php-ext-install -j$(nproc) mysqli;
+    docker-php-ext-install -j$(nproc) mysqli; \
+    docker-php-ext-install -j$(nproc) pdo_mysql;
 
 RUN set -eux; \
     apk add --no-cache --virtual .php-deps-zip libzip; \
@@ -133,6 +134,7 @@ RUN set -eux; \
             yaml-dev \
             ; \
         docker-php-ext-install -j$(nproc) pgsql; \
+        docker-php-ext-install -j$(nproc) pdo_pgsql; \
         pecl install yaml-${PHP_VERSION_YAML}; \
         docker-php-ext-enable yaml; \
         rm -rf /tmp/pear; \
