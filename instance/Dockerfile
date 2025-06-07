@@ -32,20 +32,39 @@ RUN set -eux; \
     docker-php-ext-install -j$(nproc) exif;
 
 RUN set -eux; \
-    apk add --no-cache --virtual .php-deps-gd libjpeg-turbo libpng libwebp; \
+    apk add --no-cache --virtual .php-deps-gd \
+        libjpeg-turbo \
+        libpng \
+        libwebp \
+    ; \
     apk add --no-cache --virtual .php-deps-gd-build \
         libjpeg-turbo-dev \
         libpng-dev \
         libwebp-dev \
         zlib-dev \
+    ; \
+    if [ "$(php-config --vernum)" -ge 80100 ]; then \
+        apk add --no-cache --virtual .php-deps-gd-avif \
+            aom-libs \
+            libavif \
+            libdav1d \
         ; \
-    if [ "$(php-config --vernum)" -lt 70400 ]; then \
-        docker-php-ext-configure gd --with-jpeg-dir --with-webp-dir; \
+        apk add --no-cache --virtual .php-deps-gd-build-avif \
+            aom-dev \
+            dav1d-dev \
+            libavif-dev \
+        ; \
+    fi; \
+    if [ "$(php-config --vernum)" -ge 80100 ]; then \
+        docker-php-ext-configure gd --with-avif --with-jpeg --with-webp; \
     else \
         docker-php-ext-configure gd --with-jpeg --with-webp; \
     fi; \
     docker-php-ext-install -j$(nproc) gd; \
-    apk del .php-deps-gd-build;
+    apk del .php-deps-gd-build;\
+    if [ "$(php-config --vernum)" -ge 80100 ]; then \
+        apk del .php-deps-gd-build-avif; \
+    fi;
 
 RUN set -eux; \
     apk add --no-cache --virtual .php-deps-gmp gmp; \
