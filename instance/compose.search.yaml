@@ -2,14 +2,21 @@ services:
   xf:
     depends_on:
       - search
+    networks:
+      - search
 
   search:
     image: elasticsearch:${ELASTICSEARCH_VERSION:-7.17.10}
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    networks:
+      - search
     volumes:
       - xf-search:/usr/share/elasticsearch/data
+
+networks:
+  search:
 
 volumes:
   xf-search:
