@@ -39,6 +39,11 @@ services:
 
   db:
     image: mariadb:${MARIADB_VERSION:-11.7}
+    command:
+      - mariadbd
+      - --performance-schema=ON
+      - --innodb-buffer-pool-size=256M
+      - --innodb-log-file-size=64M
     environment:
       MARIADB_RANDOM_ROOT_PASSWORD: 1
       MARIADB_AUTO_UPGRADE: 1
