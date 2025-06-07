@@ -1,5 +1,6 @@
 # git files
 **/.git/
+**/.git-blame-ignore-revs
 **/.gitattributes
 **/.gitignore
 

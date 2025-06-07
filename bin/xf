@@ -301,6 +301,12 @@ xf::init()
 		local source_file="${XF_DOCKER_DIR}/instance/${file}"
 		local target_file="${xf_dir}/${file}"
 
+		if [[ -f "${source_file}" ]]; then
+			printf 'The default %s file has been customized.\n' "${file}"
+		else
+			local source_file="${source_file}.default"
+		fi
+
 		local target_directory
 		target_directory="$(dirname "${target_file}")"
 		mkdir -p "${target_directory}"
