@@ -60,7 +60,9 @@ RUN set -eux; \
     apk del .php-deps-intl-build;
 
 RUN set -eux; \
-    docker-php-ext-install -j$(nproc) opcache;
+    docker-php-ext-install -j$(nproc) opcache; \
+    echo "opcache.jit=tracing" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini"; \
+    echo "opcache.jit_buffer_size=128M" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
 RUN set -eux; \
     docker-php-ext-install -j$(nproc) mysqli;
@@ -139,12 +141,13 @@ RUN set -eux; \
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 
 RUN set -eux; \
-    cp "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini";
+    cp "${PHP_INI_DIR}/php.ini-development" "${PHP_INI_DIR}/php.ini";
 
 FROM php AS production
 
 RUN set -eux; \
-    cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini";
+    cp "${PHP_INI_DIR}/php.ini-production" "${PHP_INI_DIR}/php.ini"; \
+    echo "opcache.validate_timestamps=0" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
 FROM production AS ci
 
