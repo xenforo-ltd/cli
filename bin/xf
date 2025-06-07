@@ -178,7 +178,7 @@ Usage:
   ${XF_SELF} init
   ${XF_SELF} up
   ${XF_SELF} down
-  ${XF_SELF} restart
+  ${XF_SELF} reboot
   ${XF_SELF} kill
   ${XF_SELF} build
   ${XF_SELF} pull
@@ -316,8 +316,9 @@ xf::main()
 		down)
 			xf::compose down
 			;;
-		restart)
-			xf::compose restart
+		reboot)
+			xf::compose down
+			xf::compose up --detach
 			;;
 		kill)
 			xf::compose kill
