@@ -1,6 +1,6 @@
 services:
   xf:
-    image: xf:${XF_VERSION:-latest}
+    image: xf:${XF_INSTANCE:-xf}
     build:
       context: .
       args:

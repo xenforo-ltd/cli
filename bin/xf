@@ -111,16 +111,71 @@ xf::check_environment()
 	fi
 }
 
+# xf::get_variable()
+#
+# Usage:
+#   xf::get_variable <variable>
+#
+# Description:
+#   Gets an environment variable, or a value from the .env file of the XenForo
+#   installation if the environment variable is not set. An error is returned if
+#   the variable is not set.
+xf::get_variable()
+{
+	local xf_dir
+	xf_dir="$(xf::get_xf_dir)"
+	if [[ -z "${xf_dir}" ]]; then
+		return 1
+	fi
+
+	local value="${!1:-}"
+	if [[ -z "${value}" && -f "${xf_dir}/.env" ]]; then
+		value="$(sed -n "s/^$1=\(.*\)$/\1/p" "${xf_dir}/.env")"
+	fi
+
+	if [[ -z "${value}" ]]; then
+		printf 'The %s variable was not set.\n' "$1" >&2
+		return 1
+	fi
+
+	printf '%s' "${value}"
+}
+
+# xf::get_contexts()
+#
+# Usage:
+#   xf::get_contexts
+#
+# Description:
+#   Gets the $XF_CONTEXTS environment variable, or the value from the .env file
+#   of the XenForo installation if the environment variable is not set. An error
+#   is returned if the variable is not set or if the value is not valid.
+xf::get_contexts()
+{
+	local contexts
+	contexts="$(xf::get_variable XF_CONTEXTS)"
+	if [[ -z "${contexts}" ]]; then
+		return 1
+	fi
+
+	if [[ -n "${contexts}" && ! "${contexts}" =~ ^[a-z:]+$ ]]; then
+		printf 'The XF_CONTEXTS setting is not valid.\n' >&2
+		return 1
+	fi
+
+	printf '%s' "${contexts}"
+}
+
 # xf::get_compose_files()
 #
 # Usage:
 #   xf::get_compose_files
 #
 # Description:
-#   Parses the $XF_ENVIRONMENTS environment variable, or the .env file of the
-#   XenForo installation if the environment variable is not set, to discover
-#   and print the desired Compose file arguments. An error is returned if the
-#   settings are not valid.
+#   Parses the $XF_CONTEXTS environment variable, or the .env file of the XenForo
+#   installation if the environment variable is not set, to discover and print
+#   the desired Compose file arguments. An error is returned if the settings are
+#   not valid.
 xf::get_compose_files()
 {
 	local xf_dir
@@ -131,18 +186,19 @@ xf::get_compose_files()
 
 	local files=("--file" "${xf_dir}/compose.yaml")
 
-	local environments="${XF_ENVIRONMENTS:-}"
-	if [[ -z "${environments}" && -f "${xf_dir}/.env" ]]; then
-		environments="$(sed -n 's/^XF_ENVIRONMENTS=\([a-z:]*\)$/\1/p' "${xf_dir}/.env")"
+	local contexts
+	contexts="$(xf::get_contexts)"
+	if [[ -z "${contexts}" ]]; then
+		return 1
 	fi
 
-	IFS=":" read -ra environments <<<"${environments}"
+	IFS=":" read -ra contexts <<<"${contexts}"
 
-	for environment in "${environments[@]}"; do
-		local file="compose.${environment}.yaml"
+	for context in "${contexts[@]}"; do
+		local file="compose.${context}.yaml"
 		if [[ ! -f "${xf_dir}/${file}" ]]; then
-			printf "The %s file does not exist. " "${file}" >&2
-			printf "Check your \$XF_ENVIRONMENT settings.\n" >&2
+			printf 'The %s file does not exist.\n' "${file}" >&2
+			printf 'Check your XF_CONTEXTS setting.\n' >&2
 			return 1
 		fi
 
@@ -276,6 +332,12 @@ xf::compose()
 {
 	xf::check_environment
 
+	local instance
+	instance="$(xf::get_variable XF_INSTANCE)"
+	if [[ -z "${instance}" ]]; then
+		return 1
+	fi
+
 	local compose_files
 	compose_files="$(xf::get_compose_files)"
 	if [[ -z "${compose_files}" ]]; then
@@ -284,7 +346,7 @@ xf::compose()
 
 	IFS=" " read -ra compose_files <<<"${compose_files}"
 
-	docker compose "${compose_files[@]}" "$@"
+	docker compose --project-name "${instance}" "${compose_files[@]}" "$@"
 }
 
 # xf::main()
