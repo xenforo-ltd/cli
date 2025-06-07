@@ -23,11 +23,30 @@ if (!function_exists('getenv_docker'))
 	}
 }
 
-$config['db']['host'] = getenv_docker('XF_DB_HOST', 'localhost');
-$config['db']['port'] = (int) getenv_docker('XF_DB_PORT', '3306');
-$config['db']['username'] = getenv_docker('XF_DB_USER');
-$config['db']['password'] = getenv_docker('XF_DB_PASSWORD');
-$config['db']['dbname'] = getenv_docker('XF_DB_DATABASE');
+if (getenv_docker('XF_DB_REPLICATION'))
+{
+	$config['db']['adapterClass'] = 'XF\Db\Pdo\MysqlReplicationAdapter';
+
+	$config['db']['read']['host'] = getenv_docker('XF_DB_HOST_READ', 'localhost');
+	$config['db']['read']['port'] = (int) getenv_docker('XF_DB_PORT', '3306');
+	$config['db']['read']['username'] = getenv_docker('XF_DB_USER');
+	$config['db']['read']['password'] = getenv_docker('XF_DB_PASSWORD');
+	$config['db']['read']['dbname'] = getenv_docker('XF_DB_DATABASE');
+
+	$config['db']['write']['host'] = getenv_docker('XF_DB_HOST', 'localhost');
+	$config['db']['write']['port'] = (int) getenv_docker('XF_DB_PORT', '3306');
+	$config['db']['write']['username'] = getenv_docker('XF_DB_USER');
+	$config['db']['write']['password'] = getenv_docker('XF_DB_PASSWORD');
+	$config['db']['write']['dbname'] = getenv_docker('XF_DB_DATABASE');
+}
+else
+{
+	$config['db']['host'] = getenv_docker('XF_DB_HOST', 'localhost');
+	$config['db']['port'] = (int) getenv_docker('XF_DB_PORT', '3306');
+	$config['db']['username'] = getenv_docker('XF_DB_USER');
+	$config['db']['password'] = getenv_docker('XF_DB_PASSWORD');
+	$config['db']['dbname'] = getenv_docker('XF_DB_DATABASE');
+}
 
 $config['fullUnicode'] = true;
 $config['searchInnoDb'] = true;

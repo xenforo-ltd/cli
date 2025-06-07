@@ -1,0 +1,35 @@
+services:
+  xf:
+    environment:
+      - XF_DB_REPLICATION=1
+      - XF_DB_HOST_READ=db-read
+
+  db:
+    environment:
+      MARIADB_REPLICATION_USER: ${XF_DB_REPLICATION_USER}
+      MARIADB_REPLICATION_PASSWORD: ${XF_DB_REPLICATION_PASSWORD}
+
+  db-read:
+    image: mariadb:${MARIADB_VERSION:-11.7}
+    command:
+      - mariadbd
+      - --server-id=2
+      - --log-basename=db
+      - --performance-schema=ON
+      - --innodb-buffer-pool-size=256M
+      - --innodb-log-file-size=64M
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: 1
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_REPLICATION_USER: ${XF_DB_REPLICATION_USER}
+      MARIADB_REPLICATION_PASSWORD: ${XF_DB_REPLICATION_PASSWORD}
+      MARIADB_MASTER_HOST: db
+    depends_on:
+      - db
+    networks:
+      - db
+    volumes:
+      - db-read:/var/lib/mysql
+
+volumes:
+  db-read:
