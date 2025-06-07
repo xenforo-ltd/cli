@@ -30,6 +30,9 @@ $config['db']['password'] = getenv_docker('XF_DB_PASSWORD');
 $config['db']['dbname'] = getenv_docker('XF_DB_DATABASE');
 
 $config['fullUnicode'] = true;
+$config['searchInnoDb'] = true;
+
+$config['enableCssSplitting'] = true;
 
 $config['cache']['enabled'] = (bool) getenv_docker('XF_CACHE_ENABLE');
 $config['cache']['sessions'] = (bool) getenv_docker('XF_CACHE_SESSIONS');
@@ -108,7 +111,7 @@ $c->extend('options', function ($options)
 			'smtpAuth' => 'login',
 			'smtpLoginUsername' => getenv_docker('XF_MAIL_USERNAME'),
 			'smtpLoginPassword' => getenv_docker('XF_MAIL_PASSWORD'),
-			'smtpEncrypt' => getenv_docker('XF_MAIL_ENCRYPT'),
+			'smtpSsl' => (bool) getenv_docker('XF_MAIL_SSL'),
 		];
 	}
 
