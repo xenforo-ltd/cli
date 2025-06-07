@@ -7,7 +7,6 @@ ARG PHP_VERSION_IGBINARY=3.2.14
 ARG PHP_VERSION_IMAGICK=3.7.0
 ARG PHP_VERSION_REDIS=5.3.7
 ARG PHP_VERSION_XDEBUG=3.2.1
-ARG PHP_VERSION_XDEBUG_OLD=3.1.6
 ARG PHP_VERSION_YAML=2.2.3
 
 ARG PHP_BUILD_IMAGICK=0
@@ -21,7 +20,6 @@ ARG PHP_VERSION_IGBINARY
 ARG PHP_VERSION_IMAGICK
 ARG PHP_VERSION_REDIS
 ARG PHP_VERSION_XDEBUG
-ARG PHP_VERSION_XDEBUG_OLD
 ARG PHP_VERSION_YAML
 
 ARG PHP_BUILD_IMAGICK
@@ -125,19 +123,14 @@ FROM composer:${PHP_VERSION_COMPOSER} AS composer
 
 FROM php AS development
 
-ARG PHP_VERSION_XDEBUG_VERSION
-ARG PHP_VERSION_XDEBUG_VERSION_OLD
+ARG PHP_VERSION_XDEBUG
 
 RUN set -eux; \
     apk add --no-cache --virtual .php-deps-xdebug-build \
         ${PHPIZE_DEPS} \
         linux-headers \
-        ; \
-    if [ "$(php-config --vernum)" -lt 80000 ]; then \
-        pecl install xdebug-${PHP_VERSION_XDEBUG_OLD}; \
-    else \
-        pecl install xdebug-${PHP_VERSION_XDEBUG}; \
-    fi; \
+    ; \
+    pecl install xdebug-${PHP_VERSION_XDEBUG}; \
     docker-php-ext-enable xdebug; \
     rm -rf /tmp/pear; \
     apk del .php-deps-xdebug-build;
