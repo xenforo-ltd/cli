@@ -1,56 +1,44 @@
 <?php
 
+use XF\Container;
+use XF\Session\Session;
+
 if (!function_exists('getenv_docker'))
 {
-	function getenv_docker(
-		string $name,
-		?string $cast = null,
-		string $default = ''
-	)
+	function getenv_docker(string $name, string $default = ''): string
 	{
 		$filename = getenv("{$name}_FILE");
 		if ($filename !== false)
 		{
-			$value = file_get_contents($filename);
-		}
-		else
-		{
-			$value = getenv($name);
+			return rtrim(file_get_contents($filename), "\r\n");
 		}
 
+		$value = getenv($name);
 		if ($value === false)
 		{
 			return $default;
-		}
-
-		$value = trim($value);
-
-		if ($cast !== null)
-		{
-			settype($value, $cast);
 		}
 
 		return $value;
 	}
 }
 
-$config['db']['host'] = getenv_docker('XF_DB_HOST');
-$config['db']['port'] = getenv_docker('XF_DB_PORT', 'int');
+$config['db']['host'] = getenv_docker('XF_DB_HOST', 'localhost');
+$config['db']['port'] = (int) getenv_docker('XF_DB_PORT', '3306');
 $config['db']['username'] = getenv_docker('XF_DB_USER');
 $config['db']['password'] = getenv_docker('XF_DB_PASSWORD');
 $config['db']['dbname'] = getenv_docker('XF_DB_DATABASE');
-$config['db']['socket'] = null;
 
 $config['fullUnicode'] = true;
 
-$config['cache']['enabled'] = getenv_docker('XF_ENABLE_CACHE', 'bool');
-$config['cache']['sessions'] = getenv_docker('XF_CACHE_SESSIONS', 'bool');
+$config['cache']['enabled'] = (bool) getenv_docker('XF_CACHE_ENABLE');
+$config['cache']['sessions'] = (bool) getenv_docker('XF_CACHE_SESSIONS');
 $config['cache']['provider'] = 'Redis';
 $config['cache']['config'] = [
 	'host' => getenv_docker('XF_CACHE_HOST'),
 ];
 
-if (getenv_docker('XF_ENABLE_CACHE') && getenv_docker('XF_CACHE_PAGES'))
+if (getenv_docker('XF_CACHE_ENABLE') && getenv_docker('XF_CACHE_PAGES'))
 {
 	$config['pageCache']['enabled'] = true;
 	$config['cache']['context']['page']['provider'] = 'Redis';
@@ -59,7 +47,7 @@ if (getenv_docker('XF_ENABLE_CACHE') && getenv_docker('XF_CACHE_PAGES'))
 	];
 }
 
-$config['debug'] = getenv_docker('XF_DEBUG', 'bool');
+$config['debug'] = (bool) getenv_docker('XF_DEBUG');
 
 if (getenv_docker('XF_DEVELOPMENT'))
 {
@@ -86,9 +74,9 @@ if (getenv_docker('XF_DEVELOPMENT'))
 		return $options;
 	});
 
-	$c['session.admin'] = function (\XF\Container $c): \XF\Session\Session
+	$c['session.admin'] = function (Container $c): Session
 	{
-		$session = new \XF\Session\Session($c['session.admin.storage'], [
+		$session = new Session($c['session.admin.storage'], [
 			'cookie' => 'session_admin',
 			'lifetime' => 86400,
 		]);
@@ -96,27 +84,27 @@ if (getenv_docker('XF_DEVELOPMENT'))
 	};
 }
 
-$config['adminColorHueShift'] = getenv_docker('XF_ADMIN_HUE_SHIFT', 'int');
-$config['cookie']['prefix'] = getenv_docker('XF_COOKIE_PREFIX');
+$config['adminColorHueShift'] = (int) getenv_docker('XF_ADMIN_HUE_SHIFT');
+$config['cookie']['prefix'] = getenv_docker('XF_COOKIE_PREFIX', 'xf');
 $config['enableAddOnArchiveInstaller'] = true;
-$config['enableMail'] = getenv_docker('XF_ENABLE_MAIL', 'bool');
+$config['enableMail'] = (bool) getenv_docker('XF_MAIL_ENABLE');
 
 $c->extend('options', function ($options)
 {
 	/** @var \ArrayObject $options */
-	$options['boardTitle'] = getenv_docker('XF_TITLE');
+	$options['boardTitle'] = getenv_docker('XF_TITLE', 'XenForo');
 
 	$options['defaultEmailAddress'] = getenv_docker('XF_EMAIL');
 	$options['contactEmailAddress'] = getenv_docker('XF_CONTACT_EMAIL');
 
 	$options['useFriendlyUrls'] = true;
 
-	if (getenv_docker('XF_ENABLE_MAIL'))
+	if (getenv_docker('XF_MAIL_ENABLE'))
 	{
 		$options['emailTransport'] = [
 			'emailTransport' => 'smtp',
 			'smtpHost' => getenv_docker('XF_MAIL_HOST'),
-			'smtpPort' => getenv_docker('XF_MAIL_PORT', 'int'),
+			'smtpPort' => (int) getenv_docker('XF_MAIL_PORT'),
 			'smtpAuth' => 'login',
 			'smtpLoginUsername' => getenv_docker('XF_MAIL_USERNAME'),
 			'smtpLoginPassword' => getenv_docker('XF_MAIL_PASSWORD'),
@@ -124,14 +112,21 @@ $c->extend('options', function ($options)
 		];
 	}
 
-	$options['xfesConfig']['host'] = getenv_docker('XF_XFES_SEARCH_HOST');
+	if (isset($options['xfesConfig']))
+	{
+		$options['xfesConfig']['host'] = getenv_docker('XF_XFES_SEARCH_HOST', 'localhost');
+		$options['xfesConfig']['port'] = (int) getenv_docker('XF_XFES_SEARCH_PORT', '9200');
+		$options['xfesConfig']['username'] = getenv_docker('XF_XFES_SEARCH_USER');
+		$options['xfesConfig']['password'] = getenv_docker('XF_XFES_SEARCH_PASSWORD');
+		$options['xfesConfig']['index'] = getenv_docker('XF_XFES_SEARCH_INDEX', 'xf');
+	}
 
-	if (getenv_docker('XF_ENABLE_IMAGICK'))
+	if (getenv_docker('XF_IMAGICK_ENABLE'))
 	{
 		$options['imageLibrary'] = 'imPecl';
 	}
 
-	if (getenv_docker('XF_ENABLE_XFMG_FFMPEG'))
+	if (getenv_docker('XF_XFMG_FFMPEG_ENABLE'))
 	{
 		$options['xfmgFfmpeg'] = [
 			'enabled' => '1',
