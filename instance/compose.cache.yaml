@@ -1,5 +1,11 @@
 services:
   xf:
+    build:
+      args:
+        - PHP_BUILD_REDIS=1
+    environment:
+      XF_CACHE_ENABLE: 1
+      XF_CACHE_HOST: cache
     depends_on:
       - cache
     networks:

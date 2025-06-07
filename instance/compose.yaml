@@ -12,10 +12,10 @@ services:
         - PHP_VERSION_REDIS=${PHP_VERSION_REDIS:-5.3.7}
         - PHP_VERSION_XDEBUG=${PHP_VERSION_XDEBUG:-3.2.1}
         - PHP_VERSION_YAML=${PHP_VERSION_YAML:-2.2.3}
-        - PHP_BUILD_IMAGICK=${PHP_BUILD_IMAGICK:-0}
-        - PHP_BUILD_REDIS=${PHP_BUILD_REDIS:-0}
-        - PHP_BUILD_PGSQL=${PHP_BUILD_PGSQL:-0}
-        - PHP_INSTALL_FFMPEG=${PHP_INSTALL_FFMPEG:-0}
+        - PHP_BUILD_IMAGICK=${XF_IMAGICK_ENABLE:-0}
+        - PHP_INSTALL_FFMPEG=${XF_XFMG_FFMPEG_ENABLE:-0}
+    environment:
+      XF_DB_HOST: db
     env_file:
       - .env
     depends_on:

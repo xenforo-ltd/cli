@@ -1,5 +1,8 @@
 services:
   xf:
+    build:
+      args:
+        - PHP_BUILD_PGSQL=1
     depends_on:
       - postgres
 

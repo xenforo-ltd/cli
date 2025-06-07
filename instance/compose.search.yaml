@@ -1,5 +1,7 @@
 services:
   xf:
+    environment:
+      XF_XFES_SEARCH_HOST: search
     depends_on:
       - search
     networks:
