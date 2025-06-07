@@ -221,7 +221,7 @@ xf::init()
 	)
 
 	for file in "${base_files[@]}"; do
-		local source_file="${XF_DOCKER_DIR}/${file}"
+		local source_file="${XF_DOCKER_DIR}/instance/${file}"
 		local target_file="${xf_dir}/${file}"
 
 		local target_directory
@@ -232,7 +232,7 @@ xf::init()
 	done
 
 	for file in "${default_files[@]}"; do
-		local source_file="${XF_DOCKER_DIR}/${file}"
+		local source_file="${XF_DOCKER_DIR}/instance/${file}"
 		local target_file="${xf_dir}/${file}"
 
 		local target_directory
