@@ -11,7 +11,7 @@
 # Copyright (c) 2025 XenForo Ltd.
 # https://github.com/xenforo-ltd/docker
 
-# print command traces when $TRACE is set
+# print command traces when TRACE is set
 if [[ -n "${TRACE}" ]]; then
 	set -o xtrace
 fi
@@ -37,16 +37,16 @@ readonly XF_DOCKER_DIR
 #
 # Description:
 #   Traverses up the current working directory to find and print a XenForo root
-#   directory. If one cannot be found, the $XF_DIR environment variable is
-#   checked and printed. An error is returned if no valid XenForo root directory
-#   can be found.
+#   directory. If one cannot be found, the XF_DIR environment variable is checked
+#   and printed. An error is returned if no valid XenForo root directory can be
+#   found.
 xf::get_xf_dir()
 {
 	local directory
 	directory="$(pwd)"
 	while [[ "${directory}" != "/" ]]; do
 		if [[ -f "${directory}/src/XF.php" ]]; then
-			printf "%s" "${directory}"
+			printf '%s' "${directory}"
 			return
 		fi
 
@@ -54,17 +54,17 @@ xf::get_xf_dir()
 	done
 
 	if [[ -f "/src/XF.php" ]]; then
-		printf "/"
+		printf '/'
 		return
 	fi
 
 	if [[ -z "${XF_DIR:-}" || ! -f "${XF_DIR}/src/XF.php" ]]; then
-		printf "You are not within a XenForo directory and no valid " >&2
-		printf "\$XF_DIR was set.\n" >&2
+		printf 'You are not within a XenForo directory and no valid XF_DIR ' >&2
+		printf 'was set.\n' >&2
 		return 1
 	fi
 
-	printf "%s" "${XF_DIR}"
+	printf '%s' "${XF_DIR}"
 }
 
 # xf::check_requirements()
@@ -78,12 +78,12 @@ xf::get_xf_dir()
 xf::check_requirements()
 {
 	if [[ ! -x "$(command -v docker)" ]]; then
-		printf "Docker does not appear to be installed.\n" >&2
+		printf 'Docker does not appear to be installed.\n' >&2
 		return 1
 	fi
 
 	if ! docker compose &>/dev/null; then
-		printf "Docker Compose does not appear to be installed.\n" >&2
+		printf 'Docker Compose does not appear to be installed.\n' >&2
 		return 1
 	fi
 }
@@ -100,10 +100,13 @@ xf::check_environment()
 {
 	local xf_dir
 	xf_dir="$(xf::get_xf_dir)"
+	if [[ -z "${xf_dir}" ]]; then
+		return 1
+	fi
 
 	if [[ ! -f "${xf_dir}/compose.yaml" ]]; then
-		printf "You do not appear to be in a valid environment. " >&2
-		printf "Did you forget to run %s init?\n" "${XF_SELF}" >&2
+		printf 'The environment does not appear to be initialized.\n' >&2
+		printf 'Did you forget to run %s init?\n' "${XF_SELF}" >&2
 		return 1
 	fi
 }
@@ -122,6 +125,9 @@ xf::get_compose_files()
 {
 	local xf_dir
 	xf_dir="$(xf::get_xf_dir)"
+	if [[ -z "${xf_dir}" ]]; then
+		return 1
+	fi
 
 	local files=("--file" "${xf_dir}/compose.yaml")
 
@@ -147,7 +153,7 @@ xf::get_compose_files()
 		files+=("--file" "${xf_dir}/compose.override.yaml")
 	fi
 
-	printf "%s " "${files[@]}"
+	printf '%s ' "${files[@]}"
 }
 
 # xf::help()
@@ -183,8 +189,8 @@ Usage:
   ${XF_SELF} composer [<options>] [<arguments>]
   ${XF_SELF} php [<options>] [<arguments>]
   ${XF_SELF} php-debug [<options>] [<arguments>]
-  ${XF_SELF} debug [<command>] [<options>] [<arguments>]
   ${XF_SELF} [<command>] [<options>] [<arguments>]
+  ${XF_SELF} debug [<command>] [<options>] [<arguments>]
 EOF
 }
 
@@ -204,11 +210,13 @@ xf::init()
 
 	local xf_dir
 	xf_dir="$(xf::get_xf_dir)"
+	if [[ -z "${xf_dir}" ]]; then
+		return 1
+	fi
 
 	local -r base_files=(
 		".docker/nginx.conf"
 		"src/config.docker.php"
-		"Dockerfile"
 		"compose.cache.yaml"
 		"compose.development.yaml"
 		"compose.mssql.yaml"
@@ -216,6 +224,7 @@ xf::init()
 		"compose.replication.yaml"
 		"compose.search.yaml"
 		"compose.yaml"
+		"Dockerfile"
 	)
 	local -r default_files=(
 		".dockerignore"
@@ -245,13 +254,16 @@ xf::init()
 			cp "${source_file}" "${target_file}"
 		elif ! cmp -s "${source_file}" "${target_file}"; then
 			cp "${source_file}" "${target_file}.default"
-			printf "The default %s file was copied to %s for reference.\n" \
+			printf 'The %s file already exists in the environment.\n' "${file}"
+			printf 'The default %s file was copied to %s for reference.\n' \
 				"${file}" \
 				"${file}.default"
 		fi
+
+		printf '\n'
 	done
 
-	printf "The environment has been initialized (%s).\n" "${xf_dir}"
+	printf 'The environment has been initialized (%s).\n' "${xf_dir}"
 }
 
 # xf::compose()
@@ -265,8 +277,12 @@ xf::compose()
 {
 	xf::check_environment
 
-	local files
+	local compose_files
 	compose_files="$(xf::get_compose_files)"
+	if [[ -z "${compose_files}" ]]; then
+		return 1
+	fi
+
 	IFS=" " read -ra compose_files <<<"${compose_files}"
 
 	docker compose "${compose_files[@]}" "$@"
