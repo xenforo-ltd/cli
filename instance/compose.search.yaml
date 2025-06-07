@@ -13,10 +13,10 @@ services:
     networks:
       - search
     volumes:
-      - xf-search:/usr/share/elasticsearch/data
+      - search:/usr/share/elasticsearch/data
 
 networks:
   search:
 
 volumes:
-  xf-search:
+  search:

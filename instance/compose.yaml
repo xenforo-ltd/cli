@@ -50,7 +50,7 @@ services:
     networks:
       - db
     volumes:
-      - xf-db:/var/lib/mysql
+      - db:/var/lib/mysql
 
 networks:
   web:
@@ -58,4 +58,4 @@ networks:
 
 volumes:
   xf:
-  xf-db:
+  db:
