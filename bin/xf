@@ -181,7 +181,6 @@ Usage:
   ${XF_SELF} up
   ${XF_SELF} down
   ${XF_SELF} reboot
-  ${XF_SELF} kill
   ${XF_SELF} ps [<options>] [<arguments]
   ${XF_SELF} logs [<options>] [<arguments>]
   ${XF_SELF} run [<options>] <arguments>
@@ -331,9 +330,6 @@ xf::main()
 		reboot)
 			xf::compose down
 			xf::compose up --detach
-			;;
-		kill)
-			xf::compose kill
 			;;
 		ps)
 			xf::compose ps "$@"
