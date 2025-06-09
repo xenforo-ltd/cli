@@ -222,30 +222,30 @@ xf::get_compose_files()
 xf::help()
 {
 	cat <<EOF
-  __  _______   ____   ___   ____ _  _______ ____
-  \ \/ /  ___| |  _ \ / _ \ / ___| |/ / ____|  _ \\
-   \  /| |_    | | | | | | | |   | ' /|  _| | |_) |
-   /  \|  _|   | |_| | |_| | |___| . \| |___|  _ <
-  /_/\_\_|     |____/ \___/ \____|_|\_\_____|_| \_\\
+                    __  _______   ____   ___   ____ _  _______ ____
+                    \ \/ /  ___| |  _ \ / _ \ / ___| |/ / ____|  _ \\
+                     \  /| |_    | | | | | | | |   | ' /|  _| | |_) |
+                     /  \|  _|   | |_| | |_| | |___| . \| |___|  _ <
+                    /_/\_\_|     |____/ \___/ \____|_|\_\_____|_| \_\\
 
-A management utility for Docker-powered XenForo installations.
+             A management utility for Docker-powered XenForo installations.
 
 Usage:
-  ${XF_SELF} init
-  ${XF_SELF} update
-  ${XF_SELF} prune
-  ${XF_SELF} up
-  ${XF_SELF} down
-  ${XF_SELF} reboot
-  ${XF_SELF} ps [<options>] [<arguments]
-  ${XF_SELF} logs [<options>] [<arguments>]
-  ${XF_SELF} run [<options>] <arguments>
-  ${XF_SELF} compose [<options>] [<arguments>]
-  ${XF_SELF} composer [<options>] [<arguments>]
-  ${XF_SELF} php [<options>] [<arguments>]
-  ${XF_SELF} php-debug [<options>] [<arguments>]
-  ${XF_SELF} [<command>] [<options>] [<arguments>]
-  ${XF_SELF} debug [<command>] [<options>] [<arguments>]
+  ${XF_SELF} init                                              Initializes the environment
+  ${XF_SELF} update                                                Updates the environment
+  ${XF_SELF} prune                                             Prunes unused Docker images
+  ${XF_SELF} up                                                     Starts the environment
+  ${XF_SELF} down                                                    Stops the environment
+  ${XF_SELF} reboot                                                Reboots the environment
+  ${XF_SELF} ps [<options>] [<arguments>]               Lists running environment services
+  ${XF_SELF} logs [<options>] [<arguments>]                         Shows environment logs
+  ${XF_SELF} run [<options>] <arguments>                          Run an arbitrary command
+  ${XF_SELF} compose [<options>] [<arguments>]                Run a Docker Compose command
+  ${XF_SELF} composer [<options>] [<arguments>]                     Run a Composer command
+  ${XF_SELF} php [<options>] [<arguments>]                                         Run PHP
+  ${XF_SELF} php-debug [<options>] [<arguments>]                       Run PHP with XDebug
+  ${XF_SELF} [<command>] [<options>] [<arguments>]                        Run a XF command
+  ${XF_SELF} debug [<command>] [<options>] [<arguments>]      Run a XF command with XDebug
 EOF
 }
 
