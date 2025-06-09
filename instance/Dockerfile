@@ -61,8 +61,10 @@ RUN set -eux; \
     fi; \
     if [ "$(php-config --vernum)" -ge 80100 ]; then \
         docker-php-ext-configure gd --with-avif --with-jpeg --with-webp; \
-    else \
+    elif [ "$(php-config --vernum)" -ge 70400 ]; then \
         docker-php-ext-configure gd --with-jpeg --with-webp; \
+    else \
+        docker-php-ext-configure gd --with-jpeg-dir --with-webp-dir; \
     fi; \
     docker-php-ext-install -j$(nproc) gd; \
     apk del .php-deps-gd-build;\
