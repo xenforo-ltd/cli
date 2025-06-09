@@ -10,13 +10,13 @@ on:
     branches:
       - 'main'
     paths:
-      - 'Dockerfile'
+      - 'instance/Dockerfile'
 
   pull_request:
     branches:
       - 'main'
     paths:
-      - 'Dockerfile'
+      - 'instance/Dockerfile'
 
 concurrency:
   group: "${{ github.workflow }}@${{ github.head_ref || github.ref }}"
@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        php-version: ['7.2', '8.0', '8.2']
+        php-version: ['7.2', '8.1', '8.4']
 
     steps:
       - name: Checkout repository
@@ -74,7 +74,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: instance
           target: ${{ env.IMAGE_TARGET }}
           build-args: |
             PHP_VARIANT=${{ env.IMAGE_PHP_VARIANT }}
