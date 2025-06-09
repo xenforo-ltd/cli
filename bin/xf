@@ -272,12 +272,13 @@ xf::init()
 	local -r base_files=(
 		".docker/nginx.conf"
 		"src/config.docker.php"
-		"compose.cache.yaml"
 		"compose.development.yaml"
+		"compose.elasticsearch.yaml"
 		"compose.mssql.yaml"
+		"compose.mysql.yaml"
+		"compose.mysql-replication.yaml"
 		"compose.postgres.yaml"
-		"compose.replication.yaml"
-		"compose.search.yaml"
+		"compose.redis.yaml"
 		"compose.yaml"
 		"Dockerfile"
 	)
@@ -372,7 +373,7 @@ xf::get_url()
 	fi
 
 	local port
-	port=$(xf::compose port web 80 | sed 's/.*://')
+	port=$(xf::compose port nginx 80 | sed 's/.*://')
 	if [[ -z "${port}" || "${port}" == "0" ]]; then
 		return 1
 	fi

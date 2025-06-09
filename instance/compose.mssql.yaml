@@ -5,6 +5,8 @@ services:
         - PHP_BUILD_SQLSRV=1
     depends_on:
       - mssql
+    networks:
+      - mssql
 
   mssql:
     image: mcr.microsoft.com/mssql/server:${MSSQL_VERSION:-2022-latest}
@@ -12,9 +14,12 @@ services:
       ACCEPT_EULA: Y
       MSSQL_SA_PASSWORD: ${XF_MSSQL_PASSWORD}
     networks:
-      - db
+      - mssql
     volumes:
       - mssql:/var/opt/mssql
+
+networks:
+  mssql:
 
 volumes:
   mssql:

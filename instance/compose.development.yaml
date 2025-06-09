@@ -9,7 +9,7 @@ services:
       - .:/var/www/html
       - ./src/config.docker.php:/var/www/html/src/config.php:ro
 
-  web:
+  nginx:
     ports:
       - 80
     labels:

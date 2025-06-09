@@ -5,6 +5,8 @@ services:
         - PHP_BUILD_PGSQL=1
     depends_on:
       - postgres
+    networks:
+      - postgres
 
   postgres:
     image: postgres:${POSTGRES_VERSION:-17.5}-alpine
@@ -13,9 +15,12 @@ services:
       POSTGRES_PASSWORD: ${XF_DB_PASSWORD}
       POSTGRES_DB: ${XF_DB_DATABASE}
     networks:
-      - db
+      - postgres
     volumes:
       - postgres:/var/lib/postgresql/data
+
+networks:
+  postgres:
 
 volumes:
   postgres:

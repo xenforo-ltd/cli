@@ -11,6 +11,7 @@ ARG PHP_VERSION_XDEBUG=3.4.3
 ARG PHP_VERSION_YAML=2.2.4
 
 ARG PHP_BUILD_IMAGICK=0
+ARG PHP_BUILD_MYSQL=0
 ARG PHP_BUILD_PGSQL=0
 ARG PHP_BUILD_REDIS=0
 ARG PHP_BUILD_SQLSRV=0
@@ -25,6 +26,7 @@ ARG PHP_VERSION_XDEBUG
 ARG PHP_VERSION_YAML
 
 ARG PHP_BUILD_IMAGICK
+ARG PHP_BUILD_MYSQL
 ARG PHP_BUILD_PGSQL
 ARG PHP_BUILD_REDIS
 ARG PHP_BUILD_SQLSRV
@@ -86,10 +88,6 @@ RUN set -eux; \
     echo "opcache.jit_buffer_size=128M" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
 RUN set -eux; \
-    docker-php-ext-install -j$(nproc) mysqli; \
-    docker-php-ext-install -j$(nproc) pdo_mysql;
-
-RUN set -eux; \
     apk add --no-cache --virtual .php-deps-zip libzip; \
     apk add --no-cache --virtual .php-deps-zip-build libzip-dev; \
     docker-php-ext-install -j$(nproc) zip; \
@@ -127,6 +125,12 @@ RUN set -eux; \
         docker-php-ext-enable redis; \
         rm -rf /tmp/pear; \
         apk del .php-deps-redis-build; \
+    fi;
+
+RUN set -eux; \
+    if [ "${PHP_BUILD_MYSQL}" -ne 0 ]; then \
+        docker-php-ext-install -j$(nproc) mysqli; \
+        docker-php-ext-install -j$(nproc) pdo_mysql; \
     fi;
 
 RUN set -eux; \

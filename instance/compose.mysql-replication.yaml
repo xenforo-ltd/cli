@@ -2,14 +2,14 @@ services:
   xf:
     environment:
       - XF_DB_REPLICATION=1
-      - XF_DB_HOST_READ=db-read
+      - XF_DB_HOST_READ=mysql-read
 
-  db:
+  mysql:
     environment:
       MARIADB_REPLICATION_USER: ${XF_DB_REPLICATION_USER}
       MARIADB_REPLICATION_PASSWORD: ${XF_DB_REPLICATION_PASSWORD}
 
-  db-read:
+  mysql-read:
     image: mariadb:${MARIADB_VERSION:-11.7}
     command:
       - mariadbd
@@ -25,11 +25,11 @@ services:
       MARIADB_REPLICATION_PASSWORD: ${XF_DB_REPLICATION_PASSWORD}
       MARIADB_MASTER_HOST: db
     depends_on:
-      - db
+      - mysql
     networks:
-      - db
+      - mysql
     volumes:
-      - db-read:/var/lib/mysql
+      - mysql-read:/var/lib/mysql
 
 volumes:
-  db-read:
+  mysql-read:

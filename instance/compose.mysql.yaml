@@ -1,0 +1,40 @@
+services:
+  xf:
+    build:
+      args:
+        - PHP_BUILD_MYSQL=1
+    environment:
+      XF_DB_HOST: mysql
+    depends_on:
+      - mysql
+    networks:
+      - mysql
+
+  mysql:
+    image: mariadb:${MARIADB_VERSION:-11.7}
+    command:
+      - mariadbd
+      - --server-id=1
+      - --log-basename=db
+      - --performance-schema=ON
+      - --innodb-buffer-pool-size=256M
+      - --innodb-log-file-size=64M
+      - --log-bin
+      - --binlog-format=ROW
+      - --binlog_expire_logs_seconds=604800
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: 1
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_USER: ${XF_DB_USER}
+      MARIADB_PASSWORD: ${XF_DB_PASSWORD}
+      MARIADB_DATABASE: ${XF_DB_DATABASE}
+    networks:
+      - mysql
+    volumes:
+      - mysql:/var/lib/mysql
+
+networks:
+  mysql:
+
+volumes:
+  mysql:

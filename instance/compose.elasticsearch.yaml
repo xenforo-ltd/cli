@@ -1,13 +1,13 @@
 services:
   xf:
     environment:
-      XF_XFES_SEARCH_HOST: search
+      XF_XFES_SEARCH_HOST: elasticsearch
     depends_on:
-      - search
+      - elasticsearch
     networks:
-      - search
+      - elasticsearch
 
-  search:
+  elasticsearch:
     image: elasticsearch:${ELASTICSEARCH_VERSION:-9.0.2}
     environment:
       discovery.type: single-node
@@ -15,12 +15,12 @@ services:
       ELASTIC_PASSWORD: ${XF_XFES_SEARCH_PASSWORD}
       ES_JAVA_OPTS: "-Xms512m -Xmx512m"
     networks:
-      - search
+      - elasticsearch
     volumes:
-      - search:/usr/share/elasticsearch/data
+      - elasticsearch:/usr/share/elasticsearch/data
 
 networks:
-  search:
+  elasticsearch:
 
 volumes:
-  search:
+  elasticsearch:
