@@ -77,8 +77,9 @@ jobs:
           context: instance
           target: ${{ env.IMAGE_TARGET }}
           build-args: |
-            PHP_VARIANT=${{ env.IMAGE_PHP_VARIANT }}
             PHP_VERSION=${{ matrix.php-version }}
+            PHP_VARIANT=${{ env.IMAGE_PHP_VARIANT }}
+            PHP_BUILD_MYSQL=1
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           provenance: false
