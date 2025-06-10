@@ -274,6 +274,7 @@ xf::init()
 		"src/config.docker.php"
 		"compose.development.yaml"
 		"compose.elasticsearch.yaml"
+		"compose.mailpit.yaml"
 		"compose.mssql.yaml"
 		"compose.mysql.yaml"
 		"compose.mysql-replication.yaml"
