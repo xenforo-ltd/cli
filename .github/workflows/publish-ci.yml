@@ -31,7 +31,7 @@ env:
   IMAGE_DESCRIPTION: A PHP build for XenForo CI
   IMAGE_TARGET: ci
   IMAGE_PHP_VARIANT: cli
-  IMAGE_LATEST_VERSION: 8.2
+  IMAGE_LATEST_VERSION: 8.4
   REGISTRY: ghcr.io
   REGISTRY_NAMESPACE: ${{ github.repository_owner }}
 
