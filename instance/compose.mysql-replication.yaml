@@ -10,7 +10,7 @@ services:
       MARIADB_REPLICATION_PASSWORD: ${XF_DB_REPLICATION_PASSWORD}
 
   mysql-read:
-    image: mariadb:${MARIADB_VERSION:-11.7}
+    image: mariadb:${MARIADB_VERSION:-11.8}
     command:
       - mariadbd
       - --server-id=2
