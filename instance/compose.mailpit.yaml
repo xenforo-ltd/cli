@@ -4,8 +4,6 @@ services:
       XF_MAIL_ENABLE: 1
       XF_MAIL_HOST: mailpit
       XF_MAIL_PORT: 1025
-      XF_MAIL_USERNAME: xf
-      XF_MAIL_PASSWORD: password
       XF_MAIL_SSL: 0
     depends_on:
       - mailpit
