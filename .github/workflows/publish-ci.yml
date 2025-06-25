@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        php-version: ['7.2', '8.1', '8.4']
+        php-version: ['7.2', '8.0', '8.4']
 
     steps:
       - name: Checkout repository
