@@ -158,7 +158,7 @@ xf::get_contexts()
 		return 1
 	fi
 
-	if [[ -n "${contexts}" && ! "${contexts}" =~ ^[a-z:]+$ ]]; then
+	if [[ -n "${contexts}" && ! "${contexts}" =~ ^[a-z:-]+$ ]]; then
 		printf 'The XF_CONTEXTS setting is not valid.\n' >&2
 		return 1
 	fi
