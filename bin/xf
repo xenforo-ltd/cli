@@ -270,7 +270,7 @@ xf::init()
 	fi
 
 	local -r base_files=(
-		".docker/nginx.conf"
+		".docker/nginx/nginx.conf"
 		"src/config.docker.php"
 		"compose.development.yaml"
 		"compose.elasticsearch.yaml"
@@ -278,6 +278,8 @@ xf::init()
 		"compose.mssql.yaml"
 		"compose.mysql.yaml"
 		"compose.mysql-replication.yaml"
+		"compose.nginx.yaml"
+		"compose.nginx-development.yaml"
 		"compose.postgres.yaml"
 		"compose.redis.yaml"
 		"compose.yaml"

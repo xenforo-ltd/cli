@@ -15,23 +15,8 @@ services:
         - PHP_INSTALL_FFMPEG=${XF_XFMG_FFMPEG_ENABLE:-0}
     env_file:
       - .env
-    networks:
-      - nginx
     volumes:
       - xf:/var/www/html
-
-  nginx:
-    image: nginx:${NGINX_VERSION:-1.27}-alpine
-    depends_on:
-      - xf
-    networks:
-      - nginx
-    volumes:
-      - ./.docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - xf:/var/www/html:ro
-
-networks:
-  nginx:
 
 volumes:
   xf:
