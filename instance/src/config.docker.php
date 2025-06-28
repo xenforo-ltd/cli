@@ -1,6 +1,7 @@
 <?php
 
 use XF\Container;
+use XF\Options;
 use XF\Session\Session;
 
 if (!function_exists('getenv_docker'))
@@ -82,7 +83,7 @@ if (getenv_docker('XF_DEVELOPMENT'))
 
 	$c->extend('options', function ($options)
 	{
-		/** @var \ArrayObject $options */
+		/** @var Options $options */
 		$options['collectServerStats'] = [
 			'configured' => 1,
 			'enabled' => 0,
@@ -102,18 +103,19 @@ if (getenv_docker('XF_DEVELOPMENT'))
 			'cookie' => 'session_admin',
 			'lifetime' => 86400,
 		]);
+
 		return $session->start($c['request']);
 	};
 }
 
 $config['adminColorHueShift'] = (int) getenv_docker('XF_ADMIN_HUE_SHIFT');
-$config['cookie']['prefix'] = getenv_docker('XF_COOKIE_PREFIX', 'xf');
+$config['cookie']['prefix'] = getenv_docker('XF_COOKIE_PREFIX', 'xf_');
 $config['enableAddOnArchiveInstaller'] = true;
 $config['enableMail'] = (bool) getenv_docker('XF_MAIL_ENABLE');
 
 $c->extend('options', function ($options)
 {
-	/** @var \ArrayObject $options */
+	/** @var Options $options */
 	$options['boardTitle'] = getenv_docker('XF_TITLE', 'XenForo');
 
 	$options['defaultEmailAddress'] = getenv_docker('XF_EMAIL');
@@ -140,7 +142,7 @@ $c->extend('options', function ($options)
 		$options['xfesConfig']['port'] = (int) getenv_docker('XF_XFES_SEARCH_PORT', '9200');
 		$options['xfesConfig']['username'] = getenv_docker('XF_XFES_SEARCH_USER');
 		$options['xfesConfig']['password'] = getenv_docker('XF_XFES_SEARCH_PASSWORD');
-		$options['xfesConfig']['index'] = getenv_docker('XF_XFES_SEARCH_INDEX', 'xf');
+		$options['xfesConfig']['index'] = getenv_docker('XF_XFES_SEARCH_INDEX');
 	}
 
 	if (getenv_docker('XF_IMAGICK_ENABLE'))

@@ -12,7 +12,7 @@ services:
     image: mcr.microsoft.com/mssql/server:${MSSQL_VERSION:-2022-latest}
     environment:
       ACCEPT_EULA: Y
-      MSSQL_SA_PASSWORD: ${XF_MSSQL_PASSWORD}
+      MSSQL_SA_PASSWORD: ${XF_MSSQL_PASSWORD:-Password123}
     networks:
       - mssql
     volumes:

@@ -11,9 +11,9 @@ services:
   postgres:
     image: postgres:${POSTGRES_VERSION:-17.5}-alpine
     environment:
-      POSTGRES_USER: ${XF_DB_USER}
-      POSTGRES_PASSWORD: ${XF_DB_PASSWORD}
-      POSTGRES_DB: ${XF_DB_DATABASE}
+      POSTGRES_USER: ${XF_DB_USER:-xf}
+      POSTGRES_PASSWORD: ${XF_DB_PASSWORD:-password}
+      POSTGRES_DB: ${XF_DB_DATABASE:-xf}
     networks:
       - postgres
     volumes:

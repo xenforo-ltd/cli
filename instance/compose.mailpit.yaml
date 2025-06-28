@@ -5,6 +5,8 @@ services:
       XF_MAIL_HOST: mailpit
       XF_MAIL_PORT: 1025
       XF_MAIL_SSL: 0
+      XF_MAIL_USERNAME: ${XF_MAIL_USERNAME:-xf}
+      XF_MAIL_PASSWORD: ${XF_MAIL_PASSWORD:-password}
     depends_on:
       - mailpit
     networks:
@@ -14,7 +16,7 @@ services:
     image: axllent/mailpit:v${MAILPIT_VERSION:-1.26}
     environment:
       MP_DATABASE: /data/mailpit.db
-      MP_SMTP_AUTH: ${XF_MAIL_USERNAME}:${XF_MAIL_PASSWORD}
+      MP_SMTP_AUTH: ${XF_MAIL_USERNAME:-xf}:${XF_MAIL_PASSWORD:-password}
       MP_SMTP_AUTH_ALLOW_INSECURE: true
     ports:
       - 8025

@@ -5,6 +5,9 @@ services:
         - PHP_BUILD_MYSQL=1
     environment:
       XF_DB_HOST: mysql
+      XF_DB_USER: ${XF_DB_USER:-xf}
+      XF_DB_PASSWORD: ${XF_DB_PASSWORD:-password}
+      XF_DB_DATABASE: ${XF_DB_DATABASE:-xf}
     depends_on:
       - mysql
     networks:
@@ -25,9 +28,9 @@ services:
     environment:
       MARIADB_RANDOM_ROOT_PASSWORD: 1
       MARIADB_AUTO_UPGRADE: 1
-      MARIADB_USER: ${XF_DB_USER}
-      MARIADB_PASSWORD: ${XF_DB_PASSWORD}
-      MARIADB_DATABASE: ${XF_DB_DATABASE}
+      MARIADB_USER: ${XF_DB_USER:-xf}
+      MARIADB_PASSWORD: ${XF_DB_PASSWORD:-password}
+      MARIADB_DATABASE: ${XF_DB_DATABASE:-xf}
     networks:
       - mysql
     volumes:
