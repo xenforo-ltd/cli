@@ -1,0 +1,21 @@
+services:
+  xf:
+    networks:
+      - caddy
+
+  caddy:
+    image: caddy:${CADDY_VERSION:-2.10}-alpine
+    depends_on:
+      - xf
+    networks:
+      - caddy
+    volumes:
+      - ./.docker/caddy:/etc/caddy:ro
+      - caddy:/data
+      - xf:/var/www/html:ro
+
+networks:
+  caddy:
+
+volumes:
+  caddy:

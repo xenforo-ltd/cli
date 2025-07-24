@@ -270,8 +270,12 @@ xf::init()
 	fi
 
 	local -r base_files=(
+		".docker/caddy/Caddyfile"
+		".docker/caddy/error.html"
 		".docker/nginx/nginx.conf"
 		"src/config.docker.php"
+		"compose.caddy.yaml"
+		"compose.caddy-development.yaml"
 		"compose.development.yaml"
 		"compose.elasticsearch.yaml"
 		"compose.mailpit.yaml"
@@ -376,7 +380,7 @@ xf::get_url()
 	fi
 
 	local port
-	port=$(xf::compose port nginx 80 | sed 's/.*://')
+	port=$(xf::compose port nginx 80 2>/dev/null || xf::compose port caddy 80 2>/dev/null | sed 's/.*://')
 	if [[ -z "${port}" || "${port}" == "0" ]]; then
 		return 1
 	fi

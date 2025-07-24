@@ -53,6 +53,8 @@ $config['fullUnicode'] = true;
 $config['searchInnoDb'] = true;
 
 $config['enableCssSplitting'] = true;
+$config['enableContentLength'] = false;
+$config['enableGzip'] = false;
 
 $config['cache']['enabled'] = (bool) getenv_docker('XF_CACHE_ENABLE');
 $config['cache']['sessions'] = (bool) getenv_docker('XF_CACHE_SESSIONS');

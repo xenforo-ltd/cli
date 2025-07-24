@@ -1,0 +1,8 @@
+services:
+  caddy:
+    ports:
+      - 80
+    labels:
+      - dev.orbstack.domains=${XF_INSTANCE:-}.xf.local
+    volumes:
+      - .:/var/www/html:ro

@@ -1,0 +1,73 @@
+(http) {
+	file_server
+	encode
+
+	header {
+		Content-Security-Policy "frame-ancestors 'none'"
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Resource-Policy same-origin
+		Permissions-Policy "camera=(), geolocation=(), microphone=(), interest-cohort=()"
+		Referrer-Policy strict-origin-when-cross-origin
+		Server XenForo
+		X-Content-Type-Options nosniff
+
+		?Cache-Control no-store
+
+		-Via
+		-X-Powered-By
+	}
+}
+
+(php) {
+	php_fastcgi {args[:]} {
+		trusted_proxies private_ranges
+	}
+}
+
+http:// {
+	root * /var/www/html
+	log
+
+	import http
+	import php xf:9000
+
+	@hidden {
+		path */.*
+		not path /.well-known/*
+	}
+	error @hidden 404
+
+	@internal {
+		path /internal_data/* /library/* /src/* /cmd.php /htaccess.txt
+	}
+	error @internal 404
+
+	@mutable {
+		file
+		path /favicon.ico
+	}
+	header @mutable Cache-Control "max-age=86400, stale-while-revalidate=3600"
+
+	@immutable {
+		file
+		path /data/* /js/* /styles/*
+	}
+	header @immutable Cache-Control "max-age=31536000, immutable"
+
+	header /embed.php {
+		>Cross-Origin-Resource-Policy cross-origin
+		-Content-Security-Policy
+	}
+	header /js/xf/external_embed.js {
+		>Cache-Control "max-age=86400, stale-while-revalidate=3600"
+		>Cross-Origin-Resource-Policy cross-origin
+	}
+
+	handle_errors {
+		rewrite * .docker/caddy/error.html
+		import http
+		templates
+	}
+
+	import conf.d/*
+}
