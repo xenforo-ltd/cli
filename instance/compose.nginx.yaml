@@ -4,7 +4,7 @@ services:
       - nginx
 
   nginx:
-    image: nginx:${NGINX_VERSION:-1.27}-alpine
+    image: nginx:${NGINX_VERSION:-1.29}-alpine
     depends_on:
       - xf
     networks:
