@@ -11,7 +11,7 @@ services:
       - elasticsearch
 
   elasticsearch:
-    image: elasticsearch:${ELASTICSEARCH_VERSION:-9.0.3}
+    image: elasticsearch:${ELASTICSEARCH_VERSION:-9.1.0}
     environment:
       discovery.type: single-node
       ELASTIC_USERNAME: ${XF_XFES_SEARCH_USER:-xf}
