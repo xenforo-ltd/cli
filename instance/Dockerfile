@@ -85,7 +85,9 @@ RUN set -eux; \
     apk del .php-deps-intl-build;
 
 RUN set -eux; \
-    docker-php-ext-install -j$(nproc) opcache; \
+    if [ "$(php-config --vernum)" -lt 80500 ]; then \
+        docker-php-ext-install -j$(nproc) opcache; \
+    fi; \
     echo "opcache.jit=tracing" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini"; \
     echo "opcache.jit_buffer_size=128M" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
