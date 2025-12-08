@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG PHP_VERSION=8.4
+ARG PHP_VERSION=8.5
 ARG PHP_VARIANT=fpm
 
 ARG PHP_VERSION_COMPOSER=2.9
