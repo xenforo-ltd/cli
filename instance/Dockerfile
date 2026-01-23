@@ -67,7 +67,7 @@ RUN set -eux; \
         docker-php-ext-configure gd --with-jpeg-dir --with-webp-dir; \
     fi; \
     docker-php-ext-install -j$(nproc) gd; \
-    apk del .php-deps-gd-build;\
+    apk del .php-deps-gd-build; \
     if [ "$(php-config --vernum)" -ge 80100 ]; then \
         apk del .php-deps-gd-build-avif; \
     fi;
