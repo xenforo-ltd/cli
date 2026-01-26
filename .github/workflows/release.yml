@@ -1,0 +1,162 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  quality:
+    name: Quality Gate
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go test
+        run: go test ./...
+
+      - name: Go test (race)
+        run: go test -race ./...
+
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    needs: quality
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+            ext: tar.gz
+          - os: linux
+            arch: arm64
+            runner: blacksmith-4vcpu-ubuntu-2404
+            ext: tar.gz
+          - os: darwin
+            arch: amd64
+            runner: macos-latest
+            ext: tar.gz
+          - os: darwin
+            arch: arm64
+            runner: macos-latest
+            ext: tar.gz
+          - os: windows
+            arch: amd64
+            runner: blacksmith-4vcpu-windows-2025
+            ext: zip
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Get version from tag
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Get build date
+        id: date
+        shell: bash
+        run: echo "DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        shell: bash
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          COMMIT="${{ github.sha }}"
+          DATE="${{ steps.date.outputs.DATE }}"
+
+          LDFLAGS="-s -w"
+          LDFLAGS="$LDFLAGS -X xf/internal/version.Version=$VERSION"
+          LDFLAGS="$LDFLAGS -X xf/internal/version.Commit=$COMMIT"
+          LDFLAGS="$LDFLAGS -X xf/internal/version.Date=$DATE"
+
+          BINARY_NAME="xf"
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            BINARY_NAME="xf.exe"
+          fi
+
+          go build -ldflags "$LDFLAGS" -o "$BINARY_NAME" .
+
+      - name: Create archive (Unix)
+        if: matrix.os != 'windows'
+        shell: bash
+        run: |
+          ARCHIVE_NAME="xf-${{ steps.version.outputs.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
+          tar -czf "$ARCHIVE_NAME" xf
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
+
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $ARCHIVE_NAME = "xf-${{ steps.version.outputs.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}.zip"
+          Compress-Archive -Path xf.exe -DestinationPath $ARCHIVE_NAME
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $env:GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xf-${{ matrix.os }}-${{ matrix.arch }}
+          path: xf-${{ steps.version.outputs.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}.${{ matrix.ext }}
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

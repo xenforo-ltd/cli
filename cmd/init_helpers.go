@@ -1,0 +1,198 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"strings"
+
+	"xf/internal/api"
+	"xf/internal/initflow"
+)
+
+func formatLicenseDetails(ctx context.Context, client *api.Client, key string) string {
+	licenses, err := client.GetLicenses(ctx)
+	if err != nil {
+		return key
+	}
+	for _, lic := range licenses {
+		if lic.LicenseKey != key {
+			continue
+		}
+		parts := []string{}
+		if lic.SiteTitle != "" {
+			parts = append(parts, lic.SiteTitle)
+		}
+		if lic.SiteURL != "" {
+			parts = append(parts, lic.SiteURL)
+		}
+		if len(parts) == 0 && lic.ProductTitle != "" {
+			parts = append(parts, lic.ProductTitle)
+		}
+		if len(parts) == 0 {
+			return key
+		}
+		return fmt.Sprintf("%s (%s)", key, strings.Join(parts, " - "))
+	}
+	return key
+}
+
+func getProductTitleMap(ctx context.Context, client *api.Client, licenseKey string) map[string]string {
+	out := map[string]string{
+		"xenforo": "XenForo",
+	}
+	downloadables, err := client.GetLicenseDownloadables(ctx, licenseKey)
+	if err != nil {
+		return out
+	}
+	for _, d := range downloadables.Downloadables {
+		out[d.DownloadID] = d.Title
+	}
+	return out
+}
+
+func getProductTitleMapCached(ctx context.Context, client *api.Client, opts *InitOptions) map[string]string {
+	if len(opts.ProductTitleMap) > 0 {
+		return opts.ProductTitleMap
+	}
+	opts.ProductTitleMap = getProductTitleMap(ctx, client, opts.LicenseKey)
+	return opts.ProductTitleMap
+}
+
+func formatProductList(products []string, titleMap map[string]string) string {
+	names := make([]string, 0, len(products))
+	for _, p := range products {
+		name := titleMap[p]
+		if name == "" {
+			name = p
+		}
+		names = append(names, name)
+	}
+	return strings.Join(names, ", ")
+}
+
+func effectiveContexts(opts *InitOptions) []string {
+	if len(opts.Contexts) > 0 {
+		return normalizeContexts(opts.Contexts)
+	}
+	return []string{"caddy", "mysql", "development", "caddy-development", "redis", "mailpit"}
+}
+
+func normalizeContexts(contexts []string) []string {
+	set := map[string]bool{}
+	for _, c := range contexts {
+		c = strings.TrimSpace(c)
+		if c != "" {
+			set[c] = true
+		}
+	}
+
+	if set["caddy"] && !set["caddy-development"] {
+		set["caddy-development"] = true
+	}
+	if set["caddy-development"] && !set["caddy"] {
+		set["caddy"] = true
+	}
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func licenseOptionLabel(lic api.License) string {
+	label := lic.LicenseKey
+	parts := []string{}
+	if lic.SiteTitle != "" {
+		parts = append(parts, lic.SiteTitle)
+	}
+	if lic.SiteURL != "" {
+		parts = append(parts, lic.SiteURL)
+	}
+	if len(parts) > 0 {
+		label = fmt.Sprintf("%s (%s)", label, strings.Join(parts, " - "))
+	}
+	return label
+}
+
+func inferSiteTitleFromEnv(opts *InitOptions) string {
+	title := strings.TrimSpace(opts.EnvResolved["XF_TITLE"])
+	if title == "" {
+		return ""
+	}
+	if opts.InstanceName == "" {
+		return title
+	}
+	suffix := fmt.Sprintf(" [%s]", opts.InstanceName)
+	return strings.TrimSuffix(title, suffix)
+}
+
+func clearScreen() {
+	fmt.Print("\033[H\033[2J")
+}
+
+func validateReviewInputs(opts *InitOptions) error {
+	if strings.TrimSpace(opts.AdminPassword) == "" {
+		return fmt.Errorf("password is required")
+	}
+	if !strings.Contains(strings.TrimSpace(opts.AdminEmail), "@") {
+		return fmt.Errorf("valid admin email is required")
+	}
+	if strings.TrimSpace(opts.AdminUser) == "" {
+		return fmt.Errorf("admin username is required")
+	}
+	for k, v := range opts.EnvResolved {
+		if k == "XF_DEBUG" || k == "XF_DEVELOPMENT" {
+			continue
+		}
+		if err := initflow.ValidateEnvKey(strings.TrimSpace(k)); err != nil {
+			return fmt.Errorf("invalid environment key %q", k)
+		}
+		if strings.Contains(v, "\n") {
+			return fmt.Errorf("invalid environment value for %s: newlines are not allowed", k)
+		}
+	}
+	return nil
+}
+
+func splitCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func ensureCoreFirstUnique(products []string) []string {
+	seen := map[string]bool{}
+	out := []string{"xenforo"}
+	seen["xenforo"] = true
+	for _, p := range products {
+		p = strings.TrimSpace(p)
+		if p == "" || seen[p] {
+			continue
+		}
+		if p == "xenforo" {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
+}
+
+func fallbackBoardURL(instanceName string) string {
+	return fmt.Sprintf("https://%s.xf.local", instanceName)
+}
+
+func chooseBoardURL(instanceName, detectedURL string, detectedErr error) (string, bool) {
+	if detectedErr != nil || strings.TrimSpace(detectedURL) == "" {
+		return fallbackBoardURL(instanceName), false
+	}
+	return detectedURL, true
+}
