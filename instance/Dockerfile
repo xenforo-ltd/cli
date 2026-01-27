@@ -92,7 +92,12 @@ RUN set -eux; \
     echo "opcache.jit_buffer_size=128M" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
 RUN set -eux; \
-    apk add --no-cache --virtual .php-deps-zip libzip; \
+    # zip and unzip are bundled for XFS
+    apk add --no-cache --virtual .php-deps-zip \
+        libzip \
+        unzip \
+        zip \
+    ; \
     apk add --no-cache --virtual .php-deps-zip-build libzip-dev; \
     docker-php-ext-install -j$(nproc) zip; \
     apk del .php-deps-zip-build;
