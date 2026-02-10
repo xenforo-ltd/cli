@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.1] - 2026-02-10
+
+### Added
+1. Unknown top-level commands now fall back to local XenForo execution (`php cmd.php <args...>`) when in a XenForo directory without Docker configuration (`compose.yaml` missing).
+
 ## [v1.0.0] - 2026-02-13
 
 ### Added

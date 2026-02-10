@@ -44,6 +44,7 @@ xf version
 
 1. Built-in commands such as `xf init`, `xf up`, `xf auth login`.
 2. XenForo commands: if the first token is not a built-in command, `xf` forwards it to XenForo inside Docker.
+   If Docker config is not initialized (no `compose.yaml`), `xf` falls back to local execution as `php cmd.php <args...>`.
 
 Use this to discover available XenForo commands:
 

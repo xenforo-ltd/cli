@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 var (
 	flagNonInteractive bool
 	flagVerbose        bool
+	execCommand        = exec.Command
 )
 
 var rootCmd = &cobra.Command{
@@ -104,13 +106,34 @@ func runAsXenForoCommand(args []string) error {
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
+		if clierrors.Is(err, clierrors.CodeDockerEnvNotInitialized) {
+			return runAsLocalXenForoCommand(xfDir, args)
+		}
 		return err
 	}
 
 	return runner.XFCommand(args...)
 }
 
-// findXenForoDir traverses up from startDir looking for src/XF.php
+func runAsLocalXenForoCommand(xfDir string, args []string) error {
+	cmdArgs := append([]string{"cmd.php"}, args...)
+	cmd := execCommand("php", cmdArgs...)
+	cmd.Dir = xfDir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return clierrors.New(clierrors.CodeInvalidInput, "local PHP executable not found in PATH")
+		}
+		return fmt.Errorf("local XenForo command failed: %w", err)
+	}
+
+	return nil
+}
+
+
 func findXenForoDir(startDir string) (string, error) {
 	dir := filepath.Clean(startDir)
 	for {
