@@ -133,7 +133,6 @@ func runAsLocalXenForoCommand(xfDir string, args []string) error {
 	return nil
 }
 
-
 func findXenForoDir(startDir string) (string, error) {
 	dir := filepath.Clean(startDir)
 	for {
