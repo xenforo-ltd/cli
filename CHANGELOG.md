@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.2] - 2026-02-11
+
+### Changed
+1. `init` now fails for non-empty target directories unless they are existing XenForo directories (`src/XF.php` present).
+2. Clarified existing-XenForo init messaging to indicate that only Docker configuration files are updated.
+
+### Fixed
+1. Added regression coverage to ensure existing XenForo core files are not overwritten during Docker environment initialization.
+
 ## [v0.1.1] - 2026-02-10
 
 ### Added

@@ -49,3 +49,45 @@ func TestInitCreatesDockerFilesForXenForoDirectory(t *testing.T) {
 		t.Fatalf("expected overridden contexts in .env, got:\n%s", string(envData))
 	}
 }
+
+func TestInitDoesNotOverwriteXenForoCoreFiles(t *testing.T) {
+	dir := t.TempDir()
+	xfPath := filepath.Join(dir, "src", "XF.php")
+	if err := os.MkdirAll(filepath.Dir(xfPath), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	originalXF := "<?php\n// xenforo core marker\n"
+	if err := os.WriteFile(xfPath, []byte(originalXF), 0644); err != nil {
+		t.Fatalf("write XF.php: %v", err)
+	}
+
+	existingCore := filepath.Join(dir, "src", "Entity", "User.php")
+	if err := os.MkdirAll(filepath.Dir(existingCore), 0755); err != nil {
+		t.Fatalf("mkdir core dir: %v", err)
+	}
+	coreContent := "<?php\n// custom core file\n"
+	if err := os.WriteFile(existingCore, []byte(coreContent), 0644); err != nil {
+		t.Fatalf("write core file: %v", err)
+	}
+
+	if err := InitExisting(dir, InitOptions{OverwriteExisting: true}); err != nil {
+		t.Fatalf("InitExisting failed: %v", err)
+	}
+
+	gotXF, err := os.ReadFile(xfPath)
+	if err != nil {
+		t.Fatalf("read XF.php: %v", err)
+	}
+	if string(gotXF) != originalXF {
+		t.Fatalf("XF.php was modified unexpectedly")
+	}
+
+	gotCore, err := os.ReadFile(existingCore)
+	if err != nil {
+		t.Fatalf("read core file: %v", err)
+	}
+	if string(gotCore) != coreContent {
+		t.Fatalf("existing XenForo core file was modified unexpectedly")
+	}
+}
