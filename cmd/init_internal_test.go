@@ -74,8 +74,26 @@ func TestPrepareTargetDirectory(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, "something.txt"), []byte("x"), 0644); err != nil {
 			t.Fatalf("seed file: %v", err)
 		}
+		if err := prepareTargetDirectory(dir); err == nil {
+			t.Fatal("expected error for non-empty non-XenForo directory")
+		}
+	})
+
+	t.Run("allows non-empty xenforo dir", func(t *testing.T) {
+		dir := t.TempDir()
+		xfPath := filepath.Join(dir, "src", "XF.php")
+		if err := os.MkdirAll(filepath.Dir(xfPath), 0755); err != nil {
+			t.Fatalf("create XF src dir: %v", err)
+		}
+		if err := os.WriteFile(xfPath, []byte("<?php // XF stub"), 0644); err != nil {
+			t.Fatalf("seed XF.php: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte("x"), 0644); err != nil {
+			t.Fatalf("seed extra file: %v", err)
+		}
+
 		if err := prepareTargetDirectory(dir); err != nil {
-			t.Fatalf("prepareTargetDirectory non-empty should not fail: %v", err)
+			t.Fatalf("prepareTargetDirectory should allow non-empty XenForo directory: %v", err)
 		}
 	})
 }

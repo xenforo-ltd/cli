@@ -405,12 +405,15 @@ func prepareTargetDirectory(targetPath string) error {
 	}
 
 	if nonHiddenCount > 0 {
-		xfPath := filepath.Join(targetPath, "src", "XF.php")
-		if _, err := os.Stat(xfPath); err == nil {
+		if detectXenForo(targetPath) {
 			ui.PrintWarning("Directory already contains a XenForo installation")
-			ui.PrintDetail("Files will be overwritten")
+			ui.PrintDetail("Only Docker configuration files will be updated")
 		} else {
-			ui.PrintWarning(fmt.Sprintf("Directory is not empty (%d items)", nonHiddenCount))
+			return errors.Newf(
+				errors.CodeInvalidInput,
+				"target directory is not empty (%d visible items); use an empty directory or an existing XenForo directory",
+				nonHiddenCount,
+			)
 		}
 	} else {
 		ui.PrintSubstep("Directory is empty and ready")
