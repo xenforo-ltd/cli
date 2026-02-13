@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.5] - 2026-02-13
+
+### Changed
+1. Switched macOS signing certificate import to `apple-actions/import-codesign-certs@v3` for improved PKCS#12 compatibility on GitHub runners.
+
 ## [v0.1.4] - 2026-02-13
 
 ### Changed
