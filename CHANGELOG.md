@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.6] - 2026-02-13
+
+### Fixed
+1. macOS release pipeline no longer fails after successful notarization by treating `spctl --type exec` rejection of CLI binaries as a hard error.
+
 ## [v0.1.5] - 2026-02-13
 
 ### Changed
