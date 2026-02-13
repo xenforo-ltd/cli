@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.4] - 2026-02-13
+
+### Changed
+1. Hardened release workflow secret decoding for macOS signing/notarization (`.p12` and `.p8`) to avoid whitespace/paste corruption.
+2. Improved macOS signing workflow validation and password handling for CI secrets.
+
 ## [v0.1.3] - 2026-02-13
 
 ### Changed

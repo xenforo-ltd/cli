@@ -142,11 +142,8 @@ jobs:
             exit 1
           fi
 
-          # Some exported .p12 bundles use legacy algorithms (for example RC2-40-CBC).
-          # OpenSSL 3 requires -legacy for those bundles.
-          if ! openssl pkcs12 -legacy -in "$CERT_PATH" -passin "pass:${CERT_PASSWORD}" -nokeys -clcerts -noout >/dev/null 2>&1; then
+          if ! openssl pkcs12 -in "$CERT_PATH" -passin "pass:${CERT_PASSWORD}" -nokeys -clcerts -noout >/dev/null 2>&1; then
             echo "Decoded file is not a valid PKCS#12 bundle, or MACOS_CERT_PASSWORD is incorrect."
-            echo "If this bundle uses legacy encryption, verify with: openssl pkcs12 -legacy -in xenforo-cli.p12 ..."
             exit 1
           fi
 
