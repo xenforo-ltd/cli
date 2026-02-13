@@ -127,7 +127,17 @@ jobs:
           CERT_PATH="$RUNNER_TEMP/macos-signing-cert.p12"
           KEYCHAIN_PATH="$RUNNER_TEMP/macos-signing.keychain-db"
 
-          echo "$MACOS_CERT_P12_BASE64" | openssl base64 -d -A > "$CERT_PATH"
+          # macOS base64 decoder is more reliable here than openssl base64 for secret input.
+          printf '%s' "$MACOS_CERT_P12_BASE64" | base64 -D -i - > "$CERT_PATH"
+          if [ ! -s "$CERT_PATH" ]; then
+            echo "Decoded certificate file is empty."
+            exit 1
+          fi
+
+          if ! openssl pkcs12 -in "$CERT_PATH" -passin "pass:${MACOS_CERT_PASSWORD}" -nokeys -clcerts -noout >/dev/null 2>&1; then
+            echo "Decoded file is not a valid PKCS#12 bundle, or MACOS_CERT_PASSWORD is incorrect."
+            exit 1
+          fi
 
           security create-keychain -p "$MACOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
