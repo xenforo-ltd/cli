@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.1.3] - 2026-02-13
+
+### Changed
+1. Sign releases on macOS
+
 ## [v0.1.2] - 2026-02-11
 
 ### Changed
