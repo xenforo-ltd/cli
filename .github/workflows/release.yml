@@ -127,6 +127,8 @@ jobs:
           CERT_PATH="$RUNNER_TEMP/macos-signing-cert.p12"
           CERT_B64_PATH="$RUNNER_TEMP/macos-signing-cert.b64"
           KEYCHAIN_PATH="$RUNNER_TEMP/macos-signing.keychain-db"
+          CERT_PASSWORD="$(printf '%s' "$MACOS_CERT_PASSWORD" | tr -d '\r\n')"
+          KEYCHAIN_PASSWORD="$(printf '%s' "$MACOS_KEYCHAIN_PASSWORD" | tr -d '\r\n')"
 
           # Remove accidental whitespace/newlines from secret paste and decode with macOS base64.
           printf '%s' "$MACOS_CERT_P12_BASE64" | tr -d '[:space:]' > "$CERT_B64_PATH"
@@ -140,16 +142,19 @@ jobs:
             exit 1
           fi
 
-          if ! openssl pkcs12 -in "$CERT_PATH" -passin "pass:${MACOS_CERT_PASSWORD}" -nokeys -clcerts -noout >/dev/null 2>&1; then
+          # Some exported .p12 bundles use legacy algorithms (for example RC2-40-CBC).
+          # OpenSSL 3 requires -legacy for those bundles.
+          if ! openssl pkcs12 -legacy -in "$CERT_PATH" -passin "pass:${CERT_PASSWORD}" -nokeys -clcerts -noout >/dev/null 2>&1; then
             echo "Decoded file is not a valid PKCS#12 bundle, or MACOS_CERT_PASSWORD is incorrect."
+            echo "If this bundle uses legacy encryption, verify with: openssl pkcs12 -legacy -in xenforo-cli.p12 ..."
             exit 1
           fi
 
-          security create-keychain -p "$MACOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$MACOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/xcrun
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/xcrun
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH"
 
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
