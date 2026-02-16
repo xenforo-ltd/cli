@@ -19,3 +19,13 @@ updates:
       github-actions:
         patterns:
           - '*'
+
+  - package-ecosystem: 'gomod'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+
+    groups:
+      gomod:
+        patterns:
+          - '*'
