@@ -76,7 +76,7 @@ func (m *Manager) download(ctx context.Context, opts DownloadOptions, authToken 
 	}
 
 	filePath := filepath.Join(entryPath, filename)
-	downloaded, err := downloadToFile(filePath, resp.Body, totalSize, progress)
+	downloaded, err := downloadToFile(filePath, resp.Body, totalSize, opts.ExpectedChecksum, progress)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func resolveFilename(override string, resp *http.Response, url string) string {
 	return "download.zip"
 }
 
-func downloadToFile(destPath string, src io.Reader, totalSize int64, progress ProgressCallback) (int64, error) {
+func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChecksum string, progress ProgressCallback) (int64, error) {
 	tmpPath := destPath + ".tmp"
 
 	f, err := os.Create(tmpPath)
@@ -198,6 +198,19 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, progress Pr
 		return 0, errors.Wrap(errors.CodeFileWriteFailed, "failed to finalize download file", closeErr)
 	}
 
+	if expectedChecksum != "" {
+		checksum, err := CalculateChecksum(tmpPath)
+		if err != nil {
+			os.Remove(tmpPath)
+			return 0, err
+		}
+		if checksum != expectedChecksum {
+			os.Remove(tmpPath)
+			return 0, errors.Newf(errors.CodeChecksumMismatch,
+				"checksum mismatch: expected %s, got %s", expectedChecksum, checksum)
+		}
+	}
+
 	if err := os.Rename(tmpPath, destPath); err != nil {
 		os.Remove(tmpPath)
 		return 0, errors.Wrap(errors.CodeFileWriteFailed, "failed to finalize download", err)
@@ -215,11 +228,6 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath, entryPath string
 	checksum, err := CalculateChecksum(filePath)
 	if err != nil {
 		return nil, err
-	}
-
-	if opts.ExpectedChecksum != "" && checksum != opts.ExpectedChecksum {
-		return nil, errors.Newf(errors.CodeChecksumMismatch,
-			"checksum mismatch: expected %s, got %s", opts.ExpectedChecksum, checksum)
 	}
 
 	metadata := &EntryMetadata{
