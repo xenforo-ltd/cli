@@ -28,7 +28,7 @@ const (
 	DefaultGitHubOwner = "xenforo-ltd"
 
 	// DefaultGitHubRepo is the default GitHub repository name.
-	DefaultGitHubRepo = "xf"
+	DefaultGitHubRepo = "cli"
 
 	// GitHubAPIBase is the base URL for GitHub API.
 	GitHubAPIBase = "https://api.github.com"

@@ -30,4 +30,4 @@ go.work.sum
 # env file
 .env
 
-xenforo-cli
+xf

@@ -17,7 +17,7 @@ var (
 
 var selfUpdateCmd = &cobra.Command{
 	Use:   "self-update",
-	Short: "Update xf to the latest version",
+	Short: "Update XenForo CLI to the latest version",
 	Long: `Check for and install updates to the xf tool.
 
 By default, this command will check for updates and install them automatically.
