@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP="xf"
-REPO="xenforo-ltd/xf"
+REPO="xenforo-ltd/cli"
 INSTALL_DIR="$HOME/.xf/bin"
 
 MIN_GIT_VERSION="2.25.1"
