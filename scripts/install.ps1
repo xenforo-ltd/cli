@@ -20,7 +20,7 @@
     Skip prerequisite checks (not recommended).
 
 .EXAMPLE
-    irm https://raw.githubusercontent.com/xenforo-ltd/xf/main/scripts/install.ps1 | iex
+    irm https://raw.githubusercontent.com/xenforo-ltd/cli/main/scripts/install.ps1 | iex
 
 .EXAMPLE
     .\install.ps1 -Version 1.0.0
@@ -40,7 +40,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $App = "xf"
-$Repo = "xenforo-ltd/xf"
+$Repo = "xenforo-ltd/cli"
 $InstallDir = "$env:USERPROFILE\.xf\bin"
 
 $MinGitVersion = [version]"2.25.1"
