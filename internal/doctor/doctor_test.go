@@ -45,26 +45,6 @@ func TestDoctorHasErrorsAndWarnings(t *testing.T) {
 	}
 }
 
-func TestTextHelpers(t *testing.T) {
-	lines := splitLines("a\nb\n")
-	if len(lines) != 2 || lines[0] != "a" || lines[1] != "b" {
-		t.Fatalf("splitLines unexpected: %#v", lines)
-	}
-
-	fields := splitFields("  one\t two   three ")
-	if len(fields) != 3 || fields[0] != "one" || fields[1] != "two" || fields[2] != "three" {
-		t.Fatalf("splitFields unexpected: %#v", fields)
-	}
-
-	joined := joinStrings([]string{"a", "b", "c"}, "|")
-	if joined != "a|b|c" {
-		t.Fatalf("joinStrings = %q", joined)
-	}
-	if joinStrings(nil, ",") != "" {
-		t.Fatal("joinStrings(nil) should be empty")
-	}
-}
-
 func TestFormatBytes(t *testing.T) {
 	if got := formatBytes(512); got != "512 B" {
 		t.Fatalf("formatBytes(512) = %q", got)

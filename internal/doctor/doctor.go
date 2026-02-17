@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"xf/internal/auth"
@@ -304,7 +305,7 @@ func (d *Doctor) checkDiskSpace() {
 
 	// Parse df output - second line contains the data.
 	// Format: Filesystem 1K-blocks Used Available Use% Mounted
-	lines := splitLines(string(output))
+	lines := strings.Split(strings.TrimRight(string(output), "\n"), "\n")
 	if len(lines) < 2 {
 		result.Status = StatusSkipped
 		result.Message = "Could not parse disk space info"
@@ -316,7 +317,7 @@ func (d *Doctor) checkDiskSpace() {
 	_, err = fmt.Sscanf(lines[1], "%s %d %d %d", new(string), new(int64), new(int64), &available)
 	if err != nil {
 		// Try alternative parsing for different df output formats.
-		fields := splitFields(lines[1])
+		fields := strings.Fields(lines[1])
 		if len(fields) >= 4 {
 			fmt.Sscanf(fields[3], "%d", &available)
 		}
@@ -389,56 +390,9 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 		result.Message = "Some endpoints unreachable"
 		result.Suggestion = "Check your internet connection or firewall settings"
 	}
-	result.Details = joinStrings(details, "\n")
+	result.Details = strings.Join(details, "\n")
 
 	d.results = append(d.results, result)
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
-}
-
-func splitFields(s string) []string {
-	var fields []string
-	start := -1
-	for i := 0; i < len(s); i++ {
-		if s[i] == ' ' || s[i] == '\t' {
-			if start >= 0 {
-				fields = append(fields, s[start:i])
-				start = -1
-			}
-		} else {
-			if start < 0 {
-				start = i
-			}
-		}
-	}
-	if start >= 0 {
-		fields = append(fields, s[start:])
-	}
-	return fields
-}
-
-func joinStrings(s []string, sep string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	result := s[0]
-	for i := 1; i < len(s); i++ {
-		result += sep + s[i]
-	}
-	return result
 }
 
 func formatBytes(bytes int64) string {
