@@ -412,12 +412,12 @@ func (r *Runner) WaitForReady(ctx context.Context, checkInterval time.Duration) 
 
 // WaitForDatabase waits for the database to be ready.
 func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duration) error {
-        user, password := r.getDatabaseCredentials()
-        testScript := fmt.Sprintf(
-                "try { new PDO('mysql:host=mysql', '%s', '%s'); echo 'OK'; } catch (Exception $e) { exit(1); }",
-                escapePHPString(user),
-                escapePHPString(password),
-        )
+	user, password := r.getDatabaseCredentials()
+	testScript := fmt.Sprintf(
+		"try { new PDO('mysql:host=mysql', '%s', '%s'); echo 'OK'; } catch (Exception $e) { exit(1); }",
+		escapePHPString(user),
+		escapePHPString(password),
+	)
 
 	maxAttempts := 30
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -442,31 +442,31 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 }
 
 func (r *Runner) getDatabaseCredentials() (string, string) {
-        user := "xf"
-        password := "password"
+	user := "xf"
+	password := "password"
 
-        if envData, err := os.ReadFile(r.envPath); err == nil {
-                if value := parseEnvValue(string(envData), "MYSQL_USER"); value != "" {
-                        user = value
-                }
-                if value := parseEnvValue(string(envData), "MYSQL_PASSWORD"); value != "" {
-                        password = value
-                }
-        }
+	if envData, err := os.ReadFile(r.envPath); err == nil {
+		if value := parseEnvValue(string(envData), "MYSQL_USER"); value != "" {
+			user = value
+		}
+		if value := parseEnvValue(string(envData), "MYSQL_PASSWORD"); value != "" {
+			password = value
+		}
+	}
 
-        if value := os.Getenv("MYSQL_USER"); value != "" {
-                user = value
-        }
-        if value := os.Getenv("MYSQL_PASSWORD"); value != "" {
-                password = value
-        }
+	if value := os.Getenv("MYSQL_USER"); value != "" {
+		user = value
+	}
+	if value := os.Getenv("MYSQL_PASSWORD"); value != "" {
+		password = value
+	}
 
-        return user, password
+	return user, password
 }
 
 func escapePHPString(value string) string {
-        value = strings.ReplaceAll(value, "\\", "\\\\")
-        return strings.ReplaceAll(value, "'", "\\'")
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	return strings.ReplaceAll(value, "'", "\\'")
 }
 
 // IsEnvironmentInitialized checks if the Docker environment is set up.
