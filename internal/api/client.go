@@ -152,11 +152,24 @@ func (c *Client) PostJSON(ctx context.Context, path string, body []byte) (*http.
 	return c.doWithRetry(ctx, http.MethodPost, path, body, true)
 }
 
+// GetJSON performs a GET request and decodes the JSON response into result.
+func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
+	resp, err := c.Get(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if err := CheckResponse(resp); err != nil {
+		return err
+	}
+	return json.NewDecoder(resp.Body).Decode(result)
+}
+
 // APIError represents an error response from the API.
 type APIError struct {
 	Code    string                 `json:"code"`
 	Message string                 `json:"message"`
-	Params  map[string]interface{} `json:"params,omitempty"`
+	Params  map[string]any `json:"params,omitempty"`
 }
 
 // APIErrorResponse represents the error response structure from XenForo API.

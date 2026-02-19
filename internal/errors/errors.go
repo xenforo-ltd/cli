@@ -123,14 +123,14 @@ func Wrap(code Code, message string, cause error) *CLIError {
 	}
 }
 
-func Newf(code Code, format string, args ...interface{}) *CLIError {
+func Newf(code Code, format string, args ...any) *CLIError {
 	return &CLIError{
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),
 	}
 }
 
-func Wrapf(code Code, cause error, format string, args ...interface{}) *CLIError {
+func Wrapf(code Code, cause error, format string, args ...any) *CLIError {
 	return &CLIError{
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),

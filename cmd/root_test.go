@@ -10,6 +10,7 @@ import (
 	"time"
 
 	clierrors "xf/internal/errors"
+	"xf/internal/xf"
 )
 
 func TestFindXenForoDirFindsParent(t *testing.T) {
@@ -29,9 +30,9 @@ func TestFindXenForoDirFindsParent(t *testing.T) {
 		t.Fatalf("mkdir nested: %v", err)
 	}
 
-	detected, err := findXenForoDir(nested)
+	detected, err := xf.GetXenForoDir(nested)
 	if err != nil {
-		t.Fatalf("findXenForoDir returned error: %v", err)
+		t.Fatalf("GetXenForoDir returned error: %v", err)
 	}
 	if detected != root {
 		t.Fatalf("detected dir = %q, want %q", detected, root)
@@ -43,14 +44,14 @@ func TestFindXenForoDirTerminatesAtRoot(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		_, _ = findXenForoDir(string(filepath.Separator))
+		_, _ = xf.GetXenForoDir(string(filepath.Separator))
 		close(done)
 	}()
 
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
-		t.Fatal("findXenForoDir did not terminate")
+		t.Fatal("GetXenForoDir did not terminate")
 	}
 }
 

@@ -3,12 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/url"
 	"strconv"
 	"time"
-
-	"xf/internal/errors"
 )
 
 // UnixTime is a time.Time that unmarshals from Unix timestamps.
@@ -70,26 +67,10 @@ type LicensesResponse struct {
 }
 
 func (c *Client) GetLicenses(ctx context.Context) ([]License, error) {
-	resp, err := c.Get(ctx, "/api/customer-oauth2/licenses")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if err := CheckResponse(resp); err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to read response", err)
-	}
-
 	var result LicensesResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to parse response", err)
+	if err := c.GetJSON(ctx, "/api/customer-oauth2/licenses", &result); err != nil {
+		return nil, err
 	}
-
 	return result.Licenses, nil
 }
 
@@ -125,26 +106,10 @@ func (c *Client) GetLicenseDownloadables(ctx context.Context, licenseKey string)
 	params.Set("license_key", licenseKey)
 	path := "/api/customer-oauth2/license-downloadables?" + params.Encode()
 
-	resp, err := c.Get(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if err := CheckResponse(resp); err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to read response", err)
-	}
-
 	var result LicenseDownloadables
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to parse response", err)
+	if err := c.GetJSON(ctx, path, &result); err != nil {
+		return nil, err
 	}
-
 	return &result, nil
 }
 
@@ -154,26 +119,10 @@ func (c *Client) GetLicenseVersions(ctx context.Context, licenseKey string, down
 	params.Set("download_id", downloadID)
 	path := "/api/customer-oauth2/license-versions?" + params.Encode()
 
-	resp, err := c.Get(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if err := CheckResponse(resp); err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to read response", err)
-	}
-
 	var result LicenseVersions
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to parse response", err)
+	if err := c.GetJSON(ctx, path, &result); err != nil {
+		return nil, err
 	}
-
 	return &result, nil
 }
 
@@ -198,26 +147,10 @@ func (c *Client) GetDownloadInfo(ctx context.Context, licenseKey string, downloa
 	params.Set("version_id", strconv.Itoa(versionID))
 	path := "/api/customer-oauth2/license-download-info?" + params.Encode()
 
-	resp, err := c.Get(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if err := CheckResponse(resp); err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to read response", err)
-	}
-
 	var result DownloadInfoResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to parse response", err)
+	if err := c.GetJSON(ctx, path, &result); err != nil {
+		return nil, err
 	}
-
 	return &result.Download, nil
 }
 

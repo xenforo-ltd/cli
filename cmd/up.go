@@ -10,6 +10,7 @@ import (
 	"xf/internal/dockercompose"
 	"xf/internal/errors"
 	"xf/internal/ui"
+	"xf/internal/xf"
 )
 
 var upCmd = &cobra.Command{
@@ -103,7 +104,7 @@ func getXenForoDir(args []string) (string, error) {
 		return "", errors.Wrap(errors.CodeFileReadFailed, "failed to get working directory", err)
 	}
 
-	xfDir, err := dockercompose.GetXenForoDir(cwd)
+	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
 		return "", err
 	}

@@ -1,6 +1,10 @@
 package doctor
 
-import "testing"
+import (
+	"testing"
+
+	"xf/internal/ui"
+)
 
 func TestCheckStatusStringAndSymbol(t *testing.T) {
 	cases := []struct {
@@ -46,13 +50,13 @@ func TestDoctorHasErrorsAndWarnings(t *testing.T) {
 }
 
 func TestFormatBytes(t *testing.T) {
-	if got := formatBytes(512); got != "512 B" {
-		t.Fatalf("formatBytes(512) = %q", got)
+	if got := ui.FormatBytes(512); got != "512 B" {
+		t.Fatalf("FormatBytes(512) = %q", got)
 	}
-	if got := formatBytes(1024); got != "1.0 KB" {
-		t.Fatalf("formatBytes(1024) = %q", got)
+	if got := ui.FormatBytes(1024); got != "1.0 KB" {
+		t.Fatalf("FormatBytes(1024) = %q", got)
 	}
-	if got := formatBytes(2 * 1024 * 1024); got != "2.0 MB" {
-		t.Fatalf("formatBytes(2MB) = %q", got)
+	if got := ui.FormatBytes(2 * 1024 * 1024); got != "2.0 MB" {
+		t.Fatalf("FormatBytes(2MB) = %q", got)
 	}
 }
