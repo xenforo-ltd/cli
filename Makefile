@@ -1,7 +1,6 @@
-.PHONY: build run test test-v fmt vet clean all release
+.PHONY: build release run test test-v test-cover fmt vet clean tidy help all
 
 BINARY := xf
-
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE := $(shell date -u +%Y-%m-%d)
