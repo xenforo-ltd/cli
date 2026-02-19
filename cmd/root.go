@@ -24,7 +24,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "xf",
 	Short: "Provision and manage XenForo development environments",
-	Long: `xf is a command-line tool for provisioning and managing
+	Long: `The XenForo CLI is a command-line tool for provisioning and managing
 XenForo development environments using Docker.
 
 It handles OAuth authentication, downloads XenForo packages, manages
