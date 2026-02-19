@@ -395,4 +395,3 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 
 	d.results = append(d.results, result)
 }
-
