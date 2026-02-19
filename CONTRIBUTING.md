@@ -4,7 +4,7 @@ Thanks for contributing.
 
 ## Development setup
 
-1. Install Go 1.23+.
+1. Install Go.
 2. Clone the repository.
 3. Run `go test ./...`.
 4. Run `go test -race ./...`.
