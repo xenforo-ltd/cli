@@ -4,7 +4,7 @@ A command-line tool for provisioning and managing XenForo development environmen
 
 ## Requirements
 
-- Go 1.23+
+- Go
 - Docker with Docker Compose plugin
 - Git
 - System keychain
