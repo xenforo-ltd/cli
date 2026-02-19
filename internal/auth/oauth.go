@@ -93,6 +93,20 @@ type TokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
+func (c *OAuthClient) tokenFromResponse(resp *TokenResponse) *Token {
+	now := time.Now()
+	return &Token{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		TokenType:    resp.TokenType,
+		ExpiresAt:    now.Add(time.Duration(resp.ExpiresIn) * time.Second),
+		Scope:        resp.Scope,
+		IssuedAt:     now,
+		Environment:  string(config.GetEffectiveEnvironment()),
+		BaseURL:      c.config.BaseURL,
+	}
+}
+
 func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEParams, redirectURI string) (*Token, error) {
 	_, tokenURL, _, _ := c.config.Endpoints()
 
@@ -103,7 +117,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	data.Set("redirect_uri", redirectURI)
 	data.Set("code_verifier", pkce.CodeVerifier)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to create token request", err)
 	}
@@ -129,19 +143,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to parse token response", err)
 	}
 
-	now := time.Now()
-	token := &Token{
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		TokenType:    tokenResp.TokenType,
-		ExpiresAt:    now.Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
-		Scope:        tokenResp.Scope,
-		IssuedAt:     now,
-		Environment:  string(config.GetEffectiveEnvironment()),
-		BaseURL:      c.config.BaseURL,
-	}
-
-	return token, nil
+	return c.tokenFromResponse(&tokenResp), nil
 }
 
 func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
@@ -152,7 +154,7 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 	data.Set("client_id", c.config.ClientID)
 	data.Set("refresh_token", refreshToken)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to create refresh request", err)
 	}
@@ -178,17 +180,7 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, errors.Wrap(errors.CodeAPIResponseInvalid, "failed to parse refresh response", err)
 	}
 
-	now := time.Now()
-	token := &Token{
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		TokenType:    tokenResp.TokenType,
-		ExpiresAt:    now.Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
-		Scope:        tokenResp.Scope,
-		IssuedAt:     now,
-		Environment:  string(config.GetEffectiveEnvironment()),
-		BaseURL:      c.config.BaseURL,
-	}
+	token := c.tokenFromResponse(&tokenResp)
 
 	// If no new refresh token was provided, keep the old one
 	if token.RefreshToken == "" {
@@ -217,7 +209,7 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	data.Set("token", accessToken)
 	data.Set("client_id", c.config.ClientID)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", introspectURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, introspectURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to create introspect request", err)
 	}
@@ -253,7 +245,7 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	data.Set("token", token)
 	data.Set("client_id", c.config.ClientID)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", revokeURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, revokeURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return errors.Wrap(errors.CodeAPIRequestFailed, "failed to create revoke request", err)
 	}

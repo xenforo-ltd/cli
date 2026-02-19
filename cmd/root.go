@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,6 +12,7 @@ import (
 	"xf/internal/config"
 	"xf/internal/dockercompose"
 	clierrors "xf/internal/errors"
+	"xf/internal/xf"
 )
 
 var (
@@ -99,7 +99,7 @@ func runAsXenForoCommand(args []string) error {
 		return clierrors.New(clierrors.CodeInvalidInput, "failed to get current directory")
 	}
 
-	xfDir, err := findXenForoDir(cwd)
+	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
 		return clierrors.Newf(clierrors.CodeInvalidInput, "unknown command: %s (not in a XenForo directory)", args[0])
 	}
@@ -131,29 +131,6 @@ func runAsLocalXenForoCommand(xfDir string, args []string) error {
 	}
 
 	return nil
-}
-
-func findXenForoDir(startDir string) (string, error) {
-	dir := filepath.Clean(startDir)
-	for {
-		xfPath := filepath.Join(dir, "src", "XF.php")
-		if _, err := os.Stat(xfPath); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	if xfDir := os.Getenv("XF_DIR"); xfDir != "" {
-		if _, err := os.Stat(filepath.Join(xfDir, "src", "XF.php")); err == nil {
-			return xfDir, nil
-		}
-	}
-
-	return "", clierrors.New(clierrors.CodeInvalidInput, "not in a XenForo directory")
 }
 
 func init() {

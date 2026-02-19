@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -89,7 +90,7 @@ func runPHPWithMode(args []string, debug bool) error {
 	}
 
 	if debug {
-		ui.PrintInfo(fmt.Sprintf("Running with XDebug: php %s", phpArgs))
+		ui.PrintInfo(fmt.Sprintf("Running with XDebug: php %s", strings.Join(phpArgs, " ")))
 		return runner.PHPDebug(phpArgs...)
 	}
 

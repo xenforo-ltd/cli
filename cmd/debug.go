@@ -8,6 +8,7 @@ import (
 
 	"xf/internal/dockercompose"
 	"xf/internal/ui"
+	"xf/internal/xf"
 )
 
 var debugCmd = &cobra.Command{
@@ -41,7 +42,7 @@ func runDebug(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current directory")
 	}
 
-	xfDir, err := dockercompose.GetXenForoDir(cwd)
+	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
 		return err
 	}

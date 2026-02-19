@@ -401,7 +401,7 @@ func parseChecksumForAsset(data []byte, assetName string) (string, bool) {
 func (u *Updater) getLatestRelease(ctx context.Context) (*Release, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/releases/latest", GitHubAPIBase, u.GitHubOwner, u.GitHubRepo)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrap(errors.CodeUpdateFailed, "failed to create request", err)
 	}
@@ -434,7 +434,7 @@ func (u *Updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 	ctx, cancel := context.WithTimeout(ctx, DownloadTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return errors.Wrap(errors.CodeUpdateFailed, "failed to create download request", err)
 	}
@@ -469,7 +469,7 @@ func (u *Updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 
 // verifyChecksum verifies the downloaded file against the published checksum.
 func (u *Updater) verifyChecksum(ctx context.Context, filePath string, info *UpdateInfo) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", info.ChecksumURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, info.ChecksumURL, nil)
 	if err != nil {
 		return errors.Wrap(errors.CodeUpdateFailed, "failed to create checksum request", err)
 	}

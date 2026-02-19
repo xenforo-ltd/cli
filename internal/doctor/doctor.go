@@ -12,6 +12,7 @@ import (
 
 	"xf/internal/auth"
 	"xf/internal/config"
+	"xf/internal/ui"
 )
 
 // CheckResult represents the result of a health check.
@@ -329,11 +330,11 @@ func (d *Doctor) checkDiskSpace() {
 
 	if availableBytes < minRequired {
 		result.Status = StatusWarning
-		result.Message = fmt.Sprintf("Low disk space: %s available", formatBytes(availableBytes))
+		result.Message = fmt.Sprintf("Low disk space: %s available", ui.FormatBytes(availableBytes))
 		result.Suggestion = "XenForo downloads can be large. Consider freeing up disk space."
 	} else {
 		result.Status = StatusOK
-		result.Message = fmt.Sprintf("Available disk space: %s", formatBytes(availableBytes))
+		result.Message = fmt.Sprintf("Available disk space: %s", ui.FormatBytes(availableBytes))
 	}
 
 	d.results = append(d.results, result)
@@ -364,7 +365,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 			continue
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "HEAD", target.url, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodHead, target.url, nil)
 		if err != nil {
 			details = append(details, fmt.Sprintf("%s: failed to create request", target.name))
 			allOK = false
@@ -395,15 +396,3 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 	d.results = append(d.results, result)
 }
 
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}

@@ -191,7 +191,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 
 	if !kc.IsAvailable() {
 		if flagAuthStatusJSON {
-			data, err := json.Marshal(map[string]interface{}{
+			data, err := json.Marshal(map[string]any{
 				"authenticated": false,
 				"error":         "keychain unavailable",
 			})
@@ -209,7 +209,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if errors.Is(err, errors.CodeAuthRequired) {
 			if flagAuthStatusJSON {
-				data, err := json.Marshal(map[string]interface{}{
+				data, err := json.Marshal(map[string]any{
 					"authenticated": false,
 				})
 				if err != nil {
@@ -243,7 +243,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagAuthStatusJSON {
-		output := map[string]interface{}{
+		output := map[string]any{
 			"authenticated": true,
 			"scope":         token.Scope,
 			"expires_at":    token.ExpiresAt.Format(time.RFC3339),

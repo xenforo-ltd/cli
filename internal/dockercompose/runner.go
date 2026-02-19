@@ -332,8 +332,15 @@ func (r *Runner) RunWithEnv(service string, rm bool, env map[string]string, cmd 
 	if rm {
 		args = append(args, "--rm")
 	}
-	for k, v := range env {
-		args = append(args, "--env", fmt.Sprintf("%s=%s", k, v))
+	if len(env) > 0 {
+		keys := make([]string, 0, len(env))
+		for k := range env {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			args = append(args, "--env", fmt.Sprintf("%s=%s", k, env[k]))
+		}
 	}
 	args = append(args, service)
 	args = append(args, cmd...)
@@ -590,30 +597,6 @@ func parseEnvValue(content, key string) string {
 	return ""
 }
 
-// GetXenForoDir finds the XenForo root directory by traversing up from startDir.
-func GetXenForoDir(startDir string) (string, error) {
-	dir := filepath.Clean(startDir)
-	for {
-		xfPath := filepath.Join(dir, "src", "XF.php")
-		if _, err := os.Stat(xfPath); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	if xfDir := os.Getenv("XF_DIR"); xfDir != "" {
-		if _, err := os.Stat(filepath.Join(xfDir, "src", "XF.php")); err == nil {
-			return xfDir, nil
-		}
-	}
-
-	return "", errors.New(errors.CodeInvalidInput, "not in a XenForo directory and XF_DIR not set")
-}
-
 // AutoDetectRunner creates a runner by auto-detecting the XenForo directory.
 func AutoDetectRunner() (*Runner, error) {
 	cwd, err := os.Getwd()
@@ -621,7 +604,7 @@ func AutoDetectRunner() (*Runner, error) {
 		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to get working directory", err)
 	}
 
-	xfDir, err := GetXenForoDir(cwd)
+	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
 		return nil, err
 	}
