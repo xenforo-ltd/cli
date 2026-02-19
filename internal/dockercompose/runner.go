@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -238,6 +237,56 @@ func (r *Runner) ExecOrRunWithEnv(service string, rm bool, env map[string]string
 		return err
 	}
 	return r.RunWithEnv(service, rm, env, cmd...)
+}
+
+func (r *Runner) ExecOrRunWithEnvAndOutput(service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
+	running, err := r.isServiceRunning(service)
+	if err != nil {
+		return err
+	}
+	if running {
+		execArgs := r.buildComposeArgs()
+		execArgs = append(execArgs, "exec")
+		if len(env) > 0 {
+			keys := make([]string, 0, len(env))
+			for k := range env {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				execArgs = append(execArgs, "-e", fmt.Sprintf("%s=%s", k, env[k]))
+			}
+		}
+		execArgs = append(execArgs, service)
+		execArgs = append(execArgs, cmd...)
+		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(stdout, execArgs...)
+		if err != nil && isNotRunningExecError(err, stderrOutput) {
+			return r.RunWithEnvAndOutput(service, rm, env, stdout, stderr, cmd...)
+		}
+		return err
+	}
+	return r.RunWithEnvAndOutput(service, rm, env, stdout, stderr, cmd...)
+}
+
+func (r *Runner) RunWithEnvAndOutput(service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
+	args := r.buildComposeArgs()
+	args = append(args, "run")
+	if rm {
+		args = append(args, "--rm")
+	}
+	if len(env) > 0 {
+		keys := make([]string, 0, len(env))
+		for k := range env {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			args = append(args, "--env", fmt.Sprintf("%s=%s", k, env[k]))
+		}
+	}
+	args = append(args, service)
+	args = append(args, cmd...)
+	return r.runDockerCommandWithOutput(stdout, stderr, args...)
 }
 
 // Compose runs a docker compose command directly.
@@ -581,11 +630,13 @@ func isNotRunningExecError(err error, stderr string) bool {
 
 // parseEnvValue extracts a value from .env file content.
 func parseEnvValue(content, key string) string {
-	pattern := fmt.Sprintf(`(?m)^%s=(.*)$`, regexp.QuoteMeta(key))
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(content)
-	if len(matches) >= 2 {
-		value := strings.TrimSpace(matches[1])
+	prefix := key + "="
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		value := strings.TrimSpace(line[len(prefix):])
 		if len(value) >= 2 {
 			if (value[0] == '"' && value[len(value)-1] == '"') ||
 				(value[0] == '\'' && value[len(value)-1] == '\'') {

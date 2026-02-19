@@ -1,7 +1,6 @@
 package xfcmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,18 +39,20 @@ func Init(xfDir string, opts InitOptions) error {
 			return errors.Wrap(errors.CodeFileReadFailed, "failed to read default env", err)
 		}
 
-		dirName := filepath.Base(xfDir)
-		instanceName := xf.GenerateInstanceName(dirName)
-		envContent := strings.ReplaceAll(string(envDefault), "XF_INSTANCE=xf", fmt.Sprintf("XF_INSTANCE=%s", instanceName))
-
-		if len(opts.Contexts) > 0 {
-			envContent = strings.ReplaceAll(envContent,
-				"XF_CONTEXTS=caddy:mysql:development:caddy-development:redis:mailpit",
-				fmt.Sprintf("XF_CONTEXTS=%s", strings.Join(opts.Contexts, ":")))
+		if err := os.WriteFile(envPath, envDefault, 0644); err != nil {
+			return errors.Wrap(errors.CodeFileWriteFailed, "failed to write .env file", err)
 		}
 
-		if err := os.WriteFile(envPath, []byte(envContent), 0644); err != nil {
-			return errors.Wrap(errors.CodeFileWriteFailed, "failed to write .env file", err)
+		dirName := filepath.Base(xfDir)
+		instanceName := xf.GenerateInstanceName(dirName)
+		updates := map[string]string{
+			"XF_INSTANCE": instanceName,
+		}
+		if len(opts.Contexts) > 0 {
+			updates["XF_CONTEXTS"] = strings.Join(opts.Contexts, ":")
+		}
+		if err := xf.WriteEnvFile(envPath, updates); err != nil {
+			return err
 		}
 	}
 

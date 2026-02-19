@@ -16,7 +16,6 @@ import (
 	"xf/internal/dockercompose"
 	"xf/internal/downloads"
 	"xf/internal/errors"
-	"xf/internal/extract"
 	"xf/internal/ui"
 	"xf/internal/xf"
 )
@@ -368,37 +367,5 @@ func downloadUpgradeFiles(ctx context.Context, client *api.Client, opts *Upgrade
 }
 
 func overlayUpgradeFiles(cachedFiles map[string]*cache.Entry, targetPath string) error {
-	if entry, ok := cachedFiles["xenforo"]; ok {
-		ui.PrintSubstep("Extracting XenForo core...")
-
-		fileCount := 0
-		progress := func(current, total int, filename string) {
-			fileCount = current
-		}
-
-		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			return errors.Wrap(errors.CodeFileWriteFailed, "failed to extract XenForo", err)
-		}
-		ui.PrintDetail(fmt.Sprintf("Updated %d files", fileCount))
-	}
-
-	for product, entry := range cachedFiles {
-		if product == "xenforo" {
-			continue
-		}
-
-		ui.PrintSubstep(fmt.Sprintf("Extracting %s...", product))
-
-		fileCount := 0
-		progress := func(current, total int, filename string) {
-			fileCount = current
-		}
-
-		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			return errors.Wrapf(errors.CodeFileWriteFailed, err, "failed to extract %s", product)
-		}
-		ui.PrintDetail(fmt.Sprintf("Updated %d files", fileCount))
-	}
-
-	return nil
+	return extractCachedFiles(cachedFiles, targetPath, nil, "Updated")
 }

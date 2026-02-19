@@ -184,7 +184,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	opts.EnvResolved, opts.EnvSources = initflow.MergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
 
-	hasXenForo := detectXenForo(absPath)
+	hasXenForo, err := detectXenForo(absPath)
+	if err != nil {
+		return err
+	}
 
 	if hasXenForo || opts.ExistingOnly {
 		return initExisting(opts)
@@ -208,10 +211,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return executeInit(ctx, opts)
 }
 
-func detectXenForo(path string) bool {
+func detectXenForo(path string) (bool, error) {
 	xfPath := filepath.Join(path, "src", "XF.php")
 	_, err := os.Stat(xfPath)
-	return err == nil
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, errors.Wrap(errors.CodeFileReadFailed, "failed to check XenForo path", err)
 }
 
 func initExisting(opts *InitOptions) error {

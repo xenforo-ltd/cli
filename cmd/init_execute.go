@@ -135,15 +135,21 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				"--no-interaction",
 				"--clear",
 				"--user=" + opts.AdminUser,
-				"--password=" + opts.AdminPassword,
 				"--email=" + opts.AdminEmail,
 				"--title=" + opts.SiteTitle,
 				"--url=" + siteURL,
 			}
 
+			installEnv := map[string]string{
+				"XF_INSTALL_PASSWORD": opts.AdminPassword,
+			}
+			installArgs = append(installArgs, "--password=$(printenv XF_INSTALL_PASSWORD)")
+			shellCmd := shellJoinArgs(append([]string{"php", "cmd.php"}, installArgs...))
+			shellInstallArgs := []string{"sh", "-c", shellCmd}
+
 			if config.IsVerbose() {
 				ui.PrintSubstep("Running XenForo installation...")
-				if err := runner.XFCommand(installArgs...); err != nil {
+				if err := runner.ExecOrRunWithEnv("xf", true, installEnv, shellInstallArgs...); err != nil {
 					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
 					fmt.Println("    You can run it manually:")
 					fmt.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
@@ -152,7 +158,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				spinner := ui.NewSpinner("Installing XenForo...")
 				spinner.Start()
 				tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
-				if err := runner.XFCommandWithOutput(tracker, tracker, installArgs...); err != nil {
+				if err := runner.ExecOrRunWithEnvAndOutput("xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
 					spinner.Stop()
 					printHiddenOutputTail("Installer output", tracker.TailLines())
 					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
@@ -406,7 +412,11 @@ func prepareTargetDirectory(targetPath string) error {
 	}
 
 	if nonHiddenCount > 0 {
-		if detectXenForo(targetPath) {
+		hasXenForo, err := detectXenForo(targetPath)
+		if err != nil {
+			return err
+		}
+		if hasXenForo {
 			ui.PrintWarning("Directory already contains a XenForo installation")
 			ui.PrintDetail("Only Docker configuration files will be updated")
 		} else {
@@ -495,6 +505,10 @@ func downloadProducts(ctx context.Context, client *api.Client, opts *InitOptions
 }
 
 func extractProducts(cachedFiles map[string]*cache.Entry, targetPath string, titleMap map[string]string) error {
+	return extractCachedFiles(cachedFiles, targetPath, titleMap, "Extracted")
+}
+
+func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, titleMap map[string]string, verb string) error {
 	if entry, ok := cachedFiles["xenforo"]; ok {
 		ui.PrintSubstep("Extracting XenForo core...")
 
@@ -506,7 +520,7 @@ func extractProducts(cachedFiles map[string]*cache.Entry, targetPath string, tit
 		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
 			return errors.Wrap(errors.CodeFileWriteFailed, "failed to extract XenForo", err)
 		}
-		ui.PrintDetail(fmt.Sprintf("Extracted %d files", fileCount))
+		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
 	}
 
 	for product, entry := range cachedFiles {
@@ -514,9 +528,11 @@ func extractProducts(cachedFiles map[string]*cache.Entry, targetPath string, tit
 			continue
 		}
 
-		productName := titleMap[product]
-		if productName == "" {
-			productName = product
+		productName := product
+		if titleMap != nil {
+			if name := titleMap[product]; name != "" {
+				productName = name
+			}
 		}
 		ui.PrintSubstep(fmt.Sprintf("Extracting %s...", productName))
 
@@ -528,7 +544,7 @@ func extractProducts(cachedFiles map[string]*cache.Entry, targetPath string, tit
 		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
 			return errors.Wrapf(errors.CodeFileWriteFailed, err, "failed to extract %s", product)
 		}
-		ui.PrintDetail(fmt.Sprintf("Extracted %d files", fileCount))
+		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
 	}
 
 	return nil

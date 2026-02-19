@@ -196,3 +196,15 @@ func chooseBoardURL(instanceName, detectedURL string, detectedErr error) (string
 	}
 	return detectedURL, true
 }
+
+func shellJoinArgs(args []string) string {
+	parts := make([]string, len(args))
+	for i, arg := range args {
+		if strings.ContainsAny(arg, " \t\"\\") && !strings.Contains(arg, "$(") {
+			parts[i] = "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
+		} else {
+			parts[i] = arg
+		}
+	}
+	return strings.Join(parts, " ")
+}
