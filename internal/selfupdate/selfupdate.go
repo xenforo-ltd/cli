@@ -554,7 +554,7 @@ func isNewerVersion(latest, current string) bool {
 		maxLen = len(currentParts)
 	}
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		var l, c int
 		if i < len(latestParts) {
 			l = latestParts[i]

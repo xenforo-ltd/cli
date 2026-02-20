@@ -386,7 +386,7 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 	)
 
 	maxAttempts := 30
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for range maxAttempts {
 		select {
 		case <-ctx.Done():
 			return errors.New(errors.CodeDockerCommandFailed, "timed out waiting for database")

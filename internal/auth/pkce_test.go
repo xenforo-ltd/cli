@@ -33,7 +33,7 @@ func TestGeneratePKCE(t *testing.T) {
 
 func TestGeneratePKCE_Uniqueness(t *testing.T) {
 	seen := make(map[string]bool)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		pkce, err := GeneratePKCE()
 		if err != nil {
 			t.Fatalf("GeneratePKCE() error = %v", err)

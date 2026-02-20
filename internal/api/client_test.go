@@ -105,7 +105,7 @@ func TestRefreshTokenSingleFlight(t *testing.T) {
 	const goroutines = 2
 	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
