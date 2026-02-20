@@ -89,13 +89,13 @@ func ReadEnvFile(path string) (map[string]string, error) {
 			continue
 		}
 
-		idx := strings.Index(line, "=")
-		if idx == -1 {
+		before, after, ok := strings.Cut(line, "=")
+		if !ok {
 			continue // Skip malformed lines
 		}
 
-		key := strings.TrimSpace(line[:idx])
-		value := strings.TrimSpace(line[idx+1:])
+		key := strings.TrimSpace(before)
+		value := strings.TrimSpace(after)
 		if len(value) >= 2 {
 			if (value[0] == '"' && value[len(value)-1] == '"') ||
 				(value[0] == '\'' && value[len(value)-1] == '\'') {
@@ -165,12 +165,12 @@ func updateEnvFile(path string, values map[string]string) error {
 			continue
 		}
 
-		idx := strings.Index(trimmed, "=")
-		if idx == -1 {
+		before, _, ok := strings.Cut(trimmed, "=")
+		if !ok {
 			continue
 		}
 
-		key := strings.TrimSpace(trimmed[:idx])
+		key := strings.TrimSpace(before)
 		if newValue, ok := values[key]; ok {
 			leadingSpace := ""
 			for _, c := range line {
