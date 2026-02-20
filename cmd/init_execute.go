@@ -459,16 +459,14 @@ func downloadProducts(ctx context.Context, client *api.Client, opts *InitOptions
 					progressBar = ui.NewProgressBar(total, label)
 				}
 				progressBar.Update(current)
-			} else {
-				if current-lastUpdate >= 102400 || lastUpdate == 0 {
-					lastUpdate = current
-					msg := fmt.Sprintf("Downloading %s %s... %s", productName, selection.VersionString, ui.FormatBytes(current))
-					if spinner == nil {
-						spinner = ui.NewSpinner(msg)
-						spinner.Start()
-					} else {
-						spinner.UpdateMessage(msg)
-					}
+			} else if current-lastUpdate >= 102400 || lastUpdate == 0 {
+				lastUpdate = current
+				msg := fmt.Sprintf("Downloading %s %s... %s", productName, selection.VersionString, ui.FormatBytes(current))
+				if spinner == nil {
+					spinner = ui.NewSpinner(msg)
+					spinner.Start()
+				} else {
+					spinner.UpdateMessage(msg)
 				}
 			}
 		}
