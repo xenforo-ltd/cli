@@ -69,6 +69,31 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	return c.doWithRetry(ctx, method, path, bodyBytes, true)
 }
 
+func (c *Client) Get(ctx context.Context, path string) (*http.Response, error) {
+	return c.Do(ctx, http.MethodGet, path, nil)
+}
+
+func (c *Client) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return c.Do(ctx, http.MethodPost, path, body)
+}
+
+func (c *Client) PostJSON(ctx context.Context, path string, body []byte) (*http.Response, error) {
+	return c.doWithRetry(ctx, http.MethodPost, path, body, true)
+}
+
+// GetJSON performs a GET request and decodes the JSON response into result.
+func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
+	resp, err := c.Get(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if err := CheckResponse(resp); err != nil {
+		return err
+	}
+	return json.NewDecoder(resp.Body).Decode(result)
+}
+
 func (c *Client) doWithRetry(ctx context.Context, method, path string, body []byte, allowRetry bool) (*http.Response, error) {
 	token, err := c.keychain.LoadToken()
 	if err != nil {
@@ -138,31 +163,6 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	}
 
 	return c.keychain.SaveToken(newToken)
-}
-
-func (c *Client) Get(ctx context.Context, path string) (*http.Response, error) {
-	return c.Do(ctx, http.MethodGet, path, nil)
-}
-
-func (c *Client) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
-	return c.Do(ctx, http.MethodPost, path, body)
-}
-
-func (c *Client) PostJSON(ctx context.Context, path string, body []byte) (*http.Response, error) {
-	return c.doWithRetry(ctx, http.MethodPost, path, body, true)
-}
-
-// GetJSON performs a GET request and decodes the JSON response into result.
-func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
-	resp, err := c.Get(ctx, path)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if err := CheckResponse(resp); err != nil {
-		return err
-	}
-	return json.NewDecoder(resp.Body).Decode(result)
 }
 
 // APIError represents an error response from the API.

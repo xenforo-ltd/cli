@@ -418,6 +418,16 @@ func (p *ProgressBar) Increment(amount int64) {
 	p.render()
 }
 
+// Finish completes the progress bar.
+func (p *ProgressBar) Finish() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.current = p.total
+	p.render()
+	fmt.Fprintln(p.writer)
+}
+
 func (p *ProgressBar) render() {
 	if p.total <= 0 {
 		return
@@ -438,16 +448,6 @@ func (p *ProgressBar) render() {
 		bar,
 		Info.Render(pctStr),
 		Dim.Render(sizeStr))
-}
-
-// Finish completes the progress bar.
-func (p *ProgressBar) Finish() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.current = p.total
-	p.render()
-	fmt.Fprintln(p.writer)
 }
 
 // FormatBytes formats a byte count as a human-readable string.

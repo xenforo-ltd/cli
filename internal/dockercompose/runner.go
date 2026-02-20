@@ -86,27 +86,6 @@ func (r *Runner) Contexts() []string {
 }
 
 // buildComposeArgs builds the docker compose command arguments.
-func (r *Runner) buildComposeArgs() []string {
-	args := []string{"compose", "--project-name", r.instance}
-
-	args = append(args, "--file", filepath.Join(r.xfDir, "compose.yaml"))
-
-	for _, ctx := range r.contexts {
-		file := fmt.Sprintf("compose.%s.yaml", ctx)
-		filePath := filepath.Join(r.xfDir, file)
-		if _, err := os.Stat(filePath); err == nil {
-			args = append(args, "--file", filePath)
-		}
-	}
-
-	overridePath := filepath.Join(r.xfDir, "compose.override.yaml")
-	if _, err := os.Stat(overridePath); err == nil {
-		args = append(args, "--file", overridePath)
-	}
-
-	return args
-}
-
 // Up starts the Docker containers.
 func (r *Runner) Up(detach bool) error {
 	args := r.buildComposeArgs()
@@ -381,26 +360,6 @@ func (r *Runner) GetURL() (string, error) {
 	return fmt.Sprintf("http://localhost:%s", port), nil
 }
 
-// getServicePort gets the exposed port for a service.
-func (r *Runner) getServicePort(service, internalPort string) (string, error) {
-	args := r.buildComposeArgs()
-	args = append(args, "port", service, internalPort)
-
-	cmd := exec.Command("docker", args...)
-	cmd.Dir = r.xfDir
-	output, err := cmd.Output()
-	if err != nil {
-		return "", errors.Wrapf(errors.CodeDockerCommandFailed, err, "failed to get port for %s", service)
-	}
-
-	parts := strings.Split(strings.TrimSpace(string(output)), ":")
-	if len(parts) >= 2 {
-		return parts[len(parts)-1], nil
-	}
-
-	return "", errors.Newf(errors.CodeDockerCommandFailed, "unexpected port output: %s", output)
-}
-
 // WaitForReady waits for the xf container to be ready to accept commands.
 func (r *Runner) WaitForReady(ctx context.Context, checkInterval time.Duration) error {
 	for {
@@ -448,6 +407,41 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 	return errors.New(errors.CodeDockerCommandFailed, "timed out waiting for database to be ready")
 }
 
+func escapePHPString(value string) string {
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	return strings.ReplaceAll(value, "'", "\\'")
+}
+
+// IsEnvironmentInitialized checks if the Docker environment is set up.
+func (r *Runner) IsEnvironmentInitialized() bool {
+	composePath := filepath.Join(r.xfDir, "compose.yaml")
+	_, err := os.Stat(composePath)
+	return err == nil
+}
+
+// RunCapture runs a docker compose command and captures output.
+func (r *Runner) RunCapture(args ...string) (stdout, stderr string, err error) {
+	allArgs := r.buildComposeArgs()
+	allArgs = append(allArgs, args...)
+
+	cmd := exec.Command("docker", allArgs...)
+	cmd.Dir = r.xfDir
+	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err = cmd.Run()
+	stdout = stdoutBuf.String()
+	stderr = stderrBuf.String()
+
+	if err != nil {
+		err = errors.Wrapf(errors.CodeDockerCommandFailed, err, "docker command failed")
+	}
+	return
+}
+
 func (r *Runner) getDatabaseCredentials() (string, string) {
 	user := "xf"
 	password := "password"
@@ -469,18 +463,6 @@ func (r *Runner) getDatabaseCredentials() (string, string) {
 	}
 
 	return user, password
-}
-
-func escapePHPString(value string) string {
-	value = strings.ReplaceAll(value, "\\", "\\\\")
-	return strings.ReplaceAll(value, "'", "\\'")
-}
-
-// IsEnvironmentInitialized checks if the Docker environment is set up.
-func (r *Runner) IsEnvironmentInitialized() bool {
-	composePath := filepath.Join(r.xfDir, "compose.yaml")
-	_, err := os.Stat(composePath)
-	return err == nil
 }
 
 // runDockerCommand executes a docker compose command.
@@ -528,27 +510,45 @@ func (r *Runner) buildDockerCommand(extraArgs ...string) *exec.Cmd {
 	return cmd
 }
 
-// RunCapture runs a docker compose command and captures output.
-func (r *Runner) RunCapture(args ...string) (stdout, stderr string, err error) {
-	allArgs := r.buildComposeArgs()
-	allArgs = append(allArgs, args...)
+func (r *Runner) buildComposeArgs() []string {
+	args := []string{"compose", "--project-name", r.instance}
 
-	cmd := exec.Command("docker", allArgs...)
-	cmd.Dir = r.xfDir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
+	args = append(args, "--file", filepath.Join(r.xfDir, "compose.yaml"))
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
-
-	err = cmd.Run()
-	stdout = stdoutBuf.String()
-	stderr = stderrBuf.String()
-
-	if err != nil {
-		err = errors.Wrapf(errors.CodeDockerCommandFailed, err, "docker command failed")
+	for _, ctx := range r.contexts {
+		file := fmt.Sprintf("compose.%s.yaml", ctx)
+		filePath := filepath.Join(r.xfDir, file)
+		if _, err := os.Stat(filePath); err == nil {
+			args = append(args, "--file", filePath)
+		}
 	}
-	return
+
+	overridePath := filepath.Join(r.xfDir, "compose.override.yaml")
+	if _, err := os.Stat(overridePath); err == nil {
+		args = append(args, "--file", overridePath)
+	}
+
+	return args
+}
+
+// getServicePort gets the exposed port for a service.
+func (r *Runner) getServicePort(service, internalPort string) (string, error) {
+	args := r.buildComposeArgs()
+	args = append(args, "port", service, internalPort)
+
+	cmd := exec.Command("docker", args...)
+	cmd.Dir = r.xfDir
+	output, err := cmd.Output()
+	if err != nil {
+		return "", errors.Wrapf(errors.CodeDockerCommandFailed, err, "failed to get port for %s", service)
+	}
+
+	parts := strings.Split(strings.TrimSpace(string(output)), ":")
+	if len(parts) >= 2 {
+		return parts[len(parts)-1], nil
+	}
+
+	return "", errors.Newf(errors.CodeDockerCommandFailed, "unexpected port output: %s", output)
 }
 
 func (r *Runner) isServiceRunning(service string) (bool, error) {

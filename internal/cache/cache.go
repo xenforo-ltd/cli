@@ -220,20 +220,6 @@ func (m *Manager) Delete(licenseKey string, downloadID, version string) error {
 	return nil
 }
 
-func (m *Manager) cleanEmptyParents(path string) {
-	for {
-		parent := filepath.Dir(path)
-		if parent == m.basePath || parent == path {
-			break
-		}
-
-		if err := os.Remove(parent); err != nil {
-			break
-		}
-		path = parent
-	}
-}
-
 func (m *Manager) PurgeAll() error {
 	if err := os.RemoveAll(m.basePath); err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(errors.CodeFileWriteFailed, "failed to purge cache", err)
@@ -316,6 +302,33 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 	return entries, nil
 }
 
+func (m *Manager) TotalSize() (int64, error) {
+	entries, err := m.List()
+	if err != nil {
+		return 0, err
+	}
+
+	var total int64
+	for _, entry := range entries {
+		total += entry.Metadata.Size
+	}
+	return total, nil
+}
+
+func (m *Manager) cleanEmptyParents(path string) {
+	for {
+		parent := filepath.Dir(path)
+		if parent == m.basePath || parent == path {
+			break
+		}
+
+		if err := os.Remove(parent); err != nil {
+			break
+		}
+		path = parent
+	}
+}
+
 func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -356,19 +369,6 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 		FilePath:     filePath,
 		MetadataPath: metadataPath,
 	}, nil
-}
-
-func (m *Manager) TotalSize() (int64, error) {
-	entries, err := m.List()
-	if err != nil {
-		return 0, err
-	}
-
-	var total int64
-	for _, entry := range entries {
-		total += entry.Metadata.Size
-	}
-	return total, nil
 }
 
 func CalculateChecksum(filePath string) (string, error) {

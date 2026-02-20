@@ -102,20 +102,6 @@ type TokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
-func (c *OAuthClient) tokenFromResponse(resp *TokenResponse) *Token {
-	now := time.Now()
-	return &Token{
-		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
-		TokenType:    resp.TokenType,
-		ExpiresAt:    now.Add(time.Duration(resp.ExpiresIn) * time.Second),
-		Scope:        resp.Scope,
-		IssuedAt:     now,
-		Environment:  string(config.GetEffectiveEnvironment()),
-		BaseURL:      c.config.BaseURL,
-	}
-}
-
 func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEParams, redirectURI string) (*Token, error) {
 	endpoints := c.config.Endpoints()
 
@@ -273,6 +259,20 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	}
 
 	return nil
+}
+
+func (c *OAuthClient) tokenFromResponse(resp *TokenResponse) *Token {
+	now := time.Now()
+	return &Token{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		TokenType:    resp.TokenType,
+		ExpiresAt:    now.Add(time.Duration(resp.ExpiresIn) * time.Second),
+		Scope:        resp.Scope,
+		IssuedAt:     now,
+		Environment:  string(config.GetEffectiveEnvironment()),
+		BaseURL:      c.config.BaseURL,
+	}
 }
 
 // CallbackResult holds the result of the OAuth callback.

@@ -78,6 +78,51 @@ type CLIError struct {
 	Cause   error  `json:"-"`
 }
 
+func Newf(code Code, format string, args ...any) *CLIError {
+	return &CLIError{
+		Code:    code,
+		Message: fmt.Sprintf(format, args...),
+	}
+}
+
+func New(code Code, message string) *CLIError {
+	return &CLIError{
+		Code:    code,
+		Message: message,
+	}
+}
+
+func Wrap(code Code, message string, cause error) *CLIError {
+	return &CLIError{
+		Code:    code,
+		Message: message,
+		Cause:   cause,
+	}
+}
+
+func Wrapf(code Code, cause error, format string, args ...any) *CLIError {
+	return &CLIError{
+		Code:    code,
+		Message: fmt.Sprintf(format, args...),
+		Cause:   cause,
+	}
+}
+
+func Is(err error, code Code) bool {
+	var cliErr *CLIError
+	if errors.As(err, &cliErr) {
+		return cliErr.Code == code
+	}
+	return false
+}
+
+func GetCode(err error) Code {
+	if cliErr, ok := err.(*CLIError); ok {
+		return cliErr.Code
+	}
+	return CodeUnknown
+}
+
 func (e *CLIError) Error() string {
 	if e.Cause != nil {
 		return fmt.Sprintf("[%s] %s: %v", e.Code, e.Message, e.Cause)
@@ -106,49 +151,4 @@ func (e *CLIError) JSON() string {
 
 	b, _ := json.Marshal(je)
 	return string(b)
-}
-
-func New(code Code, message string) *CLIError {
-	return &CLIError{
-		Code:    code,
-		Message: message,
-	}
-}
-
-func Wrap(code Code, message string, cause error) *CLIError {
-	return &CLIError{
-		Code:    code,
-		Message: message,
-		Cause:   cause,
-	}
-}
-
-func Newf(code Code, format string, args ...any) *CLIError {
-	return &CLIError{
-		Code:    code,
-		Message: fmt.Sprintf(format, args...),
-	}
-}
-
-func Wrapf(code Code, cause error, format string, args ...any) *CLIError {
-	return &CLIError{
-		Code:    code,
-		Message: fmt.Sprintf(format, args...),
-		Cause:   cause,
-	}
-}
-
-func Is(err error, code Code) bool {
-	var cliErr *CLIError
-	if errors.As(err, &cliErr) {
-		return cliErr.Code == code
-	}
-	return false
-}
-
-func GetCode(err error) Code {
-	if cliErr, ok := err.(*CLIError); ok {
-		return cliErr.Code
-	}
-	return CodeUnknown
 }
