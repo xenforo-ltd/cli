@@ -30,6 +30,14 @@ type OAuthConfig struct {
 	RedirectPath string
 }
 
+// OAuthEndpoints holds the OAuth endpoint URLs.
+type OAuthEndpoints struct {
+	Auth       string
+	Token      string
+	Introspect string
+	Revoke     string
+}
+
 // DefaultOAuthConfig returns the OAuth configuration based on current environment settings.
 func DefaultOAuthConfig() *OAuthConfig {
 	return &OAuthConfig{
@@ -41,13 +49,14 @@ func DefaultOAuthConfig() *OAuthConfig {
 }
 
 // Endpoints returns the OAuth endpoint URLs.
-func (c *OAuthConfig) Endpoints() (authURL, tokenURL, introspectURL, revokeURL string) {
+func (c *OAuthConfig) Endpoints() *OAuthEndpoints {
 	base := strings.TrimSuffix(c.BaseURL, "/")
-	authURL = base + "/customer-oauth/authorize"
-	tokenURL = base + "/api/customer-oauth2/token"
-	introspectURL = base + "/api/customer-oauth2/introspect"
-	revokeURL = base + "/api/customer-oauth2/revoke"
-	return
+	return &OAuthEndpoints{
+		Auth:       base + "/customer-oauth/authorize",
+		Token:      base + "/api/customer-oauth2/token",
+		Introspect: base + "/api/customer-oauth2/introspect",
+		Revoke:     base + "/api/customer-oauth2/revoke",
+	}
 }
 
 // OAuthClient handles the OAuth authentication flow.
@@ -70,7 +79,7 @@ func NewOAuthClient(cfg *OAuthConfig) *OAuthClient {
 }
 
 func (c *OAuthClient) AuthorizationURL(pkce *PKCEParams, redirectURI string) string {
-	authURL, _, _, _ := c.config.Endpoints()
+	endpoints := c.config.Endpoints()
 
 	params := url.Values{}
 	params.Set("client_id", c.config.ClientID)
@@ -81,7 +90,7 @@ func (c *OAuthClient) AuthorizationURL(pkce *PKCEParams, redirectURI string) str
 	params.Set("code_challenge", pkce.CodeChallenge)
 	params.Set("code_challenge_method", pkce.CodeChallengeMethod)
 
-	return authURL + "?" + params.Encode()
+	return endpoints.Auth + "?" + params.Encode()
 }
 
 // TokenResponse represents the OAuth token response.
@@ -108,7 +117,7 @@ func (c *OAuthClient) tokenFromResponse(resp *TokenResponse) *Token {
 }
 
 func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEParams, redirectURI string) (*Token, error) {
-	_, tokenURL, _, _ := c.config.Endpoints()
+	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")
@@ -117,7 +126,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	data.Set("redirect_uri", redirectURI)
 	data.Set("code_verifier", pkce.CodeVerifier)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Token, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to create token request", err)
 	}
@@ -147,14 +156,14 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 }
 
 func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
-	_, tokenURL, _, _ := c.config.Endpoints()
+	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
 	data.Set("client_id", c.config.ClientID)
 	data.Set("refresh_token", refreshToken)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Token, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to create refresh request", err)
 	}
@@ -203,13 +212,13 @@ type IntrospectResponse struct {
 }
 
 func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (*IntrospectResponse, error) {
-	_, _, introspectURL, _ := c.config.Endpoints()
+	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
 	data.Set("token", accessToken)
 	data.Set("client_id", c.config.ClientID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, introspectURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Introspect, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to create introspect request", err)
 	}
@@ -239,13 +248,13 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 }
 
 func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
-	_, _, _, revokeURL := c.config.Endpoints()
+	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
 	data.Set("token", token)
 	data.Set("client_id", c.config.ClientID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, revokeURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Revoke, strings.NewReader(data.Encode()))
 	if err != nil {
 		return errors.Wrap(errors.CodeAPIRequestFailed, "failed to create revoke request", err)
 	}

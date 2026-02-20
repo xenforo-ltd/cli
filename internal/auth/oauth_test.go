@@ -40,19 +40,19 @@ func TestOAuthConfig_Endpoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &OAuthConfig{BaseURL: tt.baseURL}
-			auth, token, introspect, revoke := cfg.Endpoints()
+			endpoints := cfg.Endpoints()
 
-			if auth != tt.wantAuth {
-				t.Errorf("auth = %q, want %q", auth, tt.wantAuth)
+			if endpoints.Auth != tt.wantAuth {
+				t.Errorf("auth = %q, want %q", endpoints.Auth, tt.wantAuth)
 			}
-			if token != tt.wantToken {
-				t.Errorf("token = %q, want %q", token, tt.wantToken)
+			if endpoints.Token != tt.wantToken {
+				t.Errorf("token = %q, want %q", endpoints.Token, tt.wantToken)
 			}
-			if introspect != tt.wantIntrospect {
-				t.Errorf("introspect = %q, want %q", introspect, tt.wantIntrospect)
+			if endpoints.Introspect != tt.wantIntrospect {
+				t.Errorf("introspect = %q, want %q", endpoints.Introspect, tt.wantIntrospect)
 			}
-			if revoke != tt.wantRevoke {
-				t.Errorf("revoke = %q, want %q", revoke, tt.wantRevoke)
+			if endpoints.Revoke != tt.wantRevoke {
+				t.Errorf("revoke = %q, want %q", endpoints.Revoke, tt.wantRevoke)
 			}
 		})
 	}
