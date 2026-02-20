@@ -24,16 +24,16 @@ func SortVersionsDesc(versions []api.Version) {
 	})
 }
 
-func BuildVersionOptions(versions []api.Version, max int) []DisplayVersion {
+func BuildVersionOptions(versions []api.Version, maxVersion int) []DisplayVersion {
 	if len(versions) == 0 {
 		return nil
 	}
-	if max <= 0 || max > len(versions) {
-		max = len(versions)
+	if maxVersion <= 0 || maxVersion > len(versions) {
+		maxVersion = len(versions)
 	}
 	latestID := versions[0].VersionID
-	out := make([]DisplayVersion, 0, max)
-	for _, v := range versions[:max] {
+	out := make([]DisplayVersion, 0, maxVersion)
+	for _, v := range versions[:maxVersion] {
 		label := v.VersionStr
 		switch {
 		case v.VersionID == latestID && !v.Stable:

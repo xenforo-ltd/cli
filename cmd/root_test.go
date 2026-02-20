@@ -176,7 +176,8 @@ func helperCommand(t *testing.T, expectedArgs, expectedWd string, exitCode int) 
 	expectedWd = canonicalPath(t, expectedWd)
 
 	return func(command string, args ...string) *exec.Cmd {
-		cs := []string{"-test.run=TestHelperProcess", "--", command}
+		cs := make([]string, 0, len(args)+3)
+		cs = append(cs, "-test.run=TestHelperProcess", "--", command)
 		cs = append(cs, args...)
 
 		cmd := exec.Command(os.Args[0], cs...)
