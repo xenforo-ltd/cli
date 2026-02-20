@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -555,9 +556,7 @@ func configureEnvironment(opts *InitOptions) error {
 	}
 
 	updates["XF_COOKIE_PREFIX"] = opts.InstanceName + "_"
-	for k, v := range opts.EnvResolved {
-		updates[k] = v
-	}
+	maps.Copy(updates, opts.EnvResolved)
 
 	if err := xf.WriteEnvFile(envPath, updates); err != nil {
 		return err
