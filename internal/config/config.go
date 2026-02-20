@@ -49,7 +49,7 @@ type OAuthSettings struct {
 
 // EnvironmentConfig holds all settings for a specific environment.
 type EnvironmentConfig struct {
-	OAuth OAuthSettings `json:"oauth,omitempty"`
+	OAuth OAuthSettings `json:"oauth"`
 }
 
 // Config holds the CLI configuration.
@@ -58,10 +58,10 @@ type Config struct {
 	Environment Environment `json:"environment"`
 
 	// Production holds production environment settings.
-	Production EnvironmentConfig `json:"production,omitempty"`
+	Production EnvironmentConfig `json:"production"`
 
 	// Development holds development environment settings.
-	Development EnvironmentConfig `json:"development,omitempty"`
+	Development EnvironmentConfig `json:"development"`
 
 	// CachePath overrides the default cache directory.
 	CachePath string `json:"cache_path,omitempty"`

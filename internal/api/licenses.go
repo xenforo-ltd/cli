@@ -54,7 +54,7 @@ type License struct {
 	IsValid        bool           `json:"is_valid"`
 	IsActive       bool           `json:"is_active"`
 	StartDate      UnixTime       `json:"start_date"`
-	ExpirationDate UnixTime       `json:"expiration_date,omitempty"`
+	ExpirationDate UnixTime       `json:"expiration_date"`
 	SiteURL        string         `json:"site_url,omitempty"`
 	SiteTitle      string         `json:"site_title,omitempty"`
 	CanDownload    bool           `json:"can_download"`
