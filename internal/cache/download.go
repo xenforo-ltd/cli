@@ -255,7 +255,7 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath, entryPath string
 func parseFilenameFromResponse(resp *http.Response, url string) string {
 	cd := resp.Header.Get("Content-Disposition")
 	if cd != "" {
-		for _, part := range strings.Split(cd, ";") {
+		for part := range strings.SplitSeq(cd, ";") {
 			part = strings.TrimSpace(part)
 			if strings.HasPrefix(part, "filename=") {
 				filename := strings.TrimPrefix(part, "filename=")

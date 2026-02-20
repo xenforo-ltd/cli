@@ -562,7 +562,7 @@ func (r *Runner) isServiceRunning(service string) (bool, error) {
 		return false, errors.Wrapf(errors.CodeDockerCommandFailed, err, "failed to check running status for service %s", service)
 	}
 
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
 		if strings.TrimSpace(line) == service {
 			return true, nil
 		}

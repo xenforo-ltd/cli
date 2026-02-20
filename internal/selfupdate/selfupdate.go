@@ -368,7 +368,7 @@ func parseChecksumForAsset(data []byte, assetName string) (string, bool) {
 	singleValueChecksum := ""
 	singleValueCount := 0
 
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue

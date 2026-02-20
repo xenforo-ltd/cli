@@ -69,7 +69,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		}
 
 		if result.Details != "" {
-			for _, line := range strings.Split(result.Details, "\n") {
+			for line := range strings.SplitSeq(result.Details, "\n") {
 				fmt.Printf("%s%s\n", ui.Indent2, ui.Dim.Render(line))
 			}
 		}
