@@ -246,7 +246,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to read update archive", err)
 		}
 
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+		if header.Typeflag != tar.TypeReg {
 			continue
 		}
 
