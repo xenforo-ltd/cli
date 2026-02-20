@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// PKCE code verifier length (43-128 characters allowed, we use 64)
+	// PKCE code verifier length (43-128 characters allowed, we use 64).
 	codeVerifierLength = 64
 )
 

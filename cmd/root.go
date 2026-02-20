@@ -73,7 +73,7 @@ func Execute() {
 	}
 }
 
-// isKnownCommand checks if a command is registered with Cobra
+// isKnownCommand checks if a command is registered with Cobra.
 func isKnownCommand(name string) bool {
 	if found, _, err := rootCmd.Find([]string{name}); err == nil && found != nil && found.Name() == name {
 		return true
@@ -92,7 +92,7 @@ func isKnownCommand(name string) bool {
 	return false
 }
 
-// runAsXenForoCommand attempts to run the arguments as a XenForo CLI command
+// runAsXenForoCommand attempts to run the arguments as a XenForo CLI command.
 func runAsXenForoCommand(args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {

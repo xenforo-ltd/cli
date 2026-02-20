@@ -145,7 +145,7 @@ func ParseVersionID(versionID int) *Version {
 	return v
 }
 
-// Returns: -1 if v < other, 0 if v == other, 1 if v > other
+// Returns: -1 if v < other, 0 if v == other, 1 if v > other.
 func (v *Version) Compare(other *Version) int {
 	if v.ID < other.ID {
 		return -1

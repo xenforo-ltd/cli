@@ -11,18 +11,18 @@ type Code string
 
 // Error codes for different error categories.
 const (
-	// General errors (1xx)
+	// General errors (1xx).
 	CodeUnknown        Code = "E100"
 	CodeInternal       Code = "E101"
 	CodeNotImplemented Code = "E102"
 
-	// Configuration errors (2xx)
+	// Configuration errors (2xx).
 	CodeConfigNotFound    Code = "E200"
 	CodeConfigInvalid     Code = "E201"
 	CodeConfigWriteFailed Code = "E202"
 	CodeConfigReadFailed  Code = "E203"
 
-	// Authentication errors (3xx)
+	// Authentication errors (3xx).
 	CodeAuthRequired        Code = "E300"
 	CodeAuthFailed          Code = "E301"
 	CodeAuthExpired         Code = "E302"
@@ -31,7 +31,7 @@ const (
 	CodeKeychainReadFailed  Code = "E311"
 	CodeKeychainWriteFailed Code = "E312"
 
-	// API errors (4xx)
+	// API errors (4xx).
 	CodeAPIRequestFailed   Code = "E400"
 	CodeAPIResponseInvalid Code = "E401"
 	CodeAPIUnauthorized    Code = "E402"
@@ -39,7 +39,7 @@ const (
 	CodeAPINotFound        Code = "E404"
 	CodeAPIRateLimited     Code = "E429"
 
-	// File/IO errors (5xx)
+	// File/IO errors (5xx).
 	CodeFileNotFound     Code = "E500"
 	CodeFileReadFailed   Code = "E501"
 	CodeFileWriteFailed  Code = "E502"
@@ -48,25 +48,25 @@ const (
 	CodeDownloadFailed   Code = "E510"
 	CodeChecksumMismatch Code = "E511"
 
-	// Docker errors (6xx)
+	// Docker errors (6xx).
 	CodeDockerNotRunning        Code = "E600"
 	CodeDockerCommandFailed     Code = "E601"
 	CodeDockerEnvNotInitialized Code = "E602"
 
-	// Git/Repo errors (65x)
+	// Git/Repo errors (65x).
 	CodeGitNotFound      Code = "E650"
 	CodeGitCommandFailed Code = "E651"
 
-	// Validation errors (7xx)
+	// Validation errors (7xx).
 	CodeValidationFailed Code = "E700"
 	CodeInvalidInput     Code = "E701"
 	CodeVersionInvalid   Code = "E702"
 
-	// Network errors (8xx)
+	// Network errors (8xx).
 	CodeNetworkFailed  Code = "E800"
 	CodeNetworkTimeout Code = "E801"
 
-	// Update errors (9xx)
+	// Update errors (9xx).
 	CodeUpdateFailed     Code = "E900"
 	CodeUpdateNotAllowed Code = "E901"
 )

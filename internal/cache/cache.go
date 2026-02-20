@@ -109,7 +109,7 @@ func sanitizePathComponent(s string) (string, error) {
 	return s, nil
 }
 
-// Layout: cache/{license_key}/{download_id}/{version}/
+// Layout: cache/{license_key}/{download_id}/{version}/.
 func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (string, error) {
 	safeLicense, err := sanitizePathComponent(licenseKey)
 	if err != nil {
