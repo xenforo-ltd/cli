@@ -257,8 +257,8 @@ func parseFilenameFromResponse(resp *http.Response, url string) string {
 	if cd != "" {
 		for part := range strings.SplitSeq(cd, ";") {
 			part = strings.TrimSpace(part)
-			if strings.HasPrefix(part, "filename=") {
-				filename := strings.TrimPrefix(part, "filename=")
+			if after, ok := strings.CutPrefix(part, "filename="); ok {
+				filename := after
 				filename = strings.Trim(filename, "\"")
 				if filename != "" {
 					if safe := sanitizeFilename(filename); safe != "" {
