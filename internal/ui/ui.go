@@ -233,7 +233,7 @@ func PrintKeyValuePaddedWithIndent(pairs []KVPair, indent string) {
 func List(items []string) string {
 	var sb strings.Builder
 	for _, item := range items {
-		sb.WriteString(fmt.Sprintf("  %s %s\n", Dim.Render(SymbolBullet), item))
+		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(SymbolBullet), item)
 	}
 	return strings.TrimSuffix(sb.String(), "\n")
 }
@@ -242,7 +242,7 @@ func List(items []string) string {
 func NumberedList(items []string) string {
 	var sb strings.Builder
 	for i, item := range items {
-		sb.WriteString(fmt.Sprintf("  %s %s\n", Dim.Render(fmt.Sprintf("%d.", i+1)), item))
+		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(fmt.Sprintf("%d.", i+1)), item)
 	}
 	return strings.TrimSuffix(sb.String(), "\n")
 }
