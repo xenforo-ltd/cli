@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -83,10 +84,8 @@ func isKnownCommand(name string) bool {
 		if cmd.Name() == name {
 			return true
 		}
-		for _, alias := range cmd.Aliases {
-			if alias == name {
-				return true
-			}
+		if slices.Contains(cmd.Aliases, name) {
+			return true
 		}
 	}
 	return false
