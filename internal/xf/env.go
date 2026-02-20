@@ -172,10 +172,10 @@ func updateEnvFile(path string, values map[string]string) error {
 
 		key := strings.TrimSpace(before)
 		if newValue, ok := values[key]; ok {
-			leadingSpace := ""
+			var leadingSpace strings.Builder
 			for _, c := range line {
 				if c == ' ' || c == '\t' {
-					leadingSpace += string(c)
+					leadingSpace.WriteRune(c)
 				} else {
 					break
 				}
@@ -185,7 +185,7 @@ func updateEnvFile(path string, values map[string]string) error {
 				newValue = fmt.Sprintf("\"%s\"", newValue)
 			}
 
-			lines[i] = fmt.Sprintf("%s%s=%s", leadingSpace, key, newValue)
+			lines[i] = fmt.Sprintf("%s%s=%s", leadingSpace.String(), key, newValue)
 			updated[key] = true
 		}
 	}
