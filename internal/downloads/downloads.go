@@ -210,15 +210,15 @@ func newestAtOrBefore(versions []api.Version, t time.Time) *api.Version {
 	var picked *api.Version
 	for i := range versions {
 		v := &versions[i]
-		if v.ReleaseDate.Time.IsZero() || v.ReleaseDate.Time.After(t) {
+		if v.ReleaseDate.IsZero() || v.ReleaseDate.After(t) {
 			continue
 		}
 		if picked == nil {
 			picked = v
 			continue
 		}
-		if v.ReleaseDate.Time.After(picked.ReleaseDate.Time) ||
-			(v.ReleaseDate.Time.Equal(picked.ReleaseDate.Time) && v.VersionID > picked.VersionID) {
+		if v.ReleaseDate.After(picked.ReleaseDate.Time) ||
+			(v.ReleaseDate.Equal(picked.ReleaseDate.Time) && v.VersionID > picked.VersionID) {
 			picked = v
 		}
 	}

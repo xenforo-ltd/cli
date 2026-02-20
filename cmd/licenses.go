@@ -90,10 +90,10 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 			}
 
 			if !lic.StartDate.IsZero() {
-				jl.StartDate = lic.StartDate.Time.Format(time.RFC3339)
+				jl.StartDate = lic.StartDate.Format(time.RFC3339)
 			}
 			if !lic.ExpirationDate.IsZero() {
-				jl.ExpirationDate = lic.ExpirationDate.Time.Format(time.RFC3339)
+				jl.ExpirationDate = lic.ExpirationDate.Format(time.RFC3339)
 			}
 
 			if len(lic.Extras) > 0 {
@@ -150,10 +150,10 @@ func runLicensesTable(licenses []api.License) error {
 
 		var expires string
 		if !lic.ExpirationDate.IsZero() {
-			if lic.ExpirationDate.Time.After(time.Now()) {
-				expires = lic.ExpirationDate.Time.Format("2006-01-02")
+			if lic.ExpirationDate.After(time.Now()) {
+				expires = lic.ExpirationDate.Format("2006-01-02")
 			} else {
-				expires = ui.Warning.Render(lic.ExpirationDate.Time.Format("2006-01-02"))
+				expires = ui.Warning.Render(lic.ExpirationDate.Format("2006-01-02"))
 			}
 		} else {
 			expires = ui.Success.Render("Lifetime")
@@ -221,14 +221,14 @@ func runLicensesVerbose(licenses []api.License) error {
 		}
 
 		if !lic.StartDate.IsZero() {
-			pairs = append(pairs, ui.KV("Purchased", lic.StartDate.Time.Format("2006-01-02")))
+			pairs = append(pairs, ui.KV("Purchased", lic.StartDate.Format("2006-01-02")))
 		}
 
 		if !lic.ExpirationDate.IsZero() {
-			if lic.ExpirationDate.Time.After(time.Now()) {
-				pairs = append(pairs, ui.KV("Expires", lic.ExpirationDate.Time.Format("2006-01-02")))
+			if lic.ExpirationDate.After(time.Now()) {
+				pairs = append(pairs, ui.KV("Expires", lic.ExpirationDate.Format("2006-01-02")))
 			} else {
-				pairs = append(pairs, ui.KV("Expired", ui.Warning.Render(lic.ExpirationDate.Time.Format("2006-01-02"))))
+				pairs = append(pairs, ui.KV("Expired", ui.Warning.Render(lic.ExpirationDate.Format("2006-01-02"))))
 			}
 		} else {
 			pairs = append(pairs, ui.KV("Expires", ui.Success.Render("Never (Lifetime)")))
