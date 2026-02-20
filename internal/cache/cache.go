@@ -20,19 +20,19 @@ type Manager struct {
 }
 
 type EntryMetadata struct {
-	DownloadID string `json:"download_id"`
-	Version string `json:"version"`
-	Filename string `json:"filename"`
-	Checksum string `json:"checksum"`
-	Size int64 `json:"size"`
+	DownloadID   string    `json:"download_id"`
+	Version      string    `json:"version"`
+	Filename     string    `json:"filename"`
+	Checksum     string    `json:"checksum"`
+	Size         int64     `json:"size"`
 	DownloadedAt time.Time `json:"downloaded_at"`
-	SourceURL string `json:"source_url,omitempty"`
+	SourceURL    string    `json:"source_url,omitempty"`
 }
 
 type Entry struct {
-	LicenseKey string
-	Metadata EntryMetadata
-	FilePath string
+	LicenseKey   string
+	Metadata     EntryMetadata
+	FilePath     string
 	MetadataPath string
 }
 
