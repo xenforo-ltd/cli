@@ -549,10 +549,7 @@ func isNewerVersion(latest, current string) bool {
 
 	// Pad the shorter slice with zeros for proper comparison.
 	// This ensures 1.0 == 1.0.0 and 1.0.1 > 1.0
-	maxLen := len(latestParts)
-	if len(currentParts) > maxLen {
-		maxLen = len(currentParts)
-	}
+	maxLen := max(len(currentParts), len(latestParts))
 
 	for i := range maxLen {
 		var l, c int
