@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,47 +15,24 @@ import (
 	"xf/internal/errors"
 )
 
-// Manager handles download cache operations.
 type Manager struct {
 	basePath string
 }
 
-// EntryMetadata holds metadata about a cached download.
 type EntryMetadata struct {
-	// DownloadID is the identifier for the download (e.g., "xenforo", "xfmg").
 	DownloadID string `json:"download_id"`
-
-	// Version is the version string (e.g., "2.3.0").
 	Version string `json:"version"`
-
-	// Filename is the original filename of the download.
 	Filename string `json:"filename"`
-
-	// Checksum is the SHA-256 checksum of the file.
 	Checksum string `json:"checksum"`
-
-	// Size is the file size in bytes.
 	Size int64 `json:"size"`
-
-	// DownloadedAt is when the file was downloaded.
 	DownloadedAt time.Time `json:"downloaded_at"`
-
-	// SourceURL is the URL the file was downloaded from.
 	SourceURL string `json:"source_url,omitempty"`
 }
 
-// Entry represents a cached file with its metadata.
 type Entry struct {
-	// LicenseKey is the license this download is associated with.
 	LicenseKey string
-
-	// Metadata contains the download metadata.
 	Metadata EntryMetadata
-
-	// FilePath is the full path to the cached file.
 	FilePath string
-
-	// MetadataPath is the full path to the metadata file.
 	MetadataPath string
 }
 
@@ -84,8 +62,6 @@ func (m *Manager) BasePath() string {
 	return m.basePath
 }
 
-// sanitizePathComponent ensures a path component is safe for filesystem use.
-// It only allows [A-Za-z0-9._-] and rejects path separators or "..".
 func sanitizePathComponent(s string) (string, error) {
 	if s == "" {
 		return "", errors.New(errors.CodeValidationFailed, "path component cannot be empty")
@@ -109,7 +85,6 @@ func sanitizePathComponent(s string) (string, error) {
 	return s, nil
 }
 
-// Layout: cache/{license_key}/{download_id}/{version}/.
 func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (string, error) {
 	safeLicense, err := sanitizePathComponent(licenseKey)
 	if err != nil {
@@ -134,10 +109,8 @@ func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (stri
 	), nil
 }
 
-// MetadataFilename is the name of the metadata file in each cache entry directory.
 const MetadataFilename = ".metadata.json"
 
-// Returns nil, nil if the entry doesn't exist.
 func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entry, error) {
 	entryPath, err := m.EntryPath(licenseKey, downloadID, version)
 	if err != nil {
@@ -247,14 +220,17 @@ func (m *Manager) List() ([]*Entry, error) {
 		return entries, nil
 	}
 
-	err := filepath.Walk(m.basePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(m.basePath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 
-		if info.Name() == MetadataFilename {
+		if d.Name() == MetadataFilename {
 			entry, err := m.loadEntryFromMetadata(path)
-			if err == nil && entry != nil {
+			if err != nil {
+				return err
+			}
+			if entry != nil {
 				entries = append(entries, entry)
 			}
 		}
@@ -281,14 +257,17 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 		return entries, nil
 	}
 
-	err = filepath.Walk(licensePath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.WalkDir(licensePath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 
-		if info.Name() == MetadataFilename {
+		if d.Name() == MetadataFilename {
 			entry, err := m.loadEntryFromMetadata(path)
-			if err == nil && entry != nil {
+			if err != nil {
+				return err
+			}
+			if entry != nil {
 				entries = append(entries, entry)
 			}
 		}
@@ -340,6 +319,11 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 		return nil, err
 	}
 
+	safeFilename := sanitizeFilename(metadata.Filename)
+	if safeFilename == "" {
+		return nil, errors.Newf(errors.CodeValidationFailed, "invalid cached filename: %s", metadata.Filename)
+	}
+
 	_, err = filepath.Rel(m.basePath, metadataPath)
 	if err != nil {
 		return nil, err
@@ -350,7 +334,6 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	for {
 		parent := filepath.Dir(dir)
 		if parent == m.basePath {
-			// dir is the license_key directory
 			licenseKey = filepath.Base(dir)
 			break
 		}
@@ -361,7 +344,7 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	}
 
 	entryDir := filepath.Dir(metadataPath)
-	filePath := filepath.Join(entryDir, metadata.Filename)
+	filePath := filepath.Join(entryDir, safeFilename)
 
 	return &Entry{
 		LicenseKey:   licenseKey,
