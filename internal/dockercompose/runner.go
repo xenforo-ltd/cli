@@ -631,7 +631,7 @@ func isNotRunningExecError(err error, stderr string) bool {
 // parseEnvValue extracts a value from .env file content.
 func parseEnvValue(content, key string) string {
 	prefix := key + "="
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimRight(line, "\r")
 		if !strings.HasPrefix(line, prefix) {
 			continue

@@ -130,15 +130,14 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				return err
 			}
 
-			installArgs := []string{
-				"xf:install",
-				"--no-interaction",
-				"--clear",
-				"--user=" + opts.AdminUser,
-				"--email=" + opts.AdminEmail,
-				"--title=" + opts.SiteTitle,
-				"--url=" + siteURL,
-			}
+			installArgs := make([]string, 0, 8)
+			installArgs = append(installArgs, "xf:install")
+			installArgs = append(installArgs, "--no-interaction")
+			installArgs = append(installArgs, "--clear")
+			installArgs = append(installArgs, "--user="+opts.AdminUser)
+			installArgs = append(installArgs, "--email="+opts.AdminEmail)
+			installArgs = append(installArgs, "--title="+opts.SiteTitle)
+			installArgs = append(installArgs, "--url="+siteURL)
 
 			installEnv := map[string]string{
 				"XF_INSTALL_PASSWORD": opts.AdminPassword,

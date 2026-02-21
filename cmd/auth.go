@@ -146,7 +146,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	authURL := client.AuthorizationURL(pkce, redirectURI)
 
 	ui.PrintInfo("Opening browser for authentication...")
-	fmt.Printf("If the browser doesn't open, visit this URL:\n%s\n\n", ui.URL.Render(authURL))
+	ui.PrintInfo(fmt.Sprintf("If the browser doesn't open, visit this URL:\n%s\n\n", ui.URL.Render(authURL)))
 
 	if err := auth.OpenBrowser(authURL); err != nil {
 		ui.PrintWarning(fmt.Sprintf("Could not open browser automatically: %v", err))
