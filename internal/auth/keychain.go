@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/zalando/go-keyring"
@@ -57,7 +58,7 @@ func (k *Keychain) IsAvailable() bool {
 	// If we get ErrNotFound, the keychain is available
 	// If we get a different error, it's unavailable
 	_, err := keyring.Get(KeyringService, "__test_availability__")
-	if err == keyring.ErrNotFound {
+	if errors.Is(err, keyring.ErrNotFound) {
 		return true
 	}
 	// If no error, somehow this key exists (unlikely but fine)
@@ -87,7 +88,7 @@ func (k *Keychain) SaveToken(token *Token) error {
 func (k *Keychain) LoadToken() (*Token, error) {
 	data, err := keyring.Get(KeyringService, KeyringUser)
 	if err != nil {
-		if err == keyring.ErrNotFound {
+		if errors.Is(err, keyring.ErrNotFound) {
 			return nil, clierrors.New(clierrors.CodeAuthRequired, "not authenticated - run 'xf auth login'")
 		}
 		return nil, clierrors.Wrap(clierrors.CodeKeychainReadFailed, "failed to read token from keychain", err)
@@ -104,7 +105,7 @@ func (k *Keychain) LoadToken() (*Token, error) {
 func (k *Keychain) DeleteToken() error {
 	err := keyring.Delete(KeyringService, KeyringUser)
 	if err != nil {
-		if err == keyring.ErrNotFound {
+		if errors.Is(err, keyring.ErrNotFound) {
 			return nil
 		}
 		return clierrors.Wrap(clierrors.CodeKeychainWriteFailed, "failed to delete token from keychain", err)

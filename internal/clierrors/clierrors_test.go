@@ -48,7 +48,7 @@ func TestCLIError_Unwrap(t *testing.T) {
 		Cause:   cause,
 	}
 
-	if unwrapped := err.Unwrap(); unwrapped != cause {
+	if unwrapped := err.Unwrap(); !errors.Is(unwrapped, cause) {
 		t.Errorf("Unwrap() = %v, want %v", unwrapped, cause)
 	}
 }
@@ -99,7 +99,7 @@ func TestWrap(t *testing.T) {
 	if err.Code != CodeFileNotFound {
 		t.Errorf("Code = %v, want %v", err.Code, CodeFileNotFound)
 	}
-	if err.Cause != cause {
+	if !errors.Is(err.Cause, cause) {
 		t.Errorf("Cause = %v, want %v", err.Cause, cause)
 	}
 }
@@ -119,7 +119,7 @@ func TestWrapf(t *testing.T) {
 	if err.Message != "failed to connect to api.example.com" {
 		t.Errorf("Message = %q, want %q", err.Message, "failed to connect to api.example.com")
 	}
-	if err.Cause != cause {
+	if !errors.Is(err.Cause, cause) {
 		t.Errorf("Cause = %v, want %v", err.Cause, cause)
 	}
 }

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -322,7 +323,7 @@ func (cs *CallbackServer) RedirectURI() string {
 func (cs *CallbackServer) Start() {
 	go func() {
 		err := cs.server.Serve(cs.listener)
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			select {
 			case cs.serveErr <- err:
 			default:
