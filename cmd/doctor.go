@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"xf/internal/doctor"
-	"xf/internal/errors"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/doctor"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var doctorCmd = &cobra.Command{

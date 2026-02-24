@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"xf/internal/errors"
-	"xf/internal/stream"
-	"xf/internal/version"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/stream"
+	"github.com/xenforo-ltd/cli/internal/version"
 )
 
 const (
@@ -406,7 +406,7 @@ func (u *Updater) getLatestRelease(ctx context.Context) (*Release, error) {
 		return nil, errors.Wrap(errors.CodeUpdateFailed, "failed to create request", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "xf/"+version.Get().Version)
+	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
 	if err != nil {
@@ -438,7 +438,7 @@ func (u *Updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 	if err != nil {
 		return errors.Wrap(errors.CodeUpdateFailed, "failed to create download request", err)
 	}
-	req.Header.Set("User-Agent", "xf/"+version.Get().Version)
+	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
 	if err != nil {
@@ -473,7 +473,7 @@ func (u *Updater) verifyChecksum(ctx context.Context, filePath string, info *Upd
 	if err != nil {
 		return errors.Wrap(errors.CodeUpdateFailed, "failed to create checksum request", err)
 	}
-	req.Header.Set("User-Agent", "xf/"+version.Get().Version)
+	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
 	if err != nil {

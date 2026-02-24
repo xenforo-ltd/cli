@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"xf/internal/dockercompose"
-	clierrors "xf/internal/errors"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	clierrors "github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var execCmd = &cobra.Command{

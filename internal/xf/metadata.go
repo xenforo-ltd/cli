@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 const metadataFilename = ".xf.json"

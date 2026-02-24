@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"xf/internal/config"
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 type Manager struct {

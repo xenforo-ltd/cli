@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"xf/internal/auth"
-	"xf/internal/config"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 // CheckResult represents the result of a health check.

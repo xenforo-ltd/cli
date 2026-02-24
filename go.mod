@@ -1,4 +1,4 @@
-module xf
+module github.com/xenforo-ltd/cli
 
 go 1.24.2
 

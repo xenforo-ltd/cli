@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"xf/internal/api"
-	"xf/internal/cache"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/cache"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var downloadCmd = &cobra.Command{

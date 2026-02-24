@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"xf/internal/auth"
-	"xf/internal/config"
-	"xf/internal/errors"
-	"xf/internal/version"
+	"github.com/xenforo-ltd/cli/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/version"
 )
 
 // Client is an authenticated HTTP client for the XenForo Customer API.
@@ -54,7 +54,7 @@ func NewClient() (*Client, error) {
 
 func userAgent() string {
 	v := version.Get()
-	return fmt.Sprintf("xf/%s (%s/%s)", v.Version, v.OS, v.Arch)
+	return fmt.Sprintf("github.com/xenforo-ltd/cli/%s (%s/%s)", v.Version, v.OS, v.Arch)
 }
 
 func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {

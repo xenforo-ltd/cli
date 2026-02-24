@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"xf/internal/api"
-	"xf/internal/errors"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var licensesCmd = &cobra.Command{

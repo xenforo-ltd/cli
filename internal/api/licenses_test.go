@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"xf/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/auth"
 )
 
 func TestGetLicenseDownloadablesEncodesQuery(t *testing.T) {

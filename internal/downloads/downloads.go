@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"xf/internal/api"
-	"xf/internal/cache"
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/cache"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 type versionClient interface {

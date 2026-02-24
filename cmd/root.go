@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"xf/internal/config"
-	"xf/internal/dockercompose"
-	clierrors "xf/internal/errors"
-	"xf/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	clierrors "github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 var (

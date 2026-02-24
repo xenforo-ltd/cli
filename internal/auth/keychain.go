@@ -6,8 +6,8 @@ import (
 
 	"github.com/zalando/go-keyring"
 
-	"xf/internal/config"
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 const (

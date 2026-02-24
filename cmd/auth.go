@@ -8,10 +8,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"xf/internal/auth"
-	"xf/internal/config"
-	"xf/internal/errors"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var authCmd = &cobra.Command{

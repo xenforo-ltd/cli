@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"xf/internal/api"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 func TestParseInstallImportMessage(t *testing.T) {

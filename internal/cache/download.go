@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"xf/internal/errors"
-	"xf/internal/stream"
-	"xf/internal/version"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/stream"
+	"github.com/xenforo-ltd/cli/internal/version"
 )
 
 type DownloadOptions struct {
@@ -120,7 +120,7 @@ func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) 
 	}
 
 	v := version.Get()
-	req.Header.Set("User-Agent", fmt.Sprintf("xf/%s (%s/%s)", v.Version, v.OS, v.Arch))
+	req.Header.Set("User-Agent", fmt.Sprintf("github.com/xenforo-ltd/cli/%s (%s/%s)", v.Version, v.OS, v.Arch))
 
 	if authToken != "" {
 		req.Header.Set("Authorization", "Bearer "+authToken)

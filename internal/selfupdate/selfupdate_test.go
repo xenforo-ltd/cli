@@ -18,8 +18,8 @@ import (
 	"strings"
 	"testing"
 
-	clierrors "xf/internal/errors"
-	"xf/internal/version"
+	clierrors "github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/version"
 )
 
 func TestIsNewerVersion(t *testing.T) {

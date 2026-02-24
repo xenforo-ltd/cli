@@ -98,9 +98,9 @@ jobs:
           DATE="${{ steps.date.outputs.DATE }}"
 
           LDFLAGS="-s -w"
-          LDFLAGS="$LDFLAGS -X xf/internal/version.Version=$VERSION"
-          LDFLAGS="$LDFLAGS -X xf/internal/version.Commit=$COMMIT"
-          LDFLAGS="$LDFLAGS -X xf/internal/version.Date=$DATE"
+          LDFLAGS="$LDFLAGS -X github.com/xenforo-ltd/cli/internal/version.Version=$VERSION"
+          LDFLAGS="$LDFLAGS -X github.com/xenforo-ltd/cli/internal/version.Commit=$COMMIT"
+          LDFLAGS="$LDFLAGS -X github.com/xenforo-ltd/cli/internal/version.Date=$DATE"
 
           BINARY_NAME="xf"
           if [ "${{ matrix.os }}" = "windows" ]; then

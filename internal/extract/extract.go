@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 // Options configures the extraction behavior.

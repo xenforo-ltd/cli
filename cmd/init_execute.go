@@ -10,16 +10,16 @@ import (
 	"sync"
 	"time"
 
-	"xf/internal/api"
-	"xf/internal/cache"
-	"xf/internal/config"
-	"xf/internal/dockercompose"
-	"xf/internal/downloads"
-	"xf/internal/errors"
-	"xf/internal/extract"
-	"xf/internal/ui"
-	"xf/internal/xf"
-	"xf/internal/xfcmd"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/cache"
+	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/downloads"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/extract"
+	"github.com/xenforo-ltd/cli/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/xfcmd"
 )
 
 func executeInit(ctx context.Context, opts *InitOptions) error {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"xf/internal/api"
+	"github.com/xenforo-ltd/cli/internal/api"
 )
 
 func tv(id int, str string, stable bool, ts string) api.Version {

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"xf/internal/api"
+	"github.com/xenforo-ltd/cli/internal/api"
 )
 
 type DisplayVersion struct {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"xf/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 func TestChooseBoardURL(t *testing.T) {

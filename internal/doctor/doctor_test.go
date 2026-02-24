@@ -3,7 +3,7 @@ package doctor
 import (
 	"testing"
 
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 func TestCheckStatusStringAndSymbol(t *testing.T) {

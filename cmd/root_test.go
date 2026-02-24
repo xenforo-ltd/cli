@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	clierrors "xf/internal/errors"
-	"xf/internal/xf"
+	clierrors "github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 func TestFindXenForoDirFindsParent(t *testing.T) {

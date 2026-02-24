@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	clierrors "xf/internal/errors"
+	clierrors "github.com/xenforo-ltd/cli/internal/errors"
 )
 
 func TestDownloadAndUseCache(t *testing.T) {

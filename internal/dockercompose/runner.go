@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"xf/internal/errors"
-	"xf/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 // Runner handles Docker Compose operations for a XenForo installation.

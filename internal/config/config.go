@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 // Environment represents the target environment.

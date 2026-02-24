@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"xf/internal/api"
-	"xf/internal/cache"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/cache"
 )
 
 func v(id int, str string, ts string) api.Version {

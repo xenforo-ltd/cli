@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"xf/internal/selfupdate"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/selfupdate"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var (

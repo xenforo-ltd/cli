@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"xf/internal/dockercompose"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var rebootCmd = &cobra.Command{

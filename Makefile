@@ -4,9 +4,9 @@ BINARY := xf
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE := $(shell date -u +%Y-%m-%d)
-LDFLAGS := -ldflags "-X xf/internal/version.Version=$(VERSION) \
-	-X xf/internal/version.Commit=$(COMMIT) \
-	-X xf/internal/version.Date=$(DATE)"
+LDFLAGS := -ldflags "-X github.com/xenforo-ltd/cli/internal/version.Version=$(VERSION) \
+	-X github.com/xenforo-ltd/cli/internal/version.Commit=$(COMMIT) \
+	-X github.com/xenforo-ltd/cli/internal/version.Date=$(DATE)"
 
 all: fmt vet test build
 

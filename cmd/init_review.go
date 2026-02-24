@@ -8,11 +8,11 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"xf/internal/api"
-	"xf/internal/downloads"
-	"xf/internal/errors"
-	"xf/internal/initflow"
-	"xf/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/downloads"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/initflow"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 func chooseCoreVersionInteractively(opts *InitOptions) error {

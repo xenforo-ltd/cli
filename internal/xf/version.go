@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 // Version represents a XenForo version with both string and ID representations.

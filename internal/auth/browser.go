@@ -4,7 +4,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 func OpenBrowser(url string) error {

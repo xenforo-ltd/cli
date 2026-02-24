@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"xf/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 // EnvConfig represents the configuration values in a .env file.

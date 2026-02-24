@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"xf/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/auth"
 )
 
 type stubTokenStore struct {

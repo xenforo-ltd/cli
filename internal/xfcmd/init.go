@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"xf/internal/embed"
-	"xf/internal/errors"
-	"xf/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/embed"
+	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 // InitOptions contains options for initializing a Docker environment.

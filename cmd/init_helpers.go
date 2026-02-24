@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"xf/internal/api"
-	"xf/internal/initflow"
+	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/initflow"
 )
 
 func formatLicenseDetails(ctx context.Context, client *api.Client, key string) string {
