@@ -248,7 +248,12 @@ func TestCallbackServer(t *testing.T) {
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		http.Get(uri + "?code=test-code&state=test-state")
+		resp, err := http.Get(uri + "?code=test-code&state=test-state")
+		if err != nil {
+			t.Errorf("Failed to make HTTP request: %v", err)
+		}
+
+		defer resp.Body.Close()
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -267,7 +272,12 @@ func TestCallbackServer(t *testing.T) {
 	}
 
 	go func() {
-		http.Get(uri + "?code=second-code&state=test-state")
+		resp, err := http.Get(uri + "?code=second-code&state=test-state")
+		if err != nil {
+			t.Errorf("Failed to make HTTP request: %v", err)
+		}
+
+		defer resp.Body.Close()
 	}()
 
 	select {
