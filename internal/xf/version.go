@@ -34,7 +34,8 @@ func ParseVersionString(versionStr string) (*Version, error) {
 	v.PLLevel = 1
 
 	lowerStr := strings.ToLower(versionStr)
-	if strings.Contains(lowerStr, "alpha") {
+	switch {
+	case strings.Contains(lowerStr, "alpha"):
 		v.Stability = "alpha"
 		v.StabNum = 1
 		// Extract alpha number if present
@@ -42,21 +43,21 @@ func ParseVersionString(versionStr string) (*Version, error) {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 		versionStr = regexp.MustCompile(`(?i)\s*alpha\s*\d*`).ReplaceAllString(versionStr, "")
-	} else if strings.Contains(lowerStr, "beta") {
+	case strings.Contains(lowerStr, "beta"):
 		v.Stability = "beta"
 		v.StabNum = 3
 		if matches := regexp.MustCompile(`beta\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 		versionStr = regexp.MustCompile(`(?i)\s*beta\s*\d*`).ReplaceAllString(versionStr, "")
-	} else if strings.Contains(lowerStr, "rc") || strings.Contains(lowerStr, "release candidate") {
+	case strings.Contains(lowerStr, "rc") || strings.Contains(lowerStr, "release candidate"):
 		v.Stability = "rc"
 		v.StabNum = 5
 		if matches := regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 		versionStr = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`).ReplaceAllString(versionStr, "")
-	} else if strings.Contains(lowerStr, "pl") || strings.Contains(lowerStr, "patch level") {
+	case strings.Contains(lowerStr, "pl") || strings.Contains(lowerStr, "patch level"):
 		v.Stability = "pl"
 		v.StabNum = 9
 		if matches := regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {

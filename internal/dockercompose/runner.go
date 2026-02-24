@@ -469,7 +469,7 @@ func (r *Runner) IsEnvironmentInitialized() bool {
 }
 
 // RunCapture runs a docker compose command and captures output.
-func (r *Runner) RunCapture(args ...string) (stdout, stderr string, err error) {
+func (r *Runner) RunCapture(args ...string) (string, string, error) {
 	allArgs := r.buildComposeArgs()
 	allArgs = append(allArgs, args...)
 
@@ -481,14 +481,14 @@ func (r *Runner) RunCapture(args ...string) (stdout, stderr string, err error) {
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
-	err = cmd.Run()
-	stdout = stdoutBuf.String()
-	stderr = stderrBuf.String()
+	err := cmd.Run()
+	stdout := stdoutBuf.String()
+	stderr := stderrBuf.String()
 
 	if err != nil {
 		err = clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "docker command failed")
 	}
-	return
+	return stdout, stderr, err
 }
 
 func (r *Runner) getDatabaseCredentials() (string, string) {

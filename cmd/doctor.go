@@ -59,12 +59,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			statusStr = ui.StatusIcon("skipped")
 		}
 
-		if result.Message != "" && result.Status == doctor.StatusOK {
+		switch {
+		case result.Message != "" && result.Status == doctor.StatusOK:
 			fmt.Printf("%s %s (%s)\n", statusStr, ui.Bold.Render(result.Name), ui.Dim.Render(result.Message))
-		} else if result.Message != "" {
+		case result.Message != "":
 			fmt.Printf("%s %s\n", statusStr, ui.Bold.Render(result.Name))
 			fmt.Printf("%s%s\n", ui.Indent2, result.Message)
-		} else {
+		default:
 			fmt.Printf("%s %s\n", statusStr, ui.Bold.Render(result.Name))
 		}
 
@@ -80,12 +81,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	if doc.HasErrors() {
+	switch {
+	case doc.HasErrors():
 		ui.PrintError("Some checks failed")
 		return clierrors.New(clierrors.CodeInternal, "health check failed")
-	} else if doc.HasWarnings() {
+	case doc.HasWarnings():
 		ui.PrintWarning("Some checks have warnings")
-	} else {
+	default:
 		ui.PrintSuccess("All checks passed")
 	}
 

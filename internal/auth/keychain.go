@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/zalando/go-keyring"
-
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
+
+	"github.com/zalando/go-keyring"
 )
 
 const (

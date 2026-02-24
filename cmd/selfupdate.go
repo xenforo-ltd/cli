@@ -11,9 +11,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
-var (
-	selfUpdateCheckOnly bool
-)
+var selfUpdateCheckOnly bool
 
 var selfUpdateCmd = &cobra.Command{
 	Use:   "self-update",

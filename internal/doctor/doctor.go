@@ -151,15 +151,16 @@ func (d *Doctor) checkAuth() {
 		return
 	}
 
-	if token.IsExpired() {
+	switch {
+	case token.IsExpired():
 		result.Status = StatusWarning
 		result.Message = "Authentication token has expired"
 		result.Suggestion = "Run 'xf auth login' to re-authenticate"
-	} else if token.IsExpiringSoon(10 * time.Minute) {
+	case token.IsExpiringSoon(10 * time.Minute):
 		result.Status = StatusWarning
 		result.Message = fmt.Sprintf("Token expires in %s", token.TimeUntilExpiry().Round(time.Minute))
 		result.Suggestion = "Consider re-authenticating soon with 'xf auth login'"
-	} else {
+	default:
 		result.Status = StatusOK
 		result.Message = "Authenticated"
 		result.Details = fmt.Sprintf("Expires in %s", token.TimeUntilExpiry().Round(time.Hour))

@@ -33,9 +33,7 @@ Examples:
 	RunE: runLicenses,
 }
 
-var (
-	flagLicensesJSON bool
-)
+var flagLicensesJSON bool
 
 func init() {
 	licensesCmd.Flags().BoolVar(&flagLicensesJSON, "json", false, "output as JSON")
@@ -124,13 +122,15 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagVerbose {
-		return runLicensesVerbose(licenses)
+		runLicensesVerbose(licenses)
+		return nil
 	}
 
-	return runLicensesTable(licenses)
+	runLicensesTable(licenses)
+	return nil
 }
 
-func runLicensesTable(licenses []api.License) error {
+func runLicensesTable(licenses []api.License) {
 	fmt.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
 
 	headers := []string{"LICENSE", "SITE TITLE", "SITE URL", "PRODUCT", "STATUS", "EXPIRES", "DOWNLOAD"}
@@ -140,11 +140,12 @@ func runLicensesTable(licenses []api.License) error {
 		siteTitle, siteURL := formatLicenseSite(lic)
 
 		var status string
-		if !lic.IsValid {
+		switch {
+		case !lic.IsValid:
 			status = ui.Error.Render("Invalid")
-		} else if !lic.IsActive {
+		case !lic.IsActive:
 			status = ui.Warning.Render("Expired")
-		} else {
+		default:
 			status = ui.Success.Render("Active")
 		}
 
@@ -179,8 +180,6 @@ func runLicensesTable(licenses []api.License) error {
 
 	fmt.Println(ui.NewTable(headers, rows))
 	fmt.Printf("\nUse %s for detailed license information.\n", ui.Command.Render("-v"))
-
-	return nil
 }
 
 func formatLicenseSite(lic api.License) (string, string) {
@@ -197,16 +196,17 @@ func formatLicenseSite(lic api.License) (string, string) {
 	return siteTitle, siteURL
 }
 
-func runLicensesVerbose(licenses []api.License) error {
+func runLicensesVerbose(licenses []api.License) {
 	fmt.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
 
 	for i, lic := range licenses {
 		var statusText string
-		if !lic.IsValid {
+		switch {
+		case !lic.IsValid:
 			statusText = ui.Error.Render("Invalid")
-		} else if !lic.IsActive {
+		case !lic.IsActive:
 			statusText = ui.Warning.Render("Expired")
-		} else {
+		default:
 			statusText = ui.Success.Render("Active")
 		}
 
@@ -257,6 +257,4 @@ func runLicensesVerbose(licenses []api.License) error {
 			fmt.Println()
 		}
 	}
-
-	return nil
 }
