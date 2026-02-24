@@ -1,3 +1,4 @@
+// Package doctor provides health checks for CLI dependencies and configuration.
 package doctor
 
 import (
@@ -24,13 +25,17 @@ type CheckResult struct {
 	Suggestion string
 }
 
-// CheckStatus represents the status of a health check.
+// CheckStatus represents a health check status.
 type CheckStatus int
 
 const (
+	// StatusOK indicates a successful check.
 	StatusOK CheckStatus = iota
+	// StatusWarning indicates a non-critical issue.
 	StatusWarning
+	// StatusError indicates a critical issue.
 	StatusError
+	// StatusSkipped indicates the check was skipped.
 	StatusSkipped
 )
 
@@ -49,6 +54,7 @@ func (s CheckStatus) String() string {
 	}
 }
 
+// Symbol returns the symbol representation of the status.
 func (s CheckStatus) Symbol() string {
 	switch s {
 	case StatusOK:
@@ -64,16 +70,19 @@ func (s CheckStatus) Symbol() string {
 	}
 }
 
+// Doctor performs health checks on the system.
 type Doctor struct {
 	results []*CheckResult
 }
 
+// NewDoctor creates a new Doctor instance.
 func NewDoctor() *Doctor {
 	return &Doctor{
 		results: make([]*CheckResult, 0),
 	}
 }
 
+// RunAll runs all health checks.
 func (d *Doctor) RunAll(ctx context.Context) []*CheckResult {
 	d.results = make([]*CheckResult, 0)
 
@@ -88,10 +97,12 @@ func (d *Doctor) RunAll(ctx context.Context) []*CheckResult {
 	return d.results
 }
 
+// Results returns the check results.
 func (d *Doctor) Results() []*CheckResult {
 	return d.results
 }
 
+// HasErrors returns whether any checks failed.
 func (d *Doctor) HasErrors() bool {
 	for _, r := range d.results {
 		if r.Status == StatusError {
@@ -101,6 +112,7 @@ func (d *Doctor) HasErrors() bool {
 	return false
 }
 
+// HasWarnings returns whether any checks reported warnings.
 func (d *Doctor) HasWarnings() bool {
 	for _, r := range d.results {
 		if r.Status == StatusWarning {

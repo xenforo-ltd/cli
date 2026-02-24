@@ -1,3 +1,4 @@
+// Package embed contains embedded Docker files and extraction utilities.
 package embed
 
 import (
@@ -16,6 +17,7 @@ import (
 //go:embed docker/*
 var dockerFS embed.FS
 
+// DockerDir is the directory containing embedded Docker configuration files.
 const DockerDir = "docker"
 
 // ExtractDockerFiles extracts all embedded Docker files to the target directory.
@@ -25,7 +27,7 @@ func ExtractDockerFiles(targetDir string) error {
 	return extractDir(DockerDir, targetDir, "", true)
 }
 
-// ExtractDockerFilesWithOptions extracts Docker files with custom options.
+// ExtractOptions specifies options for extracting Docker files.
 type ExtractOptions struct {
 	OverwriteBaseFiles bool
 	Contexts           []string

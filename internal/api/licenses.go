@@ -13,6 +13,7 @@ type UnixTime struct {
 	time.Time
 }
 
+// UnmarshalJSON unmarshals a Unix timestamp or RFC3339 string into a UnixTime.
 func (t *UnixTime) UnmarshalJSON(data []byte) error {
 	var timestamp int64
 	if err := json.Unmarshal(data, &timestamp); err != nil {
@@ -66,6 +67,7 @@ type LicensesResponse struct {
 	Licenses []License `json:"licenses"`
 }
 
+// GetLicenses retrieves all licenses for the authenticated user.
 func (c *Client) GetLicenses(ctx context.Context) ([]License, error) {
 	var result LicensesResponse
 	if err := c.GetJSON(ctx, "/api/customer-oauth2/licenses", &result); err != nil {
@@ -101,6 +103,7 @@ type LicenseVersions struct {
 	Versions   []Version `json:"versions"`
 }
 
+// GetLicenseDownloadables retrieves the downloadable products for a license.
 func (c *Client) GetLicenseDownloadables(ctx context.Context, licenseKey string) (*LicenseDownloadables, error) {
 	params := url.Values{}
 	params.Set("license_key", licenseKey)
@@ -113,6 +116,7 @@ func (c *Client) GetLicenseDownloadables(ctx context.Context, licenseKey string)
 	return &result, nil
 }
 
+// GetLicenseVersions retrieves the available versions for a product.
 func (c *Client) GetLicenseVersions(ctx context.Context, licenseKey string, downloadID string) (*LicenseVersions, error) {
 	params := url.Values{}
 	params.Set("license_key", licenseKey)
@@ -136,10 +140,12 @@ type DownloadInfo struct {
 	DownloadURL   string `json:"download_url"`
 }
 
+// DownloadInfoResponse is the API response for download information.
 type DownloadInfoResponse struct {
 	Download DownloadInfo `json:"download"`
 }
 
+// GetDownloadInfo retrieves download information for a specific version.
 func (c *Client) GetDownloadInfo(ctx context.Context, licenseKey string, downloadID string, versionID int) (*DownloadInfo, error) {
 	params := url.Values{}
 	params.Set("license_key", licenseKey)
@@ -154,6 +160,7 @@ func (c *Client) GetDownloadInfo(ctx context.Context, licenseKey string, downloa
 	return &result.Download, nil
 }
 
+// GetDownloadURL returns the URL to download a specific version.
 func (c *Client) GetDownloadURL(licenseKey string, downloadID string, versionID int) string {
 	params := url.Values{}
 	params.Set("license_key", licenseKey)
@@ -162,6 +169,7 @@ func (c *Client) GetDownloadURL(licenseKey string, downloadID string, versionID 
 	return c.baseURL + "/api/customer-oauth2/license-download?" + params.Encode()
 }
 
+// GetAccessToken retrieves the current access token.
 func (c *Client) GetAccessToken() (string, error) {
 	token, err := c.keychain.LoadToken()
 	if err != nil {

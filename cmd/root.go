@@ -53,6 +53,7 @@ Run XenForo commands directly (from a XenForo directory):
 	SilenceErrors: true,
 }
 
+// Execute runs the CLI application.
 func Execute() {
 	if len(os.Args) > 1 {
 		firstArg := os.Args[1]

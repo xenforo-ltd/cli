@@ -1,3 +1,4 @@
+// Package selfupdate provides CLI self-update functionality using GitHub releases.
 package selfupdate
 
 import (
@@ -82,6 +83,7 @@ type Updater struct {
 	HTTPClient  *http.Client
 }
 
+// NewUpdater creates a new updater with default GitHub repository settings.
 func NewUpdater() *Updater {
 	return &Updater{
 		GitHubOwner: DefaultGitHubOwner,
@@ -92,6 +94,7 @@ func NewUpdater() *Updater {
 	}
 }
 
+// CheckForUpdate checks if an update is available on GitHub.
 func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 	release, err := u.getLatestRelease(ctx)
 	if err != nil {
@@ -132,6 +135,7 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 	return info, nil
 }
 
+// Update downloads and applies the new version.
 func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(downloaded, total int64)) error {
 	if !info.HasUpdate {
 		return clierrors.New(clierrors.CodeUpdateFailed, "no update available")

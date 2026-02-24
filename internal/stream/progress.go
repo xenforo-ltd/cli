@@ -1,7 +1,9 @@
+// Package stream provides utilities for tracking download and streaming progress.
 package stream
 
 import "io"
 
+// ProgressReader tracks read progress from a source reader.
 type ProgressReader struct {
 	Reader     io.Reader
 	Total      int64

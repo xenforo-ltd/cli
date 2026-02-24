@@ -12,6 +12,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
+// ErrGetCurrentDirectory is returned when the current directory cannot be determined.
 var (
 	ErrGetCurrentDirectory = errors.New("failed to get current directory")
 )

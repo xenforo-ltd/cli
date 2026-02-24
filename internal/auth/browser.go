@@ -1,3 +1,4 @@
+// Package auth handles authentication and OAuth flows.
 package auth
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
+// OpenBrowser opens a URL in the user's default browser.
 func OpenBrowser(url string) error {
 	var cmd *exec.Cmd
 

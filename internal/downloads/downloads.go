@@ -1,3 +1,4 @@
+// Package downloads handles product and add-on download selection and retrieval.
 package downloads
 
 import (
@@ -234,6 +235,7 @@ func normalizeVersion(s string) string {
 	return s
 }
 
+// DownloadSelection downloads a product based on the selection.
 func DownloadSelection(ctx context.Context, client *api.Client, cacheManager *cache.Manager, licenseKey string, selection Selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
 	return downloadSelection(ctx, client, cacheManager, licenseKey, selection, skipCache, progress)
 }

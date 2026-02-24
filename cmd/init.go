@@ -23,6 +23,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xfcmd"
 )
 
+// ErrUsernameTooShort is returned when username validation fails.
 var (
 	ErrUsernameTooShort   = errors.New("username must be at least 3 characters")
 	ErrPasswordRequired   = errors.New("password is required")
@@ -82,6 +83,7 @@ You can override either value via --env-file/--env.`,
 	RunE: runInit,
 }
 
+// InitOptions contains options for initialization.
 type InitOptions struct {
 	TargetPath       string
 	LicenseKey       string

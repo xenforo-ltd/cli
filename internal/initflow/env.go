@@ -1,3 +1,4 @@
+// Package initflow provides interactive workflow builders for setup tasks.
 package initflow
 
 import (
@@ -9,6 +10,7 @@ import (
 	"strings"
 )
 
+// ErrInvalidEnvFormat is returned when an environment entry is malformed.
 var (
 	envKeyPattern         = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 	ErrInvalidEnvFormat   = errors.New("expected KEY=VALUE")
@@ -16,6 +18,7 @@ var (
 	ErrNewlinesNotAllowed = errors.New("newlines are not allowed")
 )
 
+// ParseEnvFile parses environment variables from a file.
 func ParseEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -49,6 +52,7 @@ func ParseEnvFile(path string) (map[string]string, error) {
 	return values, nil
 }
 
+// ParseEnvFlags parses environment variables from command-line arguments.
 func ParseEnvFlags(entries []string) (map[string]string, error) {
 	values := map[string]string{}
 	for _, entry := range entries {
@@ -66,6 +70,7 @@ func ParseEnvFlags(entries []string) (map[string]string, error) {
 	return values, nil
 }
 
+// ValidateEnvKey checks if an environment variable key is valid.
 func ValidateEnvKey(key string) error {
 	if !envKeyPattern.MatchString(key) {
 		return fmt.Errorf("invalid key %q: %w", key, ErrInvalidEnvKey)
@@ -73,6 +78,7 @@ func ValidateEnvKey(key string) error {
 	return nil
 }
 
+// MergeEnvMaps merges multiple environment maps with priority order.
 func MergeEnvMaps(base, fromFile, fromFlags map[string]string) (map[string]string, map[string]string) {
 	merged := map[string]string{}
 	sources := map[string]string{}

@@ -1,3 +1,4 @@
+// Package dockercompose provides Docker Compose CLI operations for XenForo.
 package dockercompose
 
 import (
@@ -84,7 +85,6 @@ func (r *Runner) Contexts() []string {
 	return r.contexts
 }
 
-// buildComposeArgs builds the docker compose command arguments.
 // Up starts the Docker containers.
 func (r *Runner) Up(detach bool) error {
 	args := r.buildComposeArgs()
@@ -239,6 +239,7 @@ func (r *Runner) ExecOrRunWithEnv(service string, rm bool, env map[string]string
 	return r.RunWithEnv(service, rm, env, cmd...)
 }
 
+// ExecOrRunWithEnvAndOutput runs a docker-compose exec or run command with output.
 func (r *Runner) ExecOrRunWithEnvAndOutput(service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
 	running, err := r.isServiceRunning(service)
 	if err != nil {
@@ -268,6 +269,7 @@ func (r *Runner) ExecOrRunWithEnvAndOutput(service string, rm bool, env map[stri
 	return r.RunWithEnvAndOutput(service, rm, env, stdout, stderr, cmd...)
 }
 
+// RunWithEnvAndOutput runs a docker-compose run command with custom output.
 func (r *Runner) RunWithEnvAndOutput(service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "run")
@@ -559,6 +561,7 @@ func (r *Runner) buildDockerCommand(extraArgs ...string) *exec.Cmd {
 	return cmd
 }
 
+// buildComposeArgs builds the docker compose command arguments.
 func (r *Runner) buildComposeArgs() []string {
 	args := []string{"compose", "--project-name", r.instance}
 

@@ -108,6 +108,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// PrintUpdateAvailable prints an update notification.
 func PrintUpdateAvailable(info *selfupdate.UpdateInfo) {
 	if info == nil || !info.HasUpdate {
 		return

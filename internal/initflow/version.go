@@ -8,11 +8,13 @@ import (
 	"github.com/xenforo-ltd/cli/internal/api"
 )
 
+// DisplayVersion represents a version option for display.
 type DisplayVersion struct {
 	Value int
 	Label string
 }
 
+// SortVersionsDesc sorts versions by release date in descending order.
 func SortVersionsDesc(versions []api.Version) {
 	sort.Slice(versions, func(i, j int) bool {
 		ti := versions[i].ReleaseDate.Time
@@ -24,6 +26,7 @@ func SortVersionsDesc(versions []api.Version) {
 	})
 }
 
+// BuildVersionOptions builds display options for a version selection.
 func BuildVersionOptions(versions []api.Version, maxVersion int) []DisplayVersion {
 	if len(versions) == 0 {
 		return nil
@@ -51,6 +54,7 @@ func BuildVersionOptions(versions []api.Version, maxVersion int) []DisplayVersio
 	return out
 }
 
+// ResolveVersionInput resolves a version input string to a full version.
 func ResolveVersionInput(input string, versions []api.Version) (api.Version, bool) {
 	input = strings.TrimSpace(strings.ToLower(input))
 	input = strings.TrimPrefix(input, "v")

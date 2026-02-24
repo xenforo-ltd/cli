@@ -36,11 +36,12 @@ type Metadata struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// MetadataPath returns the path to the metadata file.
 func MetadataPath(xfDir string) string {
 	return filepath.Join(xfDir, metadataFilename)
 }
 
-// Returns nil (not an error) if the file doesn't exist.
+// ReadMetadata reads the metadata file. Returns nil (not an error) if the file doesn't exist.
 func ReadMetadata(xfDir string) (*Metadata, error) {
 	metaPath := MetadataPath(xfDir)
 
@@ -60,6 +61,7 @@ func ReadMetadata(xfDir string) (*Metadata, error) {
 	return &meta, nil
 }
 
+// WriteMetadata writes metadata to the metadata file.
 func WriteMetadata(xfDir string, meta *Metadata) error {
 	metaPath := MetadataPath(xfDir)
 
@@ -80,6 +82,7 @@ func WriteMetadata(xfDir string, meta *Metadata) error {
 	return nil
 }
 
+// UpdateMetadataVersion updates the version information in the metadata.
 func UpdateMetadataVersion(xfDir string, version *Version) error {
 	meta, err := ReadMetadata(xfDir)
 	if err != nil {

@@ -1,3 +1,4 @@
+// Package config manages CLI configuration and settings.
 package config
 
 import (
@@ -80,6 +81,7 @@ var (
 	flags GlobalFlags
 )
 
+// DefaultConfigDir returns the default configuration directory path.
 func DefaultConfigDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -88,6 +90,7 @@ func DefaultConfigDir() (string, error) {
 	return filepath.Join(homeDir, ".config", "xf"), nil
 }
 
+// DefaultCacheDir returns the default cache directory path.
 func DefaultCacheDir() (string, error) {
 	configDir, err := DefaultConfigDir()
 	if err != nil {
@@ -96,6 +99,7 @@ func DefaultCacheDir() (string, error) {
 	return filepath.Join(configDir, "cache"), nil
 }
 
+// ConfigFilePath returns the path to the configuration file.
 func ConfigFilePath() (string, error) {
 	configDir, err := DefaultConfigDir()
 	if err != nil {
@@ -104,12 +108,14 @@ func ConfigFilePath() (string, error) {
 	return filepath.Join(configDir, "config.json"), nil
 }
 
+// Default returns a default configuration.
 func Default() *Config {
 	return &Config{
 		Environment: EnvProduction,
 	}
 }
 
+// Load loads the configuration from disk or returns default if not found.
 func Load() (*Config, error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -141,6 +147,7 @@ func Load() (*Config, error) {
 	return current, nil
 }
 
+// Save persists the configuration to disk.
 func Save(cfg *Config) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -168,18 +175,21 @@ func Save(cfg *Config) error {
 	return nil
 }
 
+// SetFlags sets global command-line flags.
 func SetFlags(f GlobalFlags) {
 	mu.Lock()
 	defer mu.Unlock()
 	flags = f
 }
 
+// GetFlags returns the current global command-line flags.
 func GetFlags() GlobalFlags {
 	mu.RLock()
 	defer mu.RUnlock()
 	return flags
 }
 
+// GetEffectiveEnvironment returns the effective environment from configuration.
 func GetEffectiveEnvironment() Environment {
 	cfg, err := Load()
 	if err != nil {
@@ -188,6 +198,7 @@ func GetEffectiveEnvironment() Environment {
 	return cfg.Environment
 }
 
+// GetEnvironmentConfig returns configuration for a specific environment.
 func GetEnvironmentConfig(env Environment) *EnvironmentConfig {
 	cfg, err := Load()
 	if err != nil {
@@ -202,10 +213,12 @@ func GetEnvironmentConfig(env Environment) *EnvironmentConfig {
 	}
 }
 
+// GetEffectiveEnvironmentConfig returns the effective environment configuration.
 func GetEffectiveEnvironmentConfig() *EnvironmentConfig {
 	return GetEnvironmentConfig(GetEffectiveEnvironment())
 }
 
+// GetEffectiveBaseURL returns the configured base URL for the current environment.
 func GetEffectiveBaseURL() string {
 	env := GetEffectiveEnvironment()
 	envConfig := GetEnvironmentConfig(env)
@@ -222,6 +235,7 @@ func GetEffectiveBaseURL() string {
 	}
 }
 
+// GetEffectiveClientID returns the OAuth client ID for the current environment.
 func GetEffectiveClientID() string {
 	env := GetEffectiveEnvironment()
 	envConfig := GetEnvironmentConfig(env)
@@ -238,6 +252,7 @@ func GetEffectiveClientID() string {
 	}
 }
 
+// GetEffectiveScopes returns the OAuth scopes for the current environment.
 func GetEffectiveScopes() []string {
 	envConfig := GetEffectiveEnvironmentConfig()
 
@@ -248,6 +263,7 @@ func GetEffectiveScopes() []string {
 	return []string{"licenses:read"}
 }
 
+// GetEffectiveRedirectPath returns the OAuth redirect path for the current environment.
 func GetEffectiveRedirectPath() string {
 	envConfig := GetEffectiveEnvironmentConfig()
 
@@ -258,14 +274,17 @@ func GetEffectiveRedirectPath() string {
 	return "/customer-oauth/complete"
 }
 
+// IsNonInteractive checks if non-interactive mode is enabled.
 func IsNonInteractive() bool {
 	return GetFlags().NonInteractive
 }
 
+// IsVerbose checks if verbose mode is enabled.
 func IsVerbose() bool {
 	return GetFlags().Verbose
 }
 
+// ValidateEnvironment checks if an environment string is valid.
 func ValidateEnvironment(env string) error {
 	switch Environment(env) {
 	case EnvProduction, EnvDevelopment:
@@ -275,6 +294,7 @@ func ValidateEnvironment(env string) error {
 	}
 }
 
+// Reset clears the cached configuration.
 func Reset() {
 	mu.Lock()
 	defer mu.Unlock()

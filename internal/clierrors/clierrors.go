@@ -1,3 +1,4 @@
+// Package clierrors defines structured error types for the CLI.
 package clierrors
 
 import (
@@ -11,18 +12,18 @@ type Code string
 
 // Error codes for different error categories.
 const (
-	// General errors (1xx).
+	// CodeUnknown represents general errors (1xx).
 	CodeUnknown        Code = "E100"
 	CodeInternal       Code = "E101"
 	CodeNotImplemented Code = "E102"
 
-	// Configuration errors (2xx).
+	// CodeConfigNotFound represents configuration errors (2xx).
 	CodeConfigNotFound    Code = "E200"
 	CodeConfigInvalid     Code = "E201"
 	CodeConfigWriteFailed Code = "E202"
 	CodeConfigReadFailed  Code = "E203"
 
-	// Authentication errors (3xx).
+	// CodeAuthRequired represents authentication errors (3xx).
 	CodeAuthRequired        Code = "E300"
 	CodeAuthFailed          Code = "E301"
 	CodeAuthExpired         Code = "E302"
@@ -31,7 +32,7 @@ const (
 	CodeKeychainReadFailed  Code = "E311"
 	CodeKeychainWriteFailed Code = "E312"
 
-	// API errors (4xx).
+	// CodeAPIRequestFailed represents API errors (4xx).
 	CodeAPIRequestFailed   Code = "E400"
 	CodeAPIResponseInvalid Code = "E401"
 	CodeAPIUnauthorized    Code = "E402"
@@ -39,7 +40,7 @@ const (
 	CodeAPINotFound        Code = "E404"
 	CodeAPIRateLimited     Code = "E429"
 
-	// File/IO errors (5xx).
+	// CodeFileNotFound represents File/IO errors (5xx).
 	CodeFileNotFound     Code = "E500"
 	CodeFileReadFailed   Code = "E501"
 	CodeFileWriteFailed  Code = "E502"
@@ -48,25 +49,25 @@ const (
 	CodeDownloadFailed   Code = "E510"
 	CodeChecksumMismatch Code = "E511"
 
-	// Docker errors (6xx).
+	// CodeDockerNotRunning represents Docker errors (6xx).
 	CodeDockerNotRunning        Code = "E600"
 	CodeDockerCommandFailed     Code = "E601"
 	CodeDockerEnvNotInitialized Code = "E602"
 
-	// Git/Repo errors (65x).
+	// CodeGitNotFound represents Git/Repo errors (65x).
 	CodeGitNotFound      Code = "E650"
 	CodeGitCommandFailed Code = "E651"
 
-	// Validation errors (7xx).
+	// CodeValidationFailed represents Validation errors (7xx).
 	CodeValidationFailed Code = "E700"
 	CodeInvalidInput     Code = "E701"
 	CodeVersionInvalid   Code = "E702"
 
-	// Network errors (8xx).
+	// CodeNetworkFailed represents Network errors (8xx).
 	CodeNetworkFailed  Code = "E800"
 	CodeNetworkTimeout Code = "E801"
 
-	// Update errors (9xx).
+	// CodeUpdateFailed represents Update errors (9xx).
 	CodeUpdateFailed     Code = "E900"
 	CodeUpdateNotAllowed Code = "E901"
 )
@@ -78,6 +79,7 @@ type CLIError struct {
 	Cause   error  `json:"-"`
 }
 
+// Newf creates a new CLI error with a formatted message.
 func Newf(code Code, format string, args ...any) *CLIError {
 	return &CLIError{
 		Code:    code,
@@ -85,6 +87,7 @@ func Newf(code Code, format string, args ...any) *CLIError {
 	}
 }
 
+// New creates a new CLI error.
 func New(code Code, message string) *CLIError {
 	return &CLIError{
 		Code:    code,
@@ -92,6 +95,7 @@ func New(code Code, message string) *CLIError {
 	}
 }
 
+// Wrap creates a CLI error wrapping another error.
 func Wrap(code Code, message string, cause error) *CLIError {
 	return &CLIError{
 		Code:    code,
@@ -100,6 +104,7 @@ func Wrap(code Code, message string, cause error) *CLIError {
 	}
 }
 
+// Wrapf creates a CLI error wrapping another error with a formatted message.
 func Wrapf(code Code, cause error, format string, args ...any) *CLIError {
 	return &CLIError{
 		Code:    code,
@@ -108,6 +113,7 @@ func Wrapf(code Code, cause error, format string, args ...any) *CLIError {
 	}
 }
 
+// Is checks if an error has a specific code.
 func Is(err error, code Code) bool {
 	if cliErr, ok := errors.AsType[*CLIError](err); ok {
 		return cliErr.Code == code
@@ -115,6 +121,7 @@ func Is(err error, code Code) bool {
 	return false
 }
 
+// GetCode extracts the code from a CLI error.
 func GetCode(err error) Code {
 	if cliErr, ok := errors.AsType[*CLIError](err); ok {
 		return cliErr.Code
@@ -133,6 +140,7 @@ func (e *CLIError) Unwrap() error {
 	return e.Cause
 }
 
+// JSON returns the error as a JSON string.
 func (e *CLIError) JSON() string {
 	type jsonError struct {
 		Code    Code   `json:"code"`

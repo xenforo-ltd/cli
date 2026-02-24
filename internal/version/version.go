@@ -1,3 +1,4 @@
+// Package version provides CLI version information.
 package version
 
 import (
@@ -5,12 +6,14 @@ import (
 	"runtime"
 )
 
+// Version is the CLI version string.
 var (
 	Version = "v0.1.6"
 	Commit  = "unknown"
 	Date    = "unknown"
 )
 
+// Info contains version and build information.
 type Info struct {
 	Version   string `json:"version"`
 	Commit    string `json:"commit"`
@@ -20,6 +23,7 @@ type Info struct {
 	Arch      string `json:"arch"`
 }
 
+// Get returns the current version information.
 func Get() Info {
 	return Info{
 		Version:   Version,
@@ -36,6 +40,7 @@ func (i Info) String() string {
 		i.Version, i.Commit, i.Date, i.GoVersion, i.OS, i.Arch)
 }
 
+// Short returns the version string.
 func (i Info) Short() string {
 	return i.Version
 }

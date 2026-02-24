@@ -1,3 +1,4 @@
+// Package ui provides formatting and styling utilities for console output.
 package ui
 
 import (
@@ -12,6 +13,7 @@ type TableStyle struct {
 	Separator string
 }
 
+// DefaultTableStyle returns the default table styling.
 func DefaultTableStyle() TableStyle {
 	return TableStyle{
 		Header: lipgloss.NewStyle().
@@ -24,6 +26,7 @@ func DefaultTableStyle() TableStyle {
 	}
 }
 
+// NewTable creates a formatted table with the default style.
 func NewTable(headers []string, rows [][]string) string {
 	style := DefaultTableStyle()
 
@@ -41,6 +44,7 @@ func NewTable(headers []string, rows [][]string) string {
 	return t.String()
 }
 
+// NewTableWithStyles creates a table with styled cells.
 // The styleFunc receives (row, col) where row == -1 indicates the header.
 func NewTableWithStyles(headers []string, rows [][]string, styleFunc func(row, col int) lipgloss.Style) string {
 	t := table.New().
@@ -52,6 +56,7 @@ func NewTableWithStyles(headers []string, rows [][]string, styleFunc func(row, c
 	return t.String()
 }
 
+// StatusTableStyle returns a style function for status-based table coloring.
 func StatusTableStyle(statusCol int, statusMap map[string]lipgloss.Style) func(row, col int) lipgloss.Style {
 	defaultStyle := DefaultTableStyle()
 
@@ -63,6 +68,7 @@ func StatusTableStyle(statusCol int, statusMap map[string]lipgloss.Style) func(r
 	}
 }
 
+// PrintTable prints a formatted table to stdout.
 func PrintTable(headers []string, rows [][]string) {
 	if len(rows) == 0 {
 		return

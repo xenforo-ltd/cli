@@ -15,6 +15,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/version"
 )
 
+// DownloadOptions specifies download parameters.
 type DownloadOptions struct {
 	LicenseKey       string
 	DownloadID       string // e.g., "xenforo", "xfmg"
@@ -26,6 +27,7 @@ type DownloadOptions struct {
 	SkipCacheCheck   bool
 }
 
+// DownloadResult contains information about a completed download.
 type DownloadResult struct {
 	Entry           *Entry
 	WasCached       bool
@@ -35,10 +37,12 @@ type DownloadResult struct {
 // ProgressCallback reports download progress; total is -1 if unknown.
 type ProgressCallback func(current, total int64)
 
+// Download downloads and caches a file without authentication.
 func (m *Manager) Download(ctx context.Context, opts DownloadOptions, progress ProgressCallback) (*DownloadResult, error) {
 	return m.download(ctx, opts, "", progress)
 }
 
+// DownloadWithAuth downloads and caches a file with an authentication token.
 func (m *Manager) DownloadWithAuth(ctx context.Context, opts DownloadOptions, authToken string, progress ProgressCallback) (*DownloadResult, error) {
 	return m.download(ctx, opts, authToken, progress)
 }

@@ -1,3 +1,4 @@
+// Package xf provides utilities for XenForo installation detection and management.
 package xf
 
 import (
@@ -53,6 +54,7 @@ type EnvConfig struct {
 	FFMPEGEnable      bool
 }
 
+// DefaultEnvConfig returns default environment configuration.
 func DefaultEnvConfig() *EnvConfig {
 	return &EnvConfig{
 		Instance:      "xf",
@@ -67,6 +69,7 @@ func DefaultEnvConfig() *EnvConfig {
 	}
 }
 
+// ReadEnvFile reads environment variables from an .env file.
 func ReadEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -113,6 +116,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	return env, nil
 }
 
+// WriteEnvFile writes values to an .env file.
 // It preserves comments and formatting from an existing file if present.
 func WriteEnvFile(path string, values map[string]string) error {
 	if _, err := os.Stat(path); err == nil {
@@ -217,10 +221,12 @@ func needsQuoting(value string) bool {
 	return strings.ContainsAny(value, " \t\n\"'`$\\")
 }
 
+// UpdateEnvValue updates a single environment variable in the .env file.
 func UpdateEnvValue(path, key, value string) error {
 	return WriteEnvFile(path, map[string]string{key: value})
 }
 
+// GetEnvValue retrieves an environment variable from the .env file.
 func GetEnvValue(path, key string) (string, error) {
 	env, err := ReadEnvFile(path)
 	if err != nil {
@@ -235,6 +241,7 @@ func GetEnvValue(path, key string) (string, error) {
 	return value, nil
 }
 
+// ConfigureEnv writes environment configuration to the .env file.
 func (c *EnvConfig) ConfigureEnv(envPath string) error {
 	values := make(map[string]string)
 
@@ -295,6 +302,7 @@ func (c *EnvConfig) ConfigureEnv(envPath string) error {
 	return WriteEnvFile(envPath, values)
 }
 
+// GetEnvPath returns the path to the .env file in a XenForo directory.
 func GetEnvPath(xfDir string) string {
 	return filepath.Join(xfDir, ".env")
 }
@@ -324,7 +332,7 @@ func GetXenForoDir(startDir string) (string, error) {
 	return "", clierrors.New(clierrors.CodeInvalidInput, "not in a XenForo directory and XF_DIR not set")
 }
 
-// The instance name is used for Docker project naming.
+// GenerateInstanceName generates a Docker-safe instance name from a directory name.
 func GenerateInstanceName(dirName string) string {
 	name := strings.ToLower(dirName)
 

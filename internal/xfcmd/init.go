@@ -1,3 +1,4 @@
+// Package xfcmd provides high-level commands for managing XenForo installations.
 package xfcmd
 
 import (
@@ -81,6 +82,7 @@ func Update(xfDir string) error {
 	return Init(xfDir, InitOptions{OverwriteExisting: true})
 }
 
+// Prune removes unused Docker resources.
 func Prune() error {
 	return nil
 }

@@ -49,6 +49,7 @@ Examples:
 	RunE: runUpgrade,
 }
 
+// UpgradeOptions specifies upgrade parameters.
 type UpgradeOptions struct {
 	TargetPath          string
 	LicenseKey          string

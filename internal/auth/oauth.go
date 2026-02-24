@@ -79,6 +79,7 @@ func NewOAuthClient(cfg *OAuthConfig) *OAuthClient {
 	}
 }
 
+// AuthorizationURL generates the OAuth authorization URL.
 func (c *OAuthClient) AuthorizationURL(pkce *PKCEParams, redirectURI string) string {
 	endpoints := c.config.Endpoints()
 
@@ -103,6 +104,7 @@ type TokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
+// ExchangeCode exchanges an authorization code for a token.
 func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEParams, redirectURI string) (*Token, error) {
 	endpoints := c.config.Endpoints()
 
@@ -142,6 +144,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	return c.tokenFromResponse(&tokenResp), nil
 }
 
+// RefreshToken refreshes an expired access token.
 func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
 	endpoints := c.config.Endpoints()
 
@@ -198,6 +201,7 @@ type IntrospectResponse struct {
 	Sub       string `json:"sub,omitempty"`
 }
 
+// IntrospectToken checks the validity and metadata of a token.
 func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (*IntrospectResponse, error) {
 	endpoints := c.config.Endpoints()
 
@@ -234,6 +238,7 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	return &introspectResp, nil
 }
 
+// RevokeToken revokes an access or refresh token.
 func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	endpoints := c.config.Endpoints()
 
@@ -283,7 +288,7 @@ type CallbackResult struct {
 	Error string
 }
 
-// CallbackServer handles the OAuth redirect callback.
+// CallbackServer handles the OAuth redirect callback from the authorization server.
 type CallbackServer struct {
 	listener net.Listener
 	server   *http.Server
@@ -316,10 +321,12 @@ func NewCallbackServer(path string) (*CallbackServer, error) {
 	return cs, nil
 }
 
+// RedirectURI returns the callback server's redirect URI.
 func (cs *CallbackServer) RedirectURI() string {
 	return fmt.Sprintf("http://%s%s", cs.listener.Addr().String(), cs.path)
 }
 
+// Start begins listening for the OAuth callback.
 func (cs *CallbackServer) Start() {
 	go func() {
 		err := cs.server.Serve(cs.listener)
@@ -332,6 +339,7 @@ func (cs *CallbackServer) Start() {
 	}()
 }
 
+// WaitForCallback waits for the OAuth callback result.
 func (cs *CallbackServer) WaitForCallback(ctx context.Context) (*CallbackResult, error) {
 	select {
 	case result := <-cs.result:
@@ -343,6 +351,7 @@ func (cs *CallbackServer) WaitForCallback(ctx context.Context) (*CallbackResult,
 	}
 }
 
+// Shutdown gracefully shuts down the callback server.
 func (cs *CallbackServer) Shutdown(ctx context.Context) error {
 	return cs.server.Shutdown(ctx)
 }

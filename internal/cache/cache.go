@@ -1,3 +1,4 @@
+// Package cache manages downloaded files and their metadata.
 package cache
 
 import (
@@ -15,10 +16,12 @@ import (
 	"github.com/xenforo-ltd/cli/internal/config"
 )
 
+// Manager manages cache storage on disk.
 type Manager struct {
 	basePath string
 }
 
+// EntryMetadata holds information about a cached file.
 type EntryMetadata struct {
 	DownloadID   string    `json:"download_id"`
 	Version      string    `json:"version"`
@@ -29,6 +32,7 @@ type EntryMetadata struct {
 	SourceURL    string    `json:"source_url,omitempty"`
 }
 
+// Entry represents a cached download file.
 type Entry struct {
 	LicenseKey   string
 	Metadata     EntryMetadata
@@ -36,6 +40,7 @@ type Entry struct {
 	MetadataPath string
 }
 
+// NewManager creates a new cache manager.
 func NewManager() (*Manager, error) {
 	basePath, err := GetCachePath()
 	if err != nil {
@@ -45,6 +50,7 @@ func NewManager() (*Manager, error) {
 	return &Manager{basePath: basePath}, nil
 }
 
+// GetCachePath returns the configured cache directory path.
 func GetCachePath() (string, error) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -58,6 +64,7 @@ func GetCachePath() (string, error) {
 	return config.DefaultCacheDir()
 }
 
+// BasePath returns the cache manager's base directory.
 func (m *Manager) BasePath() string {
 	return m.basePath
 }
@@ -85,6 +92,7 @@ func sanitizePathComponent(s string) (string, error) {
 	return s, nil
 }
 
+// EntryPath returns the directory path for a cache entry.
 func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (string, error) {
 	safeLicense, err := sanitizePathComponent(licenseKey)
 	if err != nil {
@@ -109,8 +117,10 @@ func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (stri
 	), nil
 }
 
+// MetadataFilename is the name of the metadata file for each cache entry.
 const MetadataFilename = ".metadata.json"
 
+// GetEntry retrieves a cache entry by license, download ID, and version.
 func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entry, error) {
 	entryPath, err := m.EntryPath(licenseKey, downloadID, version)
 	if err != nil {
@@ -141,6 +151,7 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 	}, nil
 }
 
+// SaveMetadata saves cache entry metadata to disk.
 func (m *Manager) SaveMetadata(licenseKey string, metadata *EntryMetadata) error {
 	entryPath, err := m.EntryPath(licenseKey, metadata.DownloadID, metadata.Version)
 	if err != nil {
@@ -165,6 +176,7 @@ func (m *Manager) SaveMetadata(licenseKey string, metadata *EntryMetadata) error
 	return nil
 }
 
+// Verify checks if a cached file's checksum is valid.
 func (m *Manager) Verify(entry *Entry) (bool, error) {
 	if entry.Metadata.Checksum == "" {
 		return true, nil
@@ -178,6 +190,7 @@ func (m *Manager) Verify(entry *Entry) (bool, error) {
 	return checksum == entry.Metadata.Checksum, nil
 }
 
+// Delete removes a cache entry.
 func (m *Manager) Delete(licenseKey string, downloadID, version string) error {
 	entryPath, err := m.EntryPath(licenseKey, downloadID, version)
 	if err != nil {
@@ -193,6 +206,7 @@ func (m *Manager) Delete(licenseKey string, downloadID, version string) error {
 	return nil
 }
 
+// PurgeAll removes all cached files.
 func (m *Manager) PurgeAll() error {
 	if err := os.RemoveAll(m.basePath); err != nil && !os.IsNotExist(err) {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to purge cache", err)
@@ -200,6 +214,7 @@ func (m *Manager) PurgeAll() error {
 	return nil
 }
 
+// PurgeLicense removes all cached files for a specific license.
 func (m *Manager) PurgeLicense(licenseKey string) error {
 	safeLicense, err := sanitizePathComponent(licenseKey)
 	if err != nil {
@@ -213,6 +228,7 @@ func (m *Manager) PurgeLicense(licenseKey string) error {
 	return nil
 }
 
+// List returns all cached entries.
 func (m *Manager) List() ([]*Entry, error) {
 	var entries []*Entry
 
@@ -244,6 +260,7 @@ func (m *Manager) List() ([]*Entry, error) {
 	return entries, nil
 }
 
+// ListForLicense returns all cached entries for a specific license.
 func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 	var entries []*Entry
 
@@ -281,6 +298,7 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 	return entries, nil
 }
 
+// TotalSize returns the total size of all cached files in bytes.
 func (m *Manager) TotalSize() (int64, error) {
 	entries, err := m.List()
 	if err != nil {
@@ -354,6 +372,7 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	}, nil
 }
 
+// CalculateChecksum computes a file's SHA-256 checksum.
 func CalculateChecksum(filePath string) (string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {

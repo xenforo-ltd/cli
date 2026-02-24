@@ -1,3 +1,4 @@
+// Package extract provides utilities for extracting zip files.
 package extract
 
 import (
@@ -36,6 +37,7 @@ func DefaultOptions() *Options {
 	}
 }
 
+// ZipFile extracts a zip archive to a destination directory with optional processing.
 func ZipFile(zipPath, destDir string, opts *Options) error {
 	if opts == nil {
 		opts = DefaultOptions()
@@ -188,6 +190,7 @@ func isSymlink(file *zip.File) bool {
 	return file.Mode()&os.ModeSymlink != 0
 }
 
+// ListZipContents lists the contents of a zip file.
 func ListZipContents(zipPath string) ([]string, error) {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -300,6 +303,7 @@ func ExtractXenForoZip(zipPath, destDir string, onProgress func(current, total i
 	return nil
 }
 
+// CountZipFiles counts the number of files in a zip archive.
 func CountZipFiles(zipPath string) (int, error) {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -326,6 +330,7 @@ type ZipInfo struct {
 	RootDirectory string
 }
 
+// GetZipInfo returns metadata about a zip file.
 func GetZipInfo(zipPath string) (*ZipInfo, error) {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ColorPrimary is the primary accent color.
 var (
 	ColorPrimary   = lipgloss.Color("4")
 	ColorSecondary = lipgloss.Color("5")
@@ -53,11 +54,13 @@ var (
 	Version = lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
 )
 
+// Indent1 is one level of indentation (2 spaces).
 const (
 	Indent1 = "  "
 	Indent2 = "    "
 )
 
+// SymbolSuccess is the success symbol.
 const (
 	SymbolSuccess = "✓"
 	SymbolWarning = "!"
@@ -71,6 +74,7 @@ const (
 	SymbolCross   = "✗"
 )
 
+// StatusIcon renders a colored status symbol.
 func StatusIcon(status string) string {
 	switch status {
 	case "success", "ok":
@@ -90,14 +94,17 @@ func StatusIcon(status string) string {
 	}
 }
 
+// Step returns a formatted progress step indicator.
 func Step(current, total int) string {
 	return Info.Render(fmt.Sprintf("[%d/%d]", current, total))
 }
 
+// StepWithLabel returns a progress step with a label.
 func StepWithLabel(current, total int, label string) string {
 	return fmt.Sprintf("%s %s", Step(current, total), Bold.Render(label))
 }
 
+// Indent indents all non-empty lines of text by the specified number of spaces.
 func Indent(s string, spaces int) string {
 	indent := strings.Repeat(" ", spaces)
 	lines := strings.Split(s, "\n")
@@ -109,6 +116,7 @@ func Indent(s string, spaces int) string {
 	return strings.Join(lines, "\n")
 }
 
+// IndentLines indents each line of text by the specified number of spaces.
 func IndentLines(lines []string, spaces int) []string {
 	indent := strings.Repeat(" ", spaces)
 	result := make([]string, len(lines))
@@ -122,6 +130,7 @@ func IndentLines(lines []string, spaces int) []string {
 	return result
 }
 
+// Separator returns a horizontal separator line.
 func Separator(width int) string {
 	if width <= 0 {
 		width = 60
@@ -129,6 +138,7 @@ func Separator(width int) string {
 	return Dim.Render(strings.Repeat("─", width))
 }
 
+// DoubleSeparator returns a double-line horizontal separator.
 func DoubleSeparator(width int) string {
 	if width <= 0 {
 		width = 60
@@ -136,6 +146,7 @@ func DoubleSeparator(width int) string {
 	return Dim.Render(strings.Repeat("═", width))
 }
 
+// Box returns formatted text in a box border.
 func Box(title, content string) string {
 	var sb strings.Builder
 
@@ -176,23 +187,28 @@ func Box(title, content string) string {
 	return sb.String()
 }
 
+// KeyValue returns a formatted key-value pair.
 func KeyValue(key, value string) string {
 	return fmt.Sprintf("%s %s", Label.Render(key+":"), value)
 }
 
+// KeyValueBold returns a formatted key-value pair with a bold key.
 func KeyValueBold(key, value string) string {
 	return fmt.Sprintf("%s %s", Bold.Render(key+":"), value)
 }
 
+// KVPair represents a key-value pair for display.
 type KVPair struct {
 	Key   string
 	Value string
 }
 
+// KV creates a key-value pair.
 func KV(key, value string) KVPair {
 	return KVPair{Key: key, Value: value}
 }
 
+// PrintKeyValuePadded prints key-value pairs with aligned values.
 func PrintKeyValuePadded(pairs []KVPair) {
 	if len(pairs) == 0 {
 		return
@@ -211,6 +227,7 @@ func PrintKeyValuePadded(pairs []KVPair) {
 	}
 }
 
+// PrintKeyValuePaddedWithIndent prints key-value pairs with custom indentation.
 func PrintKeyValuePaddedWithIndent(pairs []KVPair, indent string) {
 	if len(pairs) == 0 {
 		return
@@ -334,11 +351,13 @@ func (s *Spinner) UpdateMessage(message string) {
 	s.message = message
 }
 
+// SpinnerOutputWriter writes to a writer while managing spinner output.
 type SpinnerOutputWriter struct {
 	spinner *Spinner
 	writer  io.Writer
 }
 
+// NewSpinnerOutputWriter creates a writer that coordinates with a spinner.
 func NewSpinnerOutputWriter(spinner *Spinner, writer io.Writer) io.Writer {
 	return &SpinnerOutputWriter{
 		spinner: spinner,
@@ -378,6 +397,7 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+// ProgressBar displays download or operation progress.
 type ProgressBar struct {
 	mu      sync.Mutex
 	total   int64

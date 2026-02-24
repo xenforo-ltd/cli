@@ -19,7 +19,7 @@ const (
 	KeyringUser = "oauth-token"
 )
 
-// Token represents OAuth tokens stored in the keychain.
+// Token represents an OAuth token with expiry information.
 type Token struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
@@ -33,26 +33,31 @@ type Token struct {
 	BaseURL     string `json:"base_url"`
 }
 
+// IsExpired checks if the token has expired, accounting for clock skew.
 func (t *Token) IsExpired() bool {
 	// Consider expired 30 seconds early to account for clock skew
 	return time.Now().Add(30 * time.Second).After(t.ExpiresAt)
 }
 
+// IsExpiringSoon checks if the token will expire within the given duration.
 func (t *Token) IsExpiringSoon(within time.Duration) bool {
 	return time.Now().Add(within).After(t.ExpiresAt)
 }
 
+// TimeUntilExpiry returns the duration until the token expires.
 func (t *Token) TimeUntilExpiry() time.Duration {
 	return time.Until(t.ExpiresAt)
 }
 
-// Keychain provides access to the system keychain for token storage.
+// Keychain manages secure token storage in the system keychain.
 type Keychain struct{}
 
+// NewKeychain creates a new Keychain instance.
 func NewKeychain() *Keychain {
 	return &Keychain{}
 }
 
+// IsAvailable checks if the system keychain is accessible.
 func (k *Keychain) IsAvailable() bool {
 	// Try to access the keychain by getting a non-existent key
 	// If we get ErrNotFound, the keychain is available
@@ -68,6 +73,7 @@ func (k *Keychain) IsAvailable() bool {
 	return false
 }
 
+// SaveToken stores a token in the keychain.
 func (k *Keychain) SaveToken(token *Token) error {
 	if token == nil {
 		return clierrors.New(clierrors.CodeInvalidInput, "token cannot be nil")
@@ -85,6 +91,7 @@ func (k *Keychain) SaveToken(token *Token) error {
 	return nil
 }
 
+// LoadToken retrieves the stored token from the keychain.
 func (k *Keychain) LoadToken() (*Token, error) {
 	data, err := keyring.Get(KeyringService, KeyringUser)
 	if err != nil {
@@ -102,6 +109,7 @@ func (k *Keychain) LoadToken() (*Token, error) {
 	return &token, nil
 }
 
+// DeleteToken removes the token from the keychain.
 func (k *Keychain) DeleteToken() error {
 	err := keyring.Delete(KeyringService, KeyringUser)
 	if err != nil {
@@ -113,7 +121,7 @@ func (k *Keychain) DeleteToken() error {
 	return nil
 }
 
-// This should be called at the start of commands that require authentication.
+// RequireAuth should be called at the start of commands that require authentication.
 func RequireAuth() (*Token, error) {
 	kc := NewKeychain()
 
