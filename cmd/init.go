@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -20,6 +21,14 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 	"github.com/xenforo-ltd/cli/internal/xfcmd"
+)
+
+var (
+	ErrUsernameTooShort   = errors.New("username must be at least 3 characters")
+	ErrPasswordRequired   = errors.New("password is required")
+	ErrInvalidEmail       = errors.New("invalid email address")
+	ErrAdminUserRequired  = errors.New("admin username is required")
+	ErrValidEmailRequired = errors.New("valid admin email is required")
 )
 
 var initCmd = &cobra.Command{
@@ -494,7 +503,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 					Value(&opts.AdminUser).
 					Validate(func(s string) error {
 						if len(s) < 3 {
-							return fmt.Errorf("username must be at least 3 characters")
+							return ErrUsernameTooShort
 						}
 						return nil
 					}),
@@ -504,7 +513,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 					EchoMode(huh.EchoModePassword).
 					Validate(func(s string) error {
 						if strings.TrimSpace(s) == "" {
-							return fmt.Errorf("password is required")
+							return ErrPasswordRequired
 						}
 						return nil
 					}),
@@ -513,7 +522,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 					Value(&opts.AdminEmail).
 					Validate(func(s string) error {
 						if !strings.Contains(s, "@") {
-							return fmt.Errorf("invalid email address")
+							return ErrInvalidEmail
 						}
 						return nil
 					}),

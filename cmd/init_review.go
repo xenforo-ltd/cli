@@ -208,19 +208,19 @@ func editAdminSite(opts *InitOptions) error {
 		huh.NewGroup(
 			huh.NewInput().Title("Admin username").Value(&opts.AdminUser).Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
-					return fmt.Errorf("admin username is required")
+					return ErrAdminUserRequired
 				}
 				return nil
 			}),
 			huh.NewInput().Title("Admin password").EchoMode(huh.EchoModePassword).Value(&opts.AdminPassword).Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
-					return fmt.Errorf("password is required")
+					return ErrPasswordRequired
 				}
 				return nil
 			}),
 			huh.NewInput().Title("Admin email").Value(&opts.AdminEmail).Validate(func(s string) error {
 				if !strings.Contains(strings.TrimSpace(s), "@") {
-					return fmt.Errorf("valid admin email is required")
+					return ErrValidEmailRequired
 				}
 				return nil
 			}),

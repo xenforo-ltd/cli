@@ -134,23 +134,23 @@ func clearScreen() {
 
 func validateReviewInputs(opts *InitOptions) error {
 	if strings.TrimSpace(opts.AdminPassword) == "" {
-		return fmt.Errorf("password is required")
+		return ErrPasswordRequired
 	}
 	if !strings.Contains(strings.TrimSpace(opts.AdminEmail), "@") {
-		return fmt.Errorf("valid admin email is required")
+		return ErrValidEmailRequired
 	}
 	if strings.TrimSpace(opts.AdminUser) == "" {
-		return fmt.Errorf("admin username is required")
+		return ErrAdminUserRequired
 	}
 	for k, v := range opts.EnvResolved {
 		if k == "XF_DEBUG" || k == "XF_DEVELOPMENT" {
 			continue
 		}
 		if err := initflow.ValidateEnvKey(strings.TrimSpace(k)); err != nil {
-			return fmt.Errorf("invalid environment key %q", k)
+			return fmt.Errorf("invalid environment key %q: %w", k, err)
 		}
 		if strings.Contains(v, "\n") {
-			return fmt.Errorf("invalid environment value for %s: newlines are not allowed", k)
+			return fmt.Errorf("invalid environment value for %s: %w", k, initflow.ErrNewlinesNotAllowed)
 		}
 	}
 	return nil

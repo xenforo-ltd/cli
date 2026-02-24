@@ -13,6 +13,11 @@ import (
 	"github.com/xenforo-ltd/cli/internal/cache"
 )
 
+var (
+	errTestNoToken     = errors.New("no token")
+	errTestNetworkDown = errors.New("network down")
+)
+
 func v(id int, str string, ts string) api.Version {
 	tm, _ := time.Parse(time.RFC3339, ts)
 	return api.Version{
@@ -276,7 +281,7 @@ func TestDownloadSelection_Branches(t *testing.T) {
 
 	t.Run("access token error", func(t *testing.T) {
 		errClient := *client
-		errClient.errAccessToken = errors.New("no token")
+		errClient.errAccessToken = errTestNoToken
 		cacheMock := &fakeCache{}
 		_, _, err := downloadSelection(ctx, &errClient, cacheMock, "LIC", Selection{Product: "xenforo", VersionID: 10}, true, nil)
 		if err == nil {
@@ -286,7 +291,7 @@ func TestDownloadSelection_Branches(t *testing.T) {
 
 	t.Run("download failure wraps", func(t *testing.T) {
 		cacheMock := &fakeCache{
-			downloadErr: errors.New("network down"),
+			downloadErr: errTestNetworkDown,
 		}
 		_, _, err := downloadSelection(ctx, client, cacheMock, "LIC", Selection{Product: "xenforo", VersionID: 10}, true, nil)
 		if err == nil {

@@ -10,6 +10,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
+var errTestFailed = errors.New("failed")
+
 func TestChooseBoardURL(t *testing.T) {
 	url, detected := chooseBoardURL("demo", "http://localhost:8080", nil)
 	if !detected {
@@ -27,7 +29,7 @@ func TestChooseBoardURL(t *testing.T) {
 		t.Fatalf("url = %q, want fallback", url)
 	}
 
-	url, detected = chooseBoardURL("demo", "http://localhost:8080", errors.New("failed"))
+	url, detected = chooseBoardURL("demo", "http://localhost:8080", errTestFailed)
 	if detected {
 		t.Fatal("expected fallback when detection errors")
 	}

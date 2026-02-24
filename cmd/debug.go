@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -9,6 +10,10 @@ import (
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
+)
+
+var (
+	ErrGetCurrentDirectory = errors.New("failed to get current directory")
 )
 
 var debugCmd = &cobra.Command{
@@ -39,7 +44,7 @@ func init() {
 func runDebug(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get current directory")
+		return ErrGetCurrentDirectory
 	}
 
 	xfDir, err := xf.GetXenForoDir(cwd)

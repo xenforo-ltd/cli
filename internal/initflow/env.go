@@ -2,13 +2,19 @@ package initflow
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 )
 
-var envKeyPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+var (
+	envKeyPattern         = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+	ErrInvalidEnvFormat   = errors.New("expected KEY=VALUE")
+	ErrInvalidEnvKey      = errors.New("must match ^[A-Z][A-Z0-9_]*$")
+	ErrNewlinesNotAllowed = errors.New("newlines are not allowed")
+)
 
 func ParseEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
@@ -28,7 +34,7 @@ func ParseEnvFile(path string) (map[string]string, error) {
 		}
 		key, value, ok := strings.Cut(raw, "=")
 		if !ok {
-			return nil, fmt.Errorf("invalid env line %d: expected KEY=VALUE", line)
+			return nil, fmt.Errorf("invalid env line %d: %w", line, ErrInvalidEnvFormat)
 		}
 		key = strings.TrimSpace(key)
 		value = strings.TrimSpace(value)
@@ -48,7 +54,7 @@ func ParseEnvFlags(entries []string) (map[string]string, error) {
 	for _, entry := range entries {
 		key, value, ok := strings.Cut(strings.TrimSpace(entry), "=")
 		if !ok {
-			return nil, fmt.Errorf("invalid --env %q: expected KEY=VALUE", entry)
+			return nil, fmt.Errorf("invalid --env %q: %w", entry, ErrInvalidEnvFormat)
 		}
 		key = strings.TrimSpace(key)
 		value = strings.TrimSpace(value)
@@ -62,7 +68,7 @@ func ParseEnvFlags(entries []string) (map[string]string, error) {
 
 func ValidateEnvKey(key string) error {
 	if !envKeyPattern.MatchString(key) {
-		return fmt.Errorf("invalid key %q (must match ^[A-Z][A-Z0-9_]*$)", key)
+		return fmt.Errorf("invalid key %q: %w", key, ErrInvalidEnvKey)
 	}
 	return nil
 }

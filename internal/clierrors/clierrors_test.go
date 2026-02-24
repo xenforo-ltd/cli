@@ -6,6 +6,15 @@ import (
 	"testing"
 )
 
+var (
+	errTestPermissionDenied  = errors.New("permission denied")
+	errTestUnderlyingError   = errors.New("underlying error")
+	errTestInvalidToken      = errors.New("invalid token")
+	errTestFileNotFound      = errors.New("file not found")
+	errTestConnectionRefused = errors.New("connection refused")
+	errTestRegularError      = errors.New("regular error")
+)
+
 func TestCLIError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -25,7 +34,7 @@ func TestCLIError_Error(t *testing.T) {
 			err: &CLIError{
 				Code:    CodeConfigReadFailed,
 				Message: "failed to read config",
-				Cause:   errors.New("permission denied"),
+				Cause:   errTestPermissionDenied,
 			},
 			expected: "[E203] failed to read config: permission denied",
 		},
@@ -41,7 +50,7 @@ func TestCLIError_Error(t *testing.T) {
 }
 
 func TestCLIError_Unwrap(t *testing.T) {
-	cause := errors.New("underlying error")
+	cause := errTestUnderlyingError
 	err := &CLIError{
 		Code:    CodeInternal,
 		Message: "something went wrong",
@@ -68,7 +77,7 @@ func TestCLIError_JSON(t *testing.T) {
 	errWithCause := &CLIError{
 		Code:    CodeAuthFailed,
 		Message: "authentication failed",
-		Cause:   errors.New("invalid token"),
+		Cause:   errTestInvalidToken,
 	}
 
 	jsonWithCause := errWithCause.JSON()
@@ -93,7 +102,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestWrap(t *testing.T) {
-	cause := errors.New("file not found")
+	cause := errTestFileNotFound
 	err := Wrap(CodeFileNotFound, "failed to load file", cause)
 
 	if err.Code != CodeFileNotFound {
@@ -113,7 +122,7 @@ func TestNewf(t *testing.T) {
 }
 
 func TestWrapf(t *testing.T) {
-	cause := errors.New("connection refused")
+	cause := errTestConnectionRefused
 	err := Wrapf(CodeAPIRequestFailed, cause, "failed to connect to %s", "api.example.com")
 
 	if err.Message != "failed to connect to api.example.com" {
@@ -133,7 +142,7 @@ func TestIs(t *testing.T) {
 	if Is(err, CodeAuthFailed) {
 		t.Error("Is() returned true for different code, want false")
 	}
-	if Is(errors.New("regular error"), CodeAuthRequired) {
+	if Is(errTestRegularError, CodeAuthRequired) {
 		t.Error("Is() returned true for non-CLIError, want false")
 	}
 }
@@ -153,7 +162,7 @@ func TestGetCode(t *testing.T) {
 		t.Errorf("GetCode() = %v, want %v", code, CodeDockerNotRunning)
 	}
 
-	regularErr := errors.New("regular error")
+	regularErr := errTestRegularError
 	if code := GetCode(regularErr); code != CodeUnknown {
 		t.Errorf("GetCode() = %v, want %v", code, CodeUnknown)
 	}

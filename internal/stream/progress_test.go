@@ -7,10 +7,12 @@ import (
 	"testing"
 )
 
+var errReadFailed = errors.New("read failed")
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) {
-	return 0, errors.New("read failed")
+	return 0, errReadFailed
 }
 
 func TestProgressReaderReportsProgress(t *testing.T) {

@@ -11,6 +11,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+var errTestBoom = errors.New("boom")
+
 func TestParseInstallImportMessage(t *testing.T) {
 	if got := parseInstallImportMessage("Importing master data (phrases: 35%)"); got != "importing phrases (35%)" {
 		t.Fatalf("unexpected message: %q", got)
@@ -123,7 +125,7 @@ func TestInferSiteTitleAndBoardFallback(t *testing.T) {
 	if !strings.Contains(fallback, "demo") {
 		t.Fatalf("unexpected fallback board URL: %q", fallback)
 	}
-	url, detected := chooseBoardURL("demo", "", errors.New("boom"))
+	url, detected := chooseBoardURL("demo", "", errTestBoom)
 	if detected || url != fallback {
 		t.Fatalf("unexpected chooseBoardURL fallback: url=%q detected=%v", url, detected)
 	}
