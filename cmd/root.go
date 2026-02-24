@@ -142,8 +142,7 @@ func init() {
 }
 
 func handleError(err error) {
-	var cliErr *clierrors.CLIError
-	if errors.As(err, &cliErr) {
+	if cliErr, ok := errors.AsType[*clierrors.CLIError](err); ok {
 		if flagVerbose {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", cliErr.Error())
 		} else {

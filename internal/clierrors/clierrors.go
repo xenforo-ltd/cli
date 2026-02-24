@@ -109,15 +109,14 @@ func Wrapf(code Code, cause error, format string, args ...any) *CLIError {
 }
 
 func Is(err error, code Code) bool {
-	var cliErr *CLIError
-	if errors.As(err, &cliErr) {
+	if cliErr, ok := errors.AsType[*CLIError](err); ok {
 		return cliErr.Code == code
 	}
 	return false
 }
 
 func GetCode(err error) Code {
-	if cliErr, ok := err.(*CLIError); ok {
+	if cliErr, ok := errors.AsType[*CLIError](err); ok {
 		return cliErr.Code
 	}
 	return CodeUnknown

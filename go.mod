@@ -1,6 +1,6 @@
 module github.com/xenforo-ltd/cli
 
-go 1.24.2
+go 1.26.0
 
 require (
 	github.com/charmbracelet/huh v0.8.0
