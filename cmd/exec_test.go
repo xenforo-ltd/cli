@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	clierrors "github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 func TestResolveXenForoDirAndArgs_WithExplicitPath(t *testing.T) {

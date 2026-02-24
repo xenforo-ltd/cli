@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/version"
 )
 
@@ -62,7 +62,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	if body != nil {
 		data, err := io.ReadAll(body)
 		if err != nil {
-			return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to read request body", err)
+			return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to read request body", err)
 		}
 		bodyBytes = data
 	}
@@ -107,7 +107,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 	}
 	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to create request", err)
+		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create request", err)
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
 	req.Header.Set("User-Agent", userAgent())
@@ -118,7 +118,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "request failed", err)
+		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "request failed", err)
 	}
 
 	if resp.StatusCode == http.StatusUnauthorized && allowRetry {
@@ -129,7 +129,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 			refresh = c.refreshToken
 		}
 		if err := refresh(ctx, token.AccessToken); err != nil {
-			return nil, errors.Wrap(errors.CodeAuthExpired,
+			return nil, clierrors.Wrap(clierrors.CodeAuthExpired,
 				"authentication expired and refresh failed - run 'xf auth login'", err)
 		}
 
@@ -153,7 +153,7 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	}
 
 	if token.RefreshToken == "" {
-		return errors.New(errors.CodeAuthExpired, "no refresh token available")
+		return clierrors.New(clierrors.CodeAuthExpired, "no refresh token available")
 	}
 
 	oauthClient := auth.NewOAuthClient(c.oauthCfg)
@@ -192,13 +192,13 @@ func CheckResponse(resp *http.Response) error {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Newf(errors.CodeAPIResponseInvalid, "API error (status %d): failed to read response", resp.StatusCode)
+		return clierrors.Newf(clierrors.CodeAPIResponseInvalid, "API error (status %d): failed to read response", resp.StatusCode)
 	}
 
 	errResp, parseErr := ParseError(body)
 	if parseErr != nil || len(errResp.Errors) == 0 {
-		return errors.Newf(errors.CodeAPIRequestFailed, "API error (status %d): %s", resp.StatusCode, string(body))
+		return clierrors.Newf(clierrors.CodeAPIRequestFailed, "API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	return errors.Newf(errors.CodeAPIRequestFailed, "API error: %s", errResp.Errors[0].Message)
+	return clierrors.Newf(clierrors.CodeAPIRequestFailed, "API error: %s", errResp.Errors[0].Message)
 }

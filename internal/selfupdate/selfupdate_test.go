@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	clierrors "github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/version"
 )
 

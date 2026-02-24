@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 const metadataFilename = ".xf.json"
@@ -49,12 +49,12 @@ func ReadMetadata(xfDir string) (*Metadata, error) {
 		if os.IsNotExist(err) {
 			return nil, nil // Not an error, just no metadata
 		}
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to read metadata file", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read metadata file", err)
 	}
 
 	var meta Metadata
 	if err := json.Unmarshal(data, &meta); err != nil {
-		return nil, errors.Wrap(errors.CodeInvalidInput, "failed to parse metadata file", err)
+		return nil, clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse metadata file", err)
 	}
 
 	return &meta, nil
@@ -70,11 +70,11 @@ func WriteMetadata(xfDir string, meta *Metadata) error {
 
 	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
-		return errors.Wrap(errors.CodeInvalidInput, "failed to serialize metadata", err)
+		return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to serialize metadata", err)
 	}
 
 	if err := os.WriteFile(metaPath, data, 0644); err != nil {
-		return errors.Wrap(errors.CodeFileWriteFailed, "failed to write metadata file", err)
+		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write metadata file", err)
 	}
 
 	return nil

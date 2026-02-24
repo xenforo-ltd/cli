@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
-	"github.com/xenforo-ltd/cli/internal/errors"
 )
 
 type Manager struct {
@@ -64,22 +64,22 @@ func (m *Manager) BasePath() string {
 
 func sanitizePathComponent(s string) (string, error) {
 	if s == "" {
-		return "", errors.New(errors.CodeValidationFailed, "path component cannot be empty")
+		return "", clierrors.New(clierrors.CodeValidationFailed, "path component cannot be empty")
 	}
 
 	if strings.ContainsAny(s, `/\\`) {
-		return "", errors.Newf(errors.CodeValidationFailed, "invalid path component: %s", s)
+		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path component: %s", s)
 	}
 
 	if strings.Contains(s, "..") {
-		return "", errors.Newf(errors.CodeValidationFailed, "invalid path component: %s", s)
+		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path component: %s", s)
 	}
 
 	for _, r := range s {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
 			continue
 		}
-		return "", errors.Newf(errors.CodeValidationFailed, "invalid path component: %s", s)
+		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path component: %s", s)
 	}
 
 	return s, nil
@@ -123,12 +123,12 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to read cache metadata", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read cache metadata", err)
 	}
 
 	var metadata EntryMetadata
 	if err := json.Unmarshal(data, &metadata); err != nil {
-		return nil, errors.Wrap(errors.CodeConfigInvalid, "failed to parse cache metadata", err)
+		return nil, clierrors.Wrap(clierrors.CodeConfigInvalid, "failed to parse cache metadata", err)
 	}
 
 	filePath := filepath.Join(entryPath, metadata.Filename)
@@ -148,18 +148,18 @@ func (m *Manager) SaveMetadata(licenseKey string, metadata *EntryMetadata) error
 	}
 
 	if err := os.MkdirAll(entryPath, 0755); err != nil {
-		return errors.Wrap(errors.CodeDirCreateFailed, "failed to create cache directory", err)
+		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create cache directory", err)
 	}
 
 	metadataPath := filepath.Join(entryPath, MetadataFilename)
 
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return errors.Wrap(errors.CodeInternal, "failed to marshal metadata", err)
+		return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal metadata", err)
 	}
 
 	if err := os.WriteFile(metadataPath, data, 0644); err != nil {
-		return errors.Wrap(errors.CodeFileWriteFailed, "failed to write cache metadata", err)
+		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write cache metadata", err)
 	}
 
 	return nil
@@ -185,7 +185,7 @@ func (m *Manager) Delete(licenseKey string, downloadID, version string) error {
 	}
 
 	if err := os.RemoveAll(entryPath); err != nil && !os.IsNotExist(err) {
-		return errors.Wrap(errors.CodeFileWriteFailed, "failed to delete cache entry", err)
+		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to delete cache entry", err)
 	}
 
 	m.cleanEmptyParents(entryPath)
@@ -195,7 +195,7 @@ func (m *Manager) Delete(licenseKey string, downloadID, version string) error {
 
 func (m *Manager) PurgeAll() error {
 	if err := os.RemoveAll(m.basePath); err != nil && !os.IsNotExist(err) {
-		return errors.Wrap(errors.CodeFileWriteFailed, "failed to purge cache", err)
+		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to purge cache", err)
 	}
 	return nil
 }
@@ -208,7 +208,7 @@ func (m *Manager) PurgeLicense(licenseKey string) error {
 	licensePath := filepath.Join(m.basePath, safeLicense)
 
 	if err := os.RemoveAll(licensePath); err != nil && !os.IsNotExist(err) {
-		return errors.Wrap(errors.CodeFileWriteFailed, "failed to purge license cache", err)
+		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to purge license cache", err)
 	}
 	return nil
 }
@@ -238,7 +238,7 @@ func (m *Manager) List() ([]*Entry, error) {
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to list cache", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to list cache", err)
 	}
 
 	return entries, nil
@@ -275,7 +275,7 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to list license cache", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to list license cache", err)
 	}
 
 	return entries, nil
@@ -321,7 +321,7 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 
 	safeFilename := sanitizeFilename(metadata.Filename)
 	if safeFilename == "" {
-		return nil, errors.Newf(errors.CodeValidationFailed, "invalid cached filename: %s", metadata.Filename)
+		return nil, clierrors.Newf(clierrors.CodeValidationFailed, "invalid cached filename: %s", metadata.Filename)
 	}
 
 	_, err = filepath.Rel(m.basePath, metadataPath)
@@ -357,13 +357,13 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 func CalculateChecksum(filePath string) (string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
-		return "", errors.Wrap(errors.CodeFileReadFailed, "failed to open file for checksum", err)
+		return "", clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open file for checksum", err)
 	}
 	defer f.Close()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return "", errors.Wrap(errors.CodeFileReadFailed, "failed to read file for checksum", err)
+		return "", clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read file for checksum", err)
 	}
 
 	return hex.EncodeToString(h.Sum(nil)), nil

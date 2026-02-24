@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -88,12 +88,12 @@ func getXenForoDir(args []string) (string, error) {
 	if len(args) > 0 {
 		absPath, err := filepath.Abs(args[0])
 		if err != nil {
-			return "", errors.Wrap(errors.CodeInvalidInput, "invalid path", err)
+			return "", clierrors.Wrap(clierrors.CodeInvalidInput, "invalid path", err)
 		}
 
 		xfPath := filepath.Join(absPath, "src", "XF.php")
 		if _, err := os.Stat(xfPath); os.IsNotExist(err) {
-			return "", errors.Newf(errors.CodeInvalidInput, "not a XenForo directory: %s", absPath)
+			return "", clierrors.Newf(clierrors.CodeInvalidInput, "not a XenForo directory: %s", absPath)
 		}
 
 		return absPath, nil
@@ -101,7 +101,7 @@ func getXenForoDir(args []string) (string, error) {
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", errors.Wrap(errors.CodeFileReadFailed, "failed to get working directory", err)
+		return "", clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to get working directory", err)
 	}
 
 	xfDir, err := xf.GetXenForoDir(cwd)

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 // Options configures the extraction behavior.
@@ -43,12 +43,12 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return errors.Wrap(errors.CodeFileReadFailed, "failed to open zip file", err)
+		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
 	}
 	defer reader.Close()
 
 	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return errors.Wrap(errors.CodeDirCreateFailed, "failed to create destination directory", err)
+		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create destination directory", err)
 	}
 
 	total := len(reader.File)
@@ -58,7 +58,7 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 		current++
 
 		if isSymlink(file) {
-			return errors.Newf(errors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
+			return clierrors.Newf(clierrors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
 		}
 
 		name := file.Name
@@ -80,7 +80,7 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 
 		if file.FileInfo().IsDir() {
 			if err := os.MkdirAll(destPath, 0755); err != nil {
-				return errors.Wrapf(errors.CodeDirCreateFailed, err, "failed to create directory: %s", name)
+				return clierrors.Wrapf(clierrors.CodeDirCreateFailed, err, "failed to create directory: %s", name)
 			}
 			continue
 		}
@@ -95,7 +95,7 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 
 func extractFile(file *zip.File, destPath string, opts *Options) error {
 	if isSymlink(file) {
-		return errors.Newf(errors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
+		return clierrors.Newf(clierrors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
 	}
 	if !opts.OverwriteExisting {
 		if _, err := os.Stat(destPath); err == nil {
@@ -105,12 +105,12 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 
 	parentDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
-		return errors.Wrapf(errors.CodeDirCreateFailed, err, "failed to create directory: %s", parentDir)
+		return clierrors.Wrapf(clierrors.CodeDirCreateFailed, err, "failed to create directory: %s", parentDir)
 	}
 
 	srcFile, err := file.Open()
 	if err != nil {
-		return errors.Wrapf(errors.CodeFileReadFailed, err, "failed to open file in archive: %s", file.Name)
+		return clierrors.Wrapf(clierrors.CodeFileReadFailed, err, "failed to open file in archive: %s", file.Name)
 	}
 	defer srcFile.Close()
 
@@ -121,12 +121,12 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 
 	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
-		return errors.Wrapf(errors.CodeFileWriteFailed, err, "failed to create file: %s", destPath)
+		return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to create file: %s", destPath)
 	}
 	defer destFile.Close()
 
 	if _, err := io.Copy(destFile, srcFile); err != nil {
-		return errors.Wrapf(errors.CodeFileWriteFailed, err, "failed to write file: %s", destPath)
+		return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to write file: %s", destPath)
 	}
 
 	return nil
@@ -148,19 +148,19 @@ func stripPathComponents(path string, n int) string {
 // This prevents "zip slip" directory traversal attacks.
 func sanitizePath(destDir, name string) (string, error) {
 	if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") {
-		return "", errors.Newf(errors.CodeValidationFailed, "invalid path in archive: %s", name)
+		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
 	if strings.Contains(name, "\\") {
-		return "", errors.Newf(errors.CodeValidationFailed, "invalid path in archive: %s", name)
+		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
 	if len(name) >= 2 {
 		c := name[0]
 		if name[1] == ':' && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-			return "", errors.Newf(errors.CodeValidationFailed, "invalid path in archive: %s", name)
+			return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 		}
 	}
 	if filepath.IsAbs(name) {
-		return "", errors.Newf(errors.CodeValidationFailed, "invalid path in archive: %s", name)
+		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
 
 	name = filepath.Clean(name)
@@ -172,13 +172,13 @@ func sanitizePath(destDir, name string) (string, error) {
 
 	rel, err := filepath.Rel(cleanDestDir, cleanDestPath)
 	if err != nil {
-		return "", errors.Wrap(errors.CodeValidationFailed, "invalid path in archive", err)
+		return "", clierrors.Wrap(clierrors.CodeValidationFailed, "invalid path in archive", err)
 	}
 	if rel == "." {
 		return cleanDestPath, nil
 	}
 	if strings.HasPrefix(rel, "..") || rel == "" {
-		return "", errors.Newf(errors.CodeValidationFailed, "invalid path in archive: %s", name)
+		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
 
 	return destPath, nil
@@ -191,7 +191,7 @@ func isSymlink(file *zip.File) bool {
 func ListZipContents(zipPath string) ([]string, error) {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to open zip file", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
 	}
 	defer reader.Close()
 
@@ -208,12 +208,12 @@ func ListZipContents(zipPath string) ([]string, error) {
 func GetZipRootDirectory(zipPath string) (string, error) {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return "", errors.Wrap(errors.CodeFileReadFailed, "failed to open zip file", err)
+		return "", clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
 	}
 	defer reader.Close()
 
 	if len(reader.File) == 0 {
-		return "", errors.New(errors.CodeValidationFailed, "zip file is empty")
+		return "", clierrors.New(clierrors.CodeValidationFailed, "zip file is empty")
 	}
 
 	firstFile := reader.File[0].Name
@@ -241,12 +241,12 @@ func GetZipRootDirectory(zipPath string) (string, error) {
 func ExtractXenForoZip(zipPath, destDir string, onProgress func(current, total int, filename string)) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return errors.Wrap(errors.CodeFileReadFailed, "failed to open zip file", err)
+		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
 	}
 	defer reader.Close()
 
 	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return errors.Wrap(errors.CodeDirCreateFailed, "failed to create destination directory", err)
+		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create destination directory", err)
 	}
 
 	var uploadFiles []*zip.File
@@ -264,7 +264,7 @@ func ExtractXenForoZip(zipPath, destDir string, onProgress func(current, total i
 		current++
 
 		if isSymlink(file) {
-			return errors.Newf(errors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
+			return clierrors.Newf(clierrors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
 		}
 
 		name := strings.TrimPrefix(filepath.ToSlash(file.Name), "upload/")
@@ -283,7 +283,7 @@ func ExtractXenForoZip(zipPath, destDir string, onProgress func(current, total i
 
 		if file.FileInfo().IsDir() {
 			if err := os.MkdirAll(destPath, 0755); err != nil {
-				return errors.Wrapf(errors.CodeDirCreateFailed, err, "failed to create directory: %s", name)
+				return clierrors.Wrapf(clierrors.CodeDirCreateFailed, err, "failed to create directory: %s", name)
 			}
 			continue
 		}
@@ -303,7 +303,7 @@ func ExtractXenForoZip(zipPath, destDir string, onProgress func(current, total i
 func CountZipFiles(zipPath string) (int, error) {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return 0, errors.Wrap(errors.CodeFileReadFailed, "failed to open zip file", err)
+		return 0, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
 	}
 	defer reader.Close()
 
@@ -329,7 +329,7 @@ type ZipInfo struct {
 func GetZipInfo(zipPath string) (*ZipInfo, error) {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to open zip file", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
 	}
 	defer reader.Close()
 

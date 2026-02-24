@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/doctor"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -82,7 +82,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	if doc.HasErrors() {
 		ui.PrintError("Some checks failed")
-		return errors.New(errors.CodeInternal, "health check failed")
+		return clierrors.New(clierrors.CodeInternal, "health check failed")
 	} else if doc.HasWarnings() {
 		ui.PrintWarning("Some checks have warnings")
 	} else {

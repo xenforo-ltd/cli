@@ -12,10 +12,10 @@ import (
 
 	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/cache"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/downloads"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -84,7 +84,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
-		return errors.Wrap(errors.CodeInvalidInput, "invalid target path", err)
+		return clierrors.Wrap(clierrors.CodeInvalidInput, "invalid target path", err)
 	}
 
 	opts := &UpgradeOptions{
@@ -154,7 +154,7 @@ func validateUpgradeFlags(opts *UpgradeOptions) error {
 	}
 
 	if len(missing) > 0 {
-		return errors.Newf(errors.CodeInvalidInput, "missing required flags in non-interactive mode: %s", strings.Join(missing, ", "))
+		return clierrors.Newf(clierrors.CodeInvalidInput, "missing required flags in non-interactive mode: %s", strings.Join(missing, ", "))
 	}
 
 	if len(opts.Products) == 0 {
@@ -177,7 +177,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		if len(licenses) == 0 {
-			return errors.New(errors.CodeAPINotFound, "no licenses found for your account")
+			return clierrors.New(clierrors.CodeAPINotFound, "no licenses found for your account")
 		}
 
 		var licenseOptions []huh.Option[string]
@@ -192,7 +192,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		if len(licenseOptions) == 0 {
-			return errors.New(errors.CodeAPIForbidden, "no licenses with download access found")
+			return clierrors.New(clierrors.CodeAPIForbidden, "no licenses with download access found")
 		}
 
 		err = huh.NewSelect[string]().
@@ -201,7 +201,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 			Value(&opts.LicenseKey).
 			Run()
 		if err != nil {
-			return errors.Wrap(errors.CodeInvalidInput, "license selection cancelled", err)
+			return clierrors.Wrap(clierrors.CodeInvalidInput, "license selection cancelled", err)
 		}
 	}
 
@@ -216,7 +216,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		if len(versions.Versions) == 0 {
-			return errors.New(errors.CodeAPINotFound, "no versions available")
+			return clierrors.New(clierrors.CodeAPINotFound, "no versions available")
 		}
 
 		var versionOptions []huh.Option[int]
@@ -243,7 +243,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 			Value(&opts.TargetVersionID).
 			Run()
 		if err != nil {
-			return errors.Wrap(errors.CodeInvalidInput, "version selection cancelled", err)
+			return clierrors.Wrap(clierrors.CodeInvalidInput, "version selection cancelled", err)
 		}
 
 		for _, v := range versions.Versions {
@@ -259,7 +259,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 
 func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	if opts.TargetVersionID <= opts.CurrentVersion.ID {
-		return errors.Newf(errors.CodeInvalidInput,
+		return clierrors.Newf(clierrors.CodeInvalidInput,
 			"target version %d is not newer than current version %d",
 			opts.TargetVersionID, opts.CurrentVersion.ID)
 	}

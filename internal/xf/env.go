@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 // EnvConfig represents the configuration values in a .env file.
@@ -71,9 +71,9 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.New(errors.CodeFileNotFound, ".env file not found")
+			return nil, clierrors.New(clierrors.CodeFileNotFound, ".env file not found")
 		}
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "failed to read .env file", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read .env file", err)
 	}
 	defer file.Close()
 
@@ -107,7 +107,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, errors.Wrap(errors.CodeFileReadFailed, "error reading .env file", err)
+		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "error reading .env file", err)
 	}
 
 	return env, nil
@@ -125,7 +125,7 @@ func WriteEnvFile(path string, values map[string]string) error {
 func createEnvFile(path string, values map[string]string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		return errors.Wrap(errors.CodeFileWriteFailed, "failed to create .env file", err)
+		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to create .env file", err)
 	}
 	defer file.Close()
 
@@ -142,7 +142,7 @@ func createEnvFile(path string, values map[string]string) error {
 			value = fmt.Sprintf("\"%s\"", value)
 		}
 		if _, err := fmt.Fprintf(file, "%s=%s\n", key, value); err != nil {
-			return errors.Wrap(errors.CodeFileWriteFailed, "failed to write to .env file", err)
+			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write to .env file", err)
 		}
 	}
 
@@ -152,7 +152,7 @@ func createEnvFile(path string, values map[string]string) error {
 func updateEnvFile(path string, values map[string]string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return errors.Wrap(errors.CodeFileReadFailed, "failed to read .env file", err)
+		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read .env file", err)
 	}
 
 	lines := strings.Split(string(content), "\n")
@@ -201,7 +201,7 @@ func updateEnvFile(path string, values map[string]string) error {
 
 	output := strings.Join(lines, "\n")
 	if err := os.WriteFile(path, []byte(output), 0644); err != nil {
-		return errors.Wrap(errors.CodeFileWriteFailed, "failed to write .env file", err)
+		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .env file", err)
 	}
 
 	return nil
@@ -229,7 +229,7 @@ func GetEnvValue(path, key string) (string, error) {
 
 	value, ok := env[key]
 	if !ok {
-		return "", errors.Newf(errors.CodeConfigNotFound, "key %s not found in .env file", key)
+		return "", clierrors.Newf(clierrors.CodeConfigNotFound, "key %s not found in .env file", key)
 	}
 
 	return value, nil
@@ -321,7 +321,7 @@ func GetXenForoDir(startDir string) (string, error) {
 		}
 	}
 
-	return "", errors.New(errors.CodeInvalidInput, "not in a XenForo directory and XF_DIR not set")
+	return "", clierrors.New(clierrors.CodeInvalidInput, "not in a XenForo directory and XF_DIR not set")
 }
 
 // The instance name is used for Docker project naming.

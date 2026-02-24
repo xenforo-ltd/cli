@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 // Environment represents the target environment.
@@ -83,7 +83,7 @@ var (
 func DefaultConfigDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", errors.Wrap(errors.CodeConfigReadFailed, "failed to get home directory", err)
+		return "", clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to get home directory", err)
 	}
 	return filepath.Join(homeDir, ".config", "xf"), nil
 }
@@ -129,12 +129,12 @@ func Load() (*Config, error) {
 			current = Default()
 			return current, nil
 		}
-		return nil, errors.Wrap(errors.CodeConfigReadFailed, "failed to read config file", err)
+		return nil, clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to read config file", err)
 	}
 
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, errors.Wrap(errors.CodeConfigInvalid, "failed to parse config file", err)
+		return nil, clierrors.Wrap(clierrors.CodeConfigInvalid, "failed to parse config file", err)
 	}
 
 	current = &cfg
@@ -152,16 +152,16 @@ func Save(cfg *Config) error {
 
 	configDir := filepath.Dir(configPath)
 	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return errors.Wrap(errors.CodeDirCreateFailed, "failed to create config directory", err)
+		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create config directory", err)
 	}
 
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return errors.Wrap(errors.CodeConfigWriteFailed, "failed to marshal config", err)
+		return clierrors.Wrap(clierrors.CodeConfigWriteFailed, "failed to marshal config", err)
 	}
 
 	if err := os.WriteFile(configPath, data, 0600); err != nil {
-		return errors.Wrap(errors.CodeConfigWriteFailed, "failed to write config file", err)
+		return clierrors.Wrap(clierrors.CodeConfigWriteFailed, "failed to write config file", err)
 	}
 
 	current = cfg
@@ -271,7 +271,7 @@ func ValidateEnvironment(env string) error {
 	case EnvProduction, EnvDevelopment:
 		return nil
 	default:
-		return errors.Newf(errors.CodeInvalidInput, "invalid environment: %s (must be 'production' or 'development')", env)
+		return clierrors.Newf(clierrors.CodeInvalidInput, "invalid environment: %s (must be 'production' or 'development')", env)
 	}
 }
 

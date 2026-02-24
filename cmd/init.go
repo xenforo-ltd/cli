@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
@@ -147,7 +147,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
-		return errors.Wrap(errors.CodeInvalidInput, "invalid target path", err)
+		return clierrors.Wrap(clierrors.CodeInvalidInput, "invalid target path", err)
 	}
 
 	opts := &InitOptions{
@@ -175,12 +175,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if opts.EnvFile != "" {
 		fileEnv, err = initflow.ParseEnvFile(opts.EnvFile)
 		if err != nil {
-			return errors.Wrap(errors.CodeInvalidInput, "failed to parse --env-file", err)
+			return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse --env-file", err)
 		}
 	}
 	flagEnv, err := initflow.ParseEnvFlags(opts.EnvFlags)
 	if err != nil {
-		return errors.Wrap(errors.CodeInvalidInput, "failed to parse --env", err)
+		return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse --env", err)
 	}
 	opts.EnvResolved, opts.EnvSources = initflow.MergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
 
@@ -220,7 +220,7 @@ func detectXenForo(path string) (bool, error) {
 	if os.IsNotExist(err) {
 		return false, nil
 	}
-	return false, errors.Wrap(errors.CodeFileReadFailed, "failed to check XenForo path", err)
+	return false, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to check XenForo path", err)
 }
 
 func initExisting(opts *InitOptions) error {
@@ -362,7 +362,7 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 	}
 
 	if len(missing) > 0 {
-		return errors.Newf(errors.CodeInvalidInput, "missing required flags in non-interactive mode: %s", strings.Join(missing, ", "))
+		return clierrors.Newf(clierrors.CodeInvalidInput, "missing required flags in non-interactive mode: %s", strings.Join(missing, ", "))
 	}
 
 	if len(opts.Products) == 0 {
@@ -390,7 +390,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		if len(licenses) == 0 {
-			return errors.New(errors.CodeAPINotFound, "no licenses found for your account")
+			return clierrors.New(clierrors.CodeAPINotFound, "no licenses found for your account")
 		}
 
 		var licenseOptions []huh.Option[string]
@@ -402,7 +402,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		if len(licenseOptions) == 0 {
-			return errors.New(errors.CodeAPIForbidden, "no licenses with download access found")
+			return clierrors.New(clierrors.CodeAPIForbidden, "no licenses with download access found")
 		}
 
 		err = huh.NewSelect[string]().
@@ -411,7 +411,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&opts.LicenseKey).
 			Run()
 		if err != nil {
-			return errors.Wrap(errors.CodeInvalidInput, "license selection cancelled", err)
+			return clierrors.Wrap(clierrors.CodeInvalidInput, "license selection cancelled", err)
 		}
 	}
 
@@ -437,7 +437,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&selectedProducts).
 			Run()
 		if err != nil {
-			return errors.Wrap(errors.CodeInvalidInput, "product selection cancelled", err)
+			return clierrors.Wrap(clierrors.CodeInvalidInput, "product selection cancelled", err)
 		}
 
 		opts.Products = ensureCoreFirstUnique(append([]string{"xenforo"}, selectedProducts...))
@@ -452,7 +452,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		return err
 	}
 	if len(versions.Versions) == 0 {
-		return errors.New(errors.CodeAPINotFound, "no versions available")
+		return clierrors.New(clierrors.CodeAPINotFound, "no versions available")
 	}
 	initflow.SortVersionsDesc(versions.Versions)
 	opts.CoreVersions = versions.Versions
@@ -473,7 +473,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.VersionID == 0 {
-		return errors.New(errors.CodeInvalidInput, "core version is required")
+		return clierrors.New(clierrors.CodeInvalidInput, "core version is required")
 	}
 
 	if opts.AdminUser == "" || opts.AdminPassword == "" || opts.AdminEmail == "" {
@@ -521,7 +521,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return errors.Wrap(errors.CodeInvalidInput, "credential input cancelled", err)
+			return clierrors.Wrap(clierrors.CodeInvalidInput, "credential input cancelled", err)
 		}
 	}
 

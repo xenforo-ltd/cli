@@ -10,7 +10,7 @@ import (
 
 	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/cache"
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 type versionClient interface {
@@ -62,10 +62,10 @@ func ResolveSelections(
 
 	coreVersions, err := client.GetLicenseVersions(ctx, licenseKey, "xenforo")
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeAPIRequestFailed, "failed to get versions for xenforo", err)
+		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to get versions for xenforo", err)
 	}
 	if len(coreVersions.Versions) == 0 {
-		return nil, errors.New(errors.CodeAPINotFound, "no xenforo versions available")
+		return nil, clierrors.New(clierrors.CodeAPINotFound, "no xenforo versions available")
 	}
 
 	sortVersions(coreVersions.Versions)
@@ -83,7 +83,7 @@ func ResolveSelections(
 	for _, product := range products {
 		if product == "xenforo" {
 			if coreVersionID == 0 {
-				return nil, errors.New(errors.CodeInvalidInput, "xenforo core version ID is required")
+				return nil, clierrors.New(clierrors.CodeInvalidInput, "xenforo core version ID is required")
 			}
 			versionStr := coreVersionString
 			reason := "selected core version"
@@ -105,7 +105,7 @@ func ResolveSelections(
 		if overrideID := overrides[product]; overrideID > 0 {
 			info, err := client.GetDownloadInfo(ctx, licenseKey, product, overrideID)
 			if err != nil {
-				return nil, errors.Wrapf(errors.CodeAPIRequestFailed, err, "failed to resolve override for %s", product)
+				return nil, clierrors.Wrapf(clierrors.CodeAPIRequestFailed, err, "failed to resolve override for %s", product)
 			}
 			selections = append(selections, Selection{
 				Product:       product,
@@ -118,7 +118,7 @@ func ResolveSelections(
 
 		versions, err := client.GetLicenseVersions(ctx, licenseKey, product)
 		if err != nil {
-			return nil, errors.Wrapf(errors.CodeAPIRequestFailed, err, "failed to get versions for %s", product)
+			return nil, clierrors.Wrapf(clierrors.CodeAPIRequestFailed, err, "failed to get versions for %s", product)
 		}
 
 		if len(versions.Versions) == 0 {
@@ -241,7 +241,7 @@ func DownloadSelection(ctx context.Context, client *api.Client, cacheManager *ca
 func downloadSelection(ctx context.Context, client downloadClient, cacheManager cacheDownloader, licenseKey string, selection Selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
 	info, err := client.GetDownloadInfo(ctx, licenseKey, selection.Product, selection.VersionID)
 	if err != nil {
-		return nil, "", errors.Wrapf(errors.CodeAPIRequestFailed, err, "failed to get download info for %s", selection.Product)
+		return nil, "", clierrors.Wrapf(clierrors.CodeAPIRequestFailed, err, "failed to get download info for %s", selection.Product)
 	}
 
 	versionStr := selection.VersionString
@@ -281,7 +281,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 
 	result, err := cacheManager.DownloadWithAuth(ctx, downloadOpts, accessToken, progress)
 	if err != nil {
-		return nil, "", errors.Wrapf(errors.CodeDownloadFailed, err, "failed to download %s", selection.Product)
+		return nil, "", clierrors.Wrapf(clierrors.CodeDownloadFailed, err, "failed to download %s", selection.Product)
 	}
 
 	return result.Entry, versionStr, nil

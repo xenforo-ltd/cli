@@ -1,4 +1,4 @@
-package errors
+package clierrors
 
 import (
 	"encoding/json"

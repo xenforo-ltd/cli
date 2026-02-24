@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/cache"
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -156,7 +156,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 
 		data, err := json.MarshalIndent(jsonEntries, "", "  ")
 		if err != nil {
-			return errors.Wrap(errors.CodeInternal, "failed to marshal cache list", err)
+			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal cache list", err)
 		}
 		fmt.Println(string(data))
 		return nil

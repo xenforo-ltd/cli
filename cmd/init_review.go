@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/huh"
 
 	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/downloads"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
@@ -34,7 +34,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 		Options(versionOptions...).
 		Value(&selection).
 		Run(); err != nil {
-		return errors.Wrap(errors.CodeInvalidInput, "version selection cancelled", err)
+		return clierrors.Wrap(clierrors.CodeInvalidInput, "version selection cancelled", err)
 	}
 
 	if selection == manual {
@@ -45,7 +45,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 				Description("Examples: 2.3.9, v2.3.9, 2030900").
 				Value(&manualInput).
 				Run(); err != nil {
-				return errors.Wrap(errors.CodeInvalidInput, "version input cancelled", err)
+				return clierrors.Wrap(clierrors.CodeInvalidInput, "version input cancelled", err)
 			}
 			v, ok := initflow.ResolveVersionInput(manualInput, opts.CoreVersions)
 			if !ok {
@@ -90,7 +90,7 @@ func runInteractiveReview(ctx context.Context, client *api.Client, opts *InitOpt
 			Options(options...).
 			Value(&choice).
 			Run(); err != nil {
-			return errors.Wrap(errors.CodeInvalidInput, "review cancelled", err)
+			return clierrors.Wrap(clierrors.CodeInvalidInput, "review cancelled", err)
 		}
 
 		switch choice {
@@ -101,7 +101,7 @@ func runInteractiveReview(ctx context.Context, client *api.Client, opts *InitOpt
 			}
 			return nil
 		case "cancel":
-			return errors.New(errors.CodeInvalidInput, "initialization cancelled")
+			return clierrors.New(clierrors.CodeInvalidInput, "initialization cancelled")
 		case "core":
 			clearScreen()
 			if err := editCoreSetup(ctx, client, opts); err != nil {
@@ -193,7 +193,7 @@ func editCoreSetup(ctx context.Context, client *api.Client, opts *InitOptions) e
 		return err
 	}
 	if len(versions.Versions) == 0 {
-		return errors.New(errors.CodeAPINotFound, "no versions available for this license")
+		return clierrors.New(clierrors.CodeAPINotFound, "no versions available for this license")
 	}
 	initflow.SortVersionsDesc(versions.Versions)
 	opts.CoreVersions = versions.Versions
@@ -228,7 +228,7 @@ func editAdminSite(opts *InitOptions) error {
 		),
 	)
 	if err := form.Run(); err != nil {
-		return errors.Wrap(errors.CodeInvalidInput, "admin/site edit cancelled", err)
+		return clierrors.Wrap(clierrors.CodeInvalidInput, "admin/site edit cancelled", err)
 	}
 	return nil
 }
@@ -247,10 +247,10 @@ func editLicense(ctx context.Context, client *api.Client, opts *InitOptions) err
 		options = append(options, huh.NewOption(label, lic.LicenseKey))
 	}
 	if len(options) == 0 {
-		return errors.New(errors.CodeAPIForbidden, "no licenses with download access found")
+		return clierrors.New(clierrors.CodeAPIForbidden, "no licenses with download access found")
 	}
 	if err := huh.NewSelect[string]().Title("Select a license").Options(options...).Value(&opts.LicenseKey).Run(); err != nil {
-		return errors.Wrap(errors.CodeInvalidInput, "license selection cancelled", err)
+		return clierrors.Wrap(clierrors.CodeInvalidInput, "license selection cancelled", err)
 	}
 	opts.CoreVersions = nil
 	opts.ProductTitleMap = nil
@@ -361,7 +361,7 @@ func editAddonOverrides(ctx context.Context, client *api.Client, opts *InitOptio
 			return err
 		}
 		if len(versions.Versions) == 0 {
-			return errors.Newf(errors.CodeAPINotFound, "no versions available for %s", product)
+			return clierrors.Newf(clierrors.CodeAPINotFound, "no versions available for %s", product)
 		}
 		initflow.SortVersionsDesc(versions.Versions)
 		optsList := initflow.BuildVersionOptions(versions.Versions, 10)

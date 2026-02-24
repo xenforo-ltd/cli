@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/stream"
 	"github.com/xenforo-ltd/cli/internal/version"
 )
@@ -123,7 +123,7 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 		}
 
 		if info.AssetURL == "" {
-			return nil, errors.Newf(errors.CodeUpdateFailed,
+			return nil, clierrors.Newf(clierrors.CodeUpdateFailed,
 				"no release asset found for %s/%s", runtime.GOOS, runtime.GOARCH)
 		}
 	}
@@ -133,32 +133,32 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 
 func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(downloaded, total int64)) error {
 	if !info.HasUpdate {
-		return errors.New(errors.CodeUpdateFailed, "no update available")
+		return clierrors.New(clierrors.CodeUpdateFailed, "no update available")
 	}
 	if info.AssetURL == "" || info.AssetName == "" {
-		return errors.New(errors.CodeUpdateFailed, "update asset information is incomplete")
+		return clierrors.New(clierrors.CodeUpdateFailed, "update asset information is incomplete")
 	}
 
 	execPath, err := executablePath()
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to get executable path", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to get executable path", err)
 	}
 	execPath, err = evaluateSymlink(execPath)
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to resolve executable path", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to resolve executable path", err)
 	}
 
 	// Create a temporary working directory in the binary directory to keep renames atomic.
 	tmpDir, err := os.MkdirTemp(filepath.Dir(execPath), "xf-update-*")
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to create temporary directory", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create temporary directory", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, info.AssetName)
 	archiveFile, err := os.Create(archivePath)
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to create update archive", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create update archive", err)
 	}
 
 	if err := u.downloadFile(ctx, info.AssetURL, archiveFile, progressFn); err != nil {
@@ -166,7 +166,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 		return err
 	}
 	if err := archiveFile.Close(); err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to finalize update archive", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to finalize update archive", err)
 	}
 
 	if info.ChecksumURL != "" {
@@ -182,7 +182,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(newBinaryPath, 0755); err != nil {
-			return errors.Wrap(errors.CodeUpdateFailed, "failed to set permissions on new binary", err)
+			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to set permissions on new binary", err)
 		}
 	}
 
@@ -193,17 +193,17 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 		oldPath := execPath + ".old"
 		os.Remove(oldPath) // Remove any existing .old file.
 		if err := os.Rename(execPath, oldPath); err != nil {
-			return errors.Wrap(errors.CodeUpdateFailed, "failed to backup old binary", err)
+			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to backup old binary", err)
 		}
 		if err := os.Rename(newBinaryPath, execPath); err != nil {
 			// Try to restore the old binary.
 			os.Rename(oldPath, execPath)
-			return errors.Wrap(errors.CodeUpdateFailed, "failed to replace binary", err)
+			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to replace binary", err)
 		}
 		os.Remove(oldPath) // Clean up the old binary.
 	} else {
 		if err := os.Rename(newBinaryPath, execPath); err != nil {
-			return errors.Wrap(errors.CodeUpdateFailed, "failed to replace binary", err)
+			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to replace binary", err)
 		}
 	}
 
@@ -217,20 +217,20 @@ func extractBinaryFromArchive(archivePath, destDir string) (string, error) {
 	case strings.HasSuffix(archivePath, ".zip"):
 		return extractBinaryFromZip(archivePath, destDir)
 	default:
-		return "", errors.Newf(errors.CodeUpdateFailed, "unsupported update archive format: %s", archivePath)
+		return "", clierrors.Newf(clierrors.CodeUpdateFailed, "unsupported update archive format: %s", archivePath)
 	}
 }
 
 func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 	f, err := os.Open(archivePath)
 	if err != nil {
-		return "", errors.Wrap(errors.CodeUpdateFailed, "failed to open update archive", err)
+		return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to open update archive", err)
 	}
 	defer f.Close()
 
 	gzReader, err := gzip.NewReader(f)
 	if err != nil {
-		return "", errors.Wrap(errors.CodeUpdateFailed, "failed to read update archive", err)
+		return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to read update archive", err)
 	}
 	defer gzReader.Close()
 
@@ -243,7 +243,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 			break
 		}
 		if err != nil {
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to read update archive", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to read update archive", err)
 		}
 
 		if header.Typeflag != tar.TypeReg {
@@ -258,21 +258,21 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		outPath := filepath.Join(destDir, name)
 		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 		if err != nil {
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to extract update binary", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
 
 		if _, err := io.Copy(outFile, tarReader); err != nil {
 			outFile.Close()
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to extract update binary", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
 		if err := outFile.Close(); err != nil {
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to finalize update binary", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to finalize update binary", err)
 		}
 
 		mode := header.FileInfo().Mode().Perm()
 		if mode != 0 && runtime.GOOS != "windows" {
 			if err := os.Chmod(outPath, mode); err != nil {
-				return "", errors.Wrap(errors.CodeUpdateFailed, "failed to apply binary permissions", err)
+				return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to apply binary permissions", err)
 			}
 		}
 
@@ -285,7 +285,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
-		return "", errors.Wrap(errors.CodeUpdateFailed, "failed to open update archive", err)
+		return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to open update archive", err)
 	}
 	defer reader.Close()
 
@@ -303,33 +303,33 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 
 		inFile, err := file.Open()
 		if err != nil {
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to read update binary from archive", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to read update binary from archive", err)
 		}
 
 		outPath := filepath.Join(destDir, name)
 		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 		if err != nil {
 			inFile.Close()
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to extract update binary", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
 
 		if _, err := io.Copy(outFile, inFile); err != nil {
 			outFile.Close()
 			inFile.Close()
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to extract update binary", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
 		if err := outFile.Close(); err != nil {
 			inFile.Close()
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to finalize update binary", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to finalize update binary", err)
 		}
 		if err := inFile.Close(); err != nil {
-			return "", errors.Wrap(errors.CodeUpdateFailed, "failed to close update archive entry", err)
+			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to close update archive entry", err)
 		}
 
 		mode := file.Mode().Perm()
 		if mode != 0 && runtime.GOOS != "windows" {
 			if err := os.Chmod(outPath, mode); err != nil {
-				return "", errors.Wrap(errors.CodeUpdateFailed, "failed to apply binary permissions", err)
+				return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to apply binary permissions", err)
 			}
 		}
 
@@ -361,7 +361,7 @@ func pickExtractedBinary(extracted map[string]string) (string, error) {
 		return binaryPath, nil
 	}
 
-	return "", errors.New(errors.CodeUpdateFailed, "update archive did not contain xf binary")
+	return "", clierrors.New(clierrors.CodeUpdateFailed, "update archive did not contain xf binary")
 }
 
 func parseChecksumForAsset(data []byte, assetName string) (string, bool) {
@@ -403,27 +403,27 @@ func (u *Updater) getLatestRelease(ctx context.Context) (*Release, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeUpdateFailed, "failed to create request", err)
+		return nil, clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create request", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(errors.CodeNetworkFailed, "failed to check for updates", err)
+		return nil, clierrors.Wrap(clierrors.CodeNetworkFailed, "failed to check for updates", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, errors.New(errors.CodeUpdateFailed, "no releases found")
+		return nil, clierrors.New(clierrors.CodeUpdateFailed, "no releases found")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Newf(errors.CodeUpdateFailed, "GitHub API returned status %d", resp.StatusCode)
+		return nil, clierrors.Newf(clierrors.CodeUpdateFailed, "GitHub API returned status %d", resp.StatusCode)
 	}
 
 	var release Release
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, errors.Wrap(errors.CodeUpdateFailed, "failed to parse release info", err)
+		return nil, clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to parse release info", err)
 	}
 
 	return &release, nil
@@ -436,18 +436,18 @@ func (u *Updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to create download request", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create download request", err)
 	}
 	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
 	if err != nil {
-		return errors.Wrap(errors.CodeNetworkFailed, "failed to download update", err)
+		return clierrors.Wrap(clierrors.CodeNetworkFailed, "failed to download update", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.Newf(errors.CodeUpdateFailed, "download failed with status %d", resp.StatusCode)
+		return clierrors.Newf(clierrors.CodeUpdateFailed, "download failed with status %d", resp.StatusCode)
 	}
 
 	var reader io.Reader = resp.Body
@@ -461,7 +461,7 @@ func (u *Updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 
 	_, err = io.Copy(dest, reader)
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to save update", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to save update", err)
 	}
 
 	return nil
@@ -471,44 +471,44 @@ func (u *Updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 func (u *Updater) verifyChecksum(ctx context.Context, filePath string, info *UpdateInfo) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, info.ChecksumURL, nil)
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to create checksum request", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create checksum request", err)
 	}
 	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
 	if err != nil {
-		return errors.Wrap(errors.CodeNetworkFailed, "failed to download checksum", err)
+		return clierrors.Wrap(clierrors.CodeNetworkFailed, "failed to download checksum", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.Newf(errors.CodeChecksumMismatch, "failed to download checksum (status %d)", resp.StatusCode)
+		return clierrors.Newf(clierrors.CodeChecksumMismatch, "failed to download checksum (status %d)", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to read checksum", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to read checksum", err)
 	}
 
 	expectedChecksum, ok := parseChecksumForAsset(body, info.AssetName)
 	if !ok {
-		return errors.Newf(errors.CodeChecksumMismatch, "checksum entry missing for asset %s", info.AssetName)
+		return clierrors.Newf(clierrors.CodeChecksumMismatch, "checksum entry missing for asset %s", info.AssetName)
 	}
 
 	f, err := os.Open(filePath)
 	if err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to open downloaded file for verification", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to open downloaded file for verification", err)
 	}
 	defer f.Close()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, f); err != nil {
-		return errors.Wrap(errors.CodeUpdateFailed, "failed to calculate checksum", err)
+		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to calculate checksum", err)
 	}
 
 	actualChecksum := hex.EncodeToString(hasher.Sum(nil))
 	if !strings.EqualFold(actualChecksum, expectedChecksum) {
-		return errors.Newf(errors.CodeChecksumMismatch,
+		return clierrors.Newf(clierrors.CodeChecksumMismatch,
 			"checksum verification failed: expected %s, got %s", expectedChecksum, actualChecksum)
 	}
 

@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -119,13 +119,13 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	kc := auth.NewKeychain()
 
 	if !kc.IsAvailable() {
-		return errors.New(errors.CodeKeychainUnavailable,
+		return clierrors.New(clierrors.CodeKeychainUnavailable,
 			"system keychain is not available - this is required for secure token storage")
 	}
 
 	pkce, err := auth.GeneratePKCE()
 	if err != nil {
-		return errors.Wrap(errors.CodeInternal, "failed to generate PKCE parameters", err)
+		return clierrors.Wrap(clierrors.CodeInternal, "failed to generate PKCE parameters", err)
 	}
 
 	oauthConfig := auth.DefaultOAuthConfig()
@@ -163,11 +163,11 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	if result.Error != "" {
-		return errors.Newf(errors.CodeAuthFailed, "authentication failed: %s", result.Error)
+		return clierrors.Newf(clierrors.CodeAuthFailed, "authentication failed: %s", result.Error)
 	}
 
 	if result.State != pkce.State {
-		return errors.New(errors.CodeAuthFailed, "authentication failed: state mismatch (possible CSRF attack)")
+		return clierrors.New(clierrors.CodeAuthFailed, "authentication failed: state mismatch (possible CSRF attack)")
 	}
 
 	ui.PrintInfo("Exchanging authorization code for tokens...")
@@ -196,7 +196,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 				"error":         "keychain unavailable",
 			})
 			if err != nil {
-				return errors.Wrap(errors.CodeInternal, "failed to marshal auth status", err)
+				return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 			}
 			fmt.Println(string(data))
 			return nil
@@ -207,13 +207,13 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 
 	token, err := kc.LoadToken()
 	if err != nil {
-		if errors.Is(err, errors.CodeAuthRequired) {
+		if clierrors.Is(err, clierrors.CodeAuthRequired) {
 			if flagAuthStatusJSON {
 				data, err := json.Marshal(map[string]any{
 					"authenticated": false,
 				})
 				if err != nil {
-					return errors.Wrap(errors.CodeInternal, "failed to marshal auth status", err)
+					return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 				}
 				fmt.Println(string(data))
 				return nil
@@ -258,7 +258,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		}
 		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
-			return errors.Wrap(errors.CodeInternal, "failed to marshal auth status", err)
+			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 		}
 		fmt.Println(string(data))
 		return nil
@@ -302,13 +302,13 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 	kc := auth.NewKeychain()
 
 	if !kc.IsAvailable() {
-		return errors.New(errors.CodeKeychainUnavailable,
+		return clierrors.New(clierrors.CodeKeychainUnavailable,
 			"system keychain is not available")
 	}
 
 	token, err := kc.LoadToken()
 	if err != nil {
-		if errors.Is(err, errors.CodeAuthRequired) {
+		if clierrors.Is(err, clierrors.CodeAuthRequired) {
 			ui.PrintInfo("Already logged out.")
 			return nil
 		}
@@ -347,7 +347,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	kc := auth.NewKeychain()
 
 	if !kc.IsAvailable() {
-		return errors.New(errors.CodeKeychainUnavailable,
+		return clierrors.New(clierrors.CodeKeychainUnavailable,
 			"system keychain is not available")
 	}
 
@@ -357,7 +357,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	}
 
 	if token.RefreshToken == "" {
-		return errors.New(errors.CodeAuthFailed, "no refresh token available - run 'xf auth login'")
+		return clierrors.New(clierrors.CodeAuthFailed, "no refresh token available - run 'xf auth login'")
 	}
 
 	ui.PrintInfo("Refreshing access token...")
@@ -372,7 +372,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 
 	newToken, err := client.RefreshToken(ctx, token.RefreshToken)
 	if err != nil {
-		return errors.Wrap(errors.CodeAuthFailed, "failed to refresh token", err)
+		return clierrors.Wrap(clierrors.CodeAuthFailed, "failed to refresh token", err)
 	}
 
 	if err := kc.SaveToken(newToken); err != nil {

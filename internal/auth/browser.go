@@ -4,7 +4,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 func OpenBrowser(url string) error {
@@ -18,11 +18,11 @@ func OpenBrowser(url string) error {
 	case "windows":
 		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	default:
-		return errors.Newf(errors.CodeInternal, "unsupported platform: %s", runtime.GOOS)
+		return clierrors.Newf(clierrors.CodeInternal, "unsupported platform: %s", runtime.GOOS)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return errors.Wrap(errors.CodeInternal, "failed to open browser", err)
+		return clierrors.Wrap(clierrors.CodeInternal, "failed to open browser", err)
 	}
 
 	return nil

@@ -12,10 +12,10 @@ import (
 
 	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/cache"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/downloads"
-	"github.com/xenforo-ltd/cli/internal/errors"
 	"github.com/xenforo-ltd/cli/internal/extract"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
@@ -384,23 +384,23 @@ func prepareTargetDirectory(targetPath string) error {
 	info, err := os.Stat(targetPath)
 	if os.IsNotExist(err) {
 		if err := os.MkdirAll(targetPath, 0755); err != nil {
-			return errors.Wrap(errors.CodeDirCreateFailed, "failed to create target directory", err)
+			return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create target directory", err)
 		}
 		ui.PrintSubstep(fmt.Sprintf("Created directory: %s", ui.Path.Render(targetPath)))
 		return nil
 	}
 
 	if err != nil {
-		return errors.Wrap(errors.CodeFileReadFailed, "failed to check target directory", err)
+		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to check target directory", err)
 	}
 
 	if !info.IsDir() {
-		return errors.New(errors.CodeInvalidInput, "target path exists but is not a directory")
+		return clierrors.New(clierrors.CodeInvalidInput, "target path exists but is not a directory")
 	}
 
 	entries, err := os.ReadDir(targetPath)
 	if err != nil {
-		return errors.Wrap(errors.CodeFileReadFailed, "failed to read target directory", err)
+		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read target directory", err)
 	}
 
 	nonHiddenCount := 0
@@ -419,8 +419,8 @@ func prepareTargetDirectory(targetPath string) error {
 			ui.PrintWarning("Directory already contains a XenForo installation")
 			ui.PrintDetail("Only Docker configuration files will be updated")
 		} else {
-			return errors.Newf(
-				errors.CodeInvalidInput,
+			return clierrors.Newf(
+				clierrors.CodeInvalidInput,
 				"target directory is not empty (%d visible items); use an empty directory or an existing XenForo directory",
 				nonHiddenCount,
 			)
@@ -517,7 +517,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 		}
 
 		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			return errors.Wrap(errors.CodeFileWriteFailed, "failed to extract XenForo", err)
+			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to extract XenForo", err)
 		}
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
 	}
@@ -541,7 +541,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 		}
 
 		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			return errors.Wrapf(errors.CodeFileWriteFailed, err, "failed to extract %s", product)
+			return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to extract %s", product)
 		}
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
 	}
@@ -553,7 +553,7 @@ func configureEnvironment(opts *InitOptions) error {
 	envPath := xf.GetEnvPath(opts.TargetPath)
 
 	if _, err := xf.ReadEnvFile(envPath); err != nil {
-		return errors.Wrap(errors.CodeFileNotFound, ".env file not found after xf init", err)
+		return clierrors.Wrap(clierrors.CodeFileNotFound, ".env file not found after xf init", err)
 	}
 
 	updates := map[string]string{

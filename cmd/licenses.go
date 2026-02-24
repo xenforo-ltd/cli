@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/api"
-	"github.com/xenforo-ltd/cli/internal/errors"
+	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -112,7 +112,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 
 		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
-			return errors.Wrap(errors.CodeInternal, "failed to marshal licenses", err)
+			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal licenses", err)
 		}
 		fmt.Println(string(data))
 		return nil
