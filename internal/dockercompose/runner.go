@@ -154,20 +154,7 @@ func (r *Runner) Exec(service string, cmd ...string) error {
 func (r *Runner) ExecWithEnv(service string, env map[string]string, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "exec")
-
-	if len(env) > 0 {
-		keys := make([]string, 0, len(env))
-		for k := range env {
-			keys = append(keys, k)
-		}
-
-		sort.Strings(keys)
-
-		for _, k := range keys {
-			args = append(args, "-e", fmt.Sprintf("%s=%s", k, env[k]))
-		}
-	}
-
+	args = r.appendEnvVars(args, env, "-e")
 	args = append(args, service)
 	args = append(args, cmd...)
 
@@ -245,20 +232,7 @@ func (r *Runner) ExecOrRunWithEnv(service string, rm bool, env map[string]string
 	if running {
 		execArgs := r.buildComposeArgs()
 		execArgs = append(execArgs, "exec")
-
-		if len(env) > 0 {
-			keys := make([]string, 0, len(env))
-			for k := range env {
-				keys = append(keys, k)
-			}
-
-			sort.Strings(keys)
-
-			for _, k := range keys {
-				execArgs = append(execArgs, "-e", fmt.Sprintf("%s=%s", k, env[k]))
-			}
-		}
-
+		execArgs = r.appendEnvVars(execArgs, env, "-e")
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
@@ -283,20 +257,7 @@ func (r *Runner) ExecOrRunWithEnvAndOutput(service string, rm bool, env map[stri
 	if running {
 		execArgs := r.buildComposeArgs()
 		execArgs = append(execArgs, "exec")
-
-		if len(env) > 0 {
-			keys := make([]string, 0, len(env))
-			for k := range env {
-				keys = append(keys, k)
-			}
-
-			sort.Strings(keys)
-
-			for _, k := range keys {
-				execArgs = append(execArgs, "-e", fmt.Sprintf("%s=%s", k, env[k]))
-			}
-		}
-
+		execArgs = r.appendEnvVars(execArgs, env, "-e")
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
@@ -320,19 +281,7 @@ func (r *Runner) RunWithEnvAndOutput(service string, rm bool, env map[string]str
 		args = append(args, "--rm")
 	}
 
-	if len(env) > 0 {
-		keys := make([]string, 0, len(env))
-		for k := range env {
-			keys = append(keys, k)
-		}
-
-		sort.Strings(keys)
-
-		for _, k := range keys {
-			args = append(args, "--env", fmt.Sprintf("%s=%s", k, env[k]))
-		}
-	}
-
+	args = r.appendEnvVars(args, env, "--env")
 	args = append(args, service)
 	args = append(args, cmd...)
 
@@ -418,19 +367,7 @@ func (r *Runner) RunWithEnv(service string, rm bool, env map[string]string, cmd 
 		args = append(args, "--rm")
 	}
 
-	if len(env) > 0 {
-		keys := make([]string, 0, len(env))
-		for k := range env {
-			keys = append(keys, k)
-		}
-
-		sort.Strings(keys)
-
-		for _, k := range keys {
-			args = append(args, "--env", fmt.Sprintf("%s=%s", k, env[k]))
-		}
-	}
-
+	args = r.appendEnvVars(args, env, "--env")
 	args = append(args, service)
 	args = append(args, cmd...)
 
@@ -661,6 +598,27 @@ func (r *Runner) buildComposeArgs() []string {
 	return args
 }
 
+// appendEnvVars appends environment variables to docker arguments.
+// flagFormat should be either "-e" for exec or "--env" for run.
+func (r *Runner) appendEnvVars(args []string, env map[string]string, flagFormat string) []string {
+	if len(env) == 0 {
+		return args
+	}
+
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		args = append(args, flagFormat, fmt.Sprintf("%s=%s", k, env[k]))
+	}
+
+	return args
+}
+
 // getServicePort gets the exposed port for a service.
 func (r *Runner) getServicePort(service, internalPort string) (string, error) {
 	args := r.buildComposeArgs()
@@ -722,13 +680,7 @@ func parseEnvValue(content, key string) string {
 			continue
 		}
 
-		value := strings.TrimSpace(line[len(prefix):])
-		if len(value) >= 2 {
-			if (value[0] == '"' && value[len(value)-1] == '"') ||
-				(value[0] == '\'' && value[len(value)-1] == '\'') {
-				value = value[1 : len(value)-1]
-			}
-		}
+		value := xf.StripQuotes(line[len(prefix):])
 
 		return value
 	}

@@ -11,22 +11,12 @@ import (
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/clierrors"
+	"github.com/xenforo-ltd/cli/internal/testutils"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 func TestFindXenForoDirFindsParent(t *testing.T) {
-	t.Setenv("XF_DIR", "")
-
-	root := t.TempDir()
-
-	xfFile := filepath.Join(root, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfFile), 0o755); err != nil {
-		t.Fatalf("mkdir src: %v", err)
-	}
-
-	if err := os.WriteFile(xfFile, []byte("<?php"), 0o644); err != nil {
-		t.Fatalf("write XF.php: %v", err)
-	}
+	root := testutils.SetupXenForoDir(t)
 
 	nested := filepath.Join(root, "a", "b", "c")
 	if err := os.MkdirAll(nested, 0o755); err != nil {
@@ -86,18 +76,7 @@ func TestIsKnownCommandIncludesCobraCompletion(t *testing.T) {
 }
 
 func TestRunAsXenForoCommandFallsBackToLocalWhenComposeMissing(t *testing.T) {
-	t.Setenv("XF_DIR", "")
-
-	root := t.TempDir()
-
-	xfFile := filepath.Join(root, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfFile), 0o755); err != nil {
-		t.Fatalf("mkdir src: %v", err)
-	}
-
-	if err := os.WriteFile(xfFile, []byte("<?php"), 0o644); err != nil {
-		t.Fatalf("write XF.php: %v", err)
-	}
+	root := testutils.SetupXenForoDir(t)
 
 	t.Chdir(root)
 

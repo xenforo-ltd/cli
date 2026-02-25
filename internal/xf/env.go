@@ -99,14 +99,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 		}
 
 		key := strings.TrimSpace(before)
-
-		value := strings.TrimSpace(after)
-		if len(value) >= 2 {
-			if (value[0] == '"' && value[len(value)-1] == '"') ||
-				(value[0] == '\'' && value[len(value)-1] == '\'') {
-				value = value[1 : len(value)-1]
-			}
-		}
+		value := StripQuotes(after)
 
 		env[key] = value
 	}
@@ -116,6 +109,22 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	}
 
 	return env, nil
+}
+
+func StripQuotes(s string) string {
+	value := strings.TrimSpace(s)
+
+	slen := len(value)
+	if slen < 2 {
+		return value
+	}
+
+	if (value[0] != '"' || value[slen-1] != '"') &&
+		(value[0] != '\'' || value[slen-1] != '\'') {
+		return value
+	}
+
+	return value[1 : slen-1]
 }
 
 // WriteEnvFile writes values to an .env file.

@@ -220,21 +220,7 @@ func KV(key, value string) KVPair {
 
 // PrintKeyValuePadded prints key-value pairs with aligned values.
 func PrintKeyValuePadded(pairs []KVPair) {
-	if len(pairs) == 0 {
-		return
-	}
-
-	maxKeyLen := 0
-	for _, p := range pairs {
-		if len(p.Key) > maxKeyLen {
-			maxKeyLen = len(p.Key)
-		}
-	}
-
-	for _, p := range pairs {
-		padding := strings.Repeat(" ", maxKeyLen-len(p.Key))
-		fmt.Printf("%s%s%s  %s\n", Indent1, Label.Render(p.Key+":"), padding, p.Value)
-	}
+	PrintKeyValuePaddedWithIndent(pairs, Indent1)
 }
 
 // PrintKeyValuePaddedWithIndent prints key-value pairs with custom indentation.

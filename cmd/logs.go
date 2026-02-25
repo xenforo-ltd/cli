@@ -42,33 +42,9 @@ func init() {
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {
-	var (
-		xfDir    string
-		services []string
-	)
-
-	if len(args) > 0 {
-		potentialPath := args[0]
-		if dir, err := getXenForoDir([]string{potentialPath}); err == nil {
-			xfDir = dir
-			services = args[1:]
-		} else {
-			var err error
-
-			xfDir, err = getXenForoDir(nil)
-			if err != nil {
-				return err
-			}
-
-			services = args
-		}
-	} else {
-		var err error
-
-		xfDir, err = getXenForoDir(nil)
-		if err != nil {
-			return err
-		}
+	xfDir, services, err := resolveXenForoDirAndArgs(args)
+	if err != nil {
+		return err
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)

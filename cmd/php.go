@@ -60,33 +60,9 @@ func runPHPDebug(cmd *cobra.Command, args []string) error {
 }
 
 func runPHPWithMode(args []string, debug bool) error {
-	var (
-		xfDir   string
-		phpArgs []string
-	)
-
-	if len(args) > 0 {
-		potentialPath := args[0]
-		if dir, err := getXenForoDir([]string{potentialPath}); err == nil {
-			xfDir = dir
-			phpArgs = args[1:]
-		} else {
-			var err error
-
-			xfDir, err = getXenForoDir(nil)
-			if err != nil {
-				return err
-			}
-
-			phpArgs = args
-		}
-	} else {
-		var err error
-
-		xfDir, err = getXenForoDir(nil)
-		if err != nil {
-			return err
-		}
+	xfDir, phpArgs, err := resolveXenForoDirAndArgs(args)
+	if err != nil {
+		return err
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)

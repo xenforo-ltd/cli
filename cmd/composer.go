@@ -36,31 +36,9 @@ func init() {
 }
 
 func runComposer(cmd *cobra.Command, args []string) error {
-	var (
-		xfDir        string
-		composerArgs []string
-	)
-
-	if len(args) > 0 {
-		potentialPath := args[0]
-		if dir, err := getXenForoDir([]string{potentialPath}); err == nil {
-			xfDir = dir
-			composerArgs = args[1:]
-		} else {
-			xfDir, err = getXenForoDir(nil)
-			if err != nil {
-				return err
-			}
-
-			composerArgs = args
-		}
-	} else {
-		var err error
-
-		xfDir, err = getXenForoDir(nil)
-		if err != nil {
-			return err
-		}
+	xfDir, composerArgs, err := resolveXenForoDirAndArgs(args)
+	if err != nil {
+		return err
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)
