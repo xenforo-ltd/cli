@@ -95,11 +95,13 @@ func listDownloadables(ctx context.Context, client *api.Client, licenseKey strin
 	}
 
 	fmt.Printf("%s Available downloads:\n\n", ui.StatusIcon("success"))
+
 	for _, d := range downloadables.Downloadables {
 		fmt.Printf("%s%s %s\n", ui.Indent1, ui.Bold.Render(d.DownloadID), ui.Dim.Render("- "+d.Title))
 	}
 
 	fmt.Printf("\nUse %s to specify which package to download.\n", ui.Command.Render("--download <id>"))
+
 	return nil
 }
 
@@ -118,15 +120,18 @@ func listVersions(ctx context.Context, client *api.Client, licenseKey string, do
 	}
 
 	fmt.Printf("%s Available versions:\n\n", ui.StatusIcon("success"))
+
 	for _, v := range versions.Versions {
 		stable := ""
 		if v.Stable {
 			stable = ui.Success.Render(" (stable)")
 		}
+
 		fmt.Printf("%s%s %s%s\n", ui.Indent1, ui.Dim.Render(fmt.Sprintf("%d", v.VersionID)), ui.Version.Render(v.VersionStr), stable)
 	}
 
 	fmt.Printf("\nUse %s to specify which version to download.\n", ui.Command.Render("--version <id>"))
+
 	return nil
 }
 
@@ -167,6 +172,7 @@ func performDownload(ctx context.Context, client *api.Client, licenseKey string,
 						ui.KV("Downloaded", entry.Metadata.DownloadedAt.Format("2006-01-02 15:04:05")),
 					})
 					fmt.Printf("\nUse %s to re-download.\n", ui.Command.Render("--force"))
+
 					return nil
 				}
 			}
@@ -199,6 +205,7 @@ func performDownload(ctx context.Context, client *api.Client, licenseKey string,
 			if progressBar == nil {
 				progressBar = ui.NewProgressBar(total, "")
 			}
+
 			progressBar.Update(current)
 		}
 	}
@@ -213,6 +220,7 @@ func performDownload(ctx context.Context, client *api.Client, licenseKey string,
 	}
 
 	fmt.Println()
+
 	if result.WasCached {
 		ui.PrintSuccess(fmt.Sprintf("Used cached file: %s", ui.Path.Render(result.Entry.FilePath)))
 	} else {

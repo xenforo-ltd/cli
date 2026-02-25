@@ -18,16 +18,18 @@ func TestFindXenForoDirFindsParent(t *testing.T) {
 	t.Setenv("XF_DIR", "")
 
 	root := t.TempDir()
+
 	xfFile := filepath.Join(root, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfFile), 0o755); err != nil {
 		t.Fatalf("mkdir src: %v", err)
 	}
-	if err := os.WriteFile(xfFile, []byte("<?php"), 0644); err != nil {
+
+	if err := os.WriteFile(xfFile, []byte("<?php"), 0o644); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
 	nested := filepath.Join(root, "a", "b", "c")
-	if err := os.MkdirAll(nested, 0755); err != nil {
+	if err := os.MkdirAll(nested, 0o755); err != nil {
 		t.Fatalf("mkdir nested: %v", err)
 	}
 
@@ -35,6 +37,7 @@ func TestFindXenForoDirFindsParent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetXenForoDir returned error: %v", err)
 	}
+
 	if detected != root {
 		t.Fatalf("detected dir = %q, want %q", detected, root)
 	}
@@ -44,8 +47,10 @@ func TestFindXenForoDirTerminatesAtRoot(t *testing.T) {
 	t.Setenv("XF_DIR", "")
 
 	done := make(chan struct{})
+
 	go func() {
 		_, _ = xf.GetXenForoDir(string(filepath.Separator))
+
 		close(done)
 	}()
 
@@ -64,9 +69,11 @@ func TestRunAsXenForoCommandOutsideDirReturnsActionableError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeInvalidInput) {
 		t.Fatalf("expected invalid input code, got: %v", err)
 	}
+
 	if got := err.Error(); got == "" || !containsAll(got, "unknown command", "not in a XenForo directory") {
 		t.Fatalf("unexpected error message: %q", got)
 	}
@@ -82,11 +89,13 @@ func TestRunAsXenForoCommandFallsBackToLocalWhenComposeMissing(t *testing.T) {
 	t.Setenv("XF_DIR", "")
 
 	root := t.TempDir()
+
 	xfFile := filepath.Join(root, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfFile), 0o755); err != nil {
 		t.Fatalf("mkdir src: %v", err)
 	}
-	if err := os.WriteFile(xfFile, []byte("<?php"), 0644); err != nil {
+
+	if err := os.WriteFile(xfFile, []byte("<?php"), 0o644); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
@@ -127,6 +136,7 @@ func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing
 	execCommand = func(_ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(context.Background(), "__xf_missing_php_binary__")
 	}
+
 	t.Cleanup(func() {
 		execCommand = exec.Command
 	})
@@ -135,9 +145,11 @@ func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeInvalidInput) {
 		t.Fatalf("expected invalid input code, got: %v", err)
 	}
+
 	if got := err.Error(); !containsAll(got, "PHP", "PATH") {
 		t.Fatalf("unexpected error message: %q", got)
 	}
@@ -158,6 +170,7 @@ func TestRunAsLocalXenForoCommandReturnsErrorOnNonZeroExit(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
+
 	if !containsAll(err.Error(), "local XenForo command failed") {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -169,6 +182,7 @@ func containsAll(s string, parts ...string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -182,12 +196,14 @@ func helperCommand(t *testing.T, expectedArgs, expectedWd string, exitCode int) 
 		cs = append(cs, args...)
 
 		cmd := exec.CommandContext(context.Background(), os.Args[0], cs...)
+
 		cmd.Env = append(os.Environ(),
 			"GO_WANT_HELPER_PROCESS=1",
 			"HELPER_EXPECT_ARGS="+expectedArgs,
 			"HELPER_EXPECT_WD="+expectedWd,
 			fmt.Sprintf("HELPER_EXIT_CODE=%d", exitCode),
 		)
+
 		return cmd
 	}
 }
@@ -198,12 +214,14 @@ func TestHelperProcess(t *testing.T) {
 	}
 
 	dash := -1
+
 	for i, arg := range os.Args {
 		if arg == "--" {
 			dash = i
 			break
 		}
 	}
+
 	if dash == -1 {
 		fmt.Fprintln(os.Stderr, "missing -- separator")
 		os.Exit(2)
@@ -221,11 +239,13 @@ func TestHelperProcess(t *testing.T) {
 			fmt.Fprintf(os.Stderr, "getwd failed: %v\n", err)
 			os.Exit(4)
 		}
+
 		if resolved, err := filepath.EvalSymlinks(wd); err == nil {
 			wd = filepath.Clean(resolved)
 		} else {
 			wd = filepath.Clean(wd)
 		}
+
 		if wd != filepath.Clean(wantWd) {
 			fmt.Fprintf(os.Stderr, "cwd mismatch: got %q want %q\n", wd, filepath.Clean(wantWd))
 			os.Exit(5)
@@ -237,5 +257,6 @@ func TestHelperProcess(t *testing.T) {
 		fmt.Fprintf(os.Stderr, "invalid HELPER_EXIT_CODE: %v\n", err)
 		os.Exit(6)
 	}
+
 	os.Exit(code)
 }

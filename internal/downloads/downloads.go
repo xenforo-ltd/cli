@@ -58,6 +58,7 @@ func ResolveSelections(
 	onSkip func(product string),
 ) ([]Selection, error) {
 	selections := make([]Selection, 0, len(products))
+
 	if overrides == nil {
 		overrides = map[string]int{}
 	}
@@ -66,6 +67,7 @@ func ResolveSelections(
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to get versions for xenforo", err)
 	}
+
 	if len(coreVersions.Versions) == 0 {
 		return nil, clierrors.New(clierrors.CodeAPINotFound, "no xenforo versions available")
 	}
@@ -74,6 +76,7 @@ func ResolveSelections(
 	latestCore := coreVersions.Versions[0]
 
 	var selectedCore *api.Version
+
 	for i := range coreVersions.Versions {
 		v := &coreVersions.Versions[i]
 		if v.VersionID == coreVersionID {
@@ -87,20 +90,24 @@ func ResolveSelections(
 			if coreVersionID == 0 {
 				return nil, clierrors.New(clierrors.CodeInvalidInput, "xenforo core version ID is required")
 			}
+
 			versionStr := coreVersionString
 			reason := "selected core version"
+
 			if selectedCore != nil {
 				versionStr = selectedCore.VersionStr
 				if selectedCore.VersionID == latestCore.VersionID {
 					reason = "latest core"
 				}
 			}
+
 			selections = append(selections, Selection{
 				Product:       product,
 				VersionID:     coreVersionID,
 				VersionString: versionStr,
 				Reason:        reason,
 			})
+
 			continue
 		}
 
@@ -109,12 +116,14 @@ func ResolveSelections(
 			if err != nil {
 				return nil, clierrors.Wrapf(clierrors.CodeAPIRequestFailed, err, "failed to resolve override for %s", product)
 			}
+
 			selections = append(selections, Selection{
 				Product:       product,
 				VersionID:     overrideID,
 				VersionString: info.VersionString,
 				Reason:        "manual override",
 			})
+
 			continue
 		}
 
@@ -127,6 +136,7 @@ func ResolveSelections(
 			if onSkip != nil {
 				onSkip(product)
 			}
+
 			continue
 		}
 
@@ -163,6 +173,7 @@ func resolveAddonSelection(addonVersions []api.Version, selectedCore, latestCore
 	if selectedCore != nil && strings.TrimSpace(selectedCore.VersionStr) != "" {
 		coreVersionForMatch = selectedCore.VersionStr
 	}
+
 	normCore := normalizeVersion(coreVersionForMatch)
 	if normCore != "" {
 		for _, v := range addonVersions {
@@ -197,10 +208,12 @@ func resolveAddonSelection(addonVersions []api.Version, selectedCore, latestCore
 func sortVersions(v []api.Version) {
 	sort.Slice(v, func(i, j int) bool {
 		ti := v[i].ReleaseDate.Time
+
 		tj := v[j].ReleaseDate.Time
 		if !ti.Equal(tj) {
 			return ti.After(tj)
 		}
+
 		return v[i].VersionID > v[j].VersionID
 	})
 }
@@ -209,30 +222,37 @@ func newestAtOrBefore(versions []api.Version, t time.Time) *api.Version {
 	if t.IsZero() {
 		return nil
 	}
+
 	var picked *api.Version
+
 	for i := range versions {
 		v := &versions[i]
 		if v.ReleaseDate.IsZero() || v.ReleaseDate.After(t) {
 			continue
 		}
+
 		if picked == nil {
 			picked = v
 			continue
 		}
+
 		if v.ReleaseDate.After(picked.ReleaseDate.Time) ||
 			(v.ReleaseDate.Equal(picked.ReleaseDate.Time) && v.VersionID > picked.VersionID) {
 			picked = v
 		}
 	}
+
 	return picked
 }
 
 func normalizeVersion(s string) string {
 	s = strings.TrimSpace(strings.ToLower(s))
+
 	s = strings.TrimPrefix(s, "v")
 	if id, err := strconv.Atoi(s); err == nil && id > 0 {
 		return strconv.Itoa(id)
 	}
+
 	return s
 }
 
@@ -257,6 +277,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 		if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
 			return nil, "", err
 		}
+
 		if entry != nil {
 			valid, err := cacheManager.Verify(entry)
 			if err == nil && valid {

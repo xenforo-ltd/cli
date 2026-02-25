@@ -122,6 +122,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 	} else {
 		entries, err = manager.List()
 	}
+
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,9 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal cache list", err)
 		}
+
 		fmt.Println(string(data))
+
 		return nil
 	}
 
@@ -171,9 +174,11 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 		if entries[i].LicenseKey != entries[j].LicenseKey {
 			return entries[i].LicenseKey < entries[j].LicenseKey
 		}
+
 		if entries[i].Metadata.DownloadID != entries[j].Metadata.DownloadID {
 			return entries[i].Metadata.DownloadID < entries[j].Metadata.DownloadID
 		}
+
 		return entries[i].Metadata.Version < entries[j].Metadata.Version
 	})
 
@@ -226,6 +231,7 @@ func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 			if currentLicense != "" {
 				fmt.Println()
 			}
+
 			fmt.Printf("%s License %s\n", ui.StatusIcon("success"), ui.Bold.Render(e.LicenseKey))
 			currentLicense = e.LicenseKey
 		}
@@ -280,6 +286,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 
 		ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) for license %s (%s freed).",
 			len(entries), flagCacheLicenseKey, ui.FormatBytes(totalSize)))
+
 		return nil
 	}
 
@@ -308,6 +315,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) (%s freed).", len(entries), ui.FormatBytes(totalSize)))
+
 	return nil
 }
 
@@ -318,5 +326,6 @@ func runCachePath(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(ui.Path.Render(path))
+
 	return nil
 }

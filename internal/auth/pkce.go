@@ -33,6 +33,7 @@ func GeneratePKCE() (*PKCEParams, error) {
 	if _, err := rand.Read(verifierBytes); err != nil {
 		return nil, fmt.Errorf("failed to generate code verifier: %w", err)
 	}
+
 	codeVerifier := base64URLEncode(verifierBytes)
 
 	// Generate code challenge (S256 = base64url(sha256(verifier)))
@@ -43,6 +44,7 @@ func GeneratePKCE() (*PKCEParams, error) {
 	if _, err := rand.Read(stateBytes); err != nil {
 		return nil, fmt.Errorf("failed to generate state: %w", err)
 	}
+
 	state := base64URLEncode(stateBytes)
 
 	return &PKCEParams{

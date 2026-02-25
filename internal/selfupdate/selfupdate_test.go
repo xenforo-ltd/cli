@@ -83,6 +83,7 @@ func TestParseVersion(t *testing.T) {
 				t.Errorf("parseVersion(%q) = %v, want %v", tt.version, got, tt.want)
 				return
 			}
+
 			for i := range got {
 				if got[i] != tt.want[i] {
 					t.Errorf("parseVersion(%q) = %v, want %v", tt.version, got, tt.want)
@@ -136,10 +137,12 @@ func TestGetArchiveAssetNameForPlatform(t *testing.T) {
 
 func TestParseChecksumForAsset(t *testing.T) {
 	data := []byte("abc123  xf-v1.0.0-linux-amd64.tar.gz\ndef456  xf-v1.0.0-darwin-arm64.tar.gz\n")
+
 	checksum, ok := parseChecksumForAsset(data, "xf-v1.0.0-darwin-arm64.tar.gz")
 	if !ok {
 		t.Fatal("expected checksum match")
 	}
+
 	if checksum != "def456" {
 		t.Fatalf("checksum = %q, want %q", checksum, "def456")
 	}
@@ -160,7 +163,7 @@ func TestExtractBinaryFromTarGz(t *testing.T) {
 	archivePath := filepath.Join(tmp, "xf-v1.0.0-linux-amd64.tar.gz")
 
 	binaryContent := []byte("new-binary")
-	if err := os.WriteFile(archivePath, makeTarGzArchive(t, "xf", binaryContent), 0644); err != nil {
+	if err := os.WriteFile(archivePath, makeTarGzArchive(t, "xf", binaryContent), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -173,6 +176,7 @@ func TestExtractBinaryFromTarGz(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read extracted binary: %v", err)
 	}
+
 	if !bytes.Equal(data, binaryContent) {
 		t.Fatalf("binary content mismatch")
 	}
@@ -183,7 +187,7 @@ func TestExtractBinaryFromZip(t *testing.T) {
 	archivePath := filepath.Join(tmp, "xf-v1.0.0-windows-amd64.zip")
 
 	binaryContent := []byte("new-binary-windows")
-	if err := os.WriteFile(archivePath, makeZipArchive(t, "xf.exe", binaryContent), 0644); err != nil {
+	if err := os.WriteFile(archivePath, makeZipArchive(t, "xf.exe", binaryContent), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -196,6 +200,7 @@ func TestExtractBinaryFromZip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read extracted binary: %v", err)
 	}
+
 	if !bytes.Equal(data, binaryContent) {
 		t.Fatalf("binary content mismatch")
 	}
@@ -203,7 +208,7 @@ func TestExtractBinaryFromZip(t *testing.T) {
 
 func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "file.tar.gz")
-	if err := os.WriteFile(archive, []byte("archive"), 0644); err != nil {
+	if err := os.WriteFile(archive, []byte("archive"), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -213,6 +218,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 	defer server.Close()
 
 	updater := &Updater{HTTPClient: server.Client()}
+
 	err := updater.verifyChecksum(context.Background(), archive, &UpdateInfo{
 		AssetName:   "wanted-file.tar.gz",
 		ChecksumURL: server.URL,
@@ -220,6 +226,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected checksum mismatch error")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
 		t.Fatalf("expected checksum mismatch code, got: %v", err)
 	}
@@ -227,7 +234,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 
 func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "file.tar.gz")
-	if err := os.WriteFile(archive, []byte("archive"), 0644); err != nil {
+	if err := os.WriteFile(archive, []byte("archive"), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -237,6 +244,7 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 	defer server.Close()
 
 	updater := &Updater{HTTPClient: server.Client()}
+
 	err := updater.verifyChecksum(context.Background(), archive, &UpdateInfo{
 		AssetName:   "wanted-file.tar.gz",
 		ChecksumURL: server.URL,
@@ -244,6 +252,7 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected checksum failure")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
 		t.Fatalf("expected checksum mismatch code, got: %v", err)
 	}
@@ -251,7 +260,7 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 
 func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "file.tar.gz")
-	if err := os.WriteFile(archive, []byte("archive"), 0644); err != nil {
+	if err := os.WriteFile(archive, []byte("archive"), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -261,6 +270,7 @@ func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
 	defer server.Close()
 
 	updater := &Updater{HTTPClient: server.Client()}
+
 	err := updater.verifyChecksum(context.Background(), archive, &UpdateInfo{
 		AssetName:   "wanted-file.tar.gz",
 		ChecksumURL: server.URL,
@@ -268,6 +278,7 @@ func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected checksum failure")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
 		t.Fatalf("expected checksum mismatch code, got: %v", err)
 	}
@@ -276,6 +287,7 @@ func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
 func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 	oldVersion := version.Version
 	version.Version = "1.0.0"
+
 	defer func() { version.Version = oldVersion }()
 
 	tag := "v2.0.0"
@@ -286,6 +298,7 @@ func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"tag_name":%q,"html_url":"https://example.com/release","body":"notes","assets":[{"name":%q,"browser_download_url":"https://example.com/asset"},{"name":"checksums.txt","browser_download_url":"https://example.com/checksums.txt"}]}`,
 			tag, assetName)
@@ -313,12 +326,15 @@ func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("check for update: %v", err)
 	}
+
 	if !info.HasUpdate {
 		t.Fatal("expected update to be available")
 	}
+
 	if info.AssetName != assetName {
 		t.Fatalf("asset name = %q, want %q", info.AssetName, assetName)
 	}
+
 	if info.ChecksumURL == "" {
 		t.Fatal("expected checksum URL to be detected")
 	}
@@ -327,8 +343,9 @@ func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 	tmp := t.TempDir()
 	execPath := filepath.Join(tmp, runtimeBinaryName())
+
 	oldContent := []byte("old-binary")
-	if err := os.WriteFile(execPath, oldContent, 0755); err != nil {
+	if err := os.WriteFile(execPath, oldContent, 0o755); err != nil {
 		t.Fatalf("write old binary: %v", err)
 	}
 
@@ -353,12 +370,14 @@ func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 	oldEvalFn := evaluateSymlink
 	executablePath = func() (string, error) { return execPath, nil }
 	evaluateSymlink = func(path string) (string, error) { return path, nil }
+
 	defer func() {
 		executablePath = oldExecPathFn
 		evaluateSymlink = oldEvalFn
 	}()
 
 	updater := &Updater{HTTPClient: server.Client()}
+
 	err := updater.Update(context.Background(), &UpdateInfo{
 		HasUpdate:   true,
 		AssetURL:    server.URL + "/asset",
@@ -373,6 +392,7 @@ func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read replaced binary: %v", err)
 	}
+
 	if !bytes.Equal(finalContent, newContent) {
 		t.Fatalf("binary content was not replaced")
 	}
@@ -385,36 +405,45 @@ func checksumHex(data []byte) string {
 
 func makeArchiveForName(t *testing.T, archiveName, binaryName string, binaryContent []byte) []byte {
 	t.Helper()
+
 	if strings.HasSuffix(archiveName, ".tar.gz") {
 		return makeTarGzArchive(t, binaryName, binaryContent)
 	}
+
 	if strings.HasSuffix(archiveName, ".zip") {
 		return makeZipArchive(t, binaryName, binaryContent)
 	}
+
 	t.Fatalf("unsupported archive extension for %s", archiveName)
+
 	return nil
 }
 
 func makeTarGzArchive(t *testing.T, binaryName string, binaryContent []byte) []byte {
 	t.Helper()
+
 	var buf bytes.Buffer
+
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
 
 	header := &tar.Header{
 		Name: binaryName,
-		Mode: 0755,
+		Mode: 0o755,
 		Size: int64(len(binaryContent)),
 	}
 	if err := tw.WriteHeader(header); err != nil {
 		t.Fatalf("write tar header: %v", err)
 	}
+
 	if _, err := tw.Write(binaryContent); err != nil {
 		t.Fatalf("write tar body: %v", err)
 	}
+
 	if err := tw.Close(); err != nil {
 		t.Fatalf("close tar writer: %v", err)
 	}
+
 	if err := gz.Close(); err != nil {
 		t.Fatalf("close gzip writer: %v", err)
 	}
@@ -424,16 +453,20 @@ func makeTarGzArchive(t *testing.T, binaryName string, binaryContent []byte) []b
 
 func makeZipArchive(t *testing.T, binaryName string, binaryContent []byte) []byte {
 	t.Helper()
+
 	var buf bytes.Buffer
+
 	zw := zip.NewWriter(&buf)
 
 	writer, err := zw.Create(binaryName)
 	if err != nil {
 		t.Fatalf("create zip entry: %v", err)
 	}
+
 	if _, err := writer.Write(binaryContent); err != nil {
 		t.Fatalf("write zip entry: %v", err)
 	}
+
 	if err := zw.Close(); err != nil {
 		t.Fatalf("close zip writer: %v", err)
 	}
@@ -451,5 +484,6 @@ func (t *rewriteHostTransport) RoundTrip(req *http.Request) (*http.Response, err
 	cloned := req.Clone(req.Context())
 	cloned.URL.Host = t.host
 	cloned.URL.Scheme = t.scheme
+
 	return t.base.RoundTrip(cloned)
 }

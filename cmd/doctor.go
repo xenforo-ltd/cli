@@ -48,6 +48,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 
 	for _, result := range results {
 		var statusStr string
+
 		switch result.Status {
 		case doctor.StatusOK:
 			statusStr = ui.StatusIcon("success")
@@ -81,6 +82,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
+
 	switch {
 	case doc.HasErrors():
 		ui.PrintError("Some checks failed")

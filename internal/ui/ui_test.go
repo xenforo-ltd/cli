@@ -9,12 +9,15 @@ func TestStatusIconSymbols(t *testing.T) {
 	if !strings.Contains(StatusIcon("success"), SymbolSuccess) {
 		t.Fatal("success icon missing symbol")
 	}
+
 	if !strings.Contains(StatusIcon("warning"), SymbolWarning) {
 		t.Fatal("warning icon missing symbol")
 	}
+
 	if !strings.Contains(StatusIcon("error"), SymbolError) {
 		t.Fatal("error icon missing symbol")
 	}
+
 	if !strings.Contains(StatusIcon("unknown"), "?") {
 		t.Fatal("unknown icon should include ?")
 	}

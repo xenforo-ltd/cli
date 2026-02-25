@@ -52,6 +52,7 @@ func DefaultOAuthConfig() *OAuthConfig {
 // Endpoints returns the OAuth endpoint URLs.
 func (c *OAuthConfig) Endpoints() *OAuthEndpoints {
 	base := strings.TrimSuffix(c.BaseURL, "/")
+
 	return &OAuthEndpoints{
 		Auth:       base + "/customer-oauth/authorize",
 		Token:      base + "/api/customer-oauth2/token",
@@ -71,6 +72,7 @@ func NewOAuthClient(cfg *OAuthConfig) *OAuthClient {
 	if cfg == nil {
 		cfg = DefaultOAuthConfig()
 	}
+
 	return &OAuthClient{
 		config: cfg,
 		httpClient: &http.Client{
@@ -119,6 +121,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create token request", err)
 	}
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
@@ -157,6 +160,7 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create refresh request", err)
 	}
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
@@ -213,6 +217,7 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create introspect request", err)
 	}
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
@@ -250,6 +255,7 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create revoke request", err)
 	}
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
@@ -269,6 +275,7 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 
 func (c *OAuthClient) tokenFromResponse(resp *TokenResponse) *Token {
 	now := time.Now()
+
 	return &Token{
 		AccessToken:  resp.AccessToken,
 		RefreshToken: resp.RefreshToken,
@@ -300,6 +307,7 @@ type CallbackServer struct {
 // NewCallbackServer creates a new callback server.
 func NewCallbackServer(path string) (*CallbackServer, error) {
 	lc := &net.ListenConfig{}
+
 	listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeInternal, "failed to start callback server", err)

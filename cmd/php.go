@@ -60,8 +60,10 @@ func runPHPDebug(cmd *cobra.Command, args []string) error {
 }
 
 func runPHPWithMode(args []string, debug bool) error {
-	var xfDir string
-	var phpArgs []string
+	var (
+		xfDir   string
+		phpArgs []string
+	)
 
 	if len(args) > 0 {
 		potentialPath := args[0]
@@ -70,14 +72,17 @@ func runPHPWithMode(args []string, debug bool) error {
 			phpArgs = args[1:]
 		} else {
 			var err error
+
 			xfDir, err = getXenForoDir(nil)
 			if err != nil {
 				return err
 			}
+
 			phpArgs = args
 		}
 	} else {
 		var err error
+
 		xfDir, err = getXenForoDir(nil)
 		if err != nil {
 			return err

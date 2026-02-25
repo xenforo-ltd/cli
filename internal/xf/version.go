@@ -55,37 +55,46 @@ func ParseVersionString(versionStr string) (*Version, error) {
 		if matches := regexp.MustCompile(`alpha\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
+
 		versionStr = regexp.MustCompile(`(?i)\s*alpha\s*\d*`).ReplaceAllString(versionStr, "")
 	case strings.Contains(lowerStr, string(StabilityBeta)):
 		v.Stability = StabilityBeta
+
 		v.StabNum = 3
 		if matches := regexp.MustCompile(`beta\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
+
 		versionStr = regexp.MustCompile(`(?i)\s*beta\s*\d*`).ReplaceAllString(versionStr, "")
 	case strings.Contains(lowerStr, string(StabilityRC)) || strings.Contains(lowerStr, "release candidate"):
 		v.Stability = StabilityRC
+
 		v.StabNum = 5
 		if matches := regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
+
 		versionStr = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`).ReplaceAllString(versionStr, "")
 	case strings.Contains(lowerStr, string(StabilityPL)) || strings.Contains(lowerStr, "patch level"):
 		v.Stability = StabilityPL
+
 		v.StabNum = 9
 		if matches := regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
+
 		versionStr = regexp.MustCompile(`(?i)\s*(?:pl|patch level)\s*\d*`).ReplaceAllString(versionStr, "")
 	}
 
 	versionStr = strings.TrimSpace(versionStr)
+
 	parts := strings.Split(versionStr, ".")
 	if len(parts) < 2 {
 		return nil, clierrors.Newf(clierrors.CodeInvalidInput, "invalid version format: %s", v.String)
 	}
 
 	var err error
+
 	v.Major, err = strconv.Atoi(parts[0])
 	if err != nil {
 		return nil, clierrors.Newf(clierrors.CodeInvalidInput, "invalid major version: %s", parts[0])
@@ -165,9 +174,11 @@ func (v *Version) Compare(other *Version) int {
 	if v.ID < other.ID {
 		return -1
 	}
+
 	if v.ID > other.ID {
 		return 1
 	}
+
 	return 0
 }
 
@@ -190,12 +201,15 @@ func DetectVersion(xfDir string) (*Version, error) {
 		if os.IsNotExist(err) {
 			return nil, clierrors.New(clierrors.CodeFileNotFound, "not a XenForo installation: src/XF.php not found")
 		}
+
 		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read XF.php", err)
 	}
 	defer file.Close()
 
-	var versionStr string
-	var versionID int
+	var (
+		versionStr string
+		versionID  int
+	)
 
 	versionStrPattern := regexp.MustCompile(`public\s+static\s+\$version\s*=\s*['"]([^'"]+)['"]`)
 	versionIDPattern := regexp.MustCompile(`public\s+static\s+\$versionId\s*=\s*(\d+)`)
@@ -231,6 +245,7 @@ func DetectVersion(xfDir string) (*Version, error) {
 		if versionStr != "" {
 			v.String = versionStr // Use the actual string from the file
 		}
+
 		return v, nil
 	}
 

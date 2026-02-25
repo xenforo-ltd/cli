@@ -87,6 +87,7 @@ func DefaultConfigDir() (string, error) {
 	if err != nil {
 		return "", clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to get home directory", err)
 	}
+
 	return filepath.Join(homeDir, ".config", "xf"), nil
 }
 
@@ -96,6 +97,7 @@ func DefaultCacheDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return filepath.Join(configDir, "cache"), nil
 }
 
@@ -105,6 +107,7 @@ func FilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return filepath.Join(configDir, "config.json"), nil
 }
 
@@ -135,6 +138,7 @@ func Load() (*Config, error) {
 			current = Default()
 			return current, nil
 		}
+
 		return nil, clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to read config file", err)
 	}
 
@@ -144,6 +148,7 @@ func Load() (*Config, error) {
 	}
 
 	current = &cfg
+
 	return current, nil
 }
 
@@ -158,7 +163,7 @@ func Save(cfg *Config) error {
 	}
 
 	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, 0700); err != nil {
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create config directory", err)
 	}
 
@@ -167,11 +172,12 @@ func Save(cfg *Config) error {
 		return clierrors.Wrap(clierrors.CodeConfigWriteFailed, "failed to marshal config", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
+	if err := os.WriteFile(configPath, data, 0o600); err != nil {
 		return clierrors.Wrap(clierrors.CodeConfigWriteFailed, "failed to write config file", err)
 	}
 
 	current = cfg
+
 	return nil
 }
 
@@ -179,6 +185,7 @@ func Save(cfg *Config) error {
 func SetFlags(f GlobalFlags) {
 	mu.Lock()
 	defer mu.Unlock()
+
 	flags = f
 }
 
@@ -186,6 +193,7 @@ func SetFlags(f GlobalFlags) {
 func GetFlags() GlobalFlags {
 	mu.RLock()
 	defer mu.RUnlock()
+
 	return flags
 }
 
@@ -195,6 +203,7 @@ func GetEffectiveEnvironment() Environment {
 	if err != nil {
 		return EnvProduction
 	}
+
 	return cfg.Environment
 }
 
@@ -298,6 +307,7 @@ func ValidateEnvironment(env string) error {
 func Reset() {
 	mu.Lock()
 	defer mu.Unlock()
+
 	current = nil
 	flags = GlobalFlags{}
 }

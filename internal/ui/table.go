@@ -38,6 +38,7 @@ func NewTable(headers []string, rows [][]string) string {
 			if row == table.HeaderRow {
 				return style.Header
 			}
+
 			return style.Cell
 		})
 
@@ -64,6 +65,7 @@ func StatusTableStyle(statusCol int, statusMap map[string]lipgloss.Style) func(r
 		if row == table.HeaderRow {
 			return defaultStyle.Header
 		}
+
 		return defaultStyle.Cell
 	}
 }
@@ -73,5 +75,6 @@ func PrintTable(headers []string, rows [][]string) {
 	if len(rows) == 0 {
 		return
 	}
+
 	println(NewTable(headers, rows))
 }

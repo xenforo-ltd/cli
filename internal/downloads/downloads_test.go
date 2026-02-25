@@ -20,6 +20,7 @@ var (
 
 func v(id int, str string, ts string) api.Version {
 	tm, _ := time.Parse(time.RFC3339, ts)
+
 	return api.Version{
 		VersionID:  id,
 		VersionStr: str,
@@ -103,6 +104,7 @@ func TestNormalizeVersion(t *testing.T) {
 	if got := normalizeVersion(" v2.3.9 "); got != "2.3.9" {
 		t.Fatalf("got %q", got)
 	}
+
 	if got := normalizeVersion("2030970"); got != "2030970" {
 		t.Fatalf("got %q", got)
 	}
@@ -113,6 +115,7 @@ func mustTime(s string) time.Time {
 	if err != nil {
 		panic(err)
 	}
+
 	return tm
 }
 
@@ -129,6 +132,7 @@ func (f *fakeClient) GetLicenseVersions(_ context.Context, _ string, downloadID 
 	if err := f.errVersions[downloadID]; err != nil {
 		return nil, err
 	}
+
 	return &api.LicenseVersions{DownloadID: downloadID, Versions: append([]api.Version(nil), f.versionsByProduct[downloadID]...)}, nil
 }
 
@@ -137,9 +141,11 @@ func (f *fakeClient) GetDownloadInfo(_ context.Context, _ string, downloadID str
 	if err := f.errDownloadInfo[key]; err != nil {
 		return nil, err
 	}
+
 	if info := f.downloadInfo[key]; info != nil {
 		return info, nil
 	}
+
 	return &api.DownloadInfo{DownloadID: downloadID, VersionID: versionID, VersionString: "2.3.8", Filename: "x.zip"}, nil
 }
 
@@ -147,6 +153,7 @@ func (f *fakeClient) GetAccessToken() (string, error) {
 	if f.errAccessToken != nil {
 		return "", f.errAccessToken
 	}
+
 	return f.accessToken, nil
 }
 
@@ -176,10 +183,12 @@ func (f *fakeCache) Verify(_ *cache.Entry) (bool, error) {
 func (f *fakeCache) DownloadWithAuth(_ context.Context, opts cache.DownloadOptions, authToken string, _ cache.ProgressCallback) (*cache.DownloadResult, error) {
 	f.downloadCalled = true
 	f.lastDownloadOpts = opts
+
 	f.lastAuthToken = authToken
 	if f.downloadErr != nil {
 		return nil, f.downloadErr
 	}
+
 	return f.downloadResult, nil
 }
 
@@ -209,6 +218,7 @@ func TestResolveSelections_UsesOverrideAndSkipCallback(t *testing.T) {
 	}
 
 	var skipped []string
+
 	got, err := ResolveSelections(
 		context.Background(),
 		client,
@@ -222,12 +232,15 @@ func TestResolveSelections_UsesOverrideAndSkipCallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveSelections failed: %v", err)
 	}
+
 	if len(got) != 2 {
 		t.Fatalf("len(selections) = %d, want 2", len(got))
 	}
+
 	if got[1].Product != "xfmg" || got[1].Reason != "manual override" || got[1].VersionID != 99 {
 		t.Fatalf("unexpected override selection: %+v", got[1])
 	}
+
 	if len(skipped) != 1 || skipped[0] != "xfes" {
 		t.Fatalf("skipped = %#v, want [xfes]", skipped)
 	}
@@ -244,18 +257,22 @@ func TestDownloadSelection_Branches(t *testing.T) {
 
 	t.Run("returns cached entry", func(t *testing.T) {
 		p := filepath.Join(t.TempDir(), "cached.zip")
-		if err := os.WriteFile(p, []byte("cached"), 0644); err != nil {
+		if err := os.WriteFile(p, []byte("cached"), 0o644); err != nil {
 			t.Fatalf("write cached file: %v", err)
 		}
+
 		cached := &cache.Entry{FilePath: p}
 		cacheMock := &fakeCache{entry: cached, verifyOK: true}
+
 		entry, version, err := downloadSelection(ctx, client, cacheMock, "LIC", Selection{Product: "xenforo", VersionID: 10}, false, nil)
 		if err != nil {
 			t.Fatalf("downloadSelection failed: %v", err)
 		}
+
 		if entry != cached || version != "2.3.10" {
 			t.Fatalf("unexpected cached result: entry=%v version=%q", entry, version)
 		}
+
 		if cacheMock.downloadCalled {
 			t.Fatal("expected no download call when cache is valid")
 		}
@@ -267,13 +284,16 @@ func TestDownloadSelection_Branches(t *testing.T) {
 			verifyOK:       false,
 			downloadResult: &cache.DownloadResult{Entry: entryOut},
 		}
+
 		entry, version, err := downloadSelection(ctx, client, cacheMock, "LIC", Selection{Product: "xenforo", VersionID: 10}, false, nil)
 		if err != nil {
 			t.Fatalf("downloadSelection failed: %v", err)
 		}
+
 		if !cacheMock.downloadCalled || cacheMock.lastAuthToken != "token" {
 			t.Fatalf("expected download with auth token, called=%v token=%q", cacheMock.downloadCalled, cacheMock.lastAuthToken)
 		}
+
 		if entry != entryOut || version != "2.3.10" {
 			t.Fatalf("unexpected download result: entry=%v version=%q", entry, version)
 		}
@@ -283,6 +303,7 @@ func TestDownloadSelection_Branches(t *testing.T) {
 		errClient := *client
 		errClient.errAccessToken = errTestNoToken
 		cacheMock := &fakeCache{}
+
 		_, _, err := downloadSelection(ctx, &errClient, cacheMock, "LIC", Selection{Product: "xenforo", VersionID: 10}, true, nil)
 		if err == nil {
 			t.Fatal("expected error")
@@ -293,6 +314,7 @@ func TestDownloadSelection_Branches(t *testing.T) {
 		cacheMock := &fakeCache{
 			downloadErr: errTestNetworkDown,
 		}
+
 		_, _, err := downloadSelection(ctx, client, cacheMock, "LIC", Selection{Product: "xenforo", VersionID: 10}, true, nil)
 		if err == nil {
 			t.Fatal("expected download error")

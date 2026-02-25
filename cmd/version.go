@@ -46,7 +46,9 @@ Examples:
 				fmt.Printf("Error: %s\n", err)
 				return
 			}
+
 			fmt.Println(string(data))
+
 			return
 		}
 
@@ -56,9 +58,11 @@ Examples:
 		if info.Commit != "" && info.Commit != "unknown" {
 			pairs = append(pairs, ui.KV("Commit", ui.Dim.Render(info.Commit)))
 		}
+
 		if info.Date != "" && info.Date != "unknown" {
 			pairs = append(pairs, ui.KV("Built", info.Date))
 		}
+
 		pairs = append(pairs, ui.KV("Go version", info.GoVersion))
 		pairs = append(pairs, ui.KV("Platform", fmt.Sprintf("%s/%s", info.OS, info.Arch)))
 

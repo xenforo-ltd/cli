@@ -107,18 +107,21 @@ func StepWithLabel(current, total int, label string) string {
 // Indent indents all non-empty lines of text by the specified number of spaces.
 func Indent(s string, spaces int) string {
 	indent := strings.Repeat(" ", spaces)
+
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
 		if line != "" {
 			lines[i] = indent + line
 		}
 	}
+
 	return strings.Join(lines, "\n")
 }
 
 // IndentLines indents each line of text by the specified number of spaces.
 func IndentLines(lines []string, spaces int) []string {
 	indent := strings.Repeat(" ", spaces)
+
 	result := make([]string, len(lines))
 	for i, line := range lines {
 		if line != "" {
@@ -127,6 +130,7 @@ func IndentLines(lines []string, spaces int) []string {
 			result[i] = line
 		}
 	}
+
 	return result
 }
 
@@ -135,6 +139,7 @@ func Separator(width int) string {
 	if width <= 0 {
 		width = 60
 	}
+
 	return Dim.Render(strings.Repeat("─", width))
 }
 
@@ -143,6 +148,7 @@ func DoubleSeparator(width int) string {
 	if width <= 0 {
 		width = 60
 	}
+
 	return Dim.Render(strings.Repeat("═", width))
 }
 
@@ -151,12 +157,14 @@ func Box(title, content string) string {
 	var sb strings.Builder
 
 	lines := strings.Split(content, "\n")
+
 	maxWidth := len(title)
 	for _, line := range lines {
 		if len(line) > maxWidth {
 			maxWidth = len(line)
 		}
 	}
+
 	maxWidth += 4 // padding
 
 	sb.WriteString(Dim.Render("┌" + strings.Repeat("─", maxWidth) + "┐"))
@@ -164,6 +172,7 @@ func Box(title, content string) string {
 
 	if title != "" {
 		padding := maxWidth - len(title) - 1
+
 		sb.WriteString(Dim.Render("│ "))
 		sb.WriteString(Bold.Render(title))
 		sb.WriteString(strings.Repeat(" ", padding))
@@ -175,6 +184,7 @@ func Box(title, content string) string {
 
 	for _, line := range lines {
 		padding := maxWidth - len(line) - 1
+
 		sb.WriteString(Dim.Render("│ "))
 		sb.WriteString(line)
 		sb.WriteString(strings.Repeat(" ", padding))
@@ -252,6 +262,7 @@ func List(items []string) string {
 	for _, item := range items {
 		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(SymbolBullet), item)
 	}
+
 	return strings.TrimSuffix(sb.String(), "\n")
 }
 
@@ -261,6 +272,7 @@ func NumberedList(items []string) string {
 	for i, item := range items {
 		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(fmt.Sprintf("%d.", i+1)), item)
 	}
+
 	return strings.TrimSuffix(sb.String(), "\n")
 }
 
@@ -300,6 +312,7 @@ func (s *Spinner) Start() {
 		s.mu.Unlock()
 		return
 	}
+
 	s.running = true
 	s.done = make(chan struct{})
 	s.mu.Unlock()
@@ -348,6 +361,7 @@ func (s *Spinner) StopWithMessage(status, message string) {
 func (s *Spinner) UpdateMessage(message string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.message = message
 }
 
@@ -387,6 +401,7 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 		if strings.HasSuffix(string(p), "\n") {
 			spacing = "\n"
 		}
+
 		fmt.Fprint(w.spinner.writer, spacing)
 		frame := Info.Render(w.spinner.frames[w.spinner.frameIdx%len(w.spinner.frames)])
 		fmt.Fprint(w.spinner.writer, ansiClearLine)
@@ -435,6 +450,7 @@ func (p *ProgressBar) Increment(amount int64) {
 	if p.current > p.total {
 		p.current = p.total
 	}
+
 	p.render()
 }
 
@@ -476,11 +492,13 @@ func FormatBytes(bytes int64) string {
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
 	}
+
 	div, exp := int64(unit), 0
 	for n := bytes / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
+
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
@@ -489,9 +507,11 @@ func FormatDuration(d time.Duration) string {
 	if d < time.Minute {
 		return fmt.Sprintf("%ds", int(d.Seconds()))
 	}
+
 	if d < time.Hour {
 		return fmt.Sprintf("%dm %ds", int(d.Minutes()), int(d.Seconds())%60)
 	}
+
 	return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
 }
 
@@ -539,6 +559,7 @@ func PrintKeyValue(key, value string) {
 // This replaces heavy double-line separators with a cleaner format.
 func SuccessBox(message string, details []KVPair) {
 	fmt.Printf("%s %s\n", StatusIcon("success"), SuccessBold.Render(message))
+
 	if len(details) > 0 {
 		fmt.Println()
 		PrintKeyValuePadded(details)
@@ -548,6 +569,7 @@ func SuccessBox(message string, details []KVPair) {
 // InfoBox prints an info message with optional key-value details.
 func InfoBox(message string, details []KVPair) {
 	fmt.Printf("%s %s\n", StatusIcon("info"), Bold.Render(message))
+
 	if len(details) > 0 {
 		fmt.Println()
 		PrintKeyValuePadded(details)
@@ -557,6 +579,7 @@ func InfoBox(message string, details []KVPair) {
 // WarningBox prints a warning message with optional key-value details.
 func WarningBox(message string, details []KVPair) {
 	fmt.Printf("%s %s\n", StatusIcon("warning"), WarningBold.Render(message))
+
 	if len(details) > 0 {
 		fmt.Println()
 		PrintKeyValuePadded(details)
@@ -566,6 +589,7 @@ func WarningBox(message string, details []KVPair) {
 // ErrorBox prints an error message with optional key-value details.
 func ErrorBox(message string, details []KVPair) {
 	fmt.Printf("%s %s\n", StatusIcon("error"), ErrorBold.Render(message))
+
 	if len(details) > 0 {
 		fmt.Println()
 		PrintKeyValuePadded(details)
@@ -576,6 +600,7 @@ func ErrorBox(message string, details []KVPair) {
 // Note: This is a simple blocking prompt. For TUI, use huh forms.
 func Confirm(prompt string, defaultYes bool) bool {
 	var response string
+
 	defaultStr := "y/N"
 	if defaultYes {
 		defaultStr = "Y/n"
@@ -588,5 +613,6 @@ func Confirm(prompt string, defaultYes bool) bool {
 	if response == "" {
 		return defaultYes
 	}
+
 	return response == "y" || response == "yes"
 }

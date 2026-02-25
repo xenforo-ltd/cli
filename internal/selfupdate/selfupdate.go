@@ -123,6 +123,7 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 				info.AssetURL = asset.BrowserDownloadURL
 				info.AssetName = asset.Name
 			}
+
 			if asset.Name == "checksums.txt" || asset.Name == assetName+".sha256" {
 				info.ChecksumURL = asset.BrowserDownloadURL
 			}
@@ -142,6 +143,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	if !info.HasUpdate {
 		return clierrors.New(clierrors.CodeUpdateFailed, "no update available")
 	}
+
 	if info.AssetURL == "" || info.AssetName == "" {
 		return clierrors.New(clierrors.CodeUpdateFailed, "update asset information is incomplete")
 	}
@@ -150,6 +152,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to get executable path", err)
 	}
+
 	execPath, err = evaluateSymlink(execPath)
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to resolve executable path", err)
@@ -163,6 +166,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, info.AssetName)
+
 	archiveFile, err := os.Create(archivePath)
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create update archive", err)
@@ -172,6 +176,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 		archiveFile.Close()
 		return err
 	}
+
 	if err := archiveFile.Close(); err != nil {
 		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to finalize update archive", err)
 	}
@@ -188,7 +193,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	}
 
 	if runtime.GOOS != windowsOS {
-		if err := os.Chmod(newBinaryPath, 0755); err != nil {
+		if err := os.Chmod(newBinaryPath, 0o755); err != nil {
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to set permissions on new binary", err)
 		}
 	}
@@ -199,14 +204,17 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	if runtime.GOOS == windowsOS {
 		oldPath := execPath + ".old"
 		os.Remove(oldPath) // Remove any existing .old file.
+
 		if err := os.Rename(execPath, oldPath); err != nil {
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to backup old binary", err)
 		}
+
 		if err := os.Rename(newBinaryPath, execPath); err != nil {
 			// Try to restore the old binary.
 			os.Rename(oldPath, execPath)
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to replace binary", err)
 		}
+
 		os.Remove(oldPath) // Clean up the old binary.
 	} else {
 		if err := os.Rename(newBinaryPath, execPath); err != nil {
@@ -249,6 +257,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		if errors.Is(err, io.EOF) {
 			break
 		}
+
 		if err != nil {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to read update archive", err)
 		}
@@ -263,7 +272,8 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		}
 
 		outPath := filepath.Join(destDir, name)
-		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+
+		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 		if err != nil {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
@@ -272,6 +282,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 			outFile.Close()
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
+
 		if err := outFile.Close(); err != nil {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to finalize update binary", err)
 		}
@@ -314,7 +325,8 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 		}
 
 		outPath := filepath.Join(destDir, name)
-		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+
+		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 		if err != nil {
 			inFile.Close()
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
@@ -323,12 +335,15 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 		if _, err := io.Copy(outFile, inFile); err != nil {
 			outFile.Close()
 			inFile.Close()
+
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
+
 		if err := outFile.Close(); err != nil {
 			inFile.Close()
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to finalize update binary", err)
 		}
+
 		if err := inFile.Close(); err != nil {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to close update archive entry", err)
 		}
@@ -354,6 +369,7 @@ func runtimeBinaryName() string {
 	if runtime.GOOS == windowsOS {
 		return "xf.exe"
 	}
+
 	return "xf"
 }
 
@@ -361,9 +377,11 @@ func pickExtractedBinary(extracted map[string]string) (string, error) {
 	if binaryPath, ok := extracted[runtimeBinaryName()]; ok {
 		return binaryPath, nil
 	}
+
 	if binaryPath, ok := extracted["xf"]; ok {
 		return binaryPath, nil
 	}
+
 	if binaryPath, ok := extracted["xf.exe"]; ok {
 		return binaryPath, nil
 	}
@@ -385,8 +403,10 @@ func parseChecksumForAsset(data []byte, assetName string) (string, bool) {
 		if len(parts) == 1 {
 			singleValueChecksum = parts[0]
 			singleValueCount++
+
 			continue
 		}
+
 		if len(parts) < 2 {
 			continue
 		}
@@ -412,6 +432,7 @@ func (u *Updater) getLatestRelease(ctx context.Context) (*Release, error) {
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create request", err)
 	}
+
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
@@ -424,6 +445,7 @@ func (u *Updater) getLatestRelease(ctx context.Context) (*Release, error) {
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, clierrors.New(clierrors.CodeUpdateFailed, "no releases found")
 	}
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, clierrors.Newf(clierrors.CodeUpdateFailed, "GitHub API returned status %d", resp.StatusCode)
 	}
@@ -445,6 +467,7 @@ func (u *Updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create download request", err)
 	}
+
 	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
@@ -480,6 +503,7 @@ func (u *Updater) verifyChecksum(ctx context.Context, filePath string, info *Upd
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create checksum request", err)
 	}
+
 	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 
 	resp, err := u.HTTPClient.Do(req)
@@ -531,6 +555,7 @@ func getArchiveAssetNameForPlatform(versionTag, goos, goarch string) string {
 	if tag == "" {
 		tag = version.Get().Version
 	}
+
 	if tag != "" && !strings.HasPrefix(tag, "v") {
 		tag = "v" + tag
 	}
@@ -563,6 +588,7 @@ func isNewerVersion(latest, current string) bool {
 		if i < len(latestParts) {
 			l = latestParts[i]
 		}
+
 		if i < len(currentParts) {
 			c = currentParts[i]
 		}
@@ -570,6 +596,7 @@ func isNewerVersion(latest, current string) bool {
 		if l > c {
 			return true
 		}
+
 		if l < c {
 			return false
 		}
@@ -587,9 +614,11 @@ func parseVersion(v string) []int {
 	}
 
 	parts := strings.Split(v, ".")
+
 	result := make([]int, len(parts))
 	for i, p := range parts {
 		fmt.Sscanf(p, "%d", &result[i])
 	}
+
 	return result
 }

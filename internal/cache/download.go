@@ -81,11 +81,13 @@ func (m *Manager) download(ctx context.Context, opts DownloadOptions, authToken 
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(entryPath, 0755); err != nil {
+
+	if err := os.MkdirAll(entryPath, 0o755); err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create cache directory", err)
 	}
 
 	filePath := filepath.Join(entryPath, filename)
+
 	downloaded, err := downloadToFile(filePath, resp.Body, totalSize, opts.ExpectedChecksum, progress)
 	if err != nil {
 		return nil, err
@@ -165,6 +167,7 @@ func checkResponseStatus(resp *http.Response, authToken string) error {
 				return clierrors.Newf(clierrors.CodeDownloadFailed, "download failed with status %d: %s", resp.StatusCode, string(body))
 			}
 		}
+
 		return clierrors.Newf(clierrors.CodeDownloadFailed, "download failed with status %d", resp.StatusCode)
 	}
 
@@ -176,9 +179,11 @@ func resolveFilename(override string, resp *http.Response, url string) string {
 	if filename == "" {
 		filename = parseFilenameFromResponse(resp, url)
 	}
+
 	if safe := sanitizeFilename(filename); safe != "" {
 		return safe
 	}
+
 	return "download.zip"
 }
 
@@ -191,6 +196,7 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 	}
 
 	var downloaded int64
+
 	reader := &stream.ProgressReader{
 		Reader: src,
 		Total:  totalSize,
@@ -209,6 +215,7 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 		os.Remove(tmpPath)
 		return 0, clierrors.Wrap(clierrors.CodeDownloadFailed, "download interrupted", copyErr)
 	}
+
 	if closeErr != nil {
 		os.Remove(tmpPath)
 		return 0, clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to finalize download file", closeErr)
@@ -220,8 +227,10 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 			os.Remove(tmpPath)
 			return 0, err
 		}
+
 		if checksum != expectedChecksum {
 			os.Remove(tmpPath)
+
 			return 0, clierrors.Newf(clierrors.CodeChecksumMismatch,
 				"checksum mismatch: expected %s, got %s", expectedChecksum, checksum)
 		}
@@ -275,11 +284,13 @@ func parseFilenameFromResponse(resp *http.Response, url string) string {
 			part = strings.TrimSpace(part)
 			if after, ok := strings.CutPrefix(part, "filename="); ok {
 				filename := after
+
 				filename = strings.Trim(filename, "\"")
 				if filename != "" {
 					if safe := sanitizeFilename(filename); safe != "" {
 						return safe
 					}
+
 					break
 				}
 			}
@@ -294,6 +305,7 @@ func parseFilenameFromResponse(resp *http.Response, url string) string {
 				if safe := sanitizeFilename(name); safe != "" {
 					return safe
 				}
+
 				break
 			}
 		}
@@ -307,8 +319,10 @@ func sanitizeFilename(name string) string {
 	if clean == "." || clean == string(filepath.Separator) || clean == "" {
 		return ""
 	}
+
 	if strings.ContainsAny(clean, `/\\`) {
 		return ""
 	}
+
 	return clean
 }

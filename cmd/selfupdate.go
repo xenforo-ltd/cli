@@ -49,6 +49,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		spinner.StopWithMessage("error", "Failed to check for updates")
 		return err
 	}
+
 	spinner.Stop()
 
 	fmt.Println()
@@ -64,9 +65,11 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.PrintInfo("A new version is available!")
+
 	if info.ReleaseURL != "" {
 		fmt.Printf("Release notes: %s\n", ui.URL.Render(info.ReleaseURL))
 	}
+
 	fmt.Println()
 
 	if selfUpdateCheckOnly {
@@ -77,15 +80,16 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Downloading %s...\n", info.AssetName)
 
 	var progressBar *ui.ProgressBar
+
 	err = updater.Update(ctx, info, func(downloaded, total int64) {
 		if total > 0 {
 			if progressBar == nil {
 				progressBar = ui.NewProgressBar(total, "")
 			}
+
 			progressBar.Update(downloaded)
 		}
 	})
-
 	if err != nil {
 		fmt.Println()
 		return err

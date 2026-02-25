@@ -45,12 +45,15 @@ func TestOAuthConfig_Endpoints(t *testing.T) {
 			if endpoints.Auth != tt.wantAuth {
 				t.Errorf("auth = %q, want %q", endpoints.Auth, tt.wantAuth)
 			}
+
 			if endpoints.Token != tt.wantToken {
 				t.Errorf("token = %q, want %q", endpoints.Token, tt.wantToken)
 			}
+
 			if endpoints.Introspect != tt.wantIntrospect {
 				t.Errorf("introspect = %q, want %q", endpoints.Introspect, tt.wantIntrospect)
 			}
+
 			if endpoints.Revoke != tt.wantRevoke {
 				t.Errorf("revoke = %q, want %q", endpoints.Revoke, tt.wantRevoke)
 			}
@@ -98,6 +101,7 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("Expected POST, got %s", r.Method)
 		}
+
 		if r.URL.Path != "/api/customer-oauth2/token" {
 			t.Errorf("Expected /api/customer-oauth2/token, got %s", r.URL.Path)
 		}
@@ -124,6 +128,7 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 	}
 
 	ctx := context.Background()
+
 	token, err := client.ExchangeCode(ctx, "auth-code", pkce, "http://localhost/callback")
 	if err != nil {
 		t.Fatalf("ExchangeCode() error = %v", err)
@@ -132,9 +137,11 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 	if token.AccessToken != "access123" {
 		t.Errorf("AccessToken = %q, want %q", token.AccessToken, "access123")
 	}
+
 	if token.RefreshToken != "refresh456" {
 		t.Errorf("RefreshToken = %q, want %q", token.RefreshToken, "refresh456")
 	}
+
 	if token.TokenType != "Bearer" {
 		t.Errorf("TokenType = %q, want %q", token.TokenType, "Bearer")
 	}
@@ -159,6 +166,7 @@ func TestOAuthClient_RefreshToken(t *testing.T) {
 	client := NewOAuthClient(cfg)
 
 	ctx := context.Background()
+
 	token, err := client.RefreshToken(ctx, "old-refresh-token")
 	if err != nil {
 		t.Fatalf("RefreshToken() error = %v", err)
@@ -187,6 +195,7 @@ func TestOAuthClient_IntrospectToken(t *testing.T) {
 	client := NewOAuthClient(cfg)
 
 	ctx := context.Background()
+
 	resp, err := client.IntrospectToken(ctx, "some-token")
 	if err != nil {
 		t.Fatalf("IntrospectToken() error = %v", err)
@@ -195,6 +204,7 @@ func TestOAuthClient_IntrospectToken(t *testing.T) {
 	if !resp.Active {
 		t.Error("Active = false, want true")
 	}
+
 	if resp.Username != "testuser" {
 		t.Errorf("Username = %q, want %q", resp.Username, "testuser")
 	}
@@ -202,8 +212,10 @@ func TestOAuthClient_IntrospectToken(t *testing.T) {
 
 func TestOAuthClient_RevokeToken(t *testing.T) {
 	called := false
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -215,6 +227,7 @@ func TestOAuthClient_RevokeToken(t *testing.T) {
 	client := NewOAuthClient(cfg)
 
 	ctx := context.Background()
+
 	err := client.RevokeToken(ctx, "some-token")
 	if err != nil {
 		t.Fatalf("RevokeToken() error = %v", err)
@@ -235,24 +248,29 @@ func TestCallbackServer(t *testing.T) {
 	if !strings.HasPrefix(uri, "http://127.0.0.1:") {
 		t.Errorf("RedirectURI() = %q, want http://127.0.0.1:...", uri)
 	}
+
 	if !strings.HasSuffix(uri, "/callback") {
 		t.Errorf("RedirectURI() = %q, want .../callback", uri)
 	}
 
 	server.Start()
+
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
+
 		server.Shutdown(ctx)
 	}()
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
+
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, uri+"?code=test-code&state=test-state", nil)
 		if err != nil {
 			t.Errorf("Failed to create HTTP request: %v", err)
 			return
 		}
+
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Errorf("Failed to make HTTP request: %v", err)
@@ -273,6 +291,7 @@ func TestCallbackServer(t *testing.T) {
 	if result.Code != "test-code" {
 		t.Errorf("Code = %q, want %q", result.Code, "test-code")
 	}
+
 	if result.State != "test-state" {
 		t.Errorf("State = %q, want %q", result.State, "test-state")
 	}
@@ -283,6 +302,7 @@ func TestCallbackServer(t *testing.T) {
 			t.Errorf("Failed to create HTTP request: %v", err)
 			return
 		}
+
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Errorf("Failed to make HTTP request: %v", err)
@@ -306,9 +326,11 @@ func TestCallbackServer_Timeout(t *testing.T) {
 	}
 
 	server.Start()
+
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
+
 		server.Shutdown(ctx)
 	}()
 

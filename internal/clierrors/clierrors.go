@@ -118,6 +118,7 @@ func Is(err error, code Code) bool {
 	if cliErr, ok := errors.AsType[*CLIError](err); ok {
 		return cliErr.Code == code
 	}
+
 	return false
 }
 
@@ -126,6 +127,7 @@ func GetCode(err error) Code {
 	if cliErr, ok := errors.AsType[*CLIError](err); ok {
 		return cliErr.Code
 	}
+
 	return CodeUnknown
 }
 
@@ -133,6 +135,7 @@ func (e *CLIError) Error() string {
 	if e.Cause != nil {
 		return fmt.Sprintf("[%s] %s: %v", e.Code, e.Message, e.Cause)
 	}
+
 	return fmt.Sprintf("[%s] %s", e.Code, e.Message)
 }
 
@@ -157,5 +160,6 @@ func (e *CLIError) JSON() string {
 	}
 
 	b, _ := json.Marshal(je)
+
 	return string(b)
 }

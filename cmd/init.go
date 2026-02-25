@@ -189,10 +189,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 			return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse --env-file", err)
 		}
 	}
+
 	flagEnv, err := initflow.ParseEnvFlags(opts.EnvFlags)
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse --env", err)
 	}
+
 	opts.EnvResolved, opts.EnvSources = initflow.MergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
 
 	hasXenForo, err := detectXenForo(absPath)
@@ -224,13 +226,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 func detectXenForo(path string) (bool, error) {
 	xfPath := filepath.Join(path, "src", "XF.php")
+
 	_, err := os.Stat(xfPath)
 	if err == nil {
 		return true, nil
 	}
+
 	if os.IsNotExist(err) {
 		return false, nil
 	}
+
 	return false, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to check XenForo path", err)
 }
 
@@ -243,15 +248,18 @@ func initExisting(opts *InitOptions) error {
 	if err := dockercompose.CheckDockerRunning(); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess("Docker is running")
 
 	if err := dockercompose.CheckDockerComposeAvailable(); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess("Docker Compose is available")
 	fmt.Println()
 
 	ui.PrintStep(1, 3, "Setting up Docker configuration")
+
 	xfcmdOpts := xfcmd.InitOptions{
 		OverwriteExisting: true,
 		Contexts:          opts.Contexts,
@@ -260,15 +268,19 @@ func initExisting(opts *InitOptions) error {
 	if err := xfcmd.InitExisting(xfDir, xfcmdOpts); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess("Docker configuration files extracted")
 
 	ui.PrintStep(2, 3, "Configuring environment")
+
 	if err := configureExistingEnv(opts); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess(fmt.Sprintf("Configured instance: %s", opts.InstanceName))
 
 	ui.PrintStep(3, 3, "Starting environment")
+
 	if opts.StartContainers {
 		runner, err := dockercompose.NewRunner(xfDir)
 		if err != nil {
@@ -342,14 +354,17 @@ func checkPrerequisites() error {
 	if err := dockercompose.CheckDockerRunning(); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess("Docker is running")
 
 	if err := dockercompose.CheckDockerComposeAvailable(); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess("Docker Compose is available")
 
 	fmt.Println()
+
 	return nil
 }
 
@@ -359,15 +374,19 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 	if opts.LicenseKey == "" {
 		missing = append(missing, "--license")
 	}
+
 	if opts.VersionID == 0 {
 		missing = append(missing, "--version")
 	}
+
 	if opts.AdminUser == "" {
 		missing = append(missing, "--admin-user")
 	}
+
 	if opts.AdminPassword == "" {
 		missing = append(missing, "--admin-password")
 	}
+
 	if opts.AdminEmail == "" {
 		missing = append(missing, "--admin-email")
 	}
@@ -390,6 +409,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	if err != nil {
 		return err
 	}
+
 	if title := inferSiteTitleFromEnv(opts); title != "" {
 		opts.SiteTitle = title
 	}
@@ -405,6 +425,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		var licenseOptions []huh.Option[string]
+
 		for _, lic := range licenses {
 			if lic.CanDownload {
 				label := licenseOptionLabel(lic)
@@ -433,14 +454,17 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		var productOptions []huh.Option[string]
+
 		for _, d := range downloadables.Downloadables {
 			if d.DownloadID == "xenforo" {
 				continue
 			}
+
 			productOptions = append(productOptions, huh.NewOption(d.Title, d.DownloadID))
 		}
 
 		var selectedProducts []string
+
 		err = huh.NewMultiSelect[string]().
 			Title("What additional products should be installed?").
 			Description("XenForo core is always installed. Use ↑/↓ to move, Space to select, Enter to continue.").
@@ -462,9 +486,11 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	if err != nil {
 		return err
 	}
+
 	if len(versions.Versions) == 0 {
 		return clierrors.New(clierrors.CodeAPINotFound, "no versions available")
 	}
+
 	initflow.SortVersionsDesc(versions.Versions)
 	opts.CoreVersions = versions.Versions
 
@@ -491,9 +517,11 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		if opts.AdminUser == "" {
 			opts.AdminUser = "admin"
 		}
+
 		if opts.AdminEmail == "" {
 			opts.AdminEmail = "admin@example.com"
 		}
+
 		if opts.SiteTitle == "" {
 			opts.SiteTitle = "XenForo"
 		}
@@ -507,6 +535,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 						if len(s) < 3 {
 							return ErrUsernameTooShort
 						}
+
 						return nil
 					}),
 				huh.NewInput().
@@ -517,6 +546,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 						if strings.TrimSpace(s) == "" {
 							return ErrPasswordRequired
 						}
+
 						return nil
 					}),
 				huh.NewInput().
@@ -526,6 +556,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 						if !strings.Contains(s, "@") {
 							return ErrInvalidEmail
 						}
+
 						return nil
 					}),
 			),

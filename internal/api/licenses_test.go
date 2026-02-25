@@ -12,10 +12,12 @@ import (
 
 func TestGetLicenseDownloadablesEncodesQuery(t *testing.T) {
 	store := &stubTokenStore{token: &auth.Token{AccessToken: "token", RefreshToken: "refresh"}}
+
 	var requestURI string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestURI = r.URL.RequestURI()
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"license_key":"key","downloadables":[]}`))

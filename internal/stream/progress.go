@@ -20,5 +20,6 @@ func (pr *ProgressReader) Read(p []byte) (int, error) {
 			pr.OnProgress(pr.downloaded, pr.Total)
 		}
 	}
+
 	return n, err
 }

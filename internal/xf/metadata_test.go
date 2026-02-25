@@ -11,6 +11,7 @@ func TestReadMetadataMissingReturnsNil(t *testing.T) {
 	if err != nil && !errors.Is(err, ErrMetadataNotFound) {
 		t.Fatalf("ReadMetadata failed: %v", err)
 	}
+
 	if meta != nil {
 		t.Fatal("expected nil metadata")
 	}
@@ -34,9 +35,11 @@ func TestWriteAndReadMetadata(t *testing.T) {
 	if err != nil && !errors.Is(err, ErrMetadataNotFound) {
 		t.Fatalf("ReadMetadata failed: %v", err)
 	}
+
 	if out.LicenseKey != in.LicenseKey || out.InstanceName != in.InstanceName {
 		t.Fatalf("metadata mismatch: %#v", out)
 	}
+
 	if out.CreatedAt.IsZero() || out.UpdatedAt.IsZero() {
 		t.Fatal("timestamps should be set")
 	}
@@ -54,6 +57,7 @@ func TestUpdateMetadataVersionCreatesFile(t *testing.T) {
 	if err != nil && !errors.Is(err, ErrMetadataNotFound) {
 		t.Fatalf("ReadMetadata failed: %v", err)
 	}
+
 	if meta.InstalledVersion != "2.3.9" || meta.InstalledVersionID != 2030971 {
 		t.Fatalf("unexpected metadata: %#v", meta)
 	}

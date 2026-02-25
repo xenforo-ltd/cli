@@ -35,6 +35,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	if err != nil {
 		return err
 	}
+
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
 	totalSteps := 7
@@ -42,12 +43,14 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	fmt.Println()
 	ui.PrintStep(1, totalSteps, "Preparing target directory")
 	ui.PrintDetail(opts.TargetPath)
+
 	if err := prepareTargetDirectory(opts.TargetPath); err != nil {
 		return err
 	}
 
 	fmt.Println()
 	ui.PrintStep(2, totalSteps, "Downloading XenForo files")
+
 	cachedFiles, err := downloadProducts(ctx, client, opts)
 	if err != nil {
 		return err
@@ -55,12 +58,14 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	fmt.Println()
 	ui.PrintStep(3, totalSteps, "Extracting XenForo files")
+
 	if err := extractProducts(cachedFiles, opts.TargetPath, titleMap); err != nil {
 		return err
 	}
 
 	fmt.Println()
 	ui.PrintStep(4, totalSteps, "Setting up Docker configuration")
+
 	xfcmdOpts := xfcmd.InitOptions{
 		OverwriteExisting: true,
 		Contexts:          opts.Contexts,
@@ -68,6 +73,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	if err := xfcmd.Init(opts.TargetPath, xfcmdOpts); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess("Docker configuration ready")
 
 	meta := &xf.Metadata{
@@ -84,39 +90,49 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	fmt.Println()
 	ui.PrintStep(5, totalSteps, "Configuring environment")
+
 	if err := configureEnvironment(opts); err != nil {
 		return err
 	}
+
 	ui.PrintSuccess("Environment configured")
 
 	fmt.Println()
 	ui.PrintStep(6, totalSteps, "Starting Docker environment")
+
 	runner, err := dockercompose.NewRunner(opts.TargetPath)
 	if err != nil {
 		return err
 	}
+
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
 	if !opts.SkipUp {
 		if config.IsVerbose() {
 			ui.PrintSubstep("Running docker compose up...")
+
 			if err := runner.Up(true); err != nil {
 				return err
 			}
 		} else {
 			spinner := ui.NewSpinner("Starting Docker environment...")
 			spinner.Start()
+
 			tracker := newPhaseTrackerWriter(spinner, "Starting Docker environment", dockerStartPhaseRules())
 			if err := runner.UpWithOutput(true, tracker, tracker); err != nil {
 				spinner.StopWithMessage("error", "Failed to start containers")
 				printHiddenOutputTail("Docker output", tracker.TailLines())
+
 				return err
 			}
+
 			spinner.StopWithMessage("success", "Docker containers started")
 		}
 
 		detectedURL, detectedErr := runner.GetURL()
+
 		var detected bool
+
 		siteURL, detected = chooseBoardURL(opts.InstanceName, detectedURL, detectedErr)
 		if !detected && config.IsVerbose() && detectedErr != nil {
 			ui.PrintWarning(fmt.Sprintf("Could not auto-detect site URL, using fallback %s: %v", siteURL, detectedErr))
@@ -124,8 +140,10 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 		fmt.Println()
 		ui.PrintStep(7, totalSteps, "Installing XenForo")
+
 		if !opts.SkipInstall {
 			ui.PrintSubstep("Waiting for database to be ready...")
+
 			if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
 				return err
 			}
@@ -142,12 +160,14 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			installEnv := map[string]string{
 				"XF_INSTALL_PASSWORD": opts.AdminPassword,
 			}
+
 			installArgs = append(installArgs, "--password=$(printenv XF_INSTALL_PASSWORD)")
 			shellCmd := shellJoinArgs(append([]string{"php", "cmd.php"}, installArgs...))
 			shellInstallArgs := []string{"sh", "-c", shellCmd}
 
 			if config.IsVerbose() {
 				ui.PrintSubstep("Running XenForo installation...")
+
 				if err := runner.ExecOrRunWithEnv("xf", true, installEnv, shellInstallArgs...); err != nil {
 					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
 					fmt.Println("    You can run it manually:")
@@ -156,6 +176,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			} else {
 				spinner := ui.NewSpinner("Installing XenForo...")
 				spinner.Start()
+
 				tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
 				if err := runner.ExecOrRunWithEnvAndOutput("xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
 					spinner.Stop()
@@ -230,8 +251,10 @@ func (w *phaseTrackerWriter) Write(p []byte) (int, error) {
 		if b == '\n' || b == '\r' {
 			w.processLine(w.pending)
 			w.pending = ""
+
 			continue
 		}
+
 		w.pending += string(b)
 	}
 
@@ -241,8 +264,10 @@ func (w *phaseTrackerWriter) Write(p []byte) (int, error) {
 func (w *phaseTrackerWriter) TailLines() []string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
 	out := make([]string, len(w.tail))
 	copy(out, w.tail)
+
 	return out
 }
 
@@ -261,6 +286,7 @@ func (w *phaseTrackerWriter) processLine(line string) {
 		if importMessage := parseInstallImportMessage(trimmed); importMessage != "" && importMessage != w.lastMessage {
 			w.lastMessage = importMessage
 			w.spinner.UpdateMessage(fmt.Sprintf("%s (%s)", w.baseMessage, importMessage))
+
 			return
 		}
 	}
@@ -272,6 +298,7 @@ func (w *phaseTrackerWriter) processLine(line string) {
 				w.lastMessage = rule.message
 				w.spinner.UpdateMessage(fmt.Sprintf("%s (%s)", w.baseMessage, rule.message))
 			}
+
 			return
 		}
 	}
@@ -284,29 +311,35 @@ func parseInstallImportMessage(line string) string {
 	}
 
 	const marker = "master data ("
+
 	idx := strings.Index(lower, marker)
 	if idx >= 0 {
 		after := line[idx+len(marker):]
+
 		end := strings.Index(after, ")")
 		if end < 0 {
 			end = len(after)
 		}
+
 		inside := strings.TrimSpace(after[:end])
 		if inside == "" {
 			return "importing data"
 		}
 
 		parts := strings.SplitN(inside, ":", 2)
+
 		name := strings.ToLower(strings.TrimSpace(parts[0]))
 		if name == "" {
 			return "importing data"
 		}
+
 		if len(parts) == 2 {
 			percent := strings.TrimSpace(parts[1])
 			if percent != "" {
 				return fmt.Sprintf("importing %s (%s)", name, percent)
 			}
 		}
+
 		return fmt.Sprintf("importing %s", name)
 	}
 
@@ -319,6 +352,7 @@ func containsAny(s string, needles []string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -345,6 +379,7 @@ func printHiddenOutputTail(title string, lines []string) {
 	}
 
 	ui.PrintSubstep(title + " (last lines):")
+
 	for _, line := range lines {
 		fmt.Printf("%s%s\n", ui.Indent2, ui.Dim.Render(line))
 	}
@@ -374,6 +409,7 @@ func formatProductNames(products []string, titleMap map[string]string) string {
 			names = append(names, name)
 			continue
 		}
+
 		names = append(names, product)
 	}
 
@@ -383,10 +419,12 @@ func formatProductNames(products []string, titleMap map[string]string) string {
 func prepareTargetDirectory(targetPath string) error {
 	info, err := os.Stat(targetPath)
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(targetPath, 0755); err != nil {
+		if err := os.MkdirAll(targetPath, 0o755); err != nil {
 			return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create target directory", err)
 		}
+
 		ui.PrintSubstep(fmt.Sprintf("Created directory: %s", ui.Path.Render(targetPath)))
+
 		return nil
 	}
 
@@ -404,6 +442,7 @@ func prepareTargetDirectory(targetPath string) error {
 	}
 
 	nonHiddenCount := 0
+
 	for _, entry := range entries {
 		if !strings.HasPrefix(entry.Name(), ".") {
 			nonHiddenCount++
@@ -415,6 +454,7 @@ func prepareTargetDirectory(targetPath string) error {
 		if err != nil {
 			return err
 		}
+
 		if hasXenForo {
 			ui.PrintWarning("Directory already contains a XenForo installation")
 			ui.PrintDetail("Only Docker configuration files will be updated")
@@ -437,6 +477,7 @@ func downloadProducts(ctx context.Context, client *api.Client, opts *InitOptions
 	if err != nil {
 		return nil, err
 	}
+
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
 	cachedFiles := make(map[string]*cache.Entry)
@@ -453,24 +494,31 @@ func downloadProducts(ctx context.Context, client *api.Client, opts *InitOptions
 		if productName == "" {
 			productName = selection.Product
 		}
+
 		ui.PrintSubstep(fmt.Sprintf("Downloading %s...", productName))
 
-		var progressBar *ui.ProgressBar
-		var spinner *ui.Spinner
-		var lastUpdate int64
+		var (
+			progressBar *ui.ProgressBar
+			spinner     *ui.Spinner
+			lastUpdate  int64
+		)
+
 		progress := func(current, total int64) {
 			if total > 0 {
 				if spinner != nil {
 					spinner.Stop()
 					spinner = nil
 				}
+
 				if progressBar == nil {
 					label := fmt.Sprintf("%s %s", productName, selection.VersionString)
 					progressBar = ui.NewProgressBar(total, label)
 				}
+
 				progressBar.Update(current)
 			} else if current-lastUpdate >= 102400 || lastUpdate == 0 {
 				lastUpdate = current
+
 				msg := fmt.Sprintf("Downloading %s %s... %s", productName, selection.VersionString, ui.FormatBytes(current))
 				if spinner == nil {
 					spinner = ui.NewSpinner(msg)
@@ -482,12 +530,15 @@ func downloadProducts(ctx context.Context, client *api.Client, opts *InitOptions
 		}
 
 		entry, versionStr, err := downloads.DownloadSelection(ctx, client, cacheManager, opts.LicenseKey, selection, false, progress)
+
 		if progressBar != nil {
 			progressBar.Finish()
 		}
+
 		if spinner != nil {
 			spinner.StopWithMessage("success", fmt.Sprintf("Downloaded %s %s", selection.Product, selection.VersionString))
 		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -519,6 +570,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
 			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to extract XenForo", err)
 		}
+
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
 	}
 
@@ -533,6 +585,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 				productName = name
 			}
 		}
+
 		ui.PrintSubstep(fmt.Sprintf("Extracting %s...", productName))
 
 		fileCount := 0
@@ -543,6 +596,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
 			return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to extract %s", product)
 		}
+
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
 	}
 
@@ -566,6 +620,7 @@ func configureEnvironment(opts *InitOptions) error {
 	if opts.SiteTitle != "" {
 		updates["XF_TITLE"] = fmt.Sprintf("%s [%s]", opts.SiteTitle, opts.InstanceName)
 	}
+
 	if len(opts.Contexts) > 0 {
 		updates["XF_CONTEXTS"] = strings.Join(opts.Contexts, ":")
 	}

@@ -27,17 +27,21 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
-	if err := os.MkdirAll(entryPath, 0755); err != nil {
+
+	if err := os.MkdirAll(entryPath, 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
+
 	filePath := filepath.Join(entryPath, meta.Filename)
-	if err := os.WriteFile(filePath, []byte("archive"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("archive"), 0o644); err != nil {
 		t.Fatalf("write file failed: %v", err)
 	}
+
 	checksum, err := CalculateChecksum(filePath)
 	if err != nil {
 		t.Fatalf("CalculateChecksum failed: %v", err)
 	}
+
 	meta.Checksum = checksum
 	meta.Size = int64(len("archive"))
 
@@ -49,6 +53,7 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 	if err != nil && !errors.Is(err, ErrCacheMiss) {
 		t.Fatalf("GetEntry failed: %v", err)
 	}
+
 	if entry == nil || entry.FilePath != filePath {
 		t.Fatalf("unexpected entry: %#v", entry)
 	}
@@ -57,6 +62,7 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify failed: %v", err)
 	}
+
 	if !ok {
 		t.Fatal("expected checksum verification to pass")
 	}
@@ -64,10 +70,12 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 	if err := m.Delete(license, meta.DownloadID, meta.Version); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
+
 	entry, err = m.GetEntry(license, meta.DownloadID, meta.Version)
 	if err != nil && !errors.Is(err, ErrCacheMiss) {
 		t.Fatalf("GetEntry after delete failed: %v", err)
 	}
+
 	if entry != nil {
 		t.Fatal("expected deleted entry to be nil")
 	}
@@ -85,16 +93,20 @@ func TestManagerListAndTotalSize(t *testing.T) {
 		if meta.DownloadID == "xfmg" {
 			license = "LIC2"
 		}
+
 		dir, err := m.EntryPath(license, meta.DownloadID, meta.Version)
 		if err != nil {
 			t.Fatalf("EntryPath failed: %v", err)
 		}
-		if err := os.MkdirAll(dir, 0755); err != nil {
+
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("mkdir failed: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, meta.Filename), []byte("x"), 0644); err != nil {
+
+		if err := os.WriteFile(filepath.Join(dir, meta.Filename), []byte("x"), 0o644); err != nil {
 			t.Fatalf("write file failed: %v", err)
 		}
+
 		mcopy := meta
 		if err := m.SaveMetadata(license, &mcopy); err != nil {
 			t.Fatalf("SaveMetadata failed: %v", err)
@@ -105,6 +117,7 @@ func TestManagerListAndTotalSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
+
 	if len(all) != 2 {
 		t.Fatalf("len(all) = %d, want 2", len(all))
 	}
@@ -113,6 +126,7 @@ func TestManagerListAndTotalSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListForLicense failed: %v", err)
 	}
+
 	if len(lic1) != 1 {
 		t.Fatalf("len(lic1) = %d, want 1", len(lic1))
 	}
@@ -121,6 +135,7 @@ func TestManagerListAndTotalSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TotalSize failed: %v", err)
 	}
+
 	if total != 30 {
 		t.Fatalf("total size = %d, want 30", total)
 	}
@@ -128,17 +143,20 @@ func TestManagerListAndTotalSize(t *testing.T) {
 
 func TestManagerPurge(t *testing.T) {
 	m := newTestManager(t)
+
 	dir, err := m.EntryPath("LIC1", "xenforo", "1")
 	if err != nil {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
 
 	if err := m.PurgeLicense("LIC1"); err != nil {
 		t.Fatalf("PurgeLicense failed: %v", err)
 	}
+
 	if _, err := os.Stat(filepath.Join(m.basePath, "LIC1")); !os.IsNotExist(err) {
 		t.Fatalf("expected license path removed, err=%v", err)
 	}
@@ -146,6 +164,7 @@ func TestManagerPurge(t *testing.T) {
 	if err := m.PurgeAll(); err != nil {
 		t.Fatalf("PurgeAll failed: %v", err)
 	}
+
 	if _, err := os.Stat(m.basePath); !os.IsNotExist(err) {
 		t.Fatalf("expected base path removed, err=%v", err)
 	}

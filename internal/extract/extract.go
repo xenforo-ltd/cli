@@ -49,7 +49,7 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 	}
 	defer reader.Close()
 
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create destination directory", err)
 	}
 
@@ -81,9 +81,10 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, 0755); err != nil {
+			if err := os.MkdirAll(destPath, 0o755); err != nil {
 				return clierrors.Wrapf(clierrors.CodeDirCreateFailed, err, "failed to create directory: %s", name)
 			}
+
 			continue
 		}
 
@@ -99,6 +100,7 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 	if isSymlink(file) {
 		return clierrors.Newf(clierrors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
 	}
+
 	if !opts.OverwriteExisting {
 		if _, err := os.Stat(destPath); err == nil {
 			return nil
@@ -106,7 +108,7 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 	}
 
 	parentDir := filepath.Dir(destPath)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return clierrors.Wrapf(clierrors.CodeDirCreateFailed, err, "failed to create directory: %s", parentDir)
 	}
 
@@ -118,7 +120,7 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 
 	mode := file.Mode()
 	if !opts.PreservePermissions {
-		mode = 0644
+		mode = 0o644
 	}
 
 	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
@@ -152,15 +154,18 @@ func sanitizePath(destDir, name string) (string, error) {
 	if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") {
 		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
+
 	if strings.Contains(name, "\\") {
 		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
+
 	if len(name) >= 2 {
 		c := name[0]
 		if name[1] == ':' && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
 			return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 		}
 	}
+
 	if filepath.IsAbs(name) {
 		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
@@ -176,9 +181,11 @@ func sanitizePath(destDir, name string) (string, error) {
 	if err != nil {
 		return "", clierrors.Wrap(clierrors.CodeValidationFailed, "invalid path in archive", err)
 	}
+
 	if rel == "." {
 		return cleanDestPath, nil
 	}
+
 	if strings.HasPrefix(rel, "..") || rel == "" {
 		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path in archive: %s", name)
 	}
@@ -220,6 +227,7 @@ func GetZipRootDirectory(zipPath string) (string, error) {
 	}
 
 	firstFile := reader.File[0].Name
+
 	parts := strings.SplitN(filepath.ToSlash(firstFile), "/", 2)
 	if len(parts) == 0 {
 		return "", nil
@@ -248,11 +256,12 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 	}
 	defer reader.Close()
 
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create destination directory", err)
 	}
 
 	var uploadFiles []*zip.File
+
 	for _, file := range reader.File {
 		name := filepath.ToSlash(file.Name)
 		if strings.HasPrefix(name, "upload/") {
@@ -285,9 +294,10 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, 0755); err != nil {
+			if err := os.MkdirAll(destPath, 0o755); err != nil {
 				return clierrors.Wrapf(clierrors.CodeDirCreateFailed, err, "failed to create directory: %s", name)
 			}
+
 			continue
 		}
 
@@ -312,6 +322,7 @@ func CountZipFiles(zipPath string) (int, error) {
 	defer reader.Close()
 
 	count := 0
+
 	for _, file := range reader.File {
 		if !file.FileInfo().IsDir() {
 			count++

@@ -42,8 +42,10 @@ func init() {
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {
-	var xfDir string
-	var services []string
+	var (
+		xfDir    string
+		services []string
+	)
 
 	if len(args) > 0 {
 		potentialPath := args[0]
@@ -52,14 +54,17 @@ func runLogs(cmd *cobra.Command, args []string) error {
 			services = args[1:]
 		} else {
 			var err error
+
 			xfDir, err = getXenForoDir(nil)
 			if err != nil {
 				return err
 			}
+
 			services = args
 		}
 	} else {
 		var err error
+
 		xfDir, err = getXenForoDir(nil)
 		if err != nil {
 			return err

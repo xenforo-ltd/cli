@@ -13,9 +13,11 @@ func TestGet(t *testing.T) {
 	if info.GoVersion != runtime.Version() {
 		t.Errorf("GoVersion = %q, want %q", info.GoVersion, runtime.Version())
 	}
+
 	if info.OS != runtime.GOOS {
 		t.Errorf("OS = %q, want %q", info.OS, runtime.GOOS)
 	}
+
 	if info.Arch != runtime.GOARCH {
 		t.Errorf("Arch = %q, want %q", info.Arch, runtime.GOARCH)
 	}
@@ -23,9 +25,11 @@ func TestGet(t *testing.T) {
 	if !regexp.MustCompile(`^v\d+\.\d+\.\d+$`).MatchString(info.Version) {
 		t.Errorf("Version = %q, want format v<major>.<minor>.<patch>", info.Version)
 	}
+
 	if info.Commit != "unknown" {
 		t.Errorf("Commit = %q, want %q", info.Commit, "unknown")
 	}
+
 	if info.Date != "unknown" {
 		t.Errorf("Date = %q, want %q", info.Date, "unknown")
 	}

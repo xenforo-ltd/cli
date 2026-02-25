@@ -17,6 +17,7 @@ func TestGeneratePKCE(t *testing.T) {
 	}
 
 	hash := sha256.Sum256([]byte(pkce.CodeVerifier))
+
 	expectedChallenge := base64.RawURLEncoding.EncodeToString(hash[:])
 	if pkce.CodeChallenge != expectedChallenge {
 		t.Errorf("CodeChallenge = %q, want %q", pkce.CodeChallenge, expectedChallenge)
@@ -33,6 +34,7 @@ func TestGeneratePKCE(t *testing.T) {
 
 func TestGeneratePKCE_Uniqueness(t *testing.T) {
 	seen := make(map[string]bool)
+
 	for range 100 {
 		pkce, err := GeneratePKCE()
 		if err != nil {
@@ -42,11 +44,13 @@ func TestGeneratePKCE_Uniqueness(t *testing.T) {
 		if seen[pkce.CodeVerifier] {
 			t.Errorf("CodeVerifier collision detected")
 		}
+
 		seen[pkce.CodeVerifier] = true
 
 		if seen[pkce.State] {
 			t.Errorf("State collision detected")
 		}
+
 		seen[pkce.State] = true
 	}
 }

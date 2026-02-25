@@ -97,10 +97,12 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(ui.Bold.Render("Checking installation..."))
+
 	currentVersion, err := xf.DetectVersion(absPath)
 	if err != nil {
 		return err
 	}
+
 	opts.CurrentVersion = currentVersion
 
 	fmt.Println()
@@ -115,14 +117,17 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	if meta != nil {
 		pairs := []ui.KVPair{}
+
 		if opts.LicenseKey == "" {
 			opts.LicenseKey = meta.LicenseKey
 			pairs = append(pairs, ui.KV("License key", fmt.Sprintf("%s (from metadata)", opts.LicenseKey)))
 		}
+
 		opts.Products = meta.InstalledProducts
 		if len(opts.Products) > 0 {
 			pairs = append(pairs, ui.KV("Products", strings.Join(opts.Products, ", ")))
 		}
+
 		if len(pairs) > 0 {
 			ui.PrintKeyValuePadded(pairs)
 		}
@@ -133,6 +138,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		if err := runUpgradeInteractive(ctx, opts); err != nil {
 			return err
 		}
+
 		if opts.TargetVersionID == 0 {
 			return nil
 		}
@@ -151,6 +157,7 @@ func validateUpgradeFlags(opts *UpgradeOptions) error {
 	if opts.LicenseKey == "" {
 		missing = append(missing, "--license")
 	}
+
 	if opts.TargetVersionID == 0 {
 		missing = append(missing, "--version")
 	}
@@ -183,12 +190,14 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		var licenseOptions []huh.Option[string]
+
 		for _, lic := range licenses {
 			if lic.CanDownload {
 				label := fmt.Sprintf("%s - %s", lic.LicenseKey, lic.ProductTitle)
 				if lic.SiteTitle != "" {
 					label = fmt.Sprintf("%s (%s)", label, lic.SiteTitle)
 				}
+
 				licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
 			}
 		}
@@ -222,12 +231,14 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		var versionOptions []huh.Option[int]
+
 		for _, v := range versions.Versions {
 			if v.VersionID > opts.CurrentVersion.ID {
 				label := v.VersionStr
 				if v.Stable {
 					label += " (stable)"
 				}
+
 				versionOptions = append(versionOptions, huh.NewOption(label, v.VersionID))
 			}
 		}
@@ -235,6 +246,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		if len(versionOptions) == 0 {
 			fmt.Println()
 			ui.PrintSuccess("No newer versions available. Your installation is up to date!")
+
 			return nil
 		}
 
@@ -275,6 +287,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 
 	fmt.Println()
 	ui.PrintStep(1, totalSteps, "Downloading upgrade files")
+
 	cachedFiles, err := downloadUpgradeFiles(ctx, client, opts)
 	if err != nil {
 		return err
@@ -282,6 +295,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 
 	fmt.Println()
 	ui.PrintStep(2, totalSteps, "Upgrading files")
+
 	if err := overlayUpgradeFiles(cachedFiles, opts.TargetPath); err != nil {
 		return err
 	}
@@ -290,11 +304,13 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	if opts.TargetVersionString != "" {
 		targetVersion.String = opts.TargetVersionString
 	}
+
 	if err := xf.UpdateMetadataVersion(opts.TargetPath, targetVersion); err != nil {
 		ui.PrintWarning(fmt.Sprintf("Could not update metadata: %v", err))
 	}
 
 	fmt.Println()
+
 	if !opts.SkipUpgrade {
 		ui.PrintStep(3, totalSteps, "Running XenForo upgrade")
 

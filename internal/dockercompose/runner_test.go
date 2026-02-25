@@ -21,7 +21,7 @@ func TestBuildComposeArgsIncludesContextAndOverride(t *testing.T) {
 		"compose.override.yaml",
 	}
 	for _, name := range files {
-		if err := os.WriteFile(filepath.Join(tmp, name), []byte("services: {}\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmp, name), []byte("services: {}\n"), 0o644); err != nil {
 			t.Fatalf("write %s: %v", name, err)
 		}
 	}
@@ -59,6 +59,7 @@ func TestIsServiceRunning(t *testing.T) {
 		if err != nil {
 			t.Fatalf("isServiceRunning returned error: %v", err)
 		}
+
 		if !running {
 			t.Fatal("expected service to be running")
 		}
@@ -72,6 +73,7 @@ func TestIsServiceRunning(t *testing.T) {
 		if err != nil {
 			t.Fatalf("isServiceRunning returned error: %v", err)
 		}
+
 		if running {
 			t.Fatal("expected service to be stopped")
 		}
@@ -105,6 +107,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		if !strings.Contains(log, " exec xf php -v") {
 			t.Fatalf("expected exec invocation, log:\n%s", log)
 		}
+
 		if strings.Contains(log, " run --rm xf php -v") {
 			t.Fatalf("did not expect run invocation, log:\n%s", log)
 		}
@@ -122,6 +125,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		if !strings.Contains(log, " run --rm xf php -v") {
 			t.Fatalf("expected run invocation, log:\n%s", log)
 		}
+
 		if strings.Contains(log, " exec xf php -v") {
 			t.Fatalf("did not expect exec invocation, log:\n%s", log)
 		}
@@ -161,6 +165,7 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		if !strings.Contains(log, " exec -e XDEBUG_SESSION=1 xf php -v") {
 			t.Fatalf("expected exec invocation with env, log:\n%s", log)
 		}
+
 		if strings.Contains(log, " run --rm --env XDEBUG_SESSION=1 xf php -v") {
 			t.Fatalf("did not expect run invocation, log:\n%s", log)
 		}
@@ -178,6 +183,7 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		if !strings.Contains(log, " run --rm --env XDEBUG_SESSION=1 xf php -v") {
 			t.Fatalf("expected run invocation with env, log:\n%s", log)
 		}
+
 		if strings.Contains(log, " exec -e XDEBUG_SESSION=1 xf php -v") {
 			t.Fatalf("did not expect exec invocation, log:\n%s", log)
 		}
@@ -188,7 +194,7 @@ func newRunnerWithFakeDocker(t *testing.T) (*Runner, string) {
 	t.Helper()
 
 	xfDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(xfDir, "compose.yaml"), []byte("services: {}\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(xfDir, "compose.yaml"), []byte("services: {}\n"), 0o644); err != nil {
 		t.Fatalf("write compose.yaml: %v", err)
 	}
 
@@ -231,7 +237,7 @@ if [[ "$args" == *" run "* ]]; then
 fi
 exit 0
 `
-	if err := os.WriteFile(dockerPath, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(dockerPath, []byte(script), 0o755); err != nil {
 		t.Fatalf("write fake docker: %v", err)
 	}
 
@@ -242,14 +248,17 @@ exit 0
 		xfDir:    xfDir,
 		instance: "demo",
 	}
+
 	return runner, logFile
 }
 
 func readDockerLog(t *testing.T, path string) string {
 	t.Helper()
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read docker log: %v", err)
 	}
+
 	return string(data)
 }

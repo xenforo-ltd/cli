@@ -46,5 +46,6 @@ func runDown(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.PrintSuccess("Docker environment stopped")
+
 	return nil
 }

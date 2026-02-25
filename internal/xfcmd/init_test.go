@@ -16,11 +16,13 @@ func TestInitRejectsNonXenForoDirectory(t *testing.T) {
 
 func TestInitCreatesDockerFilesForXenForoDirectory(t *testing.T) {
 	dir := t.TempDir()
+
 	xfPath := filepath.Join(dir, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(xfPath, []byte("<?php"), 0644); err != nil {
+
+	if err := os.WriteFile(xfPath, []byte("<?php"), 0o644); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
@@ -45,6 +47,7 @@ func TestInitCreatesDockerFilesForXenForoDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .env: %v", err)
 	}
+
 	if !strings.Contains(string(envData), "XF_CONTEXTS=caddy:mysql") {
 		t.Fatalf("expected overridden contexts in .env, got:\n%s", string(envData))
 	}
@@ -52,22 +55,24 @@ func TestInitCreatesDockerFilesForXenForoDirectory(t *testing.T) {
 
 func TestInitDoesNotOverwriteXenForoCoreFiles(t *testing.T) {
 	dir := t.TempDir()
+
 	xfPath := filepath.Join(dir, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
 	originalXF := "<?php\n// xenforo core marker\n"
-	if err := os.WriteFile(xfPath, []byte(originalXF), 0644); err != nil {
+	if err := os.WriteFile(xfPath, []byte(originalXF), 0o644); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
 	existingCore := filepath.Join(dir, "src", "Entity", "User.php")
-	if err := os.MkdirAll(filepath.Dir(existingCore), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(existingCore), 0o755); err != nil {
 		t.Fatalf("mkdir core dir: %v", err)
 	}
+
 	coreContent := "<?php\n// custom core file\n"
-	if err := os.WriteFile(existingCore, []byte(coreContent), 0644); err != nil {
+	if err := os.WriteFile(existingCore, []byte(coreContent), 0o644); err != nil {
 		t.Fatalf("write core file: %v", err)
 	}
 
@@ -79,6 +84,7 @@ func TestInitDoesNotOverwriteXenForoCoreFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read XF.php: %v", err)
 	}
+
 	if string(gotXF) != originalXF {
 		t.Fatalf("XF.php was modified unexpectedly")
 	}
@@ -87,6 +93,7 @@ func TestInitDoesNotOverwriteXenForoCoreFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read core file: %v", err)
 	}
+
 	if string(gotCore) != coreContent {
 		t.Fatalf("existing XenForo core file was modified unexpectedly")
 	}

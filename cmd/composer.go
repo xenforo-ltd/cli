@@ -36,8 +36,10 @@ func init() {
 }
 
 func runComposer(cmd *cobra.Command, args []string) error {
-	var xfDir string
-	var composerArgs []string
+	var (
+		xfDir        string
+		composerArgs []string
+	)
 
 	if len(args) > 0 {
 		potentialPath := args[0]
@@ -49,10 +51,12 @@ func runComposer(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
+
 			composerArgs = args
 		}
 	} else {
 		var err error
+
 		xfDir, err = getXenForoDir(nil)
 		if err != nil {
 			return err

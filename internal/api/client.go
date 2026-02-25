@@ -62,13 +62,16 @@ func userAgent() string {
 // Do sends an HTTP request and returns the response.
 func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	var bodyBytes []byte
+
 	if body != nil {
 		data, err := io.ReadAll(body)
 		if err != nil {
 			return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to read request body", err)
 		}
+
 		bodyBytes = data
 	}
+
 	return c.doWithRetry(ctx, method, path, bodyBytes, true)
 }
 
@@ -94,9 +97,11 @@ func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
 		return err
 	}
 	defer resp.Body.Close()
+
 	if err := CheckResponse(resp); err != nil {
 		return err
 	}
+
 	return json.NewDecoder(resp.Body).Decode(result)
 }
 
@@ -107,17 +112,21 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 	}
 
 	url := c.baseURL + path
+
 	var bodyReader io.Reader
 	if body != nil {
 		bodyReader = bytes.NewReader(body)
 	}
+
 	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create request", err)
 	}
+
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
 	req.Header.Set("User-Agent", userAgent())
 	req.Header.Set("Accept", "application/json")
+
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -134,6 +143,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 		if refresh == nil {
 			refresh = c.refreshToken
 		}
+
 		if err := refresh(ctx, token.AccessToken); err != nil {
 			return nil, clierrors.Wrap(clierrors.CodeAuthExpired,
 				"authentication expired and refresh failed - run 'xf auth login'", err)
@@ -163,6 +173,7 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	}
 
 	oauthClient := auth.NewOAuthClient(c.oauthCfg)
+
 	newToken, err := oauthClient.RefreshToken(ctx, token.RefreshToken)
 	if err != nil {
 		return err
@@ -189,6 +200,7 @@ func ParseError(body []byte) (*ErrorResponse, error) {
 	if err := json.Unmarshal(body, &errResp); err != nil {
 		return nil, err
 	}
+
 	return &errResp, nil
 }
 

@@ -51,6 +51,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 	if err := dockercompose.CheckDockerRunning(); err != nil {
 		return err
 	}
+
 	if err := dockercompose.CheckDockerComposeAvailable(); err != nil {
 		return err
 	}

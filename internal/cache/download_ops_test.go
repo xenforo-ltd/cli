@@ -32,13 +32,16 @@ func TestDownloadAndUseCache(t *testing.T) {
 	}
 
 	var calls int
+
 	res, err := m.Download(context.Background(), opts, func(current, total int64) { calls++ })
 	if err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
+
 	if res.WasCached {
 		t.Fatal("expected first download not cached")
 	}
+
 	if calls == 0 {
 		t.Fatal("expected progress callback calls")
 	}
@@ -51,6 +54,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Download second call failed: %v", err)
 	}
+
 	if !res2.WasCached {
 		t.Fatal("expected second download to use cache")
 	}
@@ -74,6 +78,7 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected checksum mismatch")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
 		t.Fatalf("expected checksum mismatch code, got: %v", err)
 	}
@@ -96,6 +101,7 @@ func TestDownloadWithAuthUnauthorized(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unauthorized error")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeAuthExpired) {
 		t.Fatalf("expected auth expired code, got: %v", err)
 	}
@@ -109,8 +115,10 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 		if r.Header.Get("Authorization") == "Bearer bad" {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte("forbidden"))
+
 			return
 		}
+
 		w.Header().Set("Content-Disposition", `attachment; filename="secure.zip"`)
 		_, _ = w.Write(payload)
 	}))
@@ -125,12 +133,14 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected forbidden error")
 	}
+
 	if !clierrors.Is(err, clierrors.CodeDownloadFailed) {
 		t.Fatalf("expected download failed code, got: %v", err)
 	}
 
 	sum := sha256.Sum256(payload)
 	expected := hex.EncodeToString(sum[:])
+
 	res, err := m.DownloadWithAuth(context.Background(), DownloadOptions{
 		LicenseKey:       "LIC1",
 		DownloadID:       "xenforo",
@@ -142,9 +152,11 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DownloadWithAuth success failed: %v", err)
 	}
+
 	if res.WasCached {
 		t.Fatal("expected non-cached result")
 	}
+
 	if got := res.Entry.Metadata.Filename; got != "secure.zip" {
 		t.Fatalf("filename = %q, want secure.zip", got)
 	}
@@ -158,22 +170,28 @@ func TestDownloadWithAuthUsesCache(t *testing.T) {
 		Filename:     "cached.zip",
 		DownloadedAt: time.Now(),
 	}
+
 	dir, err := m.EntryPath("LIC1", meta.DownloadID, meta.Version)
 	if err != nil {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
+
 	filePath := filepath.Join(dir, meta.Filename)
-	if err := os.WriteFile(filePath, []byte("cached"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("cached"), 0o644); err != nil {
 		t.Fatalf("write cached file failed: %v", err)
 	}
+
 	sum, err := CalculateChecksum(filePath)
 	if err != nil {
 		t.Fatalf("checksum failed: %v", err)
 	}
+
 	meta.Checksum = sum
+
 	meta.Size = 6
 	if err := m.SaveMetadata("LIC1", meta); err != nil {
 		t.Fatalf("SaveMetadata failed: %v", err)
@@ -188,6 +206,7 @@ func TestDownloadWithAuthUsesCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DownloadWithAuth failed: %v", err)
 	}
+
 	if !res.WasCached {
 		t.Fatal("expected cached result")
 	}

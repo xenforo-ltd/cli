@@ -70,6 +70,7 @@ func (k *Keychain) IsAvailable() bool {
 	if err == nil {
 		return true
 	}
+
 	return false
 }
 
@@ -98,6 +99,7 @@ func (k *Keychain) LoadToken() (*Token, error) {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return nil, clierrors.New(clierrors.CodeAuthRequired, "not authenticated - run 'xf auth login'")
 		}
+
 		return nil, clierrors.Wrap(clierrors.CodeKeychainReadFailed, "failed to read token from keychain", err)
 	}
 
@@ -116,8 +118,10 @@ func (k *Keychain) DeleteToken() error {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return nil
 		}
+
 		return clierrors.Wrap(clierrors.CodeKeychainWriteFailed, "failed to delete token from keychain", err)
 	}
+
 	return nil
 }
 

@@ -62,6 +62,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	if err := validateExecInvocation(execArgs); err != nil {
 		return err
 	}
@@ -105,6 +106,7 @@ func resolveXenForoDirAndArgs(args []string) (string, []string, error) {
 	if err != nil {
 		return "", nil, err
 	}
+
 	return xfDir, args, nil
 }
 
@@ -112,5 +114,6 @@ func validateExecInvocation(execArgs []string) error {
 	if len(execArgs) < 2 {
 		return clierrors.New(clierrors.CodeInvalidInput, "exec requires <service> <command> [args...]")
 	}
+
 	return nil
 }

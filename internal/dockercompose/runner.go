@@ -39,6 +39,7 @@ func NewRunner(xfDir string) (*Runner, error) {
 
 	envPath := filepath.Join(xfDir, ".env")
 	instance := "xf"
+
 	var contexts []string
 
 	if envData, err := os.ReadFile(envPath); err == nil {
@@ -46,6 +47,7 @@ func NewRunner(xfDir string) (*Runner, error) {
 		if instance == "" {
 			instance = "xf"
 		}
+
 		contextsStr := parseEnvValue(string(envData), "XF_CONTEXTS")
 		if contextsStr != "" {
 			contexts = strings.Split(contextsStr, ":")
@@ -88,6 +90,7 @@ func (r *Runner) Contexts() []string {
 // Up starts the Docker containers.
 func (r *Runner) Up(detach bool) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "up")
 	if detach {
 		args = append(args, "--detach")
@@ -99,6 +102,7 @@ func (r *Runner) Up(detach bool) error {
 // UpWithOutput starts the Docker containers with custom output writers.
 func (r *Runner) UpWithOutput(detach bool, stdout, stderr io.Writer) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "up")
 	if detach {
 		args = append(args, "--detach")
@@ -111,6 +115,7 @@ func (r *Runner) UpWithOutput(detach bool, stdout, stderr io.Writer) error {
 func (r *Runner) Down() error {
 	args := r.buildComposeArgs()
 	args = append(args, "down")
+
 	return r.runDockerCommand(args...)
 }
 
@@ -118,17 +123,21 @@ func (r *Runner) Down() error {
 func (r *Runner) PS() error {
 	args := r.buildComposeArgs()
 	args = append(args, "ps")
+
 	return r.runDockerCommand(args...)
 }
 
 // Logs shows container logs.
 func (r *Runner) Logs(follow bool, services ...string) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "logs")
 	if follow {
 		args = append(args, "--follow")
 	}
+
 	args = append(args, services...)
+
 	return r.runDockerCommand(args...)
 }
 
@@ -137,6 +146,7 @@ func (r *Runner) Exec(service string, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "exec", service)
 	args = append(args, cmd...)
+
 	return r.runDockerCommand(args...)
 }
 
@@ -144,30 +154,38 @@ func (r *Runner) Exec(service string, cmd ...string) error {
 func (r *Runner) ExecWithEnv(service string, env map[string]string, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "exec")
+
 	if len(env) > 0 {
 		keys := make([]string, 0, len(env))
 		for k := range env {
 			keys = append(keys, k)
 		}
+
 		sort.Strings(keys)
+
 		for _, k := range keys {
 			args = append(args, "-e", fmt.Sprintf("%s=%s", k, env[k]))
 		}
 	}
+
 	args = append(args, service)
 	args = append(args, cmd...)
+
 	return r.runDockerCommand(args...)
 }
 
 // Run runs a one-off command in a new container.
 func (r *Runner) Run(service string, rm bool, cmd ...string) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "run")
 	if rm {
 		args = append(args, "--rm")
 	}
+
 	args = append(args, service)
 	args = append(args, cmd...)
+
 	return r.runDockerCommand(args...)
 }
 
@@ -177,16 +195,20 @@ func (r *Runner) ExecOrRun(service string, rm bool, cmd ...string) error {
 	if err != nil {
 		return err
 	}
+
 	if running {
 		execArgs := r.buildComposeArgs()
 		execArgs = append(execArgs, "exec", service)
 		execArgs = append(execArgs, cmd...)
+
 		stderr, err := r.runDockerCommandCaptureStderr(execArgs...)
 		if err != nil && isNotRunningExecError(err, stderr) {
 			return r.Run(service, rm, cmd...)
 		}
+
 		return err
 	}
+
 	return r.Run(service, rm, cmd...)
 }
 
@@ -196,16 +218,20 @@ func (r *Runner) ExecOrRunWithOutput(service string, rm bool, stdout, stderr io.
 	if err != nil {
 		return err
 	}
+
 	if running {
 		execArgs := r.buildComposeArgs()
 		execArgs = append(execArgs, "exec", service)
 		execArgs = append(execArgs, cmd...)
+
 		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithOutput(service, rm, stdout, stderr, cmd...)
 		}
+
 		return err
 	}
+
 	return r.RunWithOutput(service, rm, stdout, stderr, cmd...)
 }
 
@@ -215,27 +241,35 @@ func (r *Runner) ExecOrRunWithEnv(service string, rm bool, env map[string]string
 	if err != nil {
 		return err
 	}
+
 	if running {
 		execArgs := r.buildComposeArgs()
 		execArgs = append(execArgs, "exec")
+
 		if len(env) > 0 {
 			keys := make([]string, 0, len(env))
 			for k := range env {
 				keys = append(keys, k)
 			}
+
 			sort.Strings(keys)
+
 			for _, k := range keys {
 				execArgs = append(execArgs, "-e", fmt.Sprintf("%s=%s", k, env[k]))
 			}
 		}
+
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
+
 		stderr, err := r.runDockerCommandCaptureStderr(execArgs...)
 		if err != nil && isNotRunningExecError(err, stderr) {
 			return r.RunWithEnv(service, rm, env, cmd...)
 		}
+
 		return err
 	}
+
 	return r.RunWithEnv(service, rm, env, cmd...)
 }
 
@@ -245,49 +279,63 @@ func (r *Runner) ExecOrRunWithEnvAndOutput(service string, rm bool, env map[stri
 	if err != nil {
 		return err
 	}
+
 	if running {
 		execArgs := r.buildComposeArgs()
 		execArgs = append(execArgs, "exec")
+
 		if len(env) > 0 {
 			keys := make([]string, 0, len(env))
 			for k := range env {
 				keys = append(keys, k)
 			}
+
 			sort.Strings(keys)
+
 			for _, k := range keys {
 				execArgs = append(execArgs, "-e", fmt.Sprintf("%s=%s", k, env[k]))
 			}
 		}
+
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
+
 		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithEnvAndOutput(service, rm, env, stdout, stderr, cmd...)
 		}
+
 		return err
 	}
+
 	return r.RunWithEnvAndOutput(service, rm, env, stdout, stderr, cmd...)
 }
 
 // RunWithEnvAndOutput runs a docker-compose run command with custom output.
 func (r *Runner) RunWithEnvAndOutput(service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "run")
 	if rm {
 		args = append(args, "--rm")
 	}
+
 	if len(env) > 0 {
 		keys := make([]string, 0, len(env))
 		for k := range env {
 			keys = append(keys, k)
 		}
+
 		sort.Strings(keys)
+
 		for _, k := range keys {
 			args = append(args, "--env", fmt.Sprintf("%s=%s", k, env[k]))
 		}
 	}
+
 	args = append(args, service)
 	args = append(args, cmd...)
+
 	return r.runDockerCommandWithOutput(stdout, stderr, args...)
 }
 
@@ -295,17 +343,21 @@ func (r *Runner) RunWithEnvAndOutput(service string, rm bool, env map[string]str
 func (r *Runner) Compose(args ...string) error {
 	composeArgs := r.buildComposeArgs()
 	composeArgs = append(composeArgs, args...)
+
 	return r.runDockerCommand(composeArgs...)
 }
 
 // Build builds or rebuilds services.
 func (r *Runner) Build(pull bool, services ...string) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "build")
 	if pull {
 		args = append(args, "--pull")
 	}
+
 	args = append(args, services...)
+
 	return r.runDockerCommand(args...)
 }
 
@@ -314,6 +366,7 @@ func (r *Runner) Pull(services ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "pull")
 	args = append(args, services...)
+
 	return r.runDockerCommand(args...)
 }
 
@@ -322,6 +375,7 @@ func (r *Runner) Restart(services ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "restart")
 	args = append(args, services...)
+
 	return r.runDockerCommand(args...)
 }
 
@@ -358,34 +412,43 @@ func (r *Runner) XFCommandDebug(args ...string) error {
 // RunWithEnv runs a command with additional environment variables.
 func (r *Runner) RunWithEnv(service string, rm bool, env map[string]string, cmd ...string) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "run")
 	if rm {
 		args = append(args, "--rm")
 	}
+
 	if len(env) > 0 {
 		keys := make([]string, 0, len(env))
 		for k := range env {
 			keys = append(keys, k)
 		}
+
 		sort.Strings(keys)
+
 		for _, k := range keys {
 			args = append(args, "--env", fmt.Sprintf("%s=%s", k, env[k]))
 		}
 	}
+
 	args = append(args, service)
 	args = append(args, cmd...)
+
 	return r.runDockerCommand(args...)
 }
 
 // RunWithOutput runs a one-off command in a new container with custom output writers.
 func (r *Runner) RunWithOutput(service string, rm bool, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
+
 	args = append(args, "run")
 	if rm {
 		args = append(args, "--rm")
 	}
+
 	args = append(args, service)
 	args = append(args, cmd...)
+
 	return r.runDockerCommandWithOutput(stdout, stderr, args...)
 }
 
@@ -393,6 +456,7 @@ func (r *Runner) RunWithOutput(service string, rm bool, stdout, stderr io.Writer
 // It detects OrbStack vs standard Docker.
 func (r *Runner) GetURL() (string, error) {
 	isOrbStack := false
+
 	if info, err := exec.CommandContext(context.Background(), "docker", "info", "--format", "{{.OperatingSystem}}").Output(); err == nil {
 		if strings.TrimSpace(string(info)) == "OrbStack" {
 			isOrbStack = true
@@ -422,6 +486,7 @@ func (r *Runner) WaitForReady(ctx context.Context, checkInterval time.Duration) 
 			if err := cmd.Run(); err == nil {
 				return nil
 			}
+
 			time.Sleep(checkInterval)
 		}
 	}
@@ -447,10 +512,12 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 
 			cmd := exec.CommandContext(context.Background(), "docker", args...)
 			cmd.Dir = r.xfDir
+
 			output, err := cmd.Output()
 			if err == nil && strings.Contains(string(output), "OK") {
 				return nil
 			}
+
 			time.Sleep(checkInterval)
 		}
 	}
@@ -467,6 +534,7 @@ func escapePHPString(value string) string {
 func (r *Runner) IsEnvironmentInitialized() bool {
 	composePath := filepath.Join(r.xfDir, "compose.yaml")
 	_, err := os.Stat(composePath)
+
 	return err == nil
 }
 
@@ -480,6 +548,7 @@ func (r *Runner) RunCapture(args ...string) (string, string, error) {
 	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
 
 	var stdoutBuf, stderrBuf bytes.Buffer
+
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
@@ -490,6 +559,7 @@ func (r *Runner) RunCapture(args ...string) (string, string, error) {
 	if err != nil {
 		err = clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "docker command failed")
 	}
+
 	return stdout, stderr, err
 }
 
@@ -501,6 +571,7 @@ func (r *Runner) getDatabaseCredentials() (string, string) {
 		if value := parseEnvValue(string(envData), "MYSQL_USER"); value != "" {
 			user = value
 		}
+
 		if value := parseEnvValue(string(envData), "MYSQL_PASSWORD"); value != "" {
 			password = value
 		}
@@ -509,6 +580,7 @@ func (r *Runner) getDatabaseCredentials() (string, string) {
 	if value := os.Getenv("MYSQL_USER"); value != "" {
 		user = value
 	}
+
 	if value := os.Getenv("MYSQL_PASSWORD"); value != "" {
 		password = value
 	}
@@ -534,18 +606,23 @@ func (r *Runner) runDockerCommandWithOutput(stdout, stderr io.Writer, args ...st
 	if err := cmd.Run(); err != nil {
 		return clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "docker command failed")
 	}
+
 	return nil
 }
 
 func (r *Runner) runDockerCommandCaptureStderr(args ...string) (string, error) {
 	var stderr bytes.Buffer
+
 	err := r.runDockerCommandWithOutput(os.Stdout, &stderr, args...)
+
 	return stderr.String(), err
 }
 
 func (r *Runner) runDockerCommandCaptureStderrWithOutput(stdout io.Writer, args ...string) (string, error) {
 	var stderr bytes.Buffer
+
 	err := r.runDockerCommandWithOutput(stdout, &stderr, args...)
+
 	return stderr.String(), err
 }
 
@@ -569,6 +646,7 @@ func (r *Runner) buildComposeArgs() []string {
 
 	for _, ctx := range r.contexts {
 		file := fmt.Sprintf("compose.%s.yaml", ctx)
+
 		filePath := filepath.Join(r.xfDir, file)
 		if _, err := os.Stat(filePath); err == nil {
 			args = append(args, "--file", filePath)
@@ -590,6 +668,7 @@ func (r *Runner) getServicePort(service, internalPort string) (string, error) {
 
 	cmd := exec.CommandContext(context.Background(), "docker", args...)
 	cmd.Dir = r.xfDir
+
 	output, err := cmd.Output()
 	if err != nil {
 		return "", clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "failed to get port for %s", service)
@@ -609,6 +688,7 @@ func (r *Runner) isServiceRunning(service string) (bool, error) {
 
 	cmd := exec.CommandContext(context.Background(), "docker", args...)
 	cmd.Dir = r.xfDir
+
 	output, err := cmd.Output()
 	if err != nil {
 		return false, clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "failed to check running status for service %s", service)
@@ -625,6 +705,7 @@ func (r *Runner) isServiceRunning(service string) (bool, error) {
 
 func isNotRunningExecError(err error, stderr string) bool {
 	msg := strings.ToLower(err.Error() + " " + stderr)
+
 	return strings.Contains(msg, "is not running") ||
 		strings.Contains(msg, "not running") ||
 		strings.Contains(msg, "no container found") ||
@@ -634,11 +715,13 @@ func isNotRunningExecError(err error, stderr string) bool {
 // parseEnvValue extracts a value from .env file content.
 func parseEnvValue(content, key string) string {
 	prefix := key + "="
+
 	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimRight(line, "\r")
 		if !strings.HasPrefix(line, prefix) {
 			continue
 		}
+
 		value := strings.TrimSpace(line[len(prefix):])
 		if len(value) >= 2 {
 			if (value[0] == '"' && value[len(value)-1] == '"') ||
@@ -646,8 +729,10 @@ func parseEnvValue(content, key string) string {
 				value = value[1 : len(value)-1]
 			}
 		}
+
 		return value
 	}
+
 	return ""
 }
 
@@ -672,6 +757,7 @@ func CheckDockerRunning() error {
 	if err := cmd.Run(); err != nil {
 		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker is not running. Start Docker Desktop (or docker daemon) and retry")
 	}
+
 	return nil
 }
 
@@ -681,6 +767,7 @@ func CheckDockerComposeAvailable() error {
 	if err := cmd.Run(); err != nil {
 		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker Compose plugin is not available. Install/upgrade Docker and ensure 'docker compose' works")
 	}
+
 	return nil
 }
 

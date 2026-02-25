@@ -38,6 +38,7 @@ func TestValidateEnvironment(t *testing.T) {
 
 func TestGlobalFlags(t *testing.T) {
 	Reset()
+
 	current = Default()
 	current = Default()
 
@@ -51,17 +52,20 @@ func TestGlobalFlags(t *testing.T) {
 	if !flags.NonInteractive {
 		t.Error("NonInteractive = false, want true")
 	}
+
 	if !flags.Verbose {
 		t.Error("Verbose = false, want true")
 	}
 
 	Reset()
+
 	current = Default()
 	current = Default()
 }
 
 func TestGetEffectiveEnvironment(t *testing.T) {
 	Reset()
+
 	current = Default()
 	current = Default()
 
@@ -71,12 +75,14 @@ func TestGetEffectiveEnvironment(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 	current = Default()
 }
 
 func TestGetEffectiveBaseURL(t *testing.T) {
 	Reset()
+
 	current = Default()
 
 	url := GetEffectiveBaseURL()
@@ -85,6 +91,7 @@ func TestGetEffectiveBaseURL(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 	current = &Config{
 		Environment: EnvDevelopment,
@@ -101,11 +108,13 @@ func TestGetEffectiveBaseURL(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 }
 
 func TestIsNonInteractive(t *testing.T) {
 	Reset()
+
 	current = Default()
 
 	if IsNonInteractive() {
@@ -113,16 +122,19 @@ func TestIsNonInteractive(t *testing.T) {
 	}
 
 	SetFlags(GlobalFlags{NonInteractive: true})
+
 	if !IsNonInteractive() {
 		t.Error("IsNonInteractive() = false, want true")
 	}
 
 	Reset()
+
 	current = Default()
 }
 
 func TestIsVerbose(t *testing.T) {
 	Reset()
+
 	current = Default()
 
 	if IsVerbose() {
@@ -130,6 +142,7 @@ func TestIsVerbose(t *testing.T) {
 	}
 
 	SetFlags(GlobalFlags{Verbose: true})
+
 	if !IsVerbose() {
 		t.Error("IsVerbose() = false, want true")
 	}
@@ -146,6 +159,7 @@ func TestSaveAndLoad(t *testing.T) {
 	t.Setenv("HOMEPATH", "")
 
 	Reset()
+
 	current = Default()
 
 	cfg := &Config{
@@ -178,14 +192,17 @@ func TestSaveAndLoad(t *testing.T) {
 	if loaded.Environment != EnvDevelopment {
 		t.Errorf("Environment = %q, want %q", loaded.Environment, EnvDevelopment)
 	}
+
 	if loaded.Development.OAuth.BaseURL != "https://test.example.com/" {
 		t.Errorf("Development.OAuth.BaseURL = %q, want %q", loaded.Development.OAuth.BaseURL, "https://test.example.com/")
 	}
+
 	if loaded.CachePath != "/custom/cache" {
 		t.Errorf("CachePath = %q, want %q", loaded.CachePath, "/custom/cache")
 	}
 
 	Reset()
+
 	current = Default()
 }
 
@@ -209,11 +226,13 @@ func TestLoadMissingConfig(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 }
 
 func TestGetEffectiveClientID(t *testing.T) {
 	Reset()
+
 	current = Default()
 
 	clientID := GetEffectiveClientID()
@@ -222,6 +241,7 @@ func TestGetEffectiveClientID(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 	current = &Config{
 		Environment: EnvDevelopment,
@@ -238,11 +258,13 @@ func TestGetEffectiveClientID(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 }
 
 func TestGetEffectiveScopes(t *testing.T) {
 	Reset()
+
 	current = Default()
 
 	scopes := GetEffectiveScopes()
@@ -251,11 +273,13 @@ func TestGetEffectiveScopes(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 }
 
 func TestGetEffectiveRedirectPath(t *testing.T) {
 	Reset()
+
 	current = Default()
 
 	path := GetEffectiveRedirectPath()
@@ -264,5 +288,6 @@ func TestGetEffectiveRedirectPath(t *testing.T) {
 	}
 
 	Reset()
+
 	current = Default()
 }

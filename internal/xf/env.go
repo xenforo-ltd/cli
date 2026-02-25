@@ -76,6 +76,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 		if os.IsNotExist(err) {
 			return nil, clierrors.New(clierrors.CodeFileNotFound, ".env file not found")
 		}
+
 		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read .env file", err)
 	}
 	defer file.Close()
@@ -98,6 +99,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 		}
 
 		key := strings.TrimSpace(before)
+
 		value := strings.TrimSpace(after)
 		if len(value) >= 2 {
 			if (value[0] == '"' && value[len(value)-1] == '"') ||
@@ -137,6 +139,7 @@ func createEnvFile(path string, values map[string]string) error {
 	for key := range values {
 		keys = append(keys, key)
 	}
+
 	sort.Strings(keys)
 
 	for _, key := range keys {
@@ -145,6 +148,7 @@ func createEnvFile(path string, values map[string]string) error {
 		if needsQuoting(value) {
 			value = fmt.Sprintf("\"%s\"", value)
 		}
+
 		if _, err := fmt.Fprintf(file, "%s=%s\n", key, value); err != nil {
 			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write to .env file", err)
 		}
@@ -177,6 +181,7 @@ func updateEnvFile(path string, values map[string]string) error {
 		key := strings.TrimSpace(before)
 		if newValue, ok := values[key]; ok {
 			var leadingSpace strings.Builder
+
 			for _, c := range line {
 				if c == ' ' || c == '\t' {
 					leadingSpace.WriteRune(c)
@@ -199,12 +204,13 @@ func updateEnvFile(path string, values map[string]string) error {
 			if needsQuoting(value) {
 				value = fmt.Sprintf("\"%s\"", value)
 			}
+
 			lines = append(lines, fmt.Sprintf("%s=%s", key, value))
 		}
 	}
 
 	output := strings.Join(lines, "\n")
-	if err := os.WriteFile(path, []byte(output), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(output), 0o644); err != nil {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .env file", err)
 	}
 
@@ -215,9 +221,11 @@ func needsQuoting(value string) bool {
 	if strings.HasPrefix(value, "${") && strings.HasSuffix(value, "}") {
 		return false
 	}
+
 	if strings.Contains(value, "${") {
 		return false
 	}
+
 	return strings.ContainsAny(value, " \t\n\"'`$\\")
 }
 
@@ -248,18 +256,23 @@ func (c *EnvConfig) ConfigureEnv(envPath string) error {
 	if c.Instance != "" {
 		values["XF_INSTANCE"] = c.Instance
 	}
+
 	if c.Contexts != "" {
 		values["XF_CONTEXTS"] = c.Contexts
 	}
+
 	if c.Title != "" {
 		values["XF_TITLE"] = c.Title
 	}
+
 	if c.Email != "" {
 		values["XF_EMAIL"] = c.Email
 	}
+
 	if c.ContactEmail != "" {
 		values["XF_CONTACT_EMAIL"] = c.ContactEmail
 	}
+
 	if c.CookiePrefix != "" {
 		values["XF_COOKIE_PREFIX"] = c.CookiePrefix
 	}
@@ -269,24 +282,29 @@ func (c *EnvConfig) ConfigureEnv(envPath string) error {
 	} else {
 		values["XF_DEBUG"] = "0"
 	}
+
 	if c.Development {
 		values["XF_DEVELOPMENT"] = "1"
 	} else {
 		values["XF_DEVELOPMENT"] = "0"
 	}
+
 	if c.CacheSessions {
 		values["XF_CACHE_SESSIONS"] = "1"
 	} else {
 		values["XF_CACHE_SESSIONS"] = "0"
 	}
+
 	if c.CachePages {
 		values["XF_CACHE_PAGES"] = "1"
 	} else {
 		values["XF_CACHE_PAGES"] = "0"
 	}
+
 	if c.ImageMagickEnable {
 		values["XF_IMAGICK_ENABLE"] = "1"
 	}
+
 	if c.FFMPEGEnable {
 		values["XF_XFMG_FFMPEG_ENABLE"] = "1"
 	}
@@ -316,10 +334,12 @@ func GetXenForoDir(startDir string) (string, error) {
 		if _, err := os.Stat(xfPath); err == nil {
 			return dir, nil
 		}
+
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			break
 		}
+
 		dir = parent
 	}
 

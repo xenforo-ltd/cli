@@ -109,6 +109,7 @@ func (d *Doctor) HasErrors() bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -119,6 +120,7 @@ func (d *Doctor) HasWarnings() bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -146,12 +148,14 @@ func (d *Doctor) checkAuth() {
 	}
 
 	kc := auth.NewKeychain()
+
 	token, err := kc.LoadToken()
 	if err != nil {
 		result.Status = StatusWarning
 		result.Message = "Not authenticated"
 		result.Suggestion = "Run 'xf auth login' to authenticate"
 		d.results = append(d.results, result)
+
 		return
 	}
 
@@ -160,6 +164,7 @@ func (d *Doctor) checkAuth() {
 		result.Message = "Authenticated with different configuration"
 		result.Suggestion = "Run 'xf auth login' to re-authenticate"
 		d.results = append(d.results, result)
+
 		return
 	}
 
@@ -187,6 +192,7 @@ func (d *Doctor) checkGit() {
 	}
 
 	cmd := exec.CommandContext(context.Background(), "git", "--version")
+
 	output, err := cmd.Output()
 	if err != nil {
 		result.Status = StatusError
@@ -206,12 +212,14 @@ func (d *Doctor) checkDocker() {
 	}
 
 	versionCmd := exec.CommandContext(context.Background(), "docker", "--version")
+
 	versionOutput, err := versionCmd.Output()
 	if err != nil {
 		result.Status = StatusError
 		result.Message = "Docker is not installed or not in PATH"
 		result.Suggestion = "Install Docker: https://docs.docker.com/get-docker/"
 		d.results = append(d.results, result)
+
 		return
 	}
 
@@ -222,6 +230,7 @@ func (d *Doctor) checkDocker() {
 		result.Details = string(versionOutput)[:len(versionOutput)-1]
 		result.Suggestion = "Start Docker Desktop or the Docker daemon"
 		d.results = append(d.results, result)
+
 		return
 	}
 
@@ -242,6 +251,7 @@ func (d *Doctor) checkCacheDirectory() {
 		result.Message = "Failed to determine cache directory"
 		result.Details = err.Error()
 		d.results = append(d.results, result)
+
 		return
 	}
 
@@ -252,7 +262,7 @@ func (d *Doctor) checkCacheDirectory() {
 
 	info, err := os.Stat(cacheDir)
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 			result.Status = StatusError
 			result.Message = "Cannot create cache directory"
 			result.Details = fmt.Sprintf("Path: %s\nError: %s", cacheDir, err.Error())
@@ -261,13 +271,16 @@ func (d *Doctor) checkCacheDirectory() {
 			result.Status = StatusOK
 			result.Message = fmt.Sprintf("Cache directory created: %s", cacheDir)
 		}
+
 		d.results = append(d.results, result)
+
 		return
 	} else if err != nil {
 		result.Status = StatusError
 		result.Message = "Failed to check cache directory"
 		result.Details = err.Error()
 		d.results = append(d.results, result)
+
 		return
 	}
 
@@ -276,17 +289,19 @@ func (d *Doctor) checkCacheDirectory() {
 		result.Message = "Cache path exists but is not a directory"
 		result.Details = cacheDir
 		d.results = append(d.results, result)
+
 		return
 	}
 
 	testFile := filepath.Join(cacheDir, ".write-test")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 		result.Status = StatusError
 		result.Message = "Cache directory is not writable"
 		result.Details = cacheDir
 		result.Suggestion = "Check directory permissions"
 	} else {
 		os.Remove(testFile)
+
 		result.Status = StatusOK
 		result.Message = fmt.Sprintf("Cache directory: %s", cacheDir)
 	}
@@ -304,16 +319,19 @@ func (d *Doctor) checkDiskSpace() {
 		result.Status = StatusSkipped
 		result.Message = "Could not determine cache directory"
 		d.results = append(d.results, result)
+
 		return
 	}
 
 	// Use df command to check disk space (works on macOS and Linux).
 	cmd := exec.CommandContext(context.Background(), "df", "-k", cacheDir)
+
 	output, err := cmd.Output()
 	if err != nil {
 		result.Status = StatusSkipped
 		result.Message = "Could not check disk space"
 		d.results = append(d.results, result)
+
 		return
 	}
 
@@ -324,10 +342,12 @@ func (d *Doctor) checkDiskSpace() {
 		result.Status = StatusSkipped
 		result.Message = "Could not parse disk space info"
 		d.results = append(d.results, result)
+
 		return
 	}
 
 	var available int64
+
 	_, err = fmt.Sscanf(lines[1], "%s %d %d %d", new(string), new(int64), new(int64), &available)
 	if err != nil {
 		// Try alternative parsing for different df output formats.
@@ -339,6 +359,7 @@ func (d *Doctor) checkDiskSpace() {
 
 	// available is in 1K blocks, convert to bytes.
 	availableBytes := available * 1024
+
 	const minRequired = 1 * 1024 * 1024 * 1024 // 1 GB
 
 	if availableBytes < minRequired {
@@ -371,6 +392,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 	}
 
 	allOK := true
+
 	var details []string
 
 	for _, target := range targets {
@@ -382,6 +404,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 		if err != nil {
 			details = append(details, fmt.Sprintf("%s: failed to create request", target.name))
 			allOK = false
+
 			continue
 		}
 
@@ -389,8 +412,10 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 		if err != nil {
 			details = append(details, fmt.Sprintf("%s: unreachable", target.name))
 			allOK = false
+
 			continue
 		}
+
 		resp.Body.Close()
 
 		details = append(details, fmt.Sprintf("%s: OK", target.name))
@@ -404,6 +429,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 		result.Message = "Some endpoints unreachable"
 		result.Suggestion = "Check your internet connection or firewall settings"
 	}
+
 	result.Details = strings.Join(details, "\n")
 
 	d.results = append(d.results, result)

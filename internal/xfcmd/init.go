@@ -40,18 +40,20 @@ func Init(xfDir string, opts InitOptions) error {
 			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default env", err)
 		}
 
-		if err := os.WriteFile(envPath, envDefault, 0644); err != nil {
+		if err := os.WriteFile(envPath, envDefault, 0o644); err != nil {
 			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .env file", err)
 		}
 
 		dirName := filepath.Base(xfDir)
 		instanceName := xf.GenerateInstanceName(dirName)
+
 		updates := map[string]string{
 			"XF_INSTANCE": instanceName,
 		}
 		if len(opts.Contexts) > 0 {
 			updates["XF_CONTEXTS"] = strings.Join(opts.Contexts, ":")
 		}
+
 		if err := xf.WriteEnvFile(envPath, updates); err != nil {
 			return err
 		}
@@ -64,7 +66,7 @@ func Init(xfDir string, opts InitOptions) error {
 			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default dockerignore", err)
 		}
 
-		if err := os.WriteFile(dockerignorePath, ignoreDefault, 0644); err != nil {
+		if err := os.WriteFile(dockerignorePath, ignoreDefault, 0o644); err != nil {
 			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .dockerignore file", err)
 		}
 	}

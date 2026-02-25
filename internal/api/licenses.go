@@ -22,11 +22,14 @@ func (t *UnixTime) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(data, &timeStr); err != nil {
 			return err
 		}
+
 		parsed, err := time.Parse(time.RFC3339, timeStr)
 		if err != nil {
 			return err
 		}
+
 		t.Time = parsed
+
 		return nil
 	}
 
@@ -35,6 +38,7 @@ func (t *UnixTime) UnmarshalJSON(data []byte) error {
 	} else {
 		t.Time = time.Unix(timestamp, 0)
 	}
+
 	return nil
 }
 
@@ -73,6 +77,7 @@ func (c *Client) GetLicenses(ctx context.Context) ([]License, error) {
 	if err := c.GetJSON(ctx, "/api/customer-oauth2/licenses", &result); err != nil {
 		return nil, err
 	}
+
 	return result.Licenses, nil
 }
 
@@ -113,6 +118,7 @@ func (c *Client) GetLicenseDownloadables(ctx context.Context, licenseKey string)
 	if err := c.GetJSON(ctx, path, &result); err != nil {
 		return nil, err
 	}
+
 	return &result, nil
 }
 
@@ -127,6 +133,7 @@ func (c *Client) GetLicenseVersions(ctx context.Context, licenseKey string, down
 	if err := c.GetJSON(ctx, path, &result); err != nil {
 		return nil, err
 	}
+
 	return &result, nil
 }
 
@@ -157,6 +164,7 @@ func (c *Client) GetDownloadInfo(ctx context.Context, licenseKey string, downloa
 	if err := c.GetJSON(ctx, path, &result); err != nil {
 		return nil, err
 	}
+
 	return &result.Download, nil
 }
 
@@ -166,6 +174,7 @@ func (c *Client) GetDownloadURL(licenseKey string, downloadID string, versionID 
 	params.Set("license_key", licenseKey)
 	params.Set("download_id", downloadID)
 	params.Set("version_id", strconv.Itoa(versionID))
+
 	return c.baseURL + "/api/customer-oauth2/license-download?" + params.Encode()
 }
 
@@ -175,5 +184,6 @@ func (c *Client) GetAccessToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return token.AccessToken, nil
 }

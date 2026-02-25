@@ -60,6 +60,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 			Name           string `json:"name"`
 			IsDownloadable bool   `json:"is_downloadable"`
 		}
+
 		type jsonLicense struct {
 			LicenseKey     string      `json:"license_key"`
 			ProductID      string      `json:"product_id"`
@@ -90,6 +91,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 			if !lic.StartDate.IsZero() {
 				jl.StartDate = lic.StartDate.Format(time.RFC3339)
 			}
+
 			if !lic.ExpirationDate.IsZero() {
 				jl.ExpirationDate = lic.ExpirationDate.Format(time.RFC3339)
 			}
@@ -112,7 +114,9 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal licenses", err)
 		}
+
 		fmt.Println(string(data))
+
 		return nil
 	}
 
@@ -127,6 +131,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 	}
 
 	runLicensesTable(licenses)
+
 	return nil
 }
 
@@ -140,6 +145,7 @@ func runLicensesTable(licenses []api.License) {
 		siteTitle, siteURL := formatLicenseSite(lic)
 
 		var status string
+
 		switch {
 		case !lic.IsValid:
 			status = ui.Error.Render("Invalid")
@@ -150,6 +156,7 @@ func runLicensesTable(licenses []api.License) {
 		}
 
 		var expires string
+
 		if !lic.ExpirationDate.IsZero() {
 			if lic.ExpirationDate.After(time.Now()) {
 				expires = lic.ExpirationDate.Format("2006-01-02")
@@ -201,6 +208,7 @@ func runLicensesVerbose(licenses []api.License) {
 
 	for i, lic := range licenses {
 		var statusText string
+
 		switch {
 		case !lic.IsValid:
 			statusText = ui.Error.Render("Invalid")
@@ -244,11 +252,13 @@ func runLicensesVerbose(licenses []api.License) {
 
 		if len(lic.Extras) > 0 {
 			fmt.Printf("\n%sExtras:\n", ui.Indent1)
+
 			for _, extra := range lic.Extras {
 				downloadable := ""
 				if extra.IsDownloadable {
 					downloadable = ui.Success.Render(" (downloadable)")
 				}
+
 				fmt.Printf("%s%s %s%s\n", ui.Indent2, ui.Dim.Render(ui.SymbolBullet), extra.Name, downloadable)
 			}
 		}

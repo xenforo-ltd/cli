@@ -136,10 +136,13 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	callbackServer.Start()
+
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+
 		_ = callbackServer.Shutdown(ctx)
 	}()
 
@@ -199,10 +202,14 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 			}
+
 			fmt.Println(string(data))
+
 			return nil
 		}
+
 		ui.PrintWarning("Not authenticated (keychain unavailable)")
+
 		return nil
 	}
 
@@ -216,23 +223,31 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 				if err != nil {
 					return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 				}
+
 				fmt.Println(string(data))
+
 				return nil
 			}
+
 			ui.PrintWarning("Not authenticated")
 			fmt.Printf("Run %s to authenticate.\n", ui.Command.Render("xf auth login"))
+
 			return nil
 		}
+
 		return err
 	}
 
-	var serverValid *bool
-	var username string
+	var (
+		serverValid *bool
+		username    string
+	)
 
 	if !token.IsExpired() {
 		client := auth.NewOAuthClient(&auth.OAuthConfig{
 			BaseURL: token.BaseURL,
 		})
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
@@ -254,14 +269,18 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		if serverValid != nil {
 			output["server_valid"] = *serverValid
 		}
+
 		if username != "" {
 			output["username"] = username
 		}
+
 		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 		}
+
 		fmt.Println(string(data))
+
 		return nil
 	}
 
@@ -272,14 +291,17 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	if username != "" {
 		pairs = append(pairs, ui.KV("User", username))
 	}
+
 	pairs = append(pairs, ui.KV("Scope", token.Scope))
 	pairs = append(pairs, ui.KV("Issued", token.IssuedAt.Format(time.RFC1123)))
 	pairs = append(pairs, ui.KV("Expires", token.ExpiresAt.Format(time.RFC1123)))
 	ui.PrintKeyValuePadded(pairs)
 
 	fmt.Println()
+
 	if token.IsExpired() {
 		fmt.Printf("%s %s\n", ui.StatusIcon("error"), ui.Error.Render("Token EXPIRED"))
+
 		if token.RefreshToken != "" {
 			ui.PrintDetail("Token can be refreshed automatically")
 		}
@@ -313,12 +335,14 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 			ui.PrintInfo("Already logged out.")
 			return nil
 		}
+
 		return err
 	}
 
 	client := auth.NewOAuthClient(&auth.OAuthConfig{
 		BaseURL: token.BaseURL,
 	})
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -341,6 +365,7 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.PrintSuccess("Logged out successfully.")
+
 	return nil
 }
 

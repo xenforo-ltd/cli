@@ -64,6 +64,7 @@ func Execute() {
 					handleError(err)
 					os.Exit(1)
 				}
+
 				return
 			}
 		}
@@ -85,10 +86,12 @@ func isKnownCommand(name string) bool {
 		if cmd.Name() == name {
 			return true
 		}
+
 		if slices.Contains(cmd.Aliases, name) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -109,6 +112,7 @@ func runAsXenForoCommand(args []string) error {
 		if clierrors.Is(err, clierrors.CodeDockerEnvNotInitialized) {
 			return runAsLocalXenForoCommand(xfDir, args)
 		}
+
 		return err
 	}
 
@@ -127,6 +131,7 @@ func runAsLocalXenForoCommand(xfDir string, args []string) error {
 		if errors.Is(err, exec.ErrNotFound) {
 			return clierrors.New(clierrors.CodeInvalidInput, "local PHP executable not found in PATH")
 		}
+
 		return fmt.Errorf("local XenForo command failed: %w", err)
 	}
 

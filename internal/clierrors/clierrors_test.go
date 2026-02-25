@@ -69,6 +69,7 @@ func TestCLIError_JSON(t *testing.T) {
 	}
 
 	json := err.JSON()
+
 	expected := `{"code":"E301","message":"authentication failed"}`
 	if json != expected {
 		t.Errorf("JSON() = %q, want %q", json, expected)
@@ -81,6 +82,7 @@ func TestCLIError_JSON(t *testing.T) {
 	}
 
 	jsonWithCause := errWithCause.JSON()
+
 	expectedWithCause := `{"code":"E301","message":"authentication failed","cause":"invalid token"}`
 	if jsonWithCause != expectedWithCause {
 		t.Errorf("JSON() = %q, want %q", jsonWithCause, expectedWithCause)
@@ -93,9 +95,11 @@ func TestNew(t *testing.T) {
 	if err.Code != CodeValidationFailed {
 		t.Errorf("Code = %v, want %v", err.Code, CodeValidationFailed)
 	}
+
 	if err.Message != "invalid input" {
 		t.Errorf("Message = %q, want %q", err.Message, "invalid input")
 	}
+
 	if err.Cause != nil {
 		t.Errorf("Cause = %v, want nil", err.Cause)
 	}
@@ -108,6 +112,7 @@ func TestWrap(t *testing.T) {
 	if err.Code != CodeFileNotFound {
 		t.Errorf("Code = %v, want %v", err.Code, CodeFileNotFound)
 	}
+
 	if !errors.Is(err.Cause, cause) {
 		t.Errorf("Cause = %v, want %v", err.Cause, cause)
 	}
@@ -128,6 +133,7 @@ func TestWrapf(t *testing.T) {
 	if err.Message != "failed to connect to api.example.com" {
 		t.Errorf("Message = %q, want %q", err.Message, "failed to connect to api.example.com")
 	}
+
 	if !errors.Is(err.Cause, cause) {
 		t.Errorf("Cause = %v, want %v", err.Cause, cause)
 	}
@@ -139,9 +145,11 @@ func TestIs(t *testing.T) {
 	if !Is(err, CodeAuthRequired) {
 		t.Error("Is() returned false, want true")
 	}
+
 	if Is(err, CodeAuthFailed) {
 		t.Error("Is() returned true for different code, want false")
 	}
+
 	if Is(errTestRegularError, CodeAuthRequired) {
 		t.Error("Is() returned true for non-CLIError, want false")
 	}

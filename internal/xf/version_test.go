@@ -11,6 +11,7 @@ func TestParseVersionStringAndIDRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseVersionString failed: %v", err)
 	}
+
 	if v.ID != 2030871 {
 		t.Fatalf("ID = %d, want 2030871", v.ID)
 	}
@@ -37,6 +38,7 @@ func TestParseVersionStringStabilityVariants(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ParseVersionString(%q) failed: %v", tc.in, err)
 		}
+
 		if v.Stability != tc.stability {
 			t.Fatalf("stability = %q, want %q", v.Stability, tc.stability)
 		}
@@ -51,9 +53,11 @@ func TestVersionComparisons(t *testing.T) {
 	if !b.IsNewerThan(a) {
 		t.Fatal("expected b newer than a")
 	}
+
 	if !a.IsOlderThan(b) {
 		t.Fatal("expected a older than b")
 	}
+
 	if a.Compare(c) != 0 {
 		t.Fatal("expected equal comparison")
 	}
@@ -61,16 +65,18 @@ func TestVersionComparisons(t *testing.T) {
 
 func TestDetectVersion(t *testing.T) {
 	dir := t.TempDir()
+
 	xfPath := filepath.Join(dir, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfPath), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
+
 	content := `<?php
 class XF {
     public static $version = '2.3.8';
     public static $versionId = 2030871;
 }`
-	if err := os.WriteFile(xfPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(xfPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
@@ -78,6 +84,7 @@ class XF {
 	if err != nil {
 		t.Fatalf("DetectVersion failed: %v", err)
 	}
+
 	if v.ID != 2030871 || v.String != "2.3.8" {
 		t.Fatalf("unexpected version: %#v", v)
 	}
