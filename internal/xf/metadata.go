@@ -12,6 +12,7 @@ import (
 
 const metadataFilename = ".xf.json"
 
+// ErrMetadataNotFound is returned when the metadata file cannot be found.
 var ErrMetadataNotFound = errors.New("metadata not found")
 
 // Metadata stores CLI-specific information about a XenForo installation.

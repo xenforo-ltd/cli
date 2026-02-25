@@ -1,3 +1,4 @@
+// Package testutils provides testing utilities for the CLI.
 package testutils
 
 import (
@@ -6,6 +7,7 @@ import (
 	"testing"
 )
 
+// SetupXenForoDir creates a temporary XenForo directory structure for testing.
 func SetupXenForoDir(t *testing.T) string {
 	t.Helper()
 	t.Setenv("XF_DIR", "")

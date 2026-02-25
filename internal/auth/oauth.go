@@ -1,3 +1,4 @@
+// Package auth handles authentication and OAuth flows.
 package auth
 
 import (

@@ -96,6 +96,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	return env, nil
 }
 
+// StripQuotes removes surrounding single or double quotes from a string.
 func StripQuotes(s string) string {
 	value := strings.TrimSpace(s)
 

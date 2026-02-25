@@ -15,6 +15,7 @@ import (
 // Stability represents the release stability of a XenForo version.
 type Stability string
 
+// Stability constants represent different release stages.
 const (
 	StabilityAlpha   Stability = "alpha"
 	StabilityBeta    Stability = "beta"

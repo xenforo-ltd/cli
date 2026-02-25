@@ -17,6 +17,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/config"
 )
 
+// ErrCacheMiss is returned when a requested cache entry does not exist.
 var ErrCacheMiss = errors.New("cache miss")
 
 // Manager manages cache storage on disk.
