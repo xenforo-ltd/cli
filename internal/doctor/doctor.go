@@ -186,7 +186,7 @@ func (d *Doctor) checkGit() {
 		Name: "Git",
 	}
 
-	cmd := exec.Command("git", "--version")
+	cmd := exec.CommandContext(context.Background(), "git", "--version")
 	output, err := cmd.Output()
 	if err != nil {
 		result.Status = StatusError
@@ -205,7 +205,7 @@ func (d *Doctor) checkDocker() {
 		Name: "Docker",
 	}
 
-	versionCmd := exec.Command("docker", "--version")
+	versionCmd := exec.CommandContext(context.Background(), "docker", "--version")
 	versionOutput, err := versionCmd.Output()
 	if err != nil {
 		result.Status = StatusError
@@ -215,7 +215,7 @@ func (d *Doctor) checkDocker() {
 		return
 	}
 
-	infoCmd := exec.Command("docker", "info")
+	infoCmd := exec.CommandContext(context.Background(), "docker", "info")
 	if err := infoCmd.Run(); err != nil {
 		result.Status = StatusError
 		result.Message = "Docker daemon is not running"
@@ -308,7 +308,7 @@ func (d *Doctor) checkDiskSpace() {
 	}
 
 	// Use df command to check disk space (works on macOS and Linux).
-	cmd := exec.Command("df", "-k", cacheDir)
+	cmd := exec.CommandContext(context.Background(), "df", "-k", cacheDir)
 	output, err := cmd.Output()
 	if err != nil {
 		result.Status = StatusSkipped

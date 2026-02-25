@@ -393,7 +393,7 @@ func (r *Runner) RunWithOutput(service string, rm bool, stdout, stderr io.Writer
 // It detects OrbStack vs standard Docker.
 func (r *Runner) GetURL() (string, error) {
 	isOrbStack := false
-	if info, err := exec.Command("docker", "info", "--format", "{{.OperatingSystem}}").Output(); err == nil {
+	if info, err := exec.CommandContext(context.Background(), "docker", "info", "--format", "{{.OperatingSystem}}").Output(); err == nil {
 		if strings.TrimSpace(string(info)) == "OrbStack" {
 			isOrbStack = true
 		}
@@ -445,7 +445,7 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 			args := r.buildComposeArgs()
 			args = append(args, "exec", "-T", "xf", "php", "-r", testScript)
 
-			cmd := exec.Command("docker", args...)
+			cmd := exec.CommandContext(context.Background(), "docker", args...)
 			cmd.Dir = r.xfDir
 			output, err := cmd.Output()
 			if err == nil && strings.Contains(string(output), "OK") {
@@ -475,7 +475,7 @@ func (r *Runner) RunCapture(args ...string) (string, string, error) {
 	allArgs := r.buildComposeArgs()
 	allArgs = append(allArgs, args...)
 
-	cmd := exec.Command("docker", allArgs...)
+	cmd := exec.CommandContext(context.Background(), "docker", allArgs...)
 	cmd.Dir = r.xfDir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
 
@@ -523,7 +523,7 @@ func (r *Runner) runDockerCommand(args ...string) error {
 
 // runDockerCommandWithOutput executes a docker compose command with custom output.
 func (r *Runner) runDockerCommandWithOutput(stdout, stderr io.Writer, args ...string) error {
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...)
 	cmd.Dir = r.xfDir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
@@ -554,7 +554,7 @@ func (r *Runner) buildDockerCommand(extraArgs ...string) *exec.Cmd {
 	args := r.buildComposeArgs()
 	args = append(args, extraArgs...)
 
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...)
 	cmd.Dir = r.xfDir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
 
@@ -588,7 +588,7 @@ func (r *Runner) getServicePort(service, internalPort string) (string, error) {
 	args := r.buildComposeArgs()
 	args = append(args, "port", service, internalPort)
 
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...)
 	cmd.Dir = r.xfDir
 	output, err := cmd.Output()
 	if err != nil {
@@ -607,7 +607,7 @@ func (r *Runner) isServiceRunning(service string) (bool, error) {
 	args := r.buildComposeArgs()
 	args = append(args, "ps", "--status", "running", "--services", service)
 
-	cmd := exec.Command("docker", args...)
+	cmd := exec.CommandContext(context.Background(), "docker", args...)
 	cmd.Dir = r.xfDir
 	output, err := cmd.Output()
 	if err != nil {
@@ -668,7 +668,7 @@ func AutoDetectRunner() (*Runner, error) {
 
 // CheckDockerRunning checks if Docker is running.
 func CheckDockerRunning() error {
-	cmd := exec.Command("docker", "info")
+	cmd := exec.CommandContext(context.Background(), "docker", "info")
 	if err := cmd.Run(); err != nil {
 		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker is not running. Start Docker Desktop (or docker daemon) and retry")
 	}
@@ -677,7 +677,7 @@ func CheckDockerRunning() error {
 
 // CheckDockerComposeAvailable checks if Docker Compose is available.
 func CheckDockerComposeAvailable() error {
-	cmd := exec.Command("docker", "compose", "version")
+	cmd := exec.CommandContext(context.Background(), "docker", "compose", "version")
 	if err := cmd.Run(); err != nil {
 		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker Compose plugin is not available. Install/upgrade Docker and ensure 'docker compose' works")
 	}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -124,7 +125,7 @@ func TestRunAsLocalXenForoCommandBuildsExpectedInvocation(t *testing.T) {
 func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing.T) {
 	root := t.TempDir()
 	execCommand = func(_ string, _ ...string) *exec.Cmd {
-		return exec.Command("__xf_missing_php_binary__")
+		return exec.CommandContext(context.Background(), "__xf_missing_php_binary__")
 	}
 	t.Cleanup(func() {
 		execCommand = exec.Command
@@ -180,7 +181,7 @@ func helperCommand(t *testing.T, expectedArgs, expectedWd string, exitCode int) 
 		cs = append(cs, "-test.run=TestHelperProcess", "--", command)
 		cs = append(cs, args...)
 
-		cmd := exec.Command(os.Args[0], cs...)
+		cmd := exec.CommandContext(context.Background(), os.Args[0], cs...)
 		cmd.Env = append(os.Environ(),
 			"GO_WANT_HELPER_PROCESS=1",
 			"HELPER_EXPECT_ARGS="+expectedArgs,
