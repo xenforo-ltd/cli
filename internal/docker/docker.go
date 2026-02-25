@@ -1,5 +1,5 @@
-// Package embed contains embedded Docker files and extraction utilities.
-package embed
+// Package docker contains embedded Docker files and extraction utilities.
+package docker
 
 import (
 	"embed"
@@ -14,11 +14,11 @@ import (
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
-//go:embed docker/*
+//go:embed embed/*
 var dockerFS embed.FS
 
 // DockerDir is the directory containing embedded Docker configuration files.
-const DockerDir = "docker"
+const DockerDir = "embed"
 
 // ExtractDockerFiles extracts all embedded Docker files to the target directory.
 // Base files are always overwritten. Default files (.env, .dockerignore) are

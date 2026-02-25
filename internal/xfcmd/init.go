@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/xenforo-ltd/cli/internal/clierrors"
-	"github.com/xenforo-ltd/cli/internal/embed"
+	"github.com/xenforo-ltd/cli/internal/docker"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
@@ -24,18 +24,18 @@ func Init(xfDir string, opts InitOptions) error {
 		return clierrors.New(clierrors.CodeInvalidInput, "not a XenForo directory (src/XF.php not found)")
 	}
 
-	extractOpts := embed.ExtractOptions{
+	extractOpts := docker.ExtractOptions{
 		OverwriteBaseFiles: opts.OverwriteExisting,
 		Contexts:           opts.Contexts,
 	}
 
-	if err := embed.ExtractDockerFilesWithOptions(xfDir, extractOpts); err != nil {
+	if err := docker.ExtractDockerFilesWithOptions(xfDir, extractOpts); err != nil {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to extract Docker files", err)
 	}
 
 	envPath := filepath.Join(xfDir, ".env")
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		envDefault, err := embed.GetEnvDefault()
+		envDefault, err := docker.GetEnvDefault()
 		if err != nil {
 			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default env", err)
 		}
@@ -61,7 +61,7 @@ func Init(xfDir string, opts InitOptions) error {
 
 	dockerignorePath := filepath.Join(xfDir, ".dockerignore")
 	if _, err := os.Stat(dockerignorePath); os.IsNotExist(err) {
-		ignoreDefault, err := embed.GetDockerIgnoreDefault()
+		ignoreDefault, err := docker.GetDockerIgnoreDefault()
 		if err != nil {
 			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default dockerignore", err)
 		}
