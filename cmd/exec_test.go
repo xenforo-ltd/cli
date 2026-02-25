@@ -41,7 +41,7 @@ func TestResolveXenForoDirAndArgs_AutoDetectsFromCWD(t *testing.T) {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
-	setCwd(t, root)
+	t.Chdir(root)
 	dir, args, err := resolveXenForoDirAndArgs([]string{"ps"})
 	if err != nil {
 		t.Fatalf("resolve failed: %v", err)
@@ -77,7 +77,7 @@ func TestExecInvocationScenarios(t *testing.T) {
 	}
 
 	t.Run("exec xf", func(t *testing.T) {
-		setCwd(t, root)
+		t.Chdir(root)
 		_, execArgs, err := resolveXenForoDirAndArgs([]string{"xf"})
 		if err != nil {
 			t.Fatalf("resolve failed: %v", err)
@@ -98,7 +98,7 @@ func TestExecInvocationScenarios(t *testing.T) {
 	})
 
 	t.Run("exec xf php -v", func(t *testing.T) {
-		setCwd(t, root)
+		t.Chdir(root)
 		_, execArgs, err := resolveXenForoDirAndArgs([]string{"xf", "php", "-v"})
 		if err != nil {
 			t.Fatalf("resolve failed: %v", err)
@@ -106,21 +106,6 @@ func TestExecInvocationScenarios(t *testing.T) {
 		if err := validateExecInvocation(execArgs); err != nil {
 			t.Fatalf("unexpected validation error: %v", err)
 		}
-	})
-}
-
-func setCwd(t *testing.T, dir string) {
-	t.Helper()
-
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("chdir to %s: %v", dir, err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(previous)
 	})
 }
 

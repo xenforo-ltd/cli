@@ -58,7 +58,7 @@ func TestFindXenForoDirTerminatesAtRoot(t *testing.T) {
 
 func TestRunAsXenForoCommandOutsideDirReturnsActionableError(t *testing.T) {
 	t.Setenv("XF_DIR", "")
-	setCwd(t, t.TempDir())
+	t.Chdir(t.TempDir())
 
 	err := runAsXenForoCommand([]string{"list"})
 	if err == nil {
@@ -90,7 +90,7 @@ func TestRunAsXenForoCommandFallsBackToLocalWhenComposeMissing(t *testing.T) {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
-	setCwd(t, root)
+	t.Chdir(root)
 
 	execCommand = helperCommand(t,
 		"php cmd.php xf-dev:import",
