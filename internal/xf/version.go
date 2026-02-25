@@ -12,16 +12,28 @@ import (
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
+// Stability represents the release stability of a XenForo version.
+type Stability string
+
+const (
+	StabilityAlpha   Stability = "alpha"
+	StabilityBeta    Stability = "beta"
+	StabilityRC      Stability = "rc"
+	StabilityStable  Stability = "stable"
+	StabilityPL      Stability = "pl"
+	StabilityUnknown Stability = "unknown"
+)
+
 // Version represents a XenForo version with both string and ID representations.
 type Version struct {
-	String    string // e.g., "2.3.8"
-	ID        int    // e.g., 2030871
-	Major     int    // e.g., 2
-	Minor     int    // e.g., 3
-	Patch     int    // e.g., 8
-	Stability string // alpha, beta, rc, stable, pl
-	StabNum   int    // stability number (1=alpha, 3=beta, 5=rc, 7=stable, 9=pl)
-	PLLevel   int    // patch level (0-9)
+	String    string    // e.g., "2.3.8"
+	ID        int       // e.g., 2030871
+	Major     int       // e.g., 2
+	Minor     int       // e.g., 3
+	Patch     int       // e.g., 8
+	Stability Stability // alpha, beta, rc, stable, pl
+	StabNum   int       // stability number (1=alpha, 3=beta, 5=rc, 7=stable, 9=pl)
+	PLLevel   int       // patch level (0-9)
 }
 
 // ParseVersionString parses a version string into a Version structure.
@@ -30,36 +42,36 @@ func ParseVersionString(versionStr string) (*Version, error) {
 
 	versionStr = strings.TrimSpace(versionStr)
 
-	v.Stability = "stable"
+	v.Stability = StabilityStable
 	v.StabNum = 7
 	v.PLLevel = 1
 
 	lowerStr := strings.ToLower(versionStr)
 	switch {
-	case strings.Contains(lowerStr, "alpha"):
-		v.Stability = "alpha"
+	case strings.Contains(lowerStr, string(StabilityAlpha)):
+		v.Stability = StabilityAlpha
 		v.StabNum = 1
 		// Extract alpha number if present
 		if matches := regexp.MustCompile(`alpha\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 		versionStr = regexp.MustCompile(`(?i)\s*alpha\s*\d*`).ReplaceAllString(versionStr, "")
-	case strings.Contains(lowerStr, "beta"):
-		v.Stability = "beta"
+	case strings.Contains(lowerStr, string(StabilityBeta)):
+		v.Stability = StabilityBeta
 		v.StabNum = 3
 		if matches := regexp.MustCompile(`beta\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 		versionStr = regexp.MustCompile(`(?i)\s*beta\s*\d*`).ReplaceAllString(versionStr, "")
-	case strings.Contains(lowerStr, "rc") || strings.Contains(lowerStr, "release candidate"):
-		v.Stability = "rc"
+	case strings.Contains(lowerStr, string(StabilityRC)) || strings.Contains(lowerStr, "release candidate"):
+		v.Stability = StabilityRC
 		v.StabNum = 5
 		if matches := regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 		versionStr = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`).ReplaceAllString(versionStr, "")
-	case strings.Contains(lowerStr, "pl") || strings.Contains(lowerStr, "patch level"):
-		v.Stability = "pl"
+	case strings.Contains(lowerStr, string(StabilityPL)) || strings.Contains(lowerStr, "patch level"):
+		v.Stability = StabilityPL
 		v.StabNum = 9
 		if matches := regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
@@ -118,29 +130,29 @@ func ParseVersionID(versionID int) *Version {
 
 	switch v.StabNum {
 	case 1:
-		v.Stability = "alpha"
+		v.Stability = StabilityAlpha
 	case 3:
-		v.Stability = "beta"
+		v.Stability = StabilityBeta
 	case 5:
-		v.Stability = "rc"
+		v.Stability = StabilityRC
 	case 7:
-		v.Stability = "stable"
+		v.Stability = StabilityStable
 	case 9:
-		v.Stability = "pl"
+		v.Stability = StabilityPL
 	default:
-		v.Stability = "unknown"
+		v.Stability = StabilityUnknown
 	}
 
 	v.String = fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-	if v.Stability != "stable" {
+	if v.Stability != StabilityStable {
 		switch v.Stability {
-		case "alpha":
+		case StabilityAlpha:
 			v.String += fmt.Sprintf(" Alpha %d", v.PLLevel)
-		case "beta":
+		case StabilityBeta:
 			v.String += fmt.Sprintf(" Beta %d", v.PLLevel)
-		case "rc":
+		case StabilityRC:
 			v.String += fmt.Sprintf(" RC %d", v.PLLevel)
-		case "pl":
+		case StabilityPL:
 			v.String += fmt.Sprintf(" PL %d", v.PLLevel)
 		}
 	}

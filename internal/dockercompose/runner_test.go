@@ -10,6 +10,8 @@ import (
 	"testing"
 )
 
+const windowsOS = "windows"
+
 func TestBuildComposeArgsIncludesContextAndOverride(t *testing.T) {
 	tmp := t.TempDir()
 
@@ -45,7 +47,7 @@ func TestBuildComposeArgsIncludesContextAndOverride(t *testing.T) {
 }
 
 func TestIsServiceRunning(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		t.Skip("fake docker shim test is unix-only")
 	}
 
@@ -86,7 +88,7 @@ func TestIsServiceRunning(t *testing.T) {
 }
 
 func TestExecOrRunBranching(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		t.Skip("fake docker shim test is unix-only")
 	}
 
@@ -142,7 +144,7 @@ func TestExecOrRunBranching(t *testing.T) {
 }
 
 func TestExecOrRunWithEnvBranching(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		t.Skip("fake docker shim test is unix-only")
 	}
 

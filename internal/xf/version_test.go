@@ -24,12 +24,12 @@ func TestParseVersionStringAndIDRoundTrip(t *testing.T) {
 func TestParseVersionStringStabilityVariants(t *testing.T) {
 	cases := []struct {
 		in        string
-		stability string
+		stability Stability
 	}{
-		{"2.3.8 Alpha 2", "alpha"},
-		{"2.3.8 Beta 1", "beta"},
-		{"2.3.8 RC 3", "rc"},
-		{"2.3.8 PL 2", "pl"},
+		{"2.3.8 Alpha 2", StabilityAlpha},
+		{"2.3.8 Beta 1", StabilityBeta},
+		{"2.3.8 RC 3", StabilityRC},
+		{"2.3.8 PL 2", StabilityPL},
 	}
 
 	for _, tc := range cases {

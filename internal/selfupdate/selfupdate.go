@@ -37,6 +37,8 @@ const (
 
 	// DownloadTimeout is the timeout for downloading updates.
 	DownloadTimeout = 5 * time.Minute
+
+	windowsOS = "windows"
 )
 
 var (
@@ -185,7 +187,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 		return err
 	}
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != windowsOS {
 		if err := os.Chmod(newBinaryPath, 0755); err != nil {
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to set permissions on new binary", err)
 		}
@@ -194,7 +196,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	// Perform atomic replacement.
 	// On Unix, we can rename over the existing file.
 	// On Windows, we need to move the old file first.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		oldPath := execPath + ".old"
 		os.Remove(oldPath) // Remove any existing .old file.
 		if err := os.Rename(execPath, oldPath); err != nil {
@@ -275,7 +277,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		}
 
 		mode := header.FileInfo().Mode().Perm()
-		if mode != 0 && runtime.GOOS != "windows" {
+		if mode != 0 && runtime.GOOS != windowsOS {
 			if err := os.Chmod(outPath, mode); err != nil {
 				return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to apply binary permissions", err)
 			}
@@ -332,7 +334,7 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 		}
 
 		mode := file.Mode().Perm()
-		if mode != 0 && runtime.GOOS != "windows" {
+		if mode != 0 && runtime.GOOS != windowsOS {
 			if err := os.Chmod(outPath, mode); err != nil {
 				return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to apply binary permissions", err)
 			}
@@ -349,7 +351,7 @@ func isBinaryCandidate(name string) bool {
 }
 
 func runtimeBinaryName() string {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		return "xf.exe"
 	}
 	return "xf"
@@ -534,7 +536,7 @@ func getArchiveAssetNameForPlatform(versionTag, goos, goarch string) string {
 	}
 
 	ext := ".tar.gz"
-	if goos == "windows" {
+	if goos == windowsOS {
 		ext = ".zip"
 	}
 
