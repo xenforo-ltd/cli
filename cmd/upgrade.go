@@ -116,7 +116,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	if meta != nil {
-		pairs := []ui.KVPair{}
+		var pairs []ui.KVPair
 
 		if opts.LicenseKey == "" {
 			opts.LicenseKey = meta.LicenseKey

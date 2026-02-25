@@ -23,7 +23,7 @@ func TestValidateEnvironment(t *testing.T) {
 		{"development", false},
 		{"staging", true},
 		{"", true},
-		{"PRODUCTION", true}, // Case sensitive
+		{"PRODUCTION", true}, // Case-sensitive
 	}
 
 	for _, tt := range tests {

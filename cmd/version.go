@@ -54,7 +54,7 @@ Examples:
 
 		fmt.Printf("%s %s\n\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
 
-		pairs := []ui.KVPair{}
+		var pairs []ui.KVPair
 		if info.Commit != "" && info.Commit != "unknown" {
 			pairs = append(pairs, ui.KV("Commit", ui.Dim.Render(info.Commit)))
 		}

@@ -770,8 +770,3 @@ func CheckDockerComposeAvailable() error {
 
 	return nil
 }
-
-// GenerateInstanceName generates a valid Docker instance name from a directory name.
-func GenerateInstanceName(dirName string) string {
-	return xf.GenerateInstanceName(dirName)
-}

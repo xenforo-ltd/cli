@@ -17,14 +17,14 @@ import (
 //go:embed embed/*
 var dockerFS embed.FS
 
-// DockerDir is the directory containing embedded Docker configuration files.
-const DockerDir = "embed"
+// EmbedDir is the directory containing embedded Docker configuration files.
+const EmbedDir = "embed"
 
 // ExtractDockerFiles extracts all embedded Docker files to the target directory.
 // Base files are always overwritten. Default files (.env, .dockerignore) are
 // copied with .default suffix if they already exist and differ.
 func ExtractDockerFiles(targetDir string) error {
-	return extractDir(DockerDir, targetDir, "", true)
+	return extractDir(EmbedDir, targetDir, "", true)
 }
 
 // ExtractOptions specifies options for extracting Docker files.
@@ -35,7 +35,7 @@ type ExtractOptions struct {
 
 // ExtractDockerFilesWithOptions extracts Docker files with custom options.
 func ExtractDockerFilesWithOptions(targetDir string, opts ExtractOptions) error {
-	if err := extractDir(DockerDir, targetDir, "", opts.OverwriteBaseFiles); err != nil {
+	if err := extractDir(EmbedDir, targetDir, "", opts.OverwriteBaseFiles); err != nil {
 		return err
 	}
 
@@ -141,7 +141,7 @@ func extractDefaultFile(srcPath, targetPath string) error {
 
 // GetDockerFile returns the contents of an embedded Docker file.
 func GetDockerFile(name string) ([]byte, error) {
-	embeddedPath := path.Join(DockerDir, name)
+	embeddedPath := path.Join(EmbedDir, name)
 
 	data, err := dockerFS.ReadFile(embeddedPath)
 	if err != nil {
@@ -155,7 +155,7 @@ func GetDockerFile(name string) ([]byte, error) {
 func ListComposeFiles() []string {
 	var files []string
 
-	entries, err := dockerFS.ReadDir(DockerDir)
+	entries, err := dockerFS.ReadDir(EmbedDir)
 	if err != nil {
 		return files
 	}
@@ -202,13 +202,13 @@ func CopyEmbeddedFile(embeddedName, targetPath string) error {
 func ListEmbeddedFiles() ([]string, error) {
 	var files []string
 
-	err := fs.WalkDir(dockerFS, DockerDir, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(dockerFS, EmbedDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if !d.IsDir() {
-			relPath := strings.TrimPrefix(path, DockerDir+"/")
+			relPath := strings.TrimPrefix(path, EmbedDir+"/")
 			files = append(files, relPath)
 		}
 
@@ -235,7 +235,7 @@ func ExtractToWriter(embeddedName string, w io.Writer) error {
 
 // GetFileInfo returns information about an embedded file.
 func GetFileInfo(name string) (fs.FileInfo, error) {
-	embeddedPath := path.Join(DockerDir, name)
+	embeddedPath := path.Join(EmbedDir, name)
 
 	file, err := dockerFS.Open(embeddedPath)
 	if err != nil {

@@ -252,8 +252,3 @@ func DetectVersion(xfDir string) (*Version, error) {
 	// Fall back to parsing the version string
 	return ParseVersionString(versionStr)
 }
-
-// InstalledVersion is an alias for DetectVersion for semantic clarity.
-func InstalledVersion(xfDir string) (*Version, error) {
-	return DetectVersion(xfDir)
-}

@@ -21,7 +21,7 @@ func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key s
 			continue
 		}
 
-		parts := []string{}
+		var parts []string
 		if lic.SiteTitle != "" {
 			parts = append(parts, lic.SiteTitle)
 		}
@@ -124,7 +124,7 @@ func normalizeContexts(contexts []string) []string {
 func licenseOptionLabel(lic customerapi.License) string {
 	label := lic.LicenseKey
 
-	parts := []string{}
+	var parts []string
 	if lic.SiteTitle != "" {
 		parts = append(parts, lic.SiteTitle)
 	}

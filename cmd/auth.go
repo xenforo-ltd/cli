@@ -287,7 +287,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	ui.PrintSuccess("Authenticated")
 	fmt.Println()
 
-	pairs := []ui.KVPair{}
+	var pairs []ui.KVPair
 	if username != "" {
 		pairs = append(pairs, ui.KV("User", username))
 	}

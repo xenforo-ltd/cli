@@ -291,7 +291,7 @@ type Spinner struct {
 // SpinnerFrames are the animation frames for the spinner.
 var SpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
-// SpinnerFramesSimple are simpler ASCII frames for terminals without unicode.
+// SpinnerFramesSimple are simpler ASCII frames for terminals without Unicode.
 var SpinnerFramesSimple = []string{"|", "/", "-", "\\"}
 
 // NewSpinner creates a new spinner with the given message.

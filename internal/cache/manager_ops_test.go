@@ -107,8 +107,7 @@ func TestManagerListAndTotalSize(t *testing.T) {
 			t.Fatalf("write file failed: %v", err)
 		}
 
-		mcopy := meta
-		if err := m.SaveMetadata(license, &mcopy); err != nil {
+		if err := m.SaveMetadata(license, new(meta)); err != nil {
 			t.Fatalf("SaveMetadata failed: %v", err)
 		}
 	}
