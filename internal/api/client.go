@@ -171,21 +171,21 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	return c.keychain.SaveToken(newToken)
 }
 
-// APIError represents an error response from the API.
-type APIError struct {
+// Error represents an error response from the API.
+type Error struct {
 	Code    string         `json:"code"`
 	Message string         `json:"message"`
 	Params  map[string]any `json:"params,omitempty"`
 }
 
-// APIErrorResponse represents the error response structure from XenForo API.
-type APIErrorResponse struct {
-	Errors []APIError `json:"errors"`
+// ErrorResponse represents the error response structure from XenForo API.
+type ErrorResponse struct {
+	Errors []Error `json:"errors"`
 }
 
 // ParseError parses an API error response.
-func ParseError(body []byte) (*APIErrorResponse, error) {
-	var errResp APIErrorResponse
+func ParseError(body []byte) (*ErrorResponse, error) {
+	var errResp ErrorResponse
 	if err := json.Unmarshal(body, &errResp); err != nil {
 		return nil, err
 	}

@@ -237,11 +237,11 @@ func GetZipRootDirectory(zipPath string) (string, error) {
 	return root, nil
 }
 
-// ExtractXenForoZip extracts a XenForo ZIP file to the destination.
+// XenForoZip extracts a XenForo ZIP file to the destination.
 // It extracts only files from within the "upload/" directory, stripping that prefix.
 // This handles XenForo's ZIP structure where files are under upload/ but there may
 // be other files like README at the root.
-func ExtractXenForoZip(zipPath, destDir string, onProgress func(current, total int, filename string)) error {
+func XenForoZip(zipPath, destDir string, onProgress func(current, total int, filename string)) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)

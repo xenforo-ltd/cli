@@ -516,7 +516,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 			fileCount = current
 		}
 
-		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
+		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
 			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to extract XenForo", err)
 		}
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
@@ -540,7 +540,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 			fileCount = current
 		}
 
-		if err := extract.ExtractXenForoZip(entry.FilePath, targetPath, progress); err != nil {
+		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
 			return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to extract %s", product)
 		}
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))

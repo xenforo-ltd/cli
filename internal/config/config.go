@@ -99,8 +99,8 @@ func DefaultCacheDir() (string, error) {
 	return filepath.Join(configDir, "cache"), nil
 }
 
-// ConfigFilePath returns the path to the configuration file.
-func ConfigFilePath() (string, error) {
+// FilePath returns the path to the configuration file.
+func FilePath() (string, error) {
 	configDir, err := DefaultConfigDir()
 	if err != nil {
 		return "", err
@@ -124,7 +124,7 @@ func Load() (*Config, error) {
 		return current, nil
 	}
 
-	configPath, err := ConfigFilePath()
+	configPath, err := FilePath()
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func Save(cfg *Config) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	configPath, err := ConfigFilePath()
+	configPath, err := FilePath()
 	if err != nil {
 		return err
 	}

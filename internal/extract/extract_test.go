@@ -165,7 +165,7 @@ func TestExtractXenForoZipUploadOnly(t *testing.T) {
 
 	outDir := filepath.Join(tmpDir, "out")
 	var filenames []string
-	if err := ExtractXenForoZip(zipPath, outDir, func(_, _ int, name string) {
+	if err := XenForoZip(zipPath, outDir, func(_, _ int, name string) {
 		filenames = append(filenames, name)
 	}); err != nil {
 		t.Fatalf("ExtractXenForoZip failed: %v", err)
