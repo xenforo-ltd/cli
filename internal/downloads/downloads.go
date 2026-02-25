@@ -3,6 +3,7 @@ package downloads
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sort"
 	"strconv"
@@ -253,7 +254,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 
 	if !skipCache {
 		entry, err := cacheManager.GetEntry(licenseKey, selection.Product, versionStr)
-		if err != nil {
+		if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
 			return nil, "", err
 		}
 		if entry != nil {

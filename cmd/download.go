@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -150,7 +151,7 @@ func performDownload(ctx context.Context, client *api.Client, licenseKey string,
 
 	if !force {
 		entry, err := cacheManager.GetEntry(licenseKey, downloadID, info.VersionString)
-		if err != nil {
+		if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
 			return err
 		}
 

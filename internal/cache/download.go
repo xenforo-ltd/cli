@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,8 +50,13 @@ func (m *Manager) DownloadWithAuth(ctx context.Context, opts DownloadOptions, au
 
 func (m *Manager) download(ctx context.Context, opts DownloadOptions, authToken string, progress ProgressCallback) (*DownloadResult, error) {
 	if !opts.SkipCacheCheck {
-		if result, err := m.checkCache(opts); result != nil || err != nil {
-			return result, err
+		result, err := m.checkCache(opts)
+		if err == nil {
+			return result, nil
+		}
+
+		if !errors.Is(err, ErrCacheMiss) {
+			return nil, err
 		}
 	}
 
@@ -102,16 +108,22 @@ func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	if entry == nil {
-		return nil, nil
-	}
 
 	valid, err := m.Verify(entry)
-	if err != nil || !valid {
-		return nil, nil
+	if err != nil {
+		return nil, err
 	}
+
+	if !valid {
+		return nil, ErrCacheMiss
+	}
+
 	if _, err := os.Stat(entry.FilePath); err != nil {
-		return nil, nil
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+
+		return nil, ErrCacheMiss
 	}
 
 	return &DownloadResult{Entry: entry, WasCached: true}, nil

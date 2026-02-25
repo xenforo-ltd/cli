@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -15,6 +16,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 )
+
+var ErrCacheMiss = errors.New("cache miss")
 
 // Manager manages cache storage on disk.
 type Manager struct {
@@ -131,7 +134,7 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, ErrCacheMiss
 		}
 		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read cache metadata", err)
 	}

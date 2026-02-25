@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,7 +46,7 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 	}
 
 	entry, err := m.GetEntry(license, meta.DownloadID, meta.Version)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrCacheMiss) {
 		t.Fatalf("GetEntry failed: %v", err)
 	}
 	if entry == nil || entry.FilePath != filePath {
@@ -64,7 +65,7 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 		t.Fatalf("Delete failed: %v", err)
 	}
 	entry, err = m.GetEntry(license, meta.DownloadID, meta.Version)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrCacheMiss) {
 		t.Fatalf("GetEntry after delete failed: %v", err)
 	}
 	if entry != nil {
