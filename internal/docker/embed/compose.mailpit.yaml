@@ -19,7 +19,7 @@ services:
       MP_SMTP_AUTH: ${XF_MAIL_USERNAME:-xf}:${XF_MAIL_PASSWORD:-password}
       MP_SMTP_AUTH_ALLOW_INSECURE: true
     ports:
-      - 8025
+      - "8025"
     labels:
         - dev.orbstack.domains=mail.${XF_INSTANCE:-}.xf.local
     networks:
