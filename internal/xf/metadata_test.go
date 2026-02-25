@@ -1,13 +1,14 @@
 package xf
 
 import (
+	"errors"
 	"os"
 	"testing"
 )
 
 func TestReadMetadataMissingReturnsNil(t *testing.T) {
 	meta, err := ReadMetadata(t.TempDir())
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMetadataNotFound) {
 		t.Fatalf("ReadMetadata failed: %v", err)
 	}
 	if meta != nil {
@@ -30,7 +31,7 @@ func TestWriteAndReadMetadata(t *testing.T) {
 	}
 
 	out, err := ReadMetadata(dir)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMetadataNotFound) {
 		t.Fatalf("ReadMetadata failed: %v", err)
 	}
 	if out.LicenseKey != in.LicenseKey || out.InstanceName != in.InstanceName {
@@ -50,7 +51,7 @@ func TestUpdateMetadataVersionCreatesFile(t *testing.T) {
 	}
 
 	meta, err := ReadMetadata(dir)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMetadataNotFound) {
 		t.Fatalf("ReadMetadata failed: %v", err)
 	}
 	if meta.InstalledVersion != "2.3.9" || meta.InstalledVersionID != 2030971 {

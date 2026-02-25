@@ -2,6 +2,7 @@ package xf
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -10,6 +11,8 @@ import (
 )
 
 const metadataFilename = ".xf.json"
+
+var ErrMetadataNotFound = errors.New("metadata not found")
 
 // Metadata stores CLI-specific information about a XenForo installation.
 // This file is created during `init` and used by `upgrade` to remember settings.
@@ -48,7 +51,7 @@ func ReadMetadata(xfDir string) (*Metadata, error) {
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil // Not an error, just no metadata
+			return nil, ErrMetadataNotFound
 		}
 		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read metadata file", err)
 	}
@@ -85,7 +88,7 @@ func WriteMetadata(xfDir string, meta *Metadata) error {
 // UpdateMetadataVersion updates the version information in the metadata.
 func UpdateMetadataVersion(xfDir string, version *Version) error {
 	meta, err := ReadMetadata(xfDir)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMetadataNotFound) {
 		return err
 	}
 

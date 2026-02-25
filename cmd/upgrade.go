@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -108,7 +109,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	})
 
 	meta, err := xf.ReadMetadata(absPath)
-	if err != nil {
+	if err != nil && !errors.Is(err, xf.ErrMetadataNotFound) {
 		return err
 	}
 
