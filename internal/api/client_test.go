@@ -66,7 +66,7 @@ func TestDoRetriesWithBody(t *testing.T) {
 		oauthCfg: &auth.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 
-	client.refreshFn = func(ctx context.Context, staleToken string) error {
+	client.refreshFn = func(_ context.Context, _ string) error {
 		return store.SaveToken(&auth.Token{AccessToken: "new", RefreshToken: "refresh"})
 	}
 

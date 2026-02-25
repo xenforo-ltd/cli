@@ -23,7 +23,7 @@ func TestNewTableFunctions(t *testing.T) {
 		t.Fatalf("unexpected table output: %q", out)
 	}
 
-	custom := NewTableWithStyles(headers, rows, func(row, col int) lipgloss.Style {
+	custom := NewTableWithStyles(headers, rows, func(_, _ int) lipgloss.Style {
 		return lipgloss.NewStyle()
 	})
 	if !strings.Contains(custom, "B") || !strings.Contains(custom, "2") {

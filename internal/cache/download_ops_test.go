@@ -18,7 +18,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 	m := &Manager{basePath: t.TempDir()}
 	payload := []byte("download-payload")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Disposition", `attachment; filename="xf.zip"`)
 		_, _ = w.Write(payload)
 	}))
@@ -33,7 +33,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 
 	var calls int
 
-	res, err := m.Download(context.Background(), opts, func(current, total int64) { calls++ })
+	res, err := m.Download(context.Background(), opts, func(_, _ int64) { calls++ })
 	if err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 func TestDownloadWithChecksumMismatch(t *testing.T) {
 	m := &Manager{basePath: t.TempDir()}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("payload"))
 	}))
 	defer server.Close()
@@ -87,7 +87,7 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 func TestDownloadWithAuthUnauthorized(t *testing.T) {
 	m := &Manager{basePath: t.TempDir()}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer server.Close()

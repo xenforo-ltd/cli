@@ -58,7 +58,7 @@ func TestProgressReaderNoProgressOnZeroBytes(t *testing.T) {
 	r := &ProgressReader{
 		Reader: errReader{},
 		Total:  100,
-		OnProgress: func(downloaded, total int64) {
+		OnProgress: func(_, _ int64) {
 			calls++
 		},
 	}

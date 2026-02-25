@@ -212,7 +212,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 		t.Fatalf("write archive: %v", err)
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("abc123  other-file.tar.gz\n"))
 	}))
 	defer server.Close()
@@ -238,7 +238,7 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 		t.Fatalf("write archive: %v", err)
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -264,7 +264,7 @@ func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
 		t.Fatalf("write archive: %v", err)
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("###\n\n"))
 	}))
 	defer server.Close()

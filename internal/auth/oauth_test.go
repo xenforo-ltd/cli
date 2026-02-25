@@ -148,7 +148,7 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 }
 
 func TestOAuthClient_RefreshToken(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := TokenResponse{
 			AccessToken:  "new-access-token",
 			TokenType:    "Bearer",
@@ -178,7 +178,7 @@ func TestOAuthClient_RefreshToken(t *testing.T) {
 }
 
 func TestOAuthClient_IntrospectToken(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := IntrospectResponse{
 			Active:   true,
 			Username: "testuser",
@@ -213,7 +213,7 @@ func TestOAuthClient_IntrospectToken(t *testing.T) {
 func TestOAuthClient_RevokeToken(t *testing.T) {
 	called := false
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 
 		w.WriteHeader(http.StatusOK)

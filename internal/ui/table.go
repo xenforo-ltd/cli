@@ -34,7 +34,7 @@ func NewTable(headers []string, rows [][]string) string {
 		Border(lipgloss.HiddenBorder()).
 		Headers(headers...).
 		Rows(rows...).
-		StyleFunc(func(row, col int) lipgloss.Style {
+		StyleFunc(func(row, _ int) lipgloss.Style {
 			if row == table.HeaderRow {
 				return style.Header
 			}
@@ -58,10 +58,10 @@ func NewTableWithStyles(headers []string, rows [][]string, styleFunc func(row, c
 }
 
 // StatusTableStyle returns a style function for status-based table coloring.
-func StatusTableStyle(statusCol int, statusMap map[string]lipgloss.Style) func(row, col int) lipgloss.Style {
+func StatusTableStyle(_ int, _ map[string]lipgloss.Style) func(row, col int) lipgloss.Style {
 	defaultStyle := DefaultTableStyle()
 
-	return func(row, col int) lipgloss.Style {
+	return func(row, _ int) lipgloss.Style {
 		if row == table.HeaderRow {
 			return defaultStyle.Header
 		}

@@ -39,12 +39,6 @@ func ExtractDockerFilesWithOptions(targetDir string, opts ExtractOptions) error 
 		return err
 	}
 
-	if len(opts.Contexts) > 0 {
-		if err := filterComposeFiles(targetDir, opts.Contexts); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -225,11 +219,6 @@ func ListEmbeddedFiles() ([]string, error) {
 	}
 
 	return files, nil
-}
-
-// filterComposeFiles is currently a no-op because contexts are selected via XF_CONTEXTS.
-func filterComposeFiles(targetDir string, contexts []string) error {
-	return nil
 }
 
 // ExtractToWriter writes an embedded file to the provided writer.
