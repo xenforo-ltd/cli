@@ -106,12 +106,10 @@ func TestRefreshTokenSingleFlight(t *testing.T) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for range goroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			_ = client.refreshToken(context.Background(), "old")
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()
