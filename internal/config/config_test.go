@@ -138,11 +138,7 @@ func TestIsVerbose(t *testing.T) {
 }
 
 func TestSaveAndLoad(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "xf-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Setenv("HOME", tmpDir)
 	t.Setenv("USERPROFILE", tmpDir)
@@ -194,11 +190,7 @@ func TestSaveAndLoad(t *testing.T) {
 }
 
 func TestLoadMissingConfig(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "xf-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	t.Setenv("HOME", tmpDir)
 	t.Setenv("USERPROFILE", tmpDir)
