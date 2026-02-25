@@ -13,9 +13,9 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -105,7 +105,7 @@ type InitOptions struct {
 	EnvResolved      map[string]string
 	EnvSources       map[string]string
 	ProductOverrides map[string]int
-	CoreVersions     []api.Version
+	CoreVersions     []customerapi.Version
 	ProductTitleMap  map[string]string
 }
 
@@ -405,7 +405,7 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 }
 
 func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
-	client, err := api.NewClient()
+	client, err := customerapi.NewClient()
 	if err != nil {
 		return err
 	}

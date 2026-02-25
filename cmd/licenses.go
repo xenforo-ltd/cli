@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/clierrors"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -41,7 +41,7 @@ func init() {
 }
 
 func runLicenses(cmd *cobra.Command, args []string) error {
-	client, err := api.NewClient()
+	client, err := customerapi.NewClient()
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runLicensesTable(licenses []api.License) {
+func runLicensesTable(licenses []customerapi.License) {
 	fmt.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
 
 	headers := []string{"LICENSE", "SITE TITLE", "SITE URL", "PRODUCT", "STATUS", "EXPIRES", "DOWNLOAD"}
@@ -189,7 +189,7 @@ func runLicensesTable(licenses []api.License) {
 	fmt.Printf("\nUse %s for detailed license information.\n", ui.Command.Render("-v"))
 }
 
-func formatLicenseSite(lic api.License) (string, string) {
+func formatLicenseSite(lic customerapi.License) (string, string) {
 	siteTitle := "N/A"
 	if lic.SiteTitle != "" {
 		siteTitle = lic.SiteTitle
@@ -203,7 +203,7 @@ func formatLicenseSite(lic api.License) (string, string) {
 	return siteTitle, siteURL
 }
 
-func runLicensesVerbose(licenses []api.License) {
+func runLicensesVerbose(licenses []customerapi.License) {
 	fmt.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
 
 	for i, lic := range licenses {

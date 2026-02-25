@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/cache"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -61,7 +61,7 @@ func init() {
 }
 
 func runDownload(cmd *cobra.Command, args []string) error {
-	client, err := api.NewClient()
+	client, err := customerapi.NewClient()
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func runDownload(cmd *cobra.Command, args []string) error {
 	return performDownload(ctx, client, flagDownloadLicenseKey, flagDownloadID, flagDownloadVersionID, flagDownloadForce)
 }
 
-func listDownloadables(ctx context.Context, client *api.Client, licenseKey string) error {
+func listDownloadables(ctx context.Context, client *customerapi.Client, licenseKey string) error {
 	ui.PrintInfo(fmt.Sprintf("Fetching available downloads for license %s...", ui.Bold.Render(licenseKey)))
 	fmt.Println()
 
@@ -105,7 +105,7 @@ func listDownloadables(ctx context.Context, client *api.Client, licenseKey strin
 	return nil
 }
 
-func listVersions(ctx context.Context, client *api.Client, licenseKey string, downloadID string) error {
+func listVersions(ctx context.Context, client *customerapi.Client, licenseKey string, downloadID string) error {
 	ui.PrintInfo(fmt.Sprintf("Fetching available versions for %s...", ui.Bold.Render(downloadID)))
 	fmt.Println()
 
@@ -135,7 +135,7 @@ func listVersions(ctx context.Context, client *api.Client, licenseKey string, do
 	return nil
 }
 
-func performDownload(ctx context.Context, client *api.Client, licenseKey string, downloadID string, versionID int, force bool) error {
+func performDownload(ctx context.Context, client *customerapi.Client, licenseKey string, downloadID string, versionID int, force bool) error {
 	ui.PrintInfo(fmt.Sprintf("Getting download info for %s version %d...", ui.Bold.Render(downloadID), versionID))
 
 	info, err := client.GetDownloadInfo(ctx, licenseKey, downloadID, versionID)

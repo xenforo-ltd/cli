@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 )
 
 // DisplayVersion represents a version option for display.
@@ -15,7 +15,7 @@ type DisplayVersion struct {
 }
 
 // SortVersionsDesc sorts versions by release date in descending order.
-func SortVersionsDesc(versions []api.Version) {
+func SortVersionsDesc(versions []customerapi.Version) {
 	sort.Slice(versions, func(i, j int) bool {
 		ti := versions[i].ReleaseDate.Time
 
@@ -29,7 +29,7 @@ func SortVersionsDesc(versions []api.Version) {
 }
 
 // BuildVersionOptions builds display options for a version selection.
-func BuildVersionOptions(versions []api.Version, maxVersion int) []DisplayVersion {
+func BuildVersionOptions(versions []customerapi.Version, maxVersion int) []DisplayVersion {
 	if len(versions) == 0 {
 		return nil
 	}
@@ -62,12 +62,12 @@ func BuildVersionOptions(versions []api.Version, maxVersion int) []DisplayVersio
 }
 
 // ResolveVersionInput resolves a version input string to a full version.
-func ResolveVersionInput(input string, versions []api.Version) (api.Version, bool) {
+func ResolveVersionInput(input string, versions []customerapi.Version) (customerapi.Version, bool) {
 	input = strings.TrimSpace(strings.ToLower(input))
 
 	input = strings.TrimPrefix(input, "v")
 	if input == "" {
-		return api.Version{}, false
+		return customerapi.Version{}, false
 	}
 
 	if id, err := strconv.Atoi(input); err == nil {
@@ -85,5 +85,5 @@ func ResolveVersionInput(input string, versions []api.Version) (api.Version, boo
 		}
 	}
 
-	return api.Version{}, false
+	return customerapi.Version{}, false
 }

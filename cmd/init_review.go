@@ -8,8 +8,8 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/clierrors"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/downloads"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -76,7 +76,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 	return nil
 }
 
-func runInteractiveReview(ctx context.Context, client *api.Client, opts *InitOptions) error {
+func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	for {
 		clearScreen()
 		fmt.Println()
@@ -140,7 +140,7 @@ func runInteractiveReview(ctx context.Context, client *api.Client, opts *InitOpt
 	}
 }
 
-func printReviewSummary(ctx context.Context, client *api.Client, opts *InitOptions) {
+func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *InitOptions) {
 	licenseDetails := formatLicenseDetails(ctx, client, opts.LicenseKey)
 	titleMap := getProductTitleMapCached(ctx, client, opts)
 
@@ -205,7 +205,7 @@ func printReviewSummary(ctx context.Context, client *api.Client, opts *InitOptio
 	}
 }
 
-func editCoreSetup(ctx context.Context, client *api.Client, opts *InitOptions) error {
+func editCoreSetup(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	if err := editLicense(ctx, client, opts); err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func editAdminSite(opts *InitOptions) error {
 	return nil
 }
 
-func editLicense(ctx context.Context, client *api.Client, opts *InitOptions) error {
+func editLicense(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	licenses, err := client.GetLicenses(ctx)
 	if err != nil {
 		return err
@@ -298,7 +298,7 @@ func editLicense(ctx context.Context, client *api.Client, opts *InitOptions) err
 	return nil
 }
 
-func editProducts(ctx context.Context, client *api.Client, opts *InitOptions) error {
+func editProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	downloadables, err := client.GetLicenseDownloadables(ctx, opts.LicenseKey)
 	if err != nil {
 		return err
@@ -341,7 +341,7 @@ func editProducts(ctx context.Context, client *api.Client, opts *InitOptions) er
 	return nil
 }
 
-func editAddonOverrides(ctx context.Context, client *api.Client, opts *InitOptions) error {
+func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	addons := make([]string, 0, len(opts.Products))
 	for _, p := range opts.Products {
 		if p != "xenforo" {

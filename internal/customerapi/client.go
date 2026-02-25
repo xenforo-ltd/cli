@@ -1,5 +1,5 @@
-// Package api provides an authenticated HTTP client for the XenForo Customer API.
-package api
+// Package customerapi provides an authenticated HTTP client for the XenForo Customer API.
+package customerapi
 
 import (
 	"bytes"

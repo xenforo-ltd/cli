@@ -1,4 +1,4 @@
-package api
+package customerapi
 
 import (
 	"bytes"

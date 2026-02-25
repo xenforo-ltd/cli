@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -120,7 +120,7 @@ func TestHelpersFormatting(t *testing.T) {
 		t.Fatalf("unexpected splitCSV: %#v", got)
 	}
 
-	lic := api.License{LicenseKey: "ABC", SiteTitle: "Site", SiteURL: "https://example.com"}
+	lic := customerapi.License{LicenseKey: "ABC", SiteTitle: "Site", SiteURL: "https://example.com"}
 	if got := licenseOptionLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
 		t.Fatalf("unexpected license label: %q", got)
 	}

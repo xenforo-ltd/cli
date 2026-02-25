@@ -6,11 +6,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 )
 
-func formatLicenseDetails(ctx context.Context, client *api.Client, key string) string {
+func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key string) string {
 	licenses, err := client.GetLicenses(ctx)
 	if err != nil {
 		return key
@@ -44,7 +44,7 @@ func formatLicenseDetails(ctx context.Context, client *api.Client, key string) s
 	return key
 }
 
-func getProductTitleMap(ctx context.Context, client *api.Client, licenseKey string) map[string]string {
+func getProductTitleMap(ctx context.Context, client *customerapi.Client, licenseKey string) map[string]string {
 	out := map[string]string{
 		"xenforo": "XenForo",
 	}
@@ -61,7 +61,7 @@ func getProductTitleMap(ctx context.Context, client *api.Client, licenseKey stri
 	return out
 }
 
-func getProductTitleMapCached(ctx context.Context, client *api.Client, opts *InitOptions) map[string]string {
+func getProductTitleMapCached(ctx context.Context, client *customerapi.Client, opts *InitOptions) map[string]string {
 	if len(opts.ProductTitleMap) > 0 {
 		return opts.ProductTitleMap
 	}
@@ -121,7 +121,7 @@ func normalizeContexts(contexts []string) []string {
 	return out
 }
 
-func licenseOptionLabel(lic api.License) string {
+func licenseOptionLabel(lic customerapi.License) string {
 	label := lic.LicenseKey
 
 	parts := []string{}

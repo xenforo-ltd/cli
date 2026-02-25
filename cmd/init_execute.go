@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/cache"
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/downloads"
 	"github.com/xenforo-ltd/cli/internal/extract"
@@ -31,7 +31,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		opts.SiteTitle = "XenForo"
 	}
 
-	client, err := api.NewClient()
+	client, err := customerapi.NewClient()
 	if err != nil {
 		return err
 	}
@@ -472,7 +472,7 @@ func prepareTargetDirectory(targetPath string) error {
 	return nil
 }
 
-func downloadProducts(ctx context.Context, client *api.Client, opts *InitOptions) (map[string]*cache.Entry, error) {
+func downloadProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions) (map[string]*cache.Entry, error) {
 	cacheManager, err := cache.NewManager()
 	if err != nil {
 		return nil, err

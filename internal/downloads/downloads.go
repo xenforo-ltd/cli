@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/api"
 	"github.com/xenforo-ltd/cli/internal/cache"
 	"github.com/xenforo-ltd/cli/internal/clierrors"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 )
 
 type versionClient interface {
-	GetLicenseVersions(ctx context.Context, licenseKey string, downloadID string) (*api.LicenseVersions, error)
-	GetDownloadInfo(ctx context.Context, licenseKey string, downloadID string, versionID int) (*api.DownloadInfo, error)
+	GetLicenseVersions(ctx context.Context, licenseKey string, downloadID string) (*customerapi.LicenseVersions, error)
+	GetDownloadInfo(ctx context.Context, licenseKey string, downloadID string, versionID int) (*customerapi.DownloadInfo, error)
 }
 
 type downloadClient interface {
@@ -75,7 +75,7 @@ func ResolveSelections(
 	sortVersions(coreVersions.Versions)
 	latestCore := coreVersions.Versions[0]
 
-	var selectedCore *api.Version
+	var selectedCore *customerapi.Version
 
 	for i := range coreVersions.Versions {
 		v := &coreVersions.Versions[i]
@@ -159,7 +159,7 @@ type resolvedVersion struct {
 	Reason     string
 }
 
-func resolveAddonSelection(addonVersions []api.Version, selectedCore, latestCore *api.Version, coreVersionString string) resolvedVersion {
+func resolveAddonSelection(addonVersions []customerapi.Version, selectedCore, latestCore *customerapi.Version, coreVersionString string) resolvedVersion {
 	latestAddon := addonVersions[0]
 	if selectedCore != nil && latestCore != nil && selectedCore.VersionID == latestCore.VersionID {
 		return resolvedVersion{
@@ -205,7 +205,7 @@ func resolveAddonSelection(addonVersions []api.Version, selectedCore, latestCore
 	}
 }
 
-func sortVersions(v []api.Version) {
+func sortVersions(v []customerapi.Version) {
 	sort.Slice(v, func(i, j int) bool {
 		ti := v[i].ReleaseDate.Time
 
@@ -218,12 +218,12 @@ func sortVersions(v []api.Version) {
 	})
 }
 
-func newestAtOrBefore(versions []api.Version, t time.Time) *api.Version {
+func newestAtOrBefore(versions []customerapi.Version, t time.Time) *customerapi.Version {
 	if t.IsZero() {
 		return nil
 	}
 
-	var picked *api.Version
+	var picked *customerapi.Version
 
 	for i := range versions {
 		v := &versions[i]
@@ -257,7 +257,7 @@ func normalizeVersion(s string) string {
 }
 
 // DownloadSelection downloads a product based on the selection.
-func DownloadSelection(ctx context.Context, client *api.Client, cacheManager *cache.Manager, licenseKey string, selection Selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
+func DownloadSelection(ctx context.Context, client *customerapi.Client, cacheManager *cache.Manager, licenseKey string, selection Selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
 	return downloadSelection(ctx, client, cacheManager, licenseKey, selection, skipCache, progress)
 }
 

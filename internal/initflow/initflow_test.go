@@ -6,24 +6,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/api"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
 )
 
-func tv(id int, str string, stable bool, ts string) api.Version {
+func tv(id int, str string, stable bool, ts string) customerapi.Version {
 	tm, _ := time.Parse(time.RFC3339, ts)
 
-	return api.Version{
+	return customerapi.Version{
 		VersionID:  id,
 		VersionStr: str,
 		Stable:     stable,
-		ReleaseDate: api.UnixTime{
+		ReleaseDate: customerapi.UnixTime{
 			Time: tm,
 		},
 	}
 }
 
 func TestBuildVersionOptions(t *testing.T) {
-	versions := []api.Version{
+	versions := []customerapi.Version{
 		tv(3, "2.3.9", true, "2025-10-01T00:00:00Z"),
 		tv(2, "2.3.8", true, "2025-09-01T00:00:00Z"),
 		tv(1, "2.4.0 RC1", false, "2025-08-01T00:00:00Z"),
@@ -45,7 +45,7 @@ func TestBuildVersionOptions(t *testing.T) {
 }
 
 func TestResolveVersionInput(t *testing.T) {
-	versions := []api.Version{
+	versions := []customerapi.Version{
 		tv(2030900, "2.3.9", true, "2025-10-01T00:00:00Z"),
 	}
 	if got, ok := ResolveVersionInput("v2.3.9", versions); !ok || got.VersionID != 2030900 {
