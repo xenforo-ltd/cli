@@ -54,21 +54,6 @@ type EnvConfig struct {
 	FFMPEGEnable      bool
 }
 
-// DefaultEnvConfig returns default environment configuration.
-func DefaultEnvConfig() *EnvConfig {
-	return &EnvConfig{
-		Instance:      "xf",
-		Contexts:      "nginx:mysql:development:nginx-development:redis:mailpit",
-		Title:         "XenForo",
-		Email:         "admin@example.com",
-		Debug:         true,
-		Development:   true,
-		AdminHueShift: 90,
-		CacheSessions: true,
-		CachePages:    false,
-	}
-}
-
 // ReadEnvFile reads environment variables from an .env file.
 func ReadEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
@@ -236,26 +221,6 @@ func needsQuoting(value string) bool {
 	}
 
 	return strings.ContainsAny(value, " \t\n\"'`$\\")
-}
-
-// UpdateEnvValue updates a single environment variable in the .env file.
-func UpdateEnvValue(path, key, value string) error {
-	return WriteEnvFile(path, map[string]string{key: value})
-}
-
-// GetEnvValue retrieves an environment variable from the .env file.
-func GetEnvValue(path, key string) (string, error) {
-	env, err := ReadEnvFile(path)
-	if err != nil {
-		return "", err
-	}
-
-	value, ok := env[key]
-	if !ok {
-		return "", clierrors.Newf(clierrors.CodeConfigNotFound, "key %s not found in .env file", key)
-	}
-
-	return value, nil
 }
 
 // ConfigureEnv writes environment configuration to the .env file.

@@ -197,22 +197,6 @@ func isSymlink(file *zip.File) bool {
 	return file.Mode()&os.ModeSymlink != 0
 }
 
-// ListZipContents lists the contents of a zip file.
-func ListZipContents(zipPath string) ([]string, error) {
-	reader, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
-	}
-	defer reader.Close()
-
-	var files []string
-	for _, file := range reader.File {
-		files = append(files, file.Name)
-	}
-
-	return files, nil
-}
-
 // GetZipRootDirectory returns the common root directory of all files in the ZIP.
 // XenForo ZIPs typically have all files under an "upload/" directory.
 func GetZipRootDirectory(zipPath string) (string, error) {
@@ -313,25 +297,6 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 	return nil
 }
 
-// CountZipFiles counts the number of files in a zip archive.
-func CountZipFiles(zipPath string) (int, error) {
-	reader, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return 0, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
-	}
-	defer reader.Close()
-
-	count := 0
-
-	for _, file := range reader.File {
-		if !file.FileInfo().IsDir() {
-			count++
-		}
-	}
-
-	return count, nil
-}
-
 // ZipInfo contains information about a ZIP archive.
 type ZipInfo struct {
 	Path          string
@@ -339,31 +304,4 @@ type ZipInfo struct {
 	DirCount      int
 	TotalSize     uint64
 	RootDirectory string
-}
-
-// GetZipInfo returns metadata about a zip file.
-func GetZipInfo(zipPath string) (*ZipInfo, error) {
-	reader, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to open zip file", err)
-	}
-	defer reader.Close()
-
-	info := &ZipInfo{
-		Path: zipPath,
-	}
-
-	for _, file := range reader.File {
-		if file.FileInfo().IsDir() {
-			info.DirCount++
-		} else {
-			info.FileCount++
-			info.TotalSize += file.UncompressedSize64
-		}
-	}
-
-	root, _ := GetZipRootDirectory(zipPath)
-	info.RootDirectory = root
-
-	return info, nil
 }

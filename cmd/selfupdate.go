@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -110,16 +109,4 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Run '%s' to verify the update.\n", ui.Command.Render("xf version"))
 
 	return nil
-}
-
-// PrintUpdateAvailable prints an update notification.
-func PrintUpdateAvailable(info *selfupdate.UpdateInfo) {
-	if info == nil || !info.HasUpdate {
-		return
-	}
-
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, ui.WarningBold.Render("Update available!"),
-		fmt.Sprintf("Current: %s, Latest: %s", info.CurrentVersion, info.LatestVersion))
-	fmt.Fprintf(os.Stderr, "Run '%s' to update.\n", ui.Command.Render("xf self-update"))
 }

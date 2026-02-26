@@ -62,16 +62,6 @@ func NewRunner(xfDir string) (*Runner, error) {
 	}, nil
 }
 
-// NewRunnerWithEnv creates a runner with explicit environment values.
-func NewRunnerWithEnv(xfDir, instance string, contexts []string) (*Runner, error) {
-	return &Runner{
-		xfDir:    xfDir,
-		instance: instance,
-		contexts: contexts,
-		envPath:  filepath.Join(xfDir, ".env"),
-	}, nil
-}
-
 // XFDir returns the XenForo directory path.
 func (r *Runner) XFDir() string {
 	return r.xfDir
@@ -686,21 +676,6 @@ func parseEnvValue(content, key string) string {
 	}
 
 	return ""
-}
-
-// AutoDetectRunner creates a runner by auto-detecting the XenForo directory.
-func AutoDetectRunner() (*Runner, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to get working directory", err)
-	}
-
-	xfDir, err := xf.GetXenForoDir(cwd)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewRunner(xfDir)
 }
 
 // CheckDockerRunning checks if Docker is running.
