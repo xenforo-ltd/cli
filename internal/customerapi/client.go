@@ -56,7 +56,7 @@ func NewClient() (*Client, error) {
 
 func userAgent() string {
 	v := version.Get()
-	return fmt.Sprintf("github.com/xenforo-ltd/cli/%s (%s/%s)", v.Version, v.OS, v.Arch)
+	return fmt.Sprintf("xenforo-cli/%s (%s/%s)", v.Version, v.OS, v.Arch)
 }
 
 // Do sends an HTTP request and returns the response.
