@@ -83,12 +83,12 @@ var (
 
 // DefaultConfigDir returns the default configuration directory path.
 func DefaultConfigDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
+	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return "", clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to get home directory", err)
+		return "", clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to get config directory", err)
 	}
 
-	return filepath.Join(homeDir, ".config", "xf"), nil
+	return filepath.Join(configDir, "xf"), nil
 }
 
 // DefaultCacheDir returns the default cache directory path.
