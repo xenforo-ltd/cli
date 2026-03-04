@@ -10,13 +10,13 @@ on:
     branches:
       - 'main'
     paths:
-      - 'internal/embed/docker/Dockerfile'
+      - 'internal/docker/embed/Dockerfile'
 
   pull_request:
     branches:
       - 'main'
     paths:
-      - 'internal/embed/docker/Dockerfile'
+      - 'internal/docker/embed/Dockerfile'
 
 concurrency:
   group: "${{ github.workflow }}@${{ github.head_ref || github.ref }}"
