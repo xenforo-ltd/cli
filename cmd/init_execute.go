@@ -143,7 +143,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintWarning(fmt.Sprintf("Could not auto-detect site URL, using fallback %s: %v", siteURL, detectedErr))
 		}
 
-ui.Println()
+		ui.Println()
 		ui.PrintStep(7, totalSteps, "Installing XenForo")
 
 		if !opts.SkipInstall {
