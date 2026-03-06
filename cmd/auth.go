@@ -128,10 +128,14 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		return clierrors.Wrap(clierrors.CodeInternal, "failed to generate PKCE parameters", err)
 	}
 
-	oauthConfig := auth.DefaultOAuthConfig()
-	client := auth.NewOAuthClient(oauthConfig)
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
 
-	callbackServer, err := auth.NewCallbackServer(oauthConfig.RedirectPath)
+	client := auth.NewOAuthClient(&cfg.OAuth)
+
+	callbackServer, err := auth.NewCallbackServer(cfg.OAuth.RedirectPath)
 	if err != nil {
 		return err
 	}
@@ -243,7 +247,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	)
 
 	if !token.IsExpired() {
-		client := auth.NewOAuthClient(&auth.OAuthConfig{
+		client := auth.NewOAuthClient(&config.OAuthConfig{
 			BaseURL: token.BaseURL,
 		})
 
@@ -338,22 +342,27 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client := auth.NewOAuthClient(&auth.OAuthConfig{
+	client := auth.NewOAuthClient(&config.OAuthConfig{
 		BaseURL: token.BaseURL,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
 	if err := client.RevokeToken(ctx, token.AccessToken); err != nil {
-		if flagVerbose {
+		if cfg.Verbose {
 			ui.PrintWarning(fmt.Sprintf("Could not revoke token on server: %v", err))
 		}
 	}
 
 	if token.RefreshToken != "" {
 		if err := client.RevokeToken(ctx, token.RefreshToken); err != nil {
-			if flagVerbose {
+			if cfg.Verbose {
 				ui.PrintWarning(fmt.Sprintf("Could not revoke refresh token on server: %v", err))
 			}
 		}
@@ -387,9 +396,14 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo("Refreshing access token...")
 
-	client := auth.NewOAuthClient(&auth.OAuthConfig{
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	client := auth.NewOAuthClient(&config.OAuthConfig{
 		BaseURL:  token.BaseURL,
-		ClientID: config.GetEffectiveClientID(),
+		ClientID: cfg.OAuth.ClientID,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

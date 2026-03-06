@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/xenforo-ltd/cli/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/config"
 )
 
 func TestGetLicenseDownloadablesEncodesQuery(t *testing.T) {
@@ -28,7 +29,7 @@ func TestGetLicenseDownloadablesEncodesQuery(t *testing.T) {
 		baseURL:    server.URL,
 		httpClient: &http.Client{},
 		keychain:   store,
-		oauthCfg:   &auth.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
+		oauthCfg:   &config.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 
 	_, err := client.GetLicenseDownloadables(context.Background(), "ABC 123&x")

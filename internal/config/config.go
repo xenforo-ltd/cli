@@ -2,312 +2,125 @@
 package config
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+
+	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
-// Environment represents the target environment.
-type Environment string
-
-const (
-	// EnvProduction is the production environment.
-	EnvProduction Environment = "production"
-
-	// EnvDevelopment is the development environment.
-	EnvDevelopment Environment = "development"
+var (
+	cacheOnce sync.Once
+	cache     Config
+	cacheErr  error
 )
 
-// Default OAuth client IDs for each environment.
-const (
-	DefaultProductionClientID  = "5062897895166491"
-	DefaultDevelopmentClientID = ""
-)
+// Config holds all CLI configuration values.
+type Config struct {
+	// Verbose enables detailed output.
+	Verbose bool `json:"verbose" mapstructure:"verbose"`
 
-// Default base URLs for each environment.
-const (
-	DefaultProductionURL  = "https://xenforo.com/"
-	DefaultDevelopmentURL = ""
-)
+	// NoInteraction disables interactive prompts.
+	NoInteraction bool `json:"no_interaction" mapstructure:"no_interaction"`
 
-// OAuthSettings holds OAuth configuration for an environment.
-type OAuthSettings struct {
+	// CachePath is the directory for cached downloads.
+	CachePath string `json:"cache_path" mapstructure:"cache_path"`
+
+	// OAuth holds OAuth-related settings.
+	OAuth OAuthConfig `json:"oauth" mapstructure:"oauth"`
+}
+
+// OAuthConfig holds OAuth endpoint and client configuration.
+type OAuthConfig struct {
 	// BaseURL is the base URL for OAuth endpoints.
-	BaseURL string `json:"base_url,omitempty"`
+	BaseURL string `json:"base_url" mapstructure:"base_url"`
 
 	// ClientID is the OAuth client identifier.
-	ClientID string `json:"client_id,omitempty"`
+	ClientID string `json:"client_id" mapstructure:"client_id"`
 
 	// Scopes are the OAuth scopes to request.
-	Scopes []string `json:"scopes,omitempty"`
+	Scopes []string `json:"scopes" mapstructure:"scopes"`
 
-	// RedirectPath is the path for the OAuth callback (default: /customer-oauth/complete).
-	RedirectPath string `json:"redirect_path,omitempty"`
+	// RedirectPath is the local callback path for the OAuth flow.
+	RedirectPath string `json:"redirect_path" mapstructure:"redirect_path"`
 }
 
-// EnvironmentConfig holds all settings for a specific environment.
-type EnvironmentConfig struct {
-	OAuth OAuthSettings `json:"oauth"`
+// OAuthEndpoints holds the OAuth endpoint URLs.
+type OAuthEndpoints struct {
+	Auth       string
+	Token      string
+	Introspect string
+	Revoke     string
 }
 
-// Config holds the CLI configuration.
-type Config struct {
-	// Environment is the default environment (production or development).
-	Environment Environment `json:"environment"`
+// Endpoints returns the OAuth endpoint URLs.
+func (cfg *OAuthConfig) Endpoints() *OAuthEndpoints {
+	base := strings.TrimSuffix(cfg.BaseURL, "/")
 
-	// Production holds production environment settings.
-	Production EnvironmentConfig `json:"production"`
-
-	// Development holds development environment settings.
-	Development EnvironmentConfig `json:"development"`
-
-	// CachePath overrides the default cache directory.
-	CachePath string `json:"cache_path,omitempty"`
-}
-
-// GlobalFlags holds command-line flags that affect configuration.
-type GlobalFlags struct {
-	NonInteractive bool
-	Verbose        bool
-}
-
-var (
-	current *Config
-	mu      sync.RWMutex
-
-	flags GlobalFlags
-)
-
-// DefaultConfigDir returns the default configuration directory path.
-func DefaultConfigDir() (string, error) {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to get config directory", err)
-	}
-
-	return filepath.Join(configDir, "xf"), nil
-}
-
-// DefaultCacheDir returns the default cache directory path.
-func DefaultCacheDir() (string, error) {
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		return "", clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to get cache directory", err)
-	}
-
-	return filepath.Join(cacheDir, "xf"), nil
-}
-
-// FilePath returns the path to the configuration file.
-func FilePath() (string, error) {
-	configDir, err := DefaultConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(configDir, "config.json"), nil
-}
-
-// Default returns a default configuration.
-func Default() *Config {
-	return &Config{
-		Environment: EnvProduction,
+	return &OAuthEndpoints{
+		Auth:       base + "/customer-oauth/authorize",
+		Token:      base + "/api/customer-oauth2/token",
+		Introspect: base + "/api/customer-oauth2/introspect",
+		Revoke:     base + "/api/customer-oauth2/revoke",
 	}
 }
 
-// Load loads the configuration from disk or returns default if not found.
-func Load() (*Config, error) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if current != nil {
-		return current, nil
-	}
-
-	configPath, err := FilePath()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			current = Default()
-			return current, nil
+// Init sets up the configuration system and reads the config file if it exists.
+func Init(configFile string) error {
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+	} else {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			return clierrors.Wrap(clierrors.CodeConfigReadFailed, "could not determine user config directory", err)
 		}
 
-		return nil, clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to read config file", err)
+		viper.AddConfigPath(filepath.Join(configDir, "xf"))
+		viper.SetConfigName("config")
+		viper.SetConfigType("json")
 	}
 
-	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeConfigInvalid, "failed to parse config file", err)
-	}
-
-	current = &cfg
-
-	return current, nil
-}
-
-// Save persists the configuration to disk.
-func Save(cfg *Config) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	configPath, err := FilePath()
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return err
+		return clierrors.Wrap(clierrors.CodeConfigReadFailed, "could not determine user cache directory", err)
 	}
 
-	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, 0o700); err != nil {
-		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create config directory", err)
-	}
+	viper.AllowEmptyEnv(true)
+	viper.SetEnvPrefix("xf")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
 
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return clierrors.Wrap(clierrors.CodeConfigWriteFailed, "failed to marshal config", err)
-	}
+	viper.SetDefault("verbose", false)
+	viper.SetDefault("no_interaction", false)
+	viper.SetDefault("cache_path", filepath.Join(cacheDir, "xf"))
 
-	if err := os.WriteFile(configPath, data, 0o600); err != nil {
-		return clierrors.Wrap(clierrors.CodeConfigWriteFailed, "failed to write config file", err)
-	}
+	viper.SetDefault("oauth.base_url", "https://xenforo.com/")
+	viper.SetDefault("oauth.client_id", "5062897895166491")
+	viper.SetDefault("oauth.scopes", []string{"licenses:read"})
+	viper.SetDefault("oauth.redirect_path", "/customer-oauth/complete")
 
-	current = cfg
+	if err := viper.ReadInConfig(); err != nil {
+		return clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to read config file", err)
+	}
 
 	return nil
 }
 
-// SetFlags sets global command-line flags.
-func SetFlags(f GlobalFlags) {
-	mu.Lock()
-	defer mu.Unlock()
+// Load reads the configuration from the config file.
+func Load() (Config, error) {
+	cacheOnce.Do(func() {
+		if err := viper.Unmarshal(&cache); err != nil {
+			cacheErr = clierrors.Wrap(clierrors.CodeConfigInvalid, "failed to unmarshal config", err)
+		}
+	})
 
-	flags = f
+	return cache, cacheErr
 }
 
-// GetFlags returns the current global command-line flags.
-func GetFlags() GlobalFlags {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	return flags
-}
-
-// GetEffectiveEnvironment returns the effective environment from configuration.
-func GetEffectiveEnvironment() Environment {
-	cfg, err := Load()
-	if err != nil {
-		return EnvProduction
-	}
-
-	return cfg.Environment
-}
-
-// GetEnvironmentConfig returns configuration for a specific environment.
-func GetEnvironmentConfig(env Environment) *EnvironmentConfig {
-	cfg, err := Load()
-	if err != nil {
-		return &EnvironmentConfig{}
-	}
-
-	switch env {
-	case EnvDevelopment:
-		return &cfg.Development
-	default:
-		return &cfg.Production
-	}
-}
-
-// GetEffectiveEnvironmentConfig returns the effective environment configuration.
-func GetEffectiveEnvironmentConfig() *EnvironmentConfig {
-	return GetEnvironmentConfig(GetEffectiveEnvironment())
-}
-
-// GetEffectiveBaseURL returns the configured base URL for the current environment.
-func GetEffectiveBaseURL() string {
-	env := GetEffectiveEnvironment()
-	envConfig := GetEnvironmentConfig(env)
-
-	if envConfig.OAuth.BaseURL != "" {
-		return envConfig.OAuth.BaseURL
-	}
-
-	switch env {
-	case EnvDevelopment:
-		return DefaultDevelopmentURL
-	default:
-		return DefaultProductionURL
-	}
-}
-
-// GetEffectiveClientID returns the OAuth client ID for the current environment.
-func GetEffectiveClientID() string {
-	env := GetEffectiveEnvironment()
-	envConfig := GetEnvironmentConfig(env)
-
-	if envConfig.OAuth.ClientID != "" {
-		return envConfig.OAuth.ClientID
-	}
-
-	switch env {
-	case EnvDevelopment:
-		return DefaultDevelopmentClientID
-	default:
-		return DefaultProductionClientID
-	}
-}
-
-// GetEffectiveScopes returns the OAuth scopes for the current environment.
-func GetEffectiveScopes() []string {
-	envConfig := GetEffectiveEnvironmentConfig()
-
-	if len(envConfig.OAuth.Scopes) > 0 {
-		return envConfig.OAuth.Scopes
-	}
-
-	return []string{"licenses:read"}
-}
-
-// GetEffectiveRedirectPath returns the OAuth redirect path for the current environment.
-func GetEffectiveRedirectPath() string {
-	envConfig := GetEffectiveEnvironmentConfig()
-
-	if envConfig.OAuth.RedirectPath != "" {
-		return envConfig.OAuth.RedirectPath
-	}
-
-	return "/customer-oauth/complete"
-}
-
-// IsNonInteractive checks if non-interactive mode is enabled.
-func IsNonInteractive() bool {
-	return GetFlags().NonInteractive
-}
-
-// IsVerbose checks if verbose mode is enabled.
-func IsVerbose() bool {
-	return GetFlags().Verbose
-}
-
-// ValidateEnvironment checks if an environment string is valid.
-func ValidateEnvironment(env string) error {
-	switch Environment(env) {
-	case EnvProduction, EnvDevelopment:
-		return nil
-	default:
-		return clierrors.Newf(clierrors.CodeInvalidInput, "invalid environment: %s (must be 'production' or 'development')", env)
-	}
-}
-
-// Reset clears the cached configuration.
-func Reset() {
-	mu.Lock()
-	defer mu.Unlock()
-
-	current = nil
-	flags = GlobalFlags{}
+// Save writes the current configuration to the config file.
+func Save() error {
+	return viper.WriteConfig()
 }

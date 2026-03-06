@@ -23,7 +23,7 @@ type Client struct {
 	baseURL    string
 	httpClient *http.Client
 	keychain   tokenStore
-	oauthCfg   *auth.OAuthConfig
+	oauthCfg   *config.OAuthConfig
 	refreshFn  func(ctx context.Context, staleToken string) error
 
 	mu sync.Mutex
@@ -41,15 +41,20 @@ func NewClient() (*Client, error) {
 		return nil, err
 	}
 
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		baseURL: strings.TrimSuffix(token.BaseURL, "/"),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		keychain: auth.NewKeychain(),
-		oauthCfg: &auth.OAuthConfig{
+		oauthCfg: &config.OAuthConfig{
 			BaseURL:  token.BaseURL,
-			ClientID: config.GetEffectiveClientID(),
+			ClientID: cfg.OAuth.ClientID,
 		},
 	}, nil
 }

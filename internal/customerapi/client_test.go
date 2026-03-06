@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/auth"
+	"github.com/xenforo-ltd/cli/internal/config"
 )
 
 type stubTokenStore struct {
@@ -63,7 +64,7 @@ func TestDoRetriesWithBody(t *testing.T) {
 			Timeout: 2 * time.Second,
 		},
 		keychain: store,
-		oauthCfg: &auth.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
+		oauthCfg: &config.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 
 	client.refreshFn = func(_ context.Context, _ string) error {
@@ -112,7 +113,7 @@ func TestRefreshTokenSingleFlight(t *testing.T) {
 		baseURL:    server.URL,
 		httpClient: &http.Client{Timeout: time.Second},
 		keychain:   store,
-		oauthCfg:   &auth.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
+		oauthCfg:   &config.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 
 	const goroutines = 2

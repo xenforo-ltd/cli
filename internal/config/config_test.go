@@ -3,291 +3,329 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
-func TestDefault(t *testing.T) {
-	cfg := Default()
+func resetGlobals(t *testing.T) {
+	t.Helper()
 
-	if cfg.Environment != EnvProduction {
-		t.Errorf("Environment = %q, want %q", cfg.Environment, EnvProduction)
-	}
+	viper.Reset()
+	cacheOnce = sync.Once{}
+	cache = Config{}
+	cacheErr = nil
 }
 
-func TestValidateEnvironment(t *testing.T) {
+func TestOAuthEndpoints(t *testing.T) {
 	tests := []struct {
-		env     string
-		wantErr bool
+		name       string
+		baseURL    string
+		wantAuth   string
+		wantToken  string
+		wantIntro  string
+		wantRevoke string
 	}{
-		{"production", false},
-		{"development", false},
-		{"staging", true},
-		{"", true},
-		{"PRODUCTION", true}, // Case-sensitive
+		{
+			name:       "without trailing slash",
+			baseURL:    "https://example.com",
+			wantAuth:   "https://example.com/customer-oauth/authorize",
+			wantToken:  "https://example.com/api/customer-oauth2/token",
+			wantIntro:  "https://example.com/api/customer-oauth2/introspect",
+			wantRevoke: "https://example.com/api/customer-oauth2/revoke",
+		},
+		{
+			name:       "with trailing slash",
+			baseURL:    "https://example.com/",
+			wantAuth:   "https://example.com/customer-oauth/authorize",
+			wantToken:  "https://example.com/api/customer-oauth2/token",
+			wantIntro:  "https://example.com/api/customer-oauth2/introspect",
+			wantRevoke: "https://example.com/api/customer-oauth2/revoke",
+		},
+		{
+			name:       "with subpath",
+			baseURL:    "https://example.com/sub",
+			wantAuth:   "https://example.com/sub/customer-oauth/authorize",
+			wantToken:  "https://example.com/sub/api/customer-oauth2/token",
+			wantIntro:  "https://example.com/sub/api/customer-oauth2/introspect",
+			wantRevoke: "https://example.com/sub/api/customer-oauth2/revoke",
+		},
+		{
+			name:       "empty base url",
+			baseURL:    "",
+			wantAuth:   "/customer-oauth/authorize",
+			wantToken:  "/api/customer-oauth2/token",
+			wantIntro:  "/api/customer-oauth2/introspect",
+			wantRevoke: "/api/customer-oauth2/revoke",
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.env, func(t *testing.T) {
-			err := ValidateEnvironment(tt.env)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateEnvironment(%q) error = %v, wantErr %v", tt.env, err, tt.wantErr)
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &OAuthConfig{BaseURL: tt.baseURL}
+			ep := cfg.Endpoints()
+
+			if ep.Auth != tt.wantAuth {
+				t.Errorf("Auth = %q, want %q", ep.Auth, tt.wantAuth)
+			}
+			if ep.Token != tt.wantToken {
+				t.Errorf("Token = %q, want %q", ep.Token, tt.wantToken)
+			}
+			if ep.Introspect != tt.wantIntro {
+				t.Errorf("Introspect = %q, want %q", ep.Introspect, tt.wantIntro)
+			}
+			if ep.Revoke != tt.wantRevoke {
+				t.Errorf("Revoke = %q, want %q", ep.Revoke, tt.wantRevoke)
 			}
 		})
 	}
 }
 
-func TestGlobalFlags(t *testing.T) {
-	Reset()
+func TestInit_WithConfigFile(t *testing.T) {
+	resetGlobals(t)
 
-	current = Default()
-	current = Default()
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "config.json")
 
-	SetFlags(GlobalFlags{
-		NonInteractive: true,
-		Verbose:        true,
-	})
-
-	flags := GetFlags()
-
-	if !flags.NonInteractive {
-		t.Error("NonInteractive = false, want true")
+	if err := os.WriteFile(cfgFile, []byte(`{"verbose": true, "cache_path": "/tmp/test-cache"}`), 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
 	}
 
-	if !flags.Verbose {
-		t.Error("Verbose = false, want true")
+	if err := Init(cfgFile); err != nil {
+		t.Fatalf("Init() error = %v", err)
 	}
 
-	Reset()
+	if got := viper.GetBool("verbose"); !got {
+		t.Error("expected verbose to be true from config file")
+	}
 
-	current = Default()
-	current = Default()
+	if got := viper.GetString("cache_path"); got != "/tmp/test-cache" {
+		t.Errorf("cache_path = %q, want %q", got, "/tmp/test-cache")
+	}
 }
 
-func TestGetEffectiveEnvironment(t *testing.T) {
-	Reset()
+func TestInit_Defaults(t *testing.T) {
+	resetGlobals(t)
 
-	current = Default()
-	current = Default()
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "config.json")
 
-	env := GetEffectiveEnvironment()
-	if env != EnvProduction {
-		t.Errorf("GetEffectiveEnvironment() = %q, want %q", env, EnvProduction)
+	if err := os.WriteFile(cfgFile, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
 	}
 
-	Reset()
+	if err := Init(cfgFile); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
 
-	current = Default()
-	current = Default()
+	if got := viper.GetBool("verbose"); got {
+		t.Error("expected verbose default to be false")
+	}
+
+	if got := viper.GetBool("no_interaction"); got {
+		t.Error("expected no_interaction default to be false")
+	}
+
+	if got := viper.GetString("oauth.base_url"); got != "https://xenforo.com/" {
+		t.Errorf("oauth.base_url = %q, want %q", got, "https://xenforo.com/")
+	}
+
+	if got := viper.GetString("oauth.client_id"); got != "5062897895166491" {
+		t.Errorf("oauth.client_id = %q, want %q", got, "5062897895166491")
+	}
+
+	if got := viper.GetString("oauth.redirect_path"); got != "/customer-oauth/complete" {
+		t.Errorf("oauth.redirect_path = %q, want %q", got, "/customer-oauth/complete")
+	}
 }
 
-func TestGetEffectiveBaseURL(t *testing.T) {
-	Reset()
+func TestInit_MissingConfigFile(t *testing.T) {
+	resetGlobals(t)
 
-	current = Default()
-
-	url := GetEffectiveBaseURL()
-	if url != DefaultProductionURL {
-		t.Errorf("GetEffectiveBaseURL() = %q, want %q", url, DefaultProductionURL)
+	err := Init("/nonexistent/path/config.json")
+	if err == nil {
+		t.Fatal("Init() expected error for missing config file, got nil")
 	}
-
-	Reset()
-
-	current = Default()
-	current = &Config{
-		Environment: EnvDevelopment,
-		Development: EnvironmentConfig{
-			OAuth: OAuthSettings{
-				BaseURL: "https://test.example.com/",
-			},
-		},
-	}
-
-	url = GetEffectiveBaseURL()
-	if url != "https://test.example.com/" {
-		t.Errorf("GetEffectiveBaseURL() = %q, want %q", url, "https://test.example.com/")
-	}
-
-	Reset()
-
-	current = Default()
 }
 
-func TestIsNonInteractive(t *testing.T) {
-	Reset()
+func TestLoad_UnmarshalsConfig(t *testing.T) {
+	resetGlobals(t)
 
-	current = Default()
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "config.json")
 
-	if IsNonInteractive() {
-		t.Error("IsNonInteractive() = true, want false")
+	content := `{
+		"verbose": true,
+		"no_interaction": true,
+		"cache_path": "/custom/cache",
+		"oauth": {
+			"base_url": "https://custom.example.com/",
+			"client_id": "test-client-id",
+			"scopes": ["scope1", "scope2"],
+			"redirect_path": "/callback"
+		}
+	}`
+
+	if err := os.WriteFile(cfgFile, []byte(content), 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
 	}
 
-	SetFlags(GlobalFlags{NonInteractive: true})
-
-	if !IsNonInteractive() {
-		t.Error("IsNonInteractive() = false, want true")
+	if err := Init(cfgFile); err != nil {
+		t.Fatalf("Init() error = %v", err)
 	}
-
-	Reset()
-
-	current = Default()
-}
-
-func TestIsVerbose(t *testing.T) {
-	Reset()
-
-	current = Default()
-
-	if IsVerbose() {
-		t.Error("IsVerbose() = true, want false")
-	}
-
-	SetFlags(GlobalFlags{Verbose: true})
-
-	if !IsVerbose() {
-		t.Error("IsVerbose() = false, want true")
-	}
-
-	Reset()
-}
-
-func TestSaveAndLoad(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	t.Setenv("HOME", tmpDir)
-	t.Setenv("USERPROFILE", tmpDir)
-	t.Setenv("HOMEDRIVE", "")
-	t.Setenv("HOMEPATH", "")
-
-	Reset()
-
-	current = Default()
-
-	cfg := &Config{
-		Environment: EnvDevelopment,
-		CachePath:   "/custom/cache",
-		Development: EnvironmentConfig{
-			OAuth: OAuthSettings{
-				BaseURL:  "https://test.example.com/",
-				ClientID: "test-client",
-			},
-		},
-	}
-
-	if err := Save(cfg); err != nil {
-		t.Fatalf("Save() error = %v", err)
-	}
-
-	configPath := filepath.Join(tmpDir, ".config", "xf", "config.json")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		t.Fatal("Config file was not created")
-	}
-
-	Reset()
-
-	loaded, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-
-	if loaded.Environment != EnvDevelopment {
-		t.Errorf("Environment = %q, want %q", loaded.Environment, EnvDevelopment)
-	}
-
-	if loaded.Development.OAuth.BaseURL != "https://test.example.com/" {
-		t.Errorf("Development.OAuth.BaseURL = %q, want %q", loaded.Development.OAuth.BaseURL, "https://test.example.com/")
-	}
-
-	if loaded.CachePath != "/custom/cache" {
-		t.Errorf("CachePath = %q, want %q", loaded.CachePath, "/custom/cache")
-	}
-
-	Reset()
-
-	current = Default()
-}
-
-func TestLoadMissingConfig(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	t.Setenv("HOME", tmpDir)
-	t.Setenv("USERPROFILE", tmpDir)
-	t.Setenv("HOMEDRIVE", "")
-	t.Setenv("HOMEPATH", "")
-
-	Reset()
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if cfg.Environment != EnvProduction {
-		t.Errorf("Environment = %q, want %q (default)", cfg.Environment, EnvProduction)
+	if !cfg.Verbose {
+		t.Error("expected Verbose to be true")
 	}
 
-	Reset()
+	if !cfg.NoInteraction {
+		t.Error("expected NoInteraction to be true")
+	}
 
-	current = Default()
+	if cfg.CachePath != "/custom/cache" {
+		t.Errorf("CachePath = %q, want %q", cfg.CachePath, "/custom/cache")
+	}
+
+	if cfg.OAuth.BaseURL != "https://custom.example.com/" {
+		t.Errorf("OAuth.BaseURL = %q, want %q", cfg.OAuth.BaseURL, "https://custom.example.com/")
+	}
+
+	if cfg.OAuth.ClientID != "test-client-id" {
+		t.Errorf("OAuth.ClientID = %q, want %q", cfg.OAuth.ClientID, "test-client-id")
+	}
+
+	if len(cfg.OAuth.Scopes) != 2 || cfg.OAuth.Scopes[0] != "scope1" || cfg.OAuth.Scopes[1] != "scope2" {
+		t.Errorf("OAuth.Scopes = %v, want [scope1 scope2]", cfg.OAuth.Scopes)
+	}
+
+	if cfg.OAuth.RedirectPath != "/callback" {
+		t.Errorf("OAuth.RedirectPath = %q, want %q", cfg.OAuth.RedirectPath, "/callback")
+	}
 }
 
-func TestGetEffectiveClientID(t *testing.T) {
-	Reset()
+func TestLoad_UsesDefaults(t *testing.T) {
+	resetGlobals(t)
 
-	current = Default()
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "config.json")
 
-	clientID := GetEffectiveClientID()
-	if clientID != DefaultProductionClientID {
-		t.Errorf("GetEffectiveClientID() = %q, want %q", clientID, DefaultProductionClientID)
+	if err := os.WriteFile(cfgFile, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
 	}
 
-	Reset()
-
-	current = Default()
-	current = &Config{
-		Environment: EnvDevelopment,
-		Development: EnvironmentConfig{
-			OAuth: OAuthSettings{
-				ClientID: "test-client",
-			},
-		},
+	if err := Init(cfgFile); err != nil {
+		t.Fatalf("Init() error = %v", err)
 	}
 
-	clientID = GetEffectiveClientID()
-	if clientID != "test-client" {
-		t.Errorf("GetEffectiveClientID() = %q, want %q", clientID, "test-client")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
 	}
 
-	Reset()
+	if cfg.Verbose {
+		t.Error("expected Verbose default to be false")
+	}
 
-	current = Default()
+	if cfg.NoInteraction {
+		t.Error("expected NoInteraction default to be false")
+	}
+
+	if cfg.OAuth.BaseURL != "https://xenforo.com/" {
+		t.Errorf("OAuth.BaseURL = %q, want %q", cfg.OAuth.BaseURL, "https://xenforo.com/")
+	}
+
+	if cfg.OAuth.ClientID != "5062897895166491" {
+		t.Errorf("OAuth.ClientID = %q, want %q", cfg.OAuth.ClientID, "5062897895166491")
+	}
+
+	if len(cfg.OAuth.Scopes) != 1 || cfg.OAuth.Scopes[0] != "licenses:read" {
+		t.Errorf("OAuth.Scopes = %v, want [licenses:read]", cfg.OAuth.Scopes)
+	}
 }
 
-func TestGetEffectiveScopes(t *testing.T) {
-	Reset()
+func TestLoad_CachesResult(t *testing.T) {
+	resetGlobals(t)
 
-	current = Default()
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "config.json")
 
-	scopes := GetEffectiveScopes()
-	if len(scopes) != 1 || scopes[0] != "licenses:read" {
-		t.Errorf("GetEffectiveScopes() = %v, want [licenses:read]", scopes)
+	if err := os.WriteFile(cfgFile, []byte(`{"verbose": true}`), 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
 	}
 
-	Reset()
+	if err := Init(cfgFile); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
 
-	current = Default()
+	cfg1, err := Load()
+	if err != nil {
+		t.Fatalf("Load() first call error = %v", err)
+	}
+
+	cfg2, err := Load()
+	if err != nil {
+		t.Fatalf("Load() second call error = %v", err)
+	}
+
+	if cfg1.Verbose != cfg2.Verbose || cfg1.CachePath != cfg2.CachePath || cfg1.OAuth.BaseURL != cfg2.OAuth.BaseURL {
+		t.Error("expected Load() to return cached result on second call")
+	}
 }
 
-func TestGetEffectiveRedirectPath(t *testing.T) {
-	Reset()
+func TestSave_WritesConfigFile(t *testing.T) {
+	resetGlobals(t)
 
-	current = Default()
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "config.json")
 
-	path := GetEffectiveRedirectPath()
-	if path != "/customer-oauth/complete" {
-		t.Errorf("GetEffectiveRedirectPath() = %q, want %q", path, "/customer-oauth/complete")
+	if err := os.WriteFile(cfgFile, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
 	}
 
-	Reset()
+	if err := Init(cfgFile); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
 
-	current = Default()
+	viper.Set("verbose", true)
+
+	if err := Save(); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
+		t.Fatalf("failed to read saved config: %v", err)
+	}
+
+	content := string(data)
+	if len(content) == 0 {
+		t.Error("expected saved config file to have content")
+	}
+}
+
+func TestInit_EnvOverride(t *testing.T) {
+	resetGlobals(t)
+
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "config.json")
+
+	if err := os.WriteFile(cfgFile, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	t.Setenv("XF_VERBOSE", "true")
+
+	if err := Init(cfgFile); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	if got := viper.GetBool("verbose"); !got {
+		t.Error("expected verbose to be true from env var XF_VERBOSE")
+	}
 }

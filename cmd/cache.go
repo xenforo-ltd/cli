@@ -9,6 +9,7 @@ import (
 
 	"github.com/xenforo-ltd/cli/internal/cache"
 	"github.com/xenforo-ltd/cli/internal/clierrors"
+	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -187,7 +188,12 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 		totalSize += e.Metadata.Size
 	}
 
-	if flagVerbose {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	if cfg.Verbose {
 		return runCacheListVerbose(entries, totalSize)
 	}
 
@@ -320,12 +326,12 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 }
 
 func runCachePath(cmd *cobra.Command, args []string) error {
-	path, err := cache.GetCachePath()
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(ui.Path.Render(path))
+	fmt.Println(ui.Path.Render(cfg.CachePath))
 
 	return nil
 }

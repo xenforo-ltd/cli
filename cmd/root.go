@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
@@ -17,11 +18,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
-var (
-	flagNonInteractive bool
-	flagVerbose        bool
-	execCommand        = exec.Command
-)
+var configFile string
 
 var rootCmd = &cobra.Command{
 	Use:   "xf",
@@ -42,16 +39,6 @@ Run XenForo commands directly (from a XenForo directory):
   xf list
   xf xf-dev:import
 `,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		config.SetFlags(config.GlobalFlags{
-			NonInteractive: flagNonInteractive,
-			Verbose:        flagVerbose,
-		})
-
-		return nil
-	},
-	SilenceUsage:  true,
-	SilenceErrors: true,
 }
 
 // Execute runs the CLI application.
@@ -61,7 +48,7 @@ func Execute() {
 
 		if !strings.HasPrefix(firstArg, "-") && firstArg != "help" && firstArg != "--help" && firstArg != "-h" {
 			if !isKnownCommand(firstArg) {
-				if err := runAsXenForoCommand(os.Args[1:]); err != nil {
+				if err := runAsXenForoCommand(os.Args[1:], exec.Command); err != nil {
 					handleError(err)
 					os.Exit(1)
 				}
@@ -77,7 +64,25 @@ func Execute() {
 	}
 }
 
-// isKnownCommand checks if a command is registered with Cobra.
+func handleError(err error) {
+	if cliErr, ok := errors.AsType[*clierrors.CLIError](err); ok {
+		verbose := false
+
+		cfg, err := config.Load()
+		if err == nil {
+			verbose = cfg.Verbose
+		}
+
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", cliErr.Error())
+		} else {
+			fmt.Fprintf(os.Stderr, "Error [%s]: %s\n", cliErr.Code, cliErr.Message)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+	}
+}
+
 func isKnownCommand(name string) bool {
 	if found, _, err := rootCmd.Find([]string{name}); err == nil && found != nil && found.Name() == name {
 		return true
@@ -96,8 +101,7 @@ func isKnownCommand(name string) bool {
 	return false
 }
 
-// runAsXenForoCommand attempts to run the arguments as a XenForo CLI command.
-func runAsXenForoCommand(args []string) error {
+func runAsXenForoCommand(args []string, cmdFn func(string, ...string) *exec.Cmd) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return clierrors.New(clierrors.CodeInvalidInput, "failed to get current directory")
@@ -111,7 +115,7 @@ func runAsXenForoCommand(args []string) error {
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
 		if clierrors.Is(err, clierrors.CodeDockerEnvNotInitialized) {
-			return runAsLocalXenForoCommand(xfDir, args)
+			return runAsLocalXenForoCommand(xfDir, args, cmdFn)
 		}
 
 		return err
@@ -120,9 +124,9 @@ func runAsXenForoCommand(args []string) error {
 	return runner.XFCommand(args...)
 }
 
-func runAsLocalXenForoCommand(xfDir string, args []string) error {
+func runAsLocalXenForoCommand(xfDir string, args []string, cmdFn func(string, ...string) *exec.Cmd) error {
 	cmdArgs := append([]string{"cmd.php"}, args...)
-	cmd := execCommand("php", cmdArgs...)
+	cmd := cmdFn("php", cmdArgs...)
 	cmd.Dir = xfDir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -140,22 +144,14 @@ func runAsLocalXenForoCommand(xfDir string, args []string) error {
 }
 
 func init() {
+	cobra.OnInitialize(func() { config.Init(configFile) })
+
 	rootCmd.InitDefaultCompletionCmd()
 
-	rootCmd.PersistentFlags().BoolVar(&flagNonInteractive, "non-interactive", false,
-		"disable interactive prompts (for CI/automation)")
-	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false,
-		"enable verbose output")
-}
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "path to config file")
+	rootCmd.PersistentFlags().BoolP("no-interaction", "n", false, "disable interactive prompts")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
 
-func handleError(err error) {
-	if cliErr, ok := errors.AsType[*clierrors.CLIError](err); ok {
-		if flagVerbose {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", cliErr.Error())
-		} else {
-			fmt.Fprintf(os.Stderr, "Error [%s]: %s\n", cliErr.Code, cliErr.Message)
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
-	}
+	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	viper.BindPFlag("no_interaction", rootCmd.PersistentFlags().Lookup("no-interaction"))
 }

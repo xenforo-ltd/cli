@@ -27,10 +27,7 @@ type Token struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 	Scope        string    `json:"scope,omitempty"`
 	IssuedAt     time.Time `json:"issued_at"`
-
-	// Environment context for the token
-	Environment string `json:"environment"`
-	BaseURL     string `json:"base_url"`
+	BaseURL      string    `json:"base_url"`
 }
 
 // IsExpired checks if the token has expired, accounting for clock skew.
@@ -140,7 +137,12 @@ func RequireAuth() (*Token, error) {
 	}
 
 	// Check if token matches current configuration
-	if token.Environment != string(config.GetEffectiveEnvironment()) || token.BaseURL != config.GetEffectiveBaseURL() {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	if token.BaseURL != cfg.OAuth.BaseURL {
 		return nil, clierrors.New(clierrors.CodeAuthRequired,
 			"authenticated for a different configuration - run 'xf auth login'")
 	}

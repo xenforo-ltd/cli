@@ -46,26 +46,12 @@ type Entry struct {
 
 // NewManager creates a new cache manager.
 func NewManager() (*Manager, error) {
-	basePath, err := GetCachePath()
+	cfg, err := config.Load()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Manager{basePath: basePath}, nil
-}
-
-// GetCachePath returns the configured cache directory path.
-func GetCachePath() (string, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return "", err
-	}
-
-	if cfg.CachePath != "" {
-		return cfg.CachePath, nil
-	}
-
-	return config.DefaultCacheDir()
+	return &Manager{basePath: cfg.CachePath}, nil
 }
 
 // BasePath returns the cache manager's base directory.

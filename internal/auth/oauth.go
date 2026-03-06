@@ -17,63 +17,14 @@ import (
 	"github.com/xenforo-ltd/cli/internal/config"
 )
 
-// OAuthConfig holds OAuth endpoint configuration.
-type OAuthConfig struct {
-	// BaseURL is the base URL for all OAuth endpoints.
-	BaseURL string
-
-	// ClientID is the OAuth client identifier.
-	ClientID string
-
-	// Scopes are the requested OAuth scopes.
-	Scopes []string
-
-	// RedirectPath is the path for the OAuth callback.
-	RedirectPath string
-}
-
-// OAuthEndpoints holds the OAuth endpoint URLs.
-type OAuthEndpoints struct {
-	Auth       string
-	Token      string
-	Introspect string
-	Revoke     string
-}
-
-// DefaultOAuthConfig returns the OAuth configuration based on current environment settings.
-func DefaultOAuthConfig() *OAuthConfig {
-	return &OAuthConfig{
-		BaseURL:      config.GetEffectiveBaseURL(),
-		ClientID:     config.GetEffectiveClientID(),
-		Scopes:       config.GetEffectiveScopes(),
-		RedirectPath: config.GetEffectiveRedirectPath(),
-	}
-}
-
-// Endpoints returns the OAuth endpoint URLs.
-func (c *OAuthConfig) Endpoints() *OAuthEndpoints {
-	base := strings.TrimSuffix(c.BaseURL, "/")
-
-	return &OAuthEndpoints{
-		Auth:       base + "/customer-oauth/authorize",
-		Token:      base + "/api/customer-oauth2/token",
-		Introspect: base + "/api/customer-oauth2/introspect",
-		Revoke:     base + "/api/customer-oauth2/revoke",
-	}
-}
-
 // OAuthClient handles the OAuth authentication flow.
 type OAuthClient struct {
-	config     *OAuthConfig
+	config     *config.OAuthConfig
 	httpClient *http.Client
 }
 
 // NewOAuthClient creates a new OAuth client.
-func NewOAuthClient(cfg *OAuthConfig) *OAuthClient {
-	if cfg == nil {
-		cfg = DefaultOAuthConfig()
-	}
-
+func NewOAuthClient(cfg *config.OAuthConfig) *OAuthClient {
 	return &OAuthClient{
 		config: cfg,
 		httpClient: &http.Client{
@@ -284,7 +235,6 @@ func (c *OAuthClient) tokenFromResponse(resp *TokenResponse) *Token {
 		ExpiresAt:    now.Add(time.Duration(resp.ExpiresIn) * time.Second),
 		Scope:        resp.Scope,
 		IssuedAt:     now,
-		Environment:  string(config.GetEffectiveEnvironment()),
 		BaseURL:      c.config.BaseURL,
 	}
 }
@@ -376,7 +326,14 @@ func (cs *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Build redirect URL to the completion page on the XenForo site
-	baseURL := strings.TrimSuffix(config.GetEffectiveBaseURL(), "/")
+	cfg, err := config.Load()
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+
+		return
+	}
+
+	baseURL := strings.TrimSuffix(cfg.OAuth.BaseURL, "/")
 	redirectURL := baseURL + "/customer-oauth/complete"
 
 	if result.Error != "" {

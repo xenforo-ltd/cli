@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/clierrors"
+	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
@@ -125,7 +126,12 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if flagVerbose {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	if cfg.Verbose {
 		runLicensesVerbose(licenses)
 		return nil
 	}

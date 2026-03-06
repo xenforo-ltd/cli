@@ -159,7 +159,17 @@ func (d *Doctor) checkAuth() {
 		return
 	}
 
-	if token.Environment != string(config.GetEffectiveEnvironment()) || token.BaseURL != config.GetEffectiveBaseURL() {
+	cfg, err := config.Load()
+	if err != nil {
+		result.Status = StatusError
+		result.Message = "Failed to load configuration"
+		result.Details = err.Error()
+		d.results = append(d.results, result)
+
+		return
+	}
+
+	if token.BaseURL != cfg.OAuth.BaseURL {
 		result.Status = StatusWarning
 		result.Message = "Authenticated with different configuration"
 		result.Suggestion = "Run 'xf auth login' to re-authenticate"
@@ -245,20 +255,17 @@ func (d *Doctor) checkCacheDirectory() {
 		Name: "Cache Directory",
 	}
 
-	cacheDir, err := config.DefaultCacheDir()
+	cfg, err := config.Load()
 	if err != nil {
 		result.Status = StatusError
-		result.Message = "Failed to determine cache directory"
+		result.Message = "Failed to load configuration"
 		result.Details = err.Error()
 		d.results = append(d.results, result)
 
 		return
 	}
 
-	cfg, err := config.Load()
-	if err == nil && cfg.CachePath != "" {
-		cacheDir = cfg.CachePath
-	}
+	cacheDir := cfg.CachePath
 
 	info, err := os.Stat(cacheDir)
 	if os.IsNotExist(err) {
@@ -314,14 +321,16 @@ func (d *Doctor) checkDiskSpace() {
 		Name: "Disk Space",
 	}
 
-	cacheDir, err := config.DefaultCacheDir()
+	cfg, err := config.Load()
 	if err != nil {
 		result.Status = StatusSkipped
-		result.Message = "Could not determine cache directory"
+		result.Message = "Could not load configuration"
 		d.results = append(d.results, result)
 
 		return
 	}
+
+	cacheDir := cfg.CachePath
 
 	// Use df command to check disk space (works on macOS and Linux).
 	cmd := exec.CommandContext(context.Background(), "df", "-k", cacheDir)
@@ -384,7 +393,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 		url  string
 	}{
 		{"GitHub", "https://api.github.com"},
-		{"XenForo", config.GetEffectiveBaseURL()},
+		{"XenForo", "https://xenforo.com"},
 	}
 
 	client := &http.Client{

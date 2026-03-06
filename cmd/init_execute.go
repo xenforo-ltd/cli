@@ -23,6 +23,11 @@ import (
 )
 
 func executeInit(ctx context.Context, opts *InitOptions) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
 	if opts.InstanceName == "" {
 		opts.InstanceName = xf.GenerateInstanceName(filepath.Base(opts.TargetPath))
 	}
@@ -108,7 +113,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
 	if !opts.SkipUp {
-		if config.IsVerbose() {
+		if cfg.Verbose {
 			ui.PrintSubstep("Running docker compose up...")
 
 			if err := runner.Up(true); err != nil {
@@ -134,7 +139,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		var detected bool
 
 		siteURL, detected = chooseBoardURL(opts.InstanceName, detectedURL, detectedErr)
-		if !detected && config.IsVerbose() && detectedErr != nil {
+		if !detected && cfg.Verbose && detectedErr != nil {
 			ui.PrintWarning(fmt.Sprintf("Could not auto-detect site URL, using fallback %s: %v", siteURL, detectedErr))
 		}
 
@@ -165,7 +170,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			shellCmd := shellJoinArgs(append([]string{"php", "cmd.php"}, installArgs...))
 			shellInstallArgs := []string{"sh", "-c", shellCmd}
 
-			if config.IsVerbose() {
+			if cfg.Verbose {
 				ui.PrintSubstep("Running XenForo installation...")
 
 				if err := runner.ExecOrRunWithEnv("xf", true, installEnv, shellInstallArgs...); err != nil {

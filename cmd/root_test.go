@@ -55,7 +55,7 @@ func TestRunAsXenForoCommandOutsideDirReturnsActionableError(t *testing.T) {
 	t.Setenv("XF_DIR", "")
 	t.Chdir(t.TempDir())
 
-	err := runAsXenForoCommand([]string{"list"})
+	err := runAsXenForoCommand([]string{"list"}, exec.Command)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -80,47 +80,37 @@ func TestRunAsXenForoCommandFallsBackToLocalWhenComposeMissing(t *testing.T) {
 
 	t.Chdir(root)
 
-	execCommand = helperCommand(t,
+	cmdFn := helperCommand(t,
 		"php cmd.php xf-dev:import",
 		root,
 		0,
 	)
-	t.Cleanup(func() {
-		execCommand = exec.Command
-	})
 
-	if err := runAsXenForoCommand([]string{"xf-dev:import"}); err != nil {
+	if err := runAsXenForoCommand([]string{"xf-dev:import"}, cmdFn); err != nil {
 		t.Fatalf("runAsXenForoCommand returned error: %v", err)
 	}
 }
 
 func TestRunAsLocalXenForoCommandBuildsExpectedInvocation(t *testing.T) {
 	root := t.TempDir()
-	execCommand = helperCommand(t,
+	cmdFn := helperCommand(t,
 		"php cmd.php cron:run --verbose",
 		root,
 		0,
 	)
-	t.Cleanup(func() {
-		execCommand = exec.Command
-	})
 
-	if err := runAsLocalXenForoCommand(root, []string{"cron:run", "--verbose"}); err != nil {
+	if err := runAsLocalXenForoCommand(root, []string{"cron:run", "--verbose"}, cmdFn); err != nil {
 		t.Fatalf("runAsLocalXenForoCommand returned error: %v", err)
 	}
 }
 
 func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing.T) {
 	root := t.TempDir()
-	execCommand = func(_ string, _ ...string) *exec.Cmd {
+	cmdFn := func(_ string, _ ...string) *exec.Cmd {
 		return exec.CommandContext(context.Background(), "__xf_missing_php_binary__")
 	}
 
-	t.Cleanup(func() {
-		execCommand = exec.Command
-	})
-
-	err := runAsLocalXenForoCommand(root, []string{"list"})
+	err := runAsLocalXenForoCommand(root, []string{"list"}, cmdFn)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -136,16 +126,13 @@ func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing
 
 func TestRunAsLocalXenForoCommandReturnsErrorOnNonZeroExit(t *testing.T) {
 	root := t.TempDir()
-	execCommand = helperCommand(t,
+	cmdFn := helperCommand(t,
 		"php cmd.php list",
 		root,
 		2,
 	)
-	t.Cleanup(func() {
-		execCommand = exec.Command
-	})
 
-	err := runAsLocalXenForoCommand(root, []string{"list"})
+	err := runAsLocalXenForoCommand(root, []string{"list"}, cmdFn)
 	if err == nil {
 		t.Fatal("expected error")
 	}

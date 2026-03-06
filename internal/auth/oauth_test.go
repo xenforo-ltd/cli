@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/xenforo-ltd/cli/internal/config"
 )
 
 func TestOAuthConfig_Endpoints(t *testing.T) {
@@ -39,7 +41,7 @@ func TestOAuthConfig_Endpoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &OAuthConfig{BaseURL: tt.baseURL}
+			cfg := &config.OAuthConfig{BaseURL: tt.baseURL}
 			endpoints := cfg.Endpoints()
 
 			if endpoints.Auth != tt.wantAuth {
@@ -62,7 +64,7 @@ func TestOAuthConfig_Endpoints(t *testing.T) {
 }
 
 func TestOAuthClient_AuthorizationURL(t *testing.T) {
-	cfg := &OAuthConfig{
+	cfg := &config.OAuthConfig{
 		BaseURL:      "https://example.com/",
 		ClientID:     "test-client",
 		Scopes:       []string{"read", "write"},
@@ -117,7 +119,7 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &OAuthConfig{
+	cfg := &config.OAuthConfig{
 		BaseURL:  server.URL + "/",
 		ClientID: "test-client",
 	}
@@ -159,7 +161,7 @@ func TestOAuthClient_RefreshToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &OAuthConfig{
+	cfg := &config.OAuthConfig{
 		BaseURL:  server.URL + "/",
 		ClientID: "test-client",
 	}
@@ -188,7 +190,7 @@ func TestOAuthClient_IntrospectToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &OAuthConfig{
+	cfg := &config.OAuthConfig{
 		BaseURL:  server.URL + "/",
 		ClientID: "test-client",
 	}
@@ -220,7 +222,7 @@ func TestOAuthClient_RevokeToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &OAuthConfig{
+	cfg := &config.OAuthConfig{
 		BaseURL:  server.URL + "/",
 		ClientID: "test-client",
 	}

@@ -133,8 +133,12 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	flags := config.GetFlags()
-	if !flags.NonInteractive {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	if !cfg.NoInteraction {
 		if err := runUpgradeInteractive(ctx, opts); err != nil {
 			return err
 		}

@@ -210,8 +210,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	flags := config.GetFlags()
-	if !flags.NonInteractive {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	if !cfg.NoInteraction {
 		if err := runInteractiveSetup(ctx, opts); err != nil {
 			return err
 		}
