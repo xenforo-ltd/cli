@@ -8,7 +8,7 @@ import (
 
 // Version is the CLI version string.
 var (
-	Version = "v0.1.6"
+	Version = "v0.0.0"
 	Commit  = "unknown"
 	Date    = "unknown"
 )
