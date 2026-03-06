@@ -142,7 +142,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 }
 
 func runLicensesTable(licenses []customerapi.License) {
-	fmt.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
+	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
 
 	headers := []string{"LICENSE", "SITE TITLE", "SITE URL", "PRODUCT", "STATUS", "EXPIRES", "DOWNLOAD"}
 	rows := make([][]string, 0, len(licenses))
@@ -191,8 +191,8 @@ func runLicensesTable(licenses []customerapi.License) {
 		})
 	}
 
-	fmt.Println(ui.NewTable(headers, rows))
-	fmt.Printf("\nUse %s for detailed license information.\n", ui.Command.Render("-v"))
+	ui.Println(ui.NewTable(headers, rows))
+	ui.Printf("\nUse %s for detailed license information.\n", ui.Command.Render("-v"))
 }
 
 func formatLicenseSite(lic customerapi.License) (string, string) {
@@ -210,7 +210,7 @@ func formatLicenseSite(lic customerapi.License) (string, string) {
 }
 
 func runLicensesVerbose(licenses []customerapi.License) {
-	fmt.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
+	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
 
 	for i, lic := range licenses {
 		var statusText string
@@ -224,7 +224,7 @@ func runLicensesVerbose(licenses []customerapi.License) {
 			statusText = ui.Success.Render("Active")
 		}
 
-		fmt.Printf("%s %s\n", ui.StatusIcon("success"), ui.Bold.Render(lic.ProductTitle))
+		ui.Printf("%s %s\n", ui.StatusIcon("success"), ui.Bold.Render(lic.ProductTitle))
 
 		siteTitle, siteURL := formatLicenseSite(lic)
 		pairs := []ui.KVPair{
@@ -257,7 +257,7 @@ func runLicensesVerbose(licenses []customerapi.License) {
 		ui.PrintKeyValuePadded(pairs)
 
 		if len(lic.Extras) > 0 {
-			fmt.Printf("\n%sExtras:\n", ui.Indent1)
+			ui.Printf("\n%sExtras:\n", ui.Indent1)
 
 			for _, extra := range lic.Extras {
 				downloadable := ""
@@ -265,7 +265,7 @@ func runLicensesVerbose(licenses []customerapi.License) {
 					downloadable = ui.Success.Render(" (downloadable)")
 				}
 
-				fmt.Printf("%s%s %s%s\n", ui.Indent2, ui.Dim.Render(ui.SymbolBullet), extra.Name, downloadable)
+				ui.Printf("%s%s %s%s\n", ui.Indent2, ui.Dim.Render(ui.SymbolBullet), extra.Name, downloadable)
 			}
 		}
 

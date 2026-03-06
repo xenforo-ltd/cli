@@ -233,7 +233,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 			}
 
 			ui.PrintWarning("Not authenticated")
-			fmt.Printf("Run %s to authenticate.\n", ui.Command.Render("xf auth login"))
+			ui.Printf("Run %s to authenticate.\n", ui.Command.Render("xf auth login"))
 
 			return nil
 		}
@@ -288,7 +288,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.PrintSuccess("Authenticated")
-	fmt.Println()
+	ui.Println()
 
 	var pairs []ui.KVPair
 	if username != "" {
@@ -300,24 +300,24 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	pairs = append(pairs, ui.KV("Expires", token.ExpiresAt.Format(time.RFC1123)))
 	ui.PrintKeyValuePadded(pairs)
 
-	fmt.Println()
+	ui.Println()
 
 	if token.IsExpired() {
-		fmt.Printf("%s %s\n", ui.StatusIcon("error"), ui.Error.Render("Token EXPIRED"))
+		ui.Printf("%s %s\n", ui.StatusIcon("error"), ui.Error.Render("Token EXPIRED"))
 
 		if token.RefreshToken != "" {
 			ui.PrintDetail("Token can be refreshed automatically")
 		}
 	} else {
 		remaining := token.TimeUntilExpiry().Round(time.Minute)
-		fmt.Printf("%s Token valid (%s remaining)\n", ui.StatusIcon("success"), ui.Success.Render(remaining.String()))
+		ui.Printf("%s Token valid (%s remaining)\n", ui.StatusIcon("success"), ui.Success.Render(remaining.String()))
 	}
 
 	if serverValid != nil {
 		if *serverValid {
-			fmt.Printf("%s Server validation: %s\n", ui.StatusIcon("success"), ui.Success.Render("Active"))
+			ui.Printf("%s Server validation: %s\n", ui.StatusIcon("success"), ui.Success.Render("Active"))
 		} else {
-			fmt.Printf("%s Server validation: %s\n", ui.StatusIcon("error"), ui.Error.Render("Revoked or Invalid"))
+			ui.Printf("%s Server validation: %s\n", ui.StatusIcon("error"), ui.Error.Render("Revoked or Invalid"))
 		}
 	}
 

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,8 +40,8 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	doc := doctor.NewDoctor()
 
-	fmt.Println(ui.Bold.Render("System Health Check"))
-	fmt.Println()
+	ui.Println(ui.Bold.Render("System Health Check"))
+	ui.Println()
 
 	results := doc.RunAll(ctx)
 
@@ -62,26 +61,26 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 
 		switch {
 		case result.Message != "" && result.Status == doctor.StatusOK:
-			fmt.Printf("%s %s (%s)\n", statusStr, ui.Bold.Render(result.Name), ui.Dim.Render(result.Message))
+			ui.Printf("%s %s (%s)\n", statusStr, ui.Bold.Render(result.Name), ui.Dim.Render(result.Message))
 		case result.Message != "":
-			fmt.Printf("%s %s\n", statusStr, ui.Bold.Render(result.Name))
-			fmt.Printf("%s%s\n", ui.Indent2, result.Message)
+			ui.Printf("%s %s\n", statusStr, ui.Bold.Render(result.Name))
+			ui.Printf("%s%s\n", ui.Indent2, result.Message)
 		default:
-			fmt.Printf("%s %s\n", statusStr, ui.Bold.Render(result.Name))
+			ui.Printf("%s %s\n", statusStr, ui.Bold.Render(result.Name))
 		}
 
 		if result.Details != "" {
 			for line := range strings.SplitSeq(result.Details, "\n") {
-				fmt.Printf("%s%s\n", ui.Indent2, ui.Dim.Render(line))
+				ui.Printf("%s%s\n", ui.Indent2, ui.Dim.Render(line))
 			}
 		}
 
 		if result.Suggestion != "" {
-			fmt.Printf("%s%s %s\n", ui.Indent2, ui.Dim.Render(ui.SymbolArrow), ui.Info.Render(result.Suggestion))
+			ui.Printf("%s%s %s\n", ui.Indent2, ui.Dim.Render(ui.SymbolArrow), ui.Info.Render(result.Suggestion))
 		}
 	}
 
-	fmt.Println()
+	ui.Println()
 
 	switch {
 	case doc.HasErrors():

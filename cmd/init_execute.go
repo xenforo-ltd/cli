@@ -45,7 +45,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	totalSteps := 7
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(1, totalSteps, "Preparing target directory")
 	ui.PrintDetail(opts.TargetPath)
 
@@ -53,7 +53,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		return err
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(2, totalSteps, "Downloading XenForo files")
 
 	cachedFiles, err := downloadProducts(ctx, client, opts)
@@ -61,14 +61,14 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		return err
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(3, totalSteps, "Extracting XenForo files")
 
 	if err := extractProducts(cachedFiles, opts.TargetPath, titleMap); err != nil {
 		return err
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(4, totalSteps, "Setting up Docker configuration")
 
 	xfcmdOpts := xfcmd.InitOptions{
@@ -93,7 +93,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		ui.PrintWarning(fmt.Sprintf("Could not write metadata: %v", err))
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(5, totalSteps, "Configuring environment")
 
 	if err := configureEnvironment(opts); err != nil {
@@ -102,7 +102,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	ui.PrintSuccess("Environment configured")
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(6, totalSteps, "Starting Docker environment")
 
 	runner, err := dockercompose.NewRunner(opts.TargetPath)
@@ -143,7 +143,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintWarning(fmt.Sprintf("Could not auto-detect site URL, using fallback %s: %v", siteURL, detectedErr))
 		}
 
-		fmt.Println()
+ui.Println()
 		ui.PrintStep(7, totalSteps, "Installing XenForo")
 
 		if !opts.SkipInstall {
@@ -175,8 +175,8 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 				if err := runner.ExecOrRunWithEnv("xf", true, installEnv, shellInstallArgs...); err != nil {
 					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
-					fmt.Println("    You can run it manually:")
-					fmt.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
+					ui.Println("    You can run it manually:")
+					ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
 				}
 			} else {
 				spinner := ui.NewSpinner("Installing XenForo...")
@@ -187,8 +187,8 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 					spinner.Stop()
 					printHiddenOutputTail("Installer output", tracker.TailLines())
 					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
-					fmt.Println("    You can run it manually:")
-					fmt.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
+					ui.Println("    You can run it manually:")
+					ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
 				} else {
 					spinner.StopWithMessage("success", "XenForo installed")
 				}
@@ -200,7 +200,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		ui.PrintSubstep("Skipped (--skip-up flag set)")
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.SuccessBox("XenForo development environment initialized!", []ui.KVPair{
 		ui.KV("Location", ui.Path.Render(opts.TargetPath)),
 		ui.KV("Instance", opts.InstanceName),
@@ -208,16 +208,16 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	})
 
 	if !opts.SkipUp {
-		fmt.Println()
-		fmt.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(siteURL))
+		ui.Println()
+		ui.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(siteURL))
 	} else {
-		fmt.Println()
-		fmt.Println("To start the environment:")
-		fmt.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", opts.TargetPath)))
-		fmt.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
+		ui.Println()
+		ui.Println("To start the environment:")
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", opts.TargetPath)))
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
 	}
 
-	fmt.Println()
+	ui.Println()
 	printUsefulCommands()
 
 	return nil
@@ -386,12 +386,12 @@ func printHiddenOutputTail(title string, lines []string) {
 	ui.PrintSubstep(title + " (last lines):")
 
 	for _, line := range lines {
-		fmt.Printf("%s%s\n", ui.Indent2, ui.Dim.Render(line))
+		ui.Printf("%s%s\n", ui.Indent2, ui.Dim.Render(line))
 	}
 }
 
 func printUsefulCommands() {
-	fmt.Println(ui.Bold.Render("Useful commands:"))
+	ui.Println(ui.Bold.Render("Useful commands:"))
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("xf up", "Start the environment"),
 		ui.KV("xf down", "Stop the environment"),

@@ -96,7 +96,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		SkipUpgrade:     flagUpgradeSkipCmd,
 	}
 
-	fmt.Println(ui.Bold.Render("Checking installation..."))
+	ui.Println(ui.Bold.Render("Checking installation..."))
 
 	currentVersion, err := xf.DetectVersion(absPath)
 	if err != nil {
@@ -105,7 +105,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	opts.CurrentVersion = currentVersion
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("Current version", fmt.Sprintf("%s (ID: %d)", currentVersion.String, currentVersion.ID)),
 	})
@@ -248,7 +248,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		if len(versionOptions) == 0 {
-			fmt.Println()
+			ui.Println()
 			ui.PrintSuccess("No newer versions available. Your installation is up to date!")
 
 			return nil
@@ -289,7 +289,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 
 	totalSteps := 3
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(1, totalSteps, "Downloading upgrade files")
 
 	cachedFiles, err := downloadUpgradeFiles(ctx, client, opts)
@@ -297,7 +297,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 		return err
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintStep(2, totalSteps, "Upgrading files")
 
 	if err := overlayUpgradeFiles(cachedFiles, opts.TargetPath); err != nil {
@@ -313,7 +313,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 		ui.PrintWarning(fmt.Sprintf("Could not update metadata: %v", err))
 	}
 
-	fmt.Println()
+	ui.Println()
 
 	if !opts.SkipUpgrade {
 		ui.PrintStep(3, totalSteps, "Running XenForo upgrade")
@@ -325,15 +325,15 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 
 		if err := runner.XFCommand("xf:upgrade"); err != nil {
 			ui.PrintWarning(fmt.Sprintf("xf:upgrade failed: %v", err))
-			fmt.Println("    You may need to start the containers first with 'up',")
-			fmt.Println("    then run the upgrade manually:")
-			fmt.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:upgrade", opts.TargetPath)))
+			ui.Println("    You may need to start the containers first with 'up',")
+			ui.Println("    then run the upgrade manually:")
+			ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:upgrade", opts.TargetPath)))
 		}
 	} else {
 		ui.PrintStep(3, totalSteps, "Skipped (--skip-upgrade flag set)")
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.SuccessBox("XenForo upgrade completed!", []ui.KVPair{
 		ui.KV("Location", ui.Path.Render(opts.TargetPath)),
 		ui.KV("Previous version", opts.CurrentVersion.String),
@@ -341,14 +341,14 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	})
 
 	if !opts.SkipUpgrade {
-		fmt.Println()
+		ui.Println()
 		ui.PrintSuccess("Your XenForo installation has been upgraded.")
 	} else {
-		fmt.Println()
-		fmt.Println("Files have been upgraded. Run the following to complete:")
-		fmt.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", opts.TargetPath)))
-		fmt.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
-		fmt.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf xf:upgrade"))
+		ui.Println()
+		ui.Println("Files have been upgraded. Run the following to complete:")
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", opts.TargetPath)))
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf xf:upgrade"))
 	}
 
 	return nil

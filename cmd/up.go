@@ -77,8 +77,8 @@ func runUp(cmd *cobra.Command, args []string) error {
 
 	url, err := runner.GetURL()
 	if err == nil && url != "" {
-		fmt.Println()
-		fmt.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(url))
+		ui.Println()
+		ui.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(url))
 	}
 
 	return nil

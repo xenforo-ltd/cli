@@ -36,7 +36,7 @@ Examples:
 		info := version.Get()
 
 		if flagVersionShort {
-			fmt.Println(ui.Version.Render(info.Short()))
+			ui.Println(ui.Version.Render(info.Short()))
 			return
 		}
 
@@ -52,7 +52,7 @@ Examples:
 			return
 		}
 
-		fmt.Printf("%s %s\n\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
+		ui.Printf("%s %s\n\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
 
 		var pairs []ui.KVPair
 		if info.Commit != "" && info.Commit != "unknown" {

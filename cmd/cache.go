@@ -201,7 +201,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 }
 
 func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
-	fmt.Printf("%s Cached downloads: %s entries, %s total\n\n",
+	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
 		ui.StatusIcon("info"),
 		ui.Bold.Render(fmt.Sprintf("%d", len(entries))),
 		ui.Bold.Render(ui.FormatBytes(totalSize)))
@@ -219,14 +219,14 @@ func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 		})
 	}
 
-	fmt.Println(ui.NewTable(headers, rows))
-	fmt.Printf("\nUse %s for detailed information.\n", ui.Command.Render("-v"))
+	ui.Println(ui.NewTable(headers, rows))
+	ui.Printf("\nUse %s for detailed information.\n", ui.Command.Render("-v"))
 
 	return nil
 }
 
 func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
-	fmt.Printf("%s Cached downloads: %s entries, %s total\n\n",
+	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
 		ui.StatusIcon("info"),
 		ui.Bold.Render(fmt.Sprintf("%d", len(entries))),
 		ui.Bold.Render(ui.FormatBytes(totalSize)))
@@ -235,14 +235,14 @@ func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 	for _, e := range entries {
 		if e.LicenseKey != currentLicense {
 			if currentLicense != "" {
-				fmt.Println()
+				ui.Println()
 			}
 
-			fmt.Printf("%s License %s\n", ui.StatusIcon("success"), ui.Bold.Render(e.LicenseKey))
+			ui.Printf("%s License %s\n", ui.StatusIcon("success"), ui.Bold.Render(e.LicenseKey))
 			currentLicense = e.LicenseKey
 		}
 
-		fmt.Printf("\n%s%s %s\n", ui.Indent1, ui.Bold.Render(e.Metadata.DownloadID), ui.Version.Render("v"+e.Metadata.Version))
+		ui.Printf("\n%s%s %s\n", ui.Indent1, ui.Bold.Render(e.Metadata.DownloadID), ui.Version.Render("v"+e.Metadata.Version))
 
 		shortChecksum := e.Metadata.Checksum
 		if len(shortChecksum) > 12 {
@@ -331,7 +331,7 @@ func runCachePath(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Println(ui.Path.Render(cfg.CachePath))
+	ui.Println(ui.Path.Render(cfg.CachePath))
 
 	return nil
 }

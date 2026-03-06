@@ -51,12 +51,12 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 
 	spinner.Stop()
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("Current version", ui.Version.Render(info.CurrentVersion)),
 		ui.KV("Latest version", ui.Version.Render(info.LatestVersion)),
 	})
-	fmt.Println()
+	ui.Println()
 
 	if !info.HasUpdate {
 		ui.PrintSuccess("You are already running the latest version.")
@@ -66,10 +66,10 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	ui.PrintInfo("A new version is available!")
 
 	if info.ReleaseURL != "" {
-		fmt.Printf("Release notes: %s\n", ui.URL.Render(info.ReleaseURL))
+		ui.Printf("Release notes: %s\n", ui.URL.Render(info.ReleaseURL))
 	}
 
-	fmt.Println()
+	ui.Println()
 
 	if selfUpdateCheckOnly {
 		ui.PrintWarning(fmt.Sprintf("Run '%s' to install the update.", ui.Command.Render("xf self-update")))
@@ -98,15 +98,15 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		progressBar.Finish()
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintSuccess("Update successful!")
-	fmt.Println()
+	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("Previous", ui.Version.Render(info.CurrentVersion)),
 		ui.KV("Current", ui.Version.Render(info.LatestVersion)),
 	})
-	fmt.Println()
-	fmt.Printf("Run '%s' to verify the update.\n", ui.Command.Render("xf version"))
+	ui.Println()
+	ui.Printf("Run '%s' to verify the update.\n", ui.Command.Render("xf version"))
 
 	return nil
 }

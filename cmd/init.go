@@ -244,8 +244,8 @@ func detectXenForo(path string) (bool, error) {
 }
 
 func initExisting(opts *InitOptions) error {
-	fmt.Println(ui.Bold.Render("Initializing Docker environment in existing XenForo directory..."))
-	fmt.Println()
+	ui.Println(ui.Bold.Render("Initializing Docker environment in existing XenForo directory..."))
+	ui.Println()
 
 	xfDir := opts.TargetPath
 
@@ -260,7 +260,7 @@ func initExisting(opts *InitOptions) error {
 	}
 
 	ui.PrintSuccess("Docker Compose is available")
-	fmt.Println()
+	ui.Println()
 
 	ui.PrintStep(1, 3, "Setting up Docker configuration")
 
@@ -303,20 +303,20 @@ func initExisting(opts *InitOptions) error {
 		ui.PrintDetail("Skipped (use --up flag to start containers)")
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.SuccessBox("Docker environment initialized!", []ui.KVPair{
 		ui.KV("Location", ui.Path.Render(xfDir)),
 		ui.KV("Instance", opts.InstanceName),
 	})
 
 	if !opts.StartContainers {
-		fmt.Println()
-		fmt.Println("To start the environment:")
-		fmt.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", xfDir)))
-		fmt.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
+		ui.Println()
+		ui.Println("To start the environment:")
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", xfDir)))
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
 	}
 
-	fmt.Println()
+	ui.Println()
 	printUsefulCommands()
 
 	return nil
@@ -353,7 +353,7 @@ func configureExistingEnv(opts *InitOptions) error {
 }
 
 func checkPrerequisites() error {
-	fmt.Println(ui.Bold.Render("Checking prerequisites..."))
+	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 
 	if err := dockercompose.CheckDockerRunning(); err != nil {
 		return err
@@ -367,7 +367,7 @@ func checkPrerequisites() error {
 
 	ui.PrintSuccess("Docker Compose is available")
 
-	fmt.Println()
+	ui.Println()
 
 	return nil
 }

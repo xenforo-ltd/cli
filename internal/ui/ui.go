@@ -9,19 +9,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // ColorPrimary is the primary accent color.
 var (
-	ColorPrimary   = lipgloss.Color("4")
-	ColorSecondary = lipgloss.Color("5")
-	ColorAccent    = lipgloss.Color("6")
-	ColorSuccess   = lipgloss.Color("2")
-	ColorWarning   = lipgloss.Color("3")
-	ColorError     = lipgloss.Color("1")
-	ColorInfo      = lipgloss.Color("6")
-	ColorSubtle    = lipgloss.AdaptiveColor{Light: "240", Dark: "250"}
+	hasDark   = lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+	lightDark = lipgloss.LightDark(hasDark)
+
+	ColorPrimary   = lipgloss.Blue
+	ColorSecondary = lipgloss.Magenta
+	ColorAccent    = lipgloss.Cyan
+	ColorSuccess   = lipgloss.Green
+	ColorWarning   = lipgloss.Yellow
+	ColorError     = lipgloss.Red
+	ColorInfo      = lipgloss.Cyan
+	ColorSubtle    = lightDark(lipgloss.Color("#585858"), lipgloss.Color("#BCBCBC"))
 )
 
 const ansiClearLine = "\r\033[2K"
@@ -74,6 +77,12 @@ const (
 	SymbolCheck   = "✓"
 	SymbolCross   = "✗"
 )
+
+// Println is a wrapper around lipgloss.Println for color-downsampled output.
+var Println = lipgloss.Println
+
+// Printf is a wrapper around lipgloss.Printf for color-downsampled output.
+var Printf = lipgloss.Printf
 
 // StatusIcon renders a colored status symbol.
 func StatusIcon(status string) string {
@@ -239,7 +248,7 @@ func PrintKeyValuePaddedWithIndent(pairs []KVPair, indent string) {
 
 	for _, p := range pairs {
 		padding := strings.Repeat(" ", maxKeyLen-len(p.Key))
-		fmt.Printf("%s%s%s  %s\n", indent, Label.Render(p.Key+":"), padding, p.Value)
+		lipgloss.Printf("%s%s%s  %s\n", indent, Label.Render(p.Key+":"), padding, p.Value)
 	}
 }
 
@@ -313,8 +322,8 @@ func (s *Spinner) Start() {
 				s.mu.Lock()
 				msg := s.message
 				frame := Info.Render(s.frames[s.frameIdx%len(s.frames)])
-				fmt.Fprint(s.writer, ansiClearLine)
-				fmt.Fprintf(s.writer, "%s %s", frame, msg)
+				lipgloss.Fprint(s.writer, ansiClearLine)
+				lipgloss.Fprintf(s.writer, "%s %s", frame, msg)
 				s.frameIdx++
 				s.mu.Unlock()
 				time.Sleep(s.interval)
@@ -335,13 +344,13 @@ func (s *Spinner) Stop() {
 	close(s.done)
 	s.running = false
 
-	fmt.Fprint(s.writer, ansiClearLine)
+	lipgloss.Fprint(s.writer, ansiClearLine)
 }
 
 // StopWithMessage stops the spinner and prints a final message.
 func (s *Spinner) StopWithMessage(status, message string) {
 	s.Stop()
-	fmt.Fprintf(s.writer, "%s %s\n", StatusIcon(status), message)
+	lipgloss.Fprintf(s.writer, "%s %s\n", StatusIcon(status), message)
 }
 
 // UpdateMessage updates the spinner message.
@@ -375,7 +384,7 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 	defer w.spinner.mu.Unlock()
 
 	if w.spinner.running {
-		fmt.Fprint(w.spinner.writer, ansiClearLine)
+		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
 	}
 
 	n, err := w.writer.Write(p)
@@ -389,10 +398,10 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 			spacing = "\n"
 		}
 
-		fmt.Fprint(w.spinner.writer, spacing)
+		lipgloss.Fprint(w.spinner.writer, spacing)
 		frame := Info.Render(w.spinner.frames[w.spinner.frameIdx%len(w.spinner.frames)])
-		fmt.Fprint(w.spinner.writer, ansiClearLine)
-		fmt.Fprintf(w.spinner.writer, "%s %s", frame, w.spinner.message)
+		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
+		lipgloss.Fprintf(w.spinner.writer, "%s %s", frame, w.spinner.message)
 		w.spinner.frameIdx++
 	}
 
@@ -448,7 +457,7 @@ func (p *ProgressBar) Finish() {
 
 	p.current = p.total
 	p.render()
-	fmt.Fprintln(p.writer)
+	lipgloss.Fprintln(p.writer)
 }
 
 func (p *ProgressBar) render() {
@@ -466,7 +475,7 @@ func (p *ProgressBar) render() {
 	pctStr := fmt.Sprintf("%3.0f%%", percent*100)
 	sizeStr := fmt.Sprintf("%s / %s", FormatBytes(p.current), FormatBytes(p.total))
 
-	fmt.Fprintf(p.writer, "\r%s %s %s %s",
+	lipgloss.Fprintf(p.writer, "\r%s %s %s %s",
 		p.message,
 		bar,
 		Info.Render(pctStr),
@@ -504,81 +513,81 @@ func FormatDuration(d time.Duration) string {
 
 // PrintSuccess prints a success message.
 func PrintSuccess(message string) {
-	fmt.Printf("%s %s\n", StatusIcon("success"), message)
+	lipgloss.Printf("%s %s\n", StatusIcon("success"), message)
 }
 
 // PrintWarning prints a warning message.
 func PrintWarning(message string) {
-	fmt.Printf("%s %s\n", StatusIcon("warning"), message)
+	lipgloss.Printf("%s %s\n", StatusIcon("warning"), message)
 }
 
 // PrintError prints an error message.
 func PrintError(message string) {
-	fmt.Printf("%s %s\n", StatusIcon("error"), message)
+	lipgloss.Printf("%s %s\n", StatusIcon("error"), message)
 }
 
 // PrintInfo prints an info message.
 func PrintInfo(message string) {
-	fmt.Printf("%s %s\n", StatusIcon("info"), message)
+	lipgloss.Printf("%s %s\n", StatusIcon("info"), message)
 }
 
 // PrintStep prints a step message.
 func PrintStep(current, total int, message string) {
-	fmt.Println(StepWithLabel(current, total, message))
+	lipgloss.Println(StepWithLabel(current, total, message))
 }
 
 // PrintSubstep prints an indented substep message with arrow.
 func PrintSubstep(message string) {
-	fmt.Printf("%s%s %s\n", Indent2, Dim.Render(SymbolArrow), message)
+	lipgloss.Printf("%s%s %s\n", Indent2, Dim.Render(SymbolArrow), message)
 }
 
 // PrintDetail prints an indented detail message (dimmed).
 func PrintDetail(message string) {
-	fmt.Printf("%s%s\n", Indent2, Dim.Render(message))
+	lipgloss.Printf("%s%s\n", Indent2, Dim.Render(message))
 }
 
 // PrintKeyValue prints a key-value pair.
 func PrintKeyValue(key, value string) {
-	fmt.Println(KeyValue(key, value))
+	lipgloss.Println(KeyValue(key, value))
 }
 
 // SuccessBox prints a success message with optional key-value details.
 // This replaces heavy double-line separators with a cleaner format.
 func SuccessBox(message string, details []KVPair) {
-	fmt.Printf("%s %s\n", StatusIcon("success"), SuccessBold.Render(message))
+	lipgloss.Printf("%s %s\n", StatusIcon("success"), SuccessBold.Render(message))
 
 	if len(details) > 0 {
-		fmt.Println()
+		lipgloss.Println()
 		PrintKeyValuePadded(details)
 	}
 }
 
 // InfoBox prints an info message with optional key-value details.
 func InfoBox(message string, details []KVPair) {
-	fmt.Printf("%s %s\n", StatusIcon("info"), Bold.Render(message))
+	lipgloss.Printf("%s %s\n", StatusIcon("info"), Bold.Render(message))
 
 	if len(details) > 0 {
-		fmt.Println()
+		lipgloss.Println()
 		PrintKeyValuePadded(details)
 	}
 }
 
 // WarningBox prints a warning message with optional key-value details.
 func WarningBox(message string, details []KVPair) {
-	fmt.Printf("%s %s\n", StatusIcon("warning"), WarningBold.Render(message))
+	lipgloss.Printf("%s %s\n", StatusIcon("warning"), WarningBold.Render(message))
 
 	if len(details) > 0 {
-		fmt.Println()
+		lipgloss.Println()
 		PrintKeyValuePadded(details)
 	}
 }
 
 // ErrorBox prints an error message with optional key-value details.
 func ErrorBox(message string, details []KVPair) {
-	fmt.Printf("%s %s\n", StatusIcon("error"), ErrorBold.Render(message))
+	lipgloss.Printf("%s %s\n", StatusIcon("error"), ErrorBold.Render(message))
 
 	if len(details) > 0 {
-		fmt.Println()
+		lipgloss.Println()
 		PrintKeyValuePadded(details)
 	}
 }

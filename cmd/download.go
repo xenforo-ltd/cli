@@ -94,13 +94,13 @@ func listDownloadables(ctx context.Context, client *customerapi.Client, licenseK
 		return nil
 	}
 
-	fmt.Printf("%s Available downloads:\n\n", ui.StatusIcon("success"))
+	ui.Printf("%s Available downloads:\n\n", ui.StatusIcon("success"))
 
 	for _, d := range downloadables.Downloadables {
-		fmt.Printf("%s%s %s\n", ui.Indent1, ui.Bold.Render(d.DownloadID), ui.Dim.Render("- "+d.Title))
+		ui.Printf("%s%s %s\n", ui.Indent1, ui.Bold.Render(d.DownloadID), ui.Dim.Render("- "+d.Title))
 	}
 
-	fmt.Printf("\nUse %s to specify which package to download.\n", ui.Command.Render("--download <id>"))
+	ui.Printf("\nUse %s to specify which package to download.\n", ui.Command.Render("--download <id>"))
 
 	return nil
 }
@@ -119,7 +119,7 @@ func listVersions(ctx context.Context, client *customerapi.Client, licenseKey st
 		return nil
 	}
 
-	fmt.Printf("%s Available versions:\n\n", ui.StatusIcon("success"))
+	ui.Printf("%s Available versions:\n\n", ui.StatusIcon("success"))
 
 	for _, v := range versions.Versions {
 		stable := ""
@@ -127,10 +127,10 @@ func listVersions(ctx context.Context, client *customerapi.Client, licenseKey st
 			stable = ui.Success.Render(" (stable)")
 		}
 
-		fmt.Printf("%s%s %s%s\n", ui.Indent1, ui.Dim.Render(fmt.Sprintf("%d", v.VersionID)), ui.Version.Render(v.VersionStr), stable)
+		ui.Printf("%s%s %s%s\n", ui.Indent1, ui.Dim.Render(fmt.Sprintf("%d", v.VersionID)), ui.Version.Render(v.VersionStr), stable)
 	}
 
-	fmt.Printf("\nUse %s to specify which version to download.\n", ui.Command.Render("--version <id>"))
+	ui.Printf("\nUse %s to specify which version to download.\n", ui.Command.Render("--version <id>"))
 
 	return nil
 }
@@ -171,7 +171,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 						ui.KV("Size", ui.FormatBytes(entry.Metadata.Size)),
 						ui.KV("Downloaded", entry.Metadata.DownloadedAt.Format("2006-01-02 15:04:05")),
 					})
-					fmt.Printf("\nUse %s to re-download.\n", ui.Command.Render("--force"))
+					ui.Printf("\nUse %s to re-download.\n", ui.Command.Render("--force"))
 
 					return nil
 				}

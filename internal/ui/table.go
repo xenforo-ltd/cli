@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 )
 
 // TableStyle defines the visual style for tables.
@@ -75,5 +75,5 @@ func PrintTable(headers []string, rows [][]string) {
 		return
 	}
 
-	println(NewTable(headers, rows))
+	lipgloss.Println(NewTable(headers, rows))
 }
