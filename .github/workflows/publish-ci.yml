@@ -74,7 +74,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
-          context: internal/embed/docker
+          context: internal/docker/embed
           target: ${{ env.IMAGE_TARGET }}
           build-args: |
             PHP_VERSION=${{ matrix.php-version }}
