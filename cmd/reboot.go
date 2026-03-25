@@ -41,13 +41,15 @@ func runReboot(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo("Stopping Docker environment...")
 
-	if err := runner.Down(); err != nil {
+	ctx := cmd.Context()
+
+	if err := runner.Down(ctx); err != nil {
 		return err
 	}
 
 	ui.PrintInfo("Starting Docker environment...")
 
-	if err := runner.Up(true); err != nil {
+	if err := runner.Up(ctx, true); err != nil {
 		return err
 	}
 

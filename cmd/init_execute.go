@@ -116,7 +116,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		if cfg.Verbose {
 			ui.PrintSubstep("Running docker compose up...")
 
-			if err := runner.Up(true); err != nil {
+			if err := runner.Up(ctx, true); err != nil {
 				return err
 			}
 		} else {
@@ -124,7 +124,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			spinner.Start()
 
 			tracker := newPhaseTrackerWriter(spinner, "Starting Docker environment", dockerStartPhaseRules())
-			if err := runner.UpWithOutput(true, tracker, tracker); err != nil {
+			if err := runner.UpWithOutput(ctx, true, tracker, tracker); err != nil {
 				spinner.StopWithMessage("error", "Failed to start containers")
 				printHiddenOutputTail("Docker output", tracker.TailLines())
 
@@ -134,7 +134,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			spinner.StopWithMessage("success", "Docker containers started")
 		}
 
-		detectedURL, detectedErr := runner.GetURL()
+		detectedURL, detectedErr := runner.GetURL(ctx)
 
 		var detected bool
 
@@ -173,7 +173,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			if cfg.Verbose {
 				ui.PrintSubstep("Running XenForo installation...")
 
-				if err := runner.ExecOrRunWithEnv("xf", true, installEnv, shellInstallArgs...); err != nil {
+				if err := runner.ExecOrRunWithEnv(ctx, "xf", true, installEnv, shellInstallArgs...); err != nil {
 					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
 					ui.Println("    You can run it manually:")
 					ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
@@ -183,7 +183,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				spinner.Start()
 
 				tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
-				if err := runner.ExecOrRunWithEnvAndOutput("xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
+				if err := runner.ExecOrRunWithEnvAndOutput(ctx, "xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
 					spinner.Stop()
 					printHiddenOutputTail("Installer output", tracker.TailLines())
 					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))

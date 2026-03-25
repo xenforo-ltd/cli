@@ -5,7 +5,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -219,7 +218,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 
 	updater := &Updater{HTTPClient: server.Client()}
 
-	err := updater.verifyChecksum(context.Background(), archive, &UpdateInfo{
+	err := updater.verifyChecksum(t.Context(), archive, &UpdateInfo{
 		AssetName:   "wanted-file.tar.gz",
 		ChecksumURL: server.URL,
 	})
@@ -245,7 +244,7 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 
 	updater := &Updater{HTTPClient: server.Client()}
 
-	err := updater.verifyChecksum(context.Background(), archive, &UpdateInfo{
+	err := updater.verifyChecksum(t.Context(), archive, &UpdateInfo{
 		AssetName:   "wanted-file.tar.gz",
 		ChecksumURL: server.URL,
 	})
@@ -271,7 +270,7 @@ func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
 
 	updater := &Updater{HTTPClient: server.Client()}
 
-	err := updater.verifyChecksum(context.Background(), archive, &UpdateInfo{
+	err := updater.verifyChecksum(t.Context(), archive, &UpdateInfo{
 		AssetName:   "wanted-file.tar.gz",
 		ChecksumURL: server.URL,
 	})
@@ -322,7 +321,7 @@ func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 		HTTPClient:  client,
 	}
 
-	info, err := updater.CheckForUpdate(context.Background())
+	info, err := updater.CheckForUpdate(t.Context())
 	if err != nil {
 		t.Fatalf("check for update: %v", err)
 	}
@@ -378,7 +377,7 @@ func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 
 	updater := &Updater{HTTPClient: server.Client()}
 
-	err := updater.Update(context.Background(), &UpdateInfo{
+	err := updater.Update(t.Context(), &UpdateInfo{
 		HasUpdate:   true,
 		AssetURL:    server.URL + "/asset",
 		AssetName:   archiveName,

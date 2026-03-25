@@ -60,5 +60,5 @@ func runDebug(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo(fmt.Sprintf("Running with XDebug: %s", args[0]))
 
-	return runner.XFCommandDebug(args...)
+	return runner.XFCommandDebug(cmd.Context(), args...)
 }

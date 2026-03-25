@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,13 +36,12 @@ func init() {
 }
 
 func runDoctor(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
 	doc := doctor.NewDoctor()
 
 	ui.Println(ui.Bold.Render("System Health Check"))
 	ui.Println()
 
-	results := doc.RunAll(ctx)
+	results := doc.RunAll(cmd.Context())
 
 	for _, result := range results {
 		var statusStr string

@@ -256,10 +256,10 @@ type CallbackServer struct {
 }
 
 // NewCallbackServer creates a new callback server.
-func NewCallbackServer(path string) (*CallbackServer, error) {
+func NewCallbackServer(ctx context.Context, path string) (*CallbackServer, error) {
 	lc := &net.ListenConfig{}
 
-	listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeInternal, "failed to start callback server", err)
 	}

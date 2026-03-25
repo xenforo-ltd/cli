@@ -76,7 +76,7 @@ func init() {
 }
 
 func runUpgrade(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Minute)
 	defer cancel()
 
 	targetPath := "."
@@ -323,7 +323,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 			return err
 		}
 
-		if err := runner.XFCommand("xf:upgrade"); err != nil {
+		if err := runner.XFCommand(ctx, "xf:upgrade"); err != nil {
 			ui.PrintWarning(fmt.Sprintf("xf:upgrade failed: %v", err))
 			ui.Println("    You may need to start the containers first with 'up',")
 			ui.Println("    then run the upgrade manually:")

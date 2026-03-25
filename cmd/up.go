@@ -48,11 +48,13 @@ func runUp(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := dockercompose.CheckDockerRunning(); err != nil {
+	ctx := cmd.Context()
+
+	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
 		return err
 	}
 
-	if err := dockercompose.CheckDockerComposeAvailable(); err != nil {
+	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
 		return err
 	}
 
@@ -69,13 +71,13 @@ func runUp(cmd *cobra.Command, args []string) error {
 		detach = false
 	}
 
-	if err := runner.Up(detach); err != nil {
+	if err := runner.Up(ctx, detach); err != nil {
 		return err
 	}
 
 	ui.PrintSuccess("Docker environment started")
 
-	url, err := runner.GetURL()
+	url, err := runner.GetURL(ctx)
 	if err == nil && url != "" {
 		ui.Println()
 		ui.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(url))

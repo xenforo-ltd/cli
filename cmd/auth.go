@@ -135,7 +135,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 
 	client := auth.NewOAuthClient(&cfg.OAuth)
 
-	callbackServer, err := auth.NewCallbackServer(cfg.OAuth.RedirectPath)
+	callbackServer, err := auth.NewCallbackServer(cmd.Context(), cfg.OAuth.RedirectPath)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	callbackServer.Start()
 
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
 
 		_ = callbackServer.Shutdown(ctx)
@@ -155,13 +155,13 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	ui.PrintInfo("Opening browser for authentication...")
 	ui.PrintInfo(fmt.Sprintf("If the browser doesn't open, visit this URL:\n%s\n\n", ui.URL.Render(authURL)))
 
-	if err := auth.OpenBrowser(authURL); err != nil {
+	if err := auth.OpenBrowser(cmd.Context(), authURL); err != nil {
 		ui.PrintWarning(fmt.Sprintf("Could not open browser automatically: %v", err))
 	}
 
 	ui.PrintInfo("Waiting for authentication...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(flagAuthTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(cmd.Context(), time.Duration(flagAuthTimeout)*time.Second)
 	defer cancel()
 
 	result, err := callbackServer.WaitForCallback(ctx)
@@ -251,7 +251,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 			BaseURL: token.BaseURL,
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 		defer cancel()
 
 		introspect, err := client.IntrospectToken(ctx, token.AccessToken)
@@ -346,7 +346,7 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 		BaseURL: token.BaseURL,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 	defer cancel()
 
 	cfg, err := config.Load()
@@ -406,7 +406,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 		ClientID: cfg.OAuth.ClientID,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 	defer cancel()
 
 	newToken, err := client.RefreshToken(ctx, token.RefreshToken)

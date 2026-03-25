@@ -48,5 +48,5 @@ func runComposer(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo(fmt.Sprintf("Running: composer %s", strings.Join(composerArgs, " ")))
 
-	return runner.Composer(composerArgs...)
+	return runner.Composer(cmd.Context(), composerArgs...)
 }

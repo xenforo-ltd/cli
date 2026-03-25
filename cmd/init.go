@@ -148,7 +148,7 @@ func init() {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Minute)
 	defer cancel()
 
 	targetPath := "."
@@ -203,10 +203,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	if hasXenForo || opts.ExistingOnly {
-		return initExisting(opts)
+		return initExisting(ctx, opts)
 	}
 
-	if err := checkPrerequisites(); err != nil {
+	if err := checkPrerequisites(ctx); err != nil {
 		return err
 	}
 
@@ -243,19 +243,19 @@ func detectXenForo(path string) (bool, error) {
 	return false, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to check XenForo path", err)
 }
 
-func initExisting(opts *InitOptions) error {
+func initExisting(ctx context.Context, opts *InitOptions) error {
 	ui.Println(ui.Bold.Render("Initializing Docker environment in existing XenForo directory..."))
 	ui.Println()
 
 	xfDir := opts.TargetPath
 
-	if err := dockercompose.CheckDockerRunning(); err != nil {
+	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
 		return err
 	}
 
 	ui.PrintSuccess("Docker is running")
 
-	if err := dockercompose.CheckDockerComposeAvailable(); err != nil {
+	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
 		return err
 	}
 
@@ -291,11 +291,11 @@ func initExisting(opts *InitOptions) error {
 			return err
 		}
 
-		if err := runner.Up(true); err != nil {
+		if err := runner.Up(ctx, true); err != nil {
 			return err
 		}
 
-		url, err := runner.GetURL()
+		url, err := runner.GetURL(ctx)
 		if err == nil && url != "" {
 			ui.PrintDetail(fmt.Sprintf("Site: %s", url))
 		}
@@ -352,16 +352,16 @@ func configureExistingEnv(opts *InitOptions) error {
 	return nil
 }
 
-func checkPrerequisites() error {
+func checkPrerequisites(ctx context.Context) error {
 	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 
-	if err := dockercompose.CheckDockerRunning(); err != nil {
+	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
 		return err
 	}
 
 	ui.PrintSuccess("Docker is running")
 
-	if err := dockercompose.CheckDockerComposeAvailable(); err != nil {
+	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
 		return err
 	}
 

@@ -55,7 +55,7 @@ func TestIsServiceRunning(t *testing.T) {
 		runner, _ := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "running")
 
-		running, err := runner.isServiceRunning("xf")
+		running, err := runner.isServiceRunning(t.Context(), "xf")
 		if err != nil {
 			t.Fatalf("isServiceRunning returned error: %v", err)
 		}
@@ -69,7 +69,7 @@ func TestIsServiceRunning(t *testing.T) {
 		runner, _ := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		running, err := runner.isServiceRunning("xf")
+		running, err := runner.isServiceRunning(t.Context(), "xf")
 		if err != nil {
 			t.Fatalf("isServiceRunning returned error: %v", err)
 		}
@@ -83,7 +83,7 @@ func TestIsServiceRunning(t *testing.T) {
 		runner, _ := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "error")
 
-		if _, err := runner.isServiceRunning("xf"); err == nil {
+		if _, err := runner.isServiceRunning(t.Context(), "xf"); err == nil {
 			t.Fatal("expected error when docker ps probe fails")
 		}
 	})
@@ -99,7 +99,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "ok")
 
-		if err := runner.ExecOrRun("xf", true, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", true, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -117,7 +117,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		runner, logFile := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		if err := runner.ExecOrRun("xf", true, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", true, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -136,7 +136,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "not_running")
 
-		if err := runner.ExecOrRun("xf", true, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", true, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -157,7 +157,7 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "ok")
 
-		if err := runner.ExecOrRunWithEnv("xf", true, map[string]string{"XDEBUG_SESSION": "1"}, "php", "-v"); err != nil {
+		if err := runner.ExecOrRunWithEnv(t.Context(), "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRunWithEnv returned error: %v", err)
 		}
 
@@ -175,7 +175,7 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		runner, logFile := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		if err := runner.ExecOrRunWithEnv("xf", true, map[string]string{"XDEBUG_SESSION": "1"}, "php", "-v"); err != nil {
+		if err := runner.ExecOrRunWithEnv(t.Context(), "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRunWithEnv returned error: %v", err)
 		}
 

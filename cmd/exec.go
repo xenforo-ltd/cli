@@ -55,7 +55,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo(fmt.Sprintf("Executing in %s: %s", service, strings.Join(cmdArgs, " ")))
 
-	return runner.Exec(service, cmdArgs...)
+	return runner.Exec(cmd.Context(), service, cmdArgs...)
 }
 
 func resolveXenForoDirAndArgs(args []string) (string, []string, error) {

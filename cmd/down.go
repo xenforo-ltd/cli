@@ -41,7 +41,7 @@ func runDown(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo("Stopping Docker environment...")
 
-	if err := runner.Down(); err != nil {
+	if err := runner.Down(cmd.Context()); err != nil {
 		return err
 	}
 

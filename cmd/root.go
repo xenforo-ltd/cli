@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -42,13 +43,13 @@ Run XenForo commands directly (from a XenForo directory):
 }
 
 // Execute runs the CLI application.
-func Execute() {
+func Execute(ctx context.Context) {
 	if len(os.Args) > 1 {
 		firstArg := os.Args[1]
 
 		if !strings.HasPrefix(firstArg, "-") && firstArg != "help" && firstArg != "--help" && firstArg != "-h" {
 			if !isKnownCommand(firstArg) {
-				if err := runAsXenForoCommand(os.Args[1:], exec.Command); err != nil {
+				if err := runAsXenForoCommand(ctx, os.Args[1:], exec.Command); err != nil {
 					handleError(err)
 					os.Exit(1)
 				}
@@ -58,7 +59,7 @@ func Execute() {
 		}
 	}
 
-	if err := rootCmd.Execute(); err != nil {
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		handleError(err)
 		os.Exit(1)
 	}
@@ -101,7 +102,7 @@ func isKnownCommand(name string) bool {
 	return false
 }
 
-func runAsXenForoCommand(args []string, cmdFn func(string, ...string) *exec.Cmd) error {
+func runAsXenForoCommand(ctx context.Context, args []string, cmdFn func(string, ...string) *exec.Cmd) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return clierrors.New(clierrors.CodeInvalidInput, "failed to get current directory")
@@ -121,7 +122,7 @@ func runAsXenForoCommand(args []string, cmdFn func(string, ...string) *exec.Cmd)
 		return err
 	}
 
-	return runner.XFCommand(args...)
+	return runner.XFCommand(ctx, args...)
 }
 
 func runAsLocalXenForoCommand(xfDir string, args []string, cmdFn func(string, ...string) *exec.Cmd) error {

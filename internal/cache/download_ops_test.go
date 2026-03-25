@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
@@ -33,7 +32,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 
 	var calls int
 
-	res, err := m.Download(context.Background(), opts, func(_, _ int64) { calls++ })
+	res, err := m.Download(t.Context(), opts, func(_, _ int64) { calls++ })
 	if err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
@@ -50,7 +49,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 		t.Fatalf("expected downloaded file: %v", err)
 	}
 
-	res2, err := m.Download(context.Background(), opts, nil)
+	res2, err := m.Download(t.Context(), opts, nil)
 	if err != nil {
 		t.Fatalf("Download second call failed: %v", err)
 	}
@@ -68,7 +67,7 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := m.Download(context.Background(), DownloadOptions{
+	_, err := m.Download(t.Context(), DownloadOptions{
 		LicenseKey:       "LIC1",
 		DownloadID:       "xenforo",
 		Version:          "2.3.8",
@@ -92,7 +91,7 @@ func TestDownloadWithAuthUnauthorized(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := m.DownloadWithAuth(context.Background(), DownloadOptions{
+	_, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
 		LicenseKey: "LIC1",
 		DownloadID: "xenforo",
 		Version:    "2.3.8",
@@ -124,7 +123,7 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := m.DownloadWithAuth(context.Background(), DownloadOptions{
+	_, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
 		LicenseKey: "LIC1",
 		DownloadID: "xenforo",
 		Version:    "2.3.8",
@@ -141,7 +140,7 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	sum := sha256.Sum256(payload)
 	expected := hex.EncodeToString(sum[:])
 
-	res, err := m.DownloadWithAuth(context.Background(), DownloadOptions{
+	res, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
 		LicenseKey:       "LIC1",
 		DownloadID:       "xenforo",
 		Version:          "2.3.9",
@@ -197,7 +196,7 @@ func TestDownloadWithAuthUsesCache(t *testing.T) {
 		t.Fatalf("SaveMetadata failed: %v", err)
 	}
 
-	res, err := m.DownloadWithAuth(context.Background(), DownloadOptions{
+	res, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
 		LicenseKey: "LIC1",
 		DownloadID: "xenforo",
 		Version:    "2.3.8",

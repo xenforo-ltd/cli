@@ -41,5 +41,5 @@ func runPs(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo("Container status:")
 
-	return runner.PS()
+	return runner.PS(cmd.Context())
 }

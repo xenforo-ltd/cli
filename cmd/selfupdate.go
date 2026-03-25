@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -37,7 +36,7 @@ func init() {
 }
 
 func runSelfUpdate(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx := cmd.Context()
 	updater := selfupdate.NewUpdater()
 
 	spinner := ui.NewSpinner("Checking for updates...")

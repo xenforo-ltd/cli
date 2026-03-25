@@ -129,7 +129,7 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 		CodeVerifier: "verifier123",
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	token, err := client.ExchangeCode(ctx, "auth-code", pkce, "http://localhost/callback")
 	if err != nil {
@@ -167,7 +167,7 @@ func TestOAuthClient_RefreshToken(t *testing.T) {
 	}
 	client := NewOAuthClient(cfg)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	token, err := client.RefreshToken(ctx, "old-refresh-token")
 	if err != nil {
@@ -196,7 +196,7 @@ func TestOAuthClient_IntrospectToken(t *testing.T) {
 	}
 	client := NewOAuthClient(cfg)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	resp, err := client.IntrospectToken(ctx, "some-token")
 	if err != nil {
@@ -228,7 +228,7 @@ func TestOAuthClient_RevokeToken(t *testing.T) {
 	}
 	client := NewOAuthClient(cfg)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	err := client.RevokeToken(ctx, "some-token")
 	if err != nil {
@@ -241,7 +241,7 @@ func TestOAuthClient_RevokeToken(t *testing.T) {
 }
 
 func TestCallbackServer(t *testing.T) {
-	server, err := NewCallbackServer("/callback")
+	server, err := NewCallbackServer(t.Context(), "/callback")
 	if err != nil {
 		t.Fatalf("NewCallbackServer() error = %v", err)
 	}
@@ -258,7 +258,7 @@ func TestCallbackServer(t *testing.T) {
 	server.Start()
 
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
 		server.Shutdown(ctx)
@@ -267,7 +267,7 @@ func TestCallbackServer(t *testing.T) {
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, uri+"?code=test-code&state=test-state", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, uri+"?code=test-code&state=test-state", nil)
 		if err != nil {
 			t.Errorf("Failed to create HTTP request: %v", err)
 			return
@@ -282,7 +282,7 @@ func TestCallbackServer(t *testing.T) {
 		defer resp.Body.Close()
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	result, err := server.WaitForCallback(ctx)
@@ -299,7 +299,7 @@ func TestCallbackServer(t *testing.T) {
 	}
 
 	go func() {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, uri+"?code=second-code&state=test-state", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, uri+"?code=second-code&state=test-state", nil)
 		if err != nil {
 			t.Errorf("Failed to create HTTP request: %v", err)
 			return
@@ -322,7 +322,7 @@ func TestCallbackServer(t *testing.T) {
 }
 
 func TestCallbackServer_Timeout(t *testing.T) {
-	server, err := NewCallbackServer("/callback")
+	server, err := NewCallbackServer(t.Context(), "/callback")
 	if err != nil {
 		t.Fatalf("NewCallbackServer() error = %v", err)
 	}
@@ -330,13 +330,13 @@ func TestCallbackServer_Timeout(t *testing.T) {
 	server.Start()
 
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
 		server.Shutdown(ctx)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	_, err = server.WaitForCallback(ctx)

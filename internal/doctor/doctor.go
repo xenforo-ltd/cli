@@ -88,10 +88,10 @@ func (d *Doctor) RunAll(ctx context.Context) []*CheckResult {
 
 	d.checkKeychain()
 	d.checkAuth()
-	d.checkGit()
-	d.checkDocker()
+	d.checkGit(ctx)
+	d.checkDocker(ctx)
 	d.checkCacheDirectory()
-	d.checkDiskSpace()
+	d.checkDiskSpace(ctx)
 	d.checkNetwork(ctx)
 
 	return d.results
@@ -196,12 +196,12 @@ func (d *Doctor) checkAuth() {
 	d.results = append(d.results, result)
 }
 
-func (d *Doctor) checkGit() {
+func (d *Doctor) checkGit(ctx context.Context) {
 	result := &CheckResult{
 		Name: "Git",
 	}
 
-	cmd := exec.CommandContext(context.Background(), "git", "--version")
+	cmd := exec.CommandContext(ctx, "git", "--version")
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -216,12 +216,12 @@ func (d *Doctor) checkGit() {
 	d.results = append(d.results, result)
 }
 
-func (d *Doctor) checkDocker() {
+func (d *Doctor) checkDocker(ctx context.Context) {
 	result := &CheckResult{
 		Name: "Docker",
 	}
 
-	versionCmd := exec.CommandContext(context.Background(), "docker", "--version")
+	versionCmd := exec.CommandContext(ctx, "docker", "--version")
 
 	versionOutput, err := versionCmd.Output()
 	if err != nil {
@@ -233,7 +233,7 @@ func (d *Doctor) checkDocker() {
 		return
 	}
 
-	infoCmd := exec.CommandContext(context.Background(), "docker", "info")
+	infoCmd := exec.CommandContext(ctx, "docker", "info")
 	if err := infoCmd.Run(); err != nil {
 		result.Status = StatusError
 		result.Message = "Docker daemon is not running"
@@ -316,7 +316,7 @@ func (d *Doctor) checkCacheDirectory() {
 	d.results = append(d.results, result)
 }
 
-func (d *Doctor) checkDiskSpace() {
+func (d *Doctor) checkDiskSpace(ctx context.Context) {
 	result := &CheckResult{
 		Name: "Disk Space",
 	}
@@ -333,7 +333,7 @@ func (d *Doctor) checkDiskSpace() {
 	cacheDir := cfg.CachePath
 
 	// Use df command to check disk space (works on macOS and Linux).
-	cmd := exec.CommandContext(context.Background(), "df", "-k", cacheDir)
+	cmd := exec.CommandContext(ctx, "df", "-k", cacheDir)
 
 	output, err := cmd.Output()
 	if err != nil {

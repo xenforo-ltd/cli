@@ -199,7 +199,7 @@ func TestResolveSelections_RequiresCoreVersionID(t *testing.T) {
 		},
 	}
 
-	_, err := ResolveSelections(context.Background(), client, "LIC", []string{"xenforo"}, 0, "", nil, nil)
+	_, err := ResolveSelections(t.Context(), client, "LIC", []string{"xenforo"}, 0, "", nil, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -220,7 +220,7 @@ func TestResolveSelections_UsesOverrideAndSkipCallback(t *testing.T) {
 	var skipped []string
 
 	got, err := ResolveSelections(
-		context.Background(),
+		t.Context(),
 		client,
 		"LIC",
 		[]string{"xenforo", "xfmg", "xfes"},
@@ -247,7 +247,7 @@ func TestResolveSelections_UsesOverrideAndSkipCallback(t *testing.T) {
 }
 
 func TestDownloadSelection_Branches(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	client := &fakeClient{
 		accessToken: "token",
 		downloadInfo: map[string]*customerapi.DownloadInfo{

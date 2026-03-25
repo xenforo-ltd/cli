@@ -58,5 +58,5 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		ui.PrintInfo("Showing logs for all services")
 	}
 
-	return runner.Logs(flagLogsFollow, services...)
+	return runner.Logs(cmd.Context(), flagLogsFollow, services...)
 }

@@ -9,16 +9,16 @@ import (
 )
 
 // OpenBrowser opens a URL in the user's default browser.
-func OpenBrowser(url string) error {
+func OpenBrowser(ctx context.Context, url string) error {
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.CommandContext(context.Background(), "open", url)
+		cmd = exec.CommandContext(ctx, "open", url)
 	case "linux":
-		cmd = exec.CommandContext(context.Background(), "xdg-open", url)
+		cmd = exec.CommandContext(ctx, "xdg-open", url)
 	case "windows":
-		cmd = exec.CommandContext(context.Background(), "rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", url)
 	default:
 		return clierrors.Newf(clierrors.CodeInternal, "unsupported platform: %s", runtime.GOOS)
 	}

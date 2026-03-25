@@ -78,7 +78,7 @@ func (r *Runner) Contexts() []string {
 }
 
 // Up starts the Docker containers.
-func (r *Runner) Up(detach bool) error {
+func (r *Runner) Up(ctx context.Context, detach bool) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "up")
@@ -86,11 +86,11 @@ func (r *Runner) Up(detach bool) error {
 		args = append(args, "--detach")
 	}
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // UpWithOutput starts the Docker containers with custom output writers.
-func (r *Runner) UpWithOutput(detach bool, stdout, stderr io.Writer) error {
+func (r *Runner) UpWithOutput(ctx context.Context, detach bool, stdout, stderr io.Writer) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "up")
@@ -98,27 +98,27 @@ func (r *Runner) UpWithOutput(detach bool, stdout, stderr io.Writer) error {
 		args = append(args, "--detach")
 	}
 
-	return r.runDockerCommandWithOutput(stdout, stderr, args...)
+	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
 }
 
 // Down stops and removes the Docker containers.
-func (r *Runner) Down() error {
+func (r *Runner) Down(ctx context.Context) error {
 	args := r.buildComposeArgs()
 	args = append(args, "down")
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // PS lists running containers.
-func (r *Runner) PS() error {
+func (r *Runner) PS(ctx context.Context) error {
 	args := r.buildComposeArgs()
 	args = append(args, "ps")
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // Logs shows container logs.
-func (r *Runner) Logs(follow bool, services ...string) error {
+func (r *Runner) Logs(ctx context.Context, follow bool, services ...string) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "logs")
@@ -128,31 +128,31 @@ func (r *Runner) Logs(follow bool, services ...string) error {
 
 	args = append(args, services...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // Exec runs a command in a running container.
-func (r *Runner) Exec(service string, cmd ...string) error {
+func (r *Runner) Exec(ctx context.Context, service string, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "exec", service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // ExecWithEnv runs a command in a running container with additional environment variables.
-func (r *Runner) ExecWithEnv(service string, env map[string]string, cmd ...string) error {
+func (r *Runner) ExecWithEnv(ctx context.Context, service string, env map[string]string, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "exec")
 	args = r.appendEnvVars(args, env, "-e")
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // Run runs a one-off command in a new container.
-func (r *Runner) Run(service string, rm bool, cmd ...string) error {
+func (r *Runner) Run(ctx context.Context, service string, rm bool, cmd ...string) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "run")
@@ -163,12 +163,12 @@ func (r *Runner) Run(service string, rm bool, cmd ...string) error {
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // ExecOrRun uses exec for running services and falls back to run for stopped services.
-func (r *Runner) ExecOrRun(service string, rm bool, cmd ...string) error {
-	running, err := r.isServiceRunning(service)
+func (r *Runner) ExecOrRun(ctx context.Context, service string, rm bool, cmd ...string) error {
+	running, err := r.isServiceRunning(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -178,20 +178,20 @@ func (r *Runner) ExecOrRun(service string, rm bool, cmd ...string) error {
 		execArgs = append(execArgs, "exec", service)
 		execArgs = append(execArgs, cmd...)
 
-		stderr, err := r.runDockerCommandCaptureStderr(execArgs...)
+		stderr, err := r.runDockerCommandCaptureStderr(ctx, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderr) {
-			return r.Run(service, rm, cmd...)
+			return r.Run(ctx, service, rm, cmd...)
 		}
 
 		return err
 	}
 
-	return r.Run(service, rm, cmd...)
+	return r.Run(ctx, service, rm, cmd...)
 }
 
 // ExecOrRunWithOutput uses exec for running services and falls back to run for stopped services.
-func (r *Runner) ExecOrRunWithOutput(service string, rm bool, stdout, stderr io.Writer, cmd ...string) error {
-	running, err := r.isServiceRunning(service)
+func (r *Runner) ExecOrRunWithOutput(ctx context.Context, service string, rm bool, stdout, stderr io.Writer, cmd ...string) error {
+	running, err := r.isServiceRunning(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -201,20 +201,20 @@ func (r *Runner) ExecOrRunWithOutput(service string, rm bool, stdout, stderr io.
 		execArgs = append(execArgs, "exec", service)
 		execArgs = append(execArgs, cmd...)
 
-		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(stdout, execArgs...)
+		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
-			return r.RunWithOutput(service, rm, stdout, stderr, cmd...)
+			return r.RunWithOutput(ctx, service, rm, stdout, stderr, cmd...)
 		}
 
 		return err
 	}
 
-	return r.RunWithOutput(service, rm, stdout, stderr, cmd...)
+	return r.RunWithOutput(ctx, service, rm, stdout, stderr, cmd...)
 }
 
 // ExecOrRunWithEnv uses exec for running services and falls back to run for stopped services.
-func (r *Runner) ExecOrRunWithEnv(service string, rm bool, env map[string]string, cmd ...string) error {
-	running, err := r.isServiceRunning(service)
+func (r *Runner) ExecOrRunWithEnv(ctx context.Context, service string, rm bool, env map[string]string, cmd ...string) error {
+	running, err := r.isServiceRunning(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -226,20 +226,20 @@ func (r *Runner) ExecOrRunWithEnv(service string, rm bool, env map[string]string
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
-		stderr, err := r.runDockerCommandCaptureStderr(execArgs...)
+		stderr, err := r.runDockerCommandCaptureStderr(ctx, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderr) {
-			return r.RunWithEnv(service, rm, env, cmd...)
+			return r.RunWithEnv(ctx, service, rm, env, cmd...)
 		}
 
 		return err
 	}
 
-	return r.RunWithEnv(service, rm, env, cmd...)
+	return r.RunWithEnv(ctx, service, rm, env, cmd...)
 }
 
 // ExecOrRunWithEnvAndOutput runs a docker-compose exec or run command with output.
-func (r *Runner) ExecOrRunWithEnvAndOutput(service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
-	running, err := r.isServiceRunning(service)
+func (r *Runner) ExecOrRunWithEnvAndOutput(ctx context.Context, service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
+	running, err := r.isServiceRunning(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -251,19 +251,19 @@ func (r *Runner) ExecOrRunWithEnvAndOutput(service string, rm bool, env map[stri
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
-		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(stdout, execArgs...)
+		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
-			return r.RunWithEnvAndOutput(service, rm, env, stdout, stderr, cmd...)
+			return r.RunWithEnvAndOutput(ctx, service, rm, env, stdout, stderr, cmd...)
 		}
 
 		return err
 	}
 
-	return r.RunWithEnvAndOutput(service, rm, env, stdout, stderr, cmd...)
+	return r.RunWithEnvAndOutput(ctx, service, rm, env, stdout, stderr, cmd...)
 }
 
 // RunWithEnvAndOutput runs a docker-compose run command with custom output.
-func (r *Runner) RunWithEnvAndOutput(service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
+func (r *Runner) RunWithEnvAndOutput(ctx context.Context, service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "run")
@@ -275,19 +275,19 @@ func (r *Runner) RunWithEnvAndOutput(service string, rm bool, env map[string]str
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommandWithOutput(stdout, stderr, args...)
+	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
 }
 
 // Compose runs a docker compose command directly.
-func (r *Runner) Compose(args ...string) error {
+func (r *Runner) Compose(ctx context.Context, args ...string) error {
 	composeArgs := r.buildComposeArgs()
 	composeArgs = append(composeArgs, args...)
 
-	return r.runDockerCommand(composeArgs...)
+	return r.runDockerCommand(ctx, composeArgs...)
 }
 
 // Build builds or rebuilds services.
-func (r *Runner) Build(pull bool, services ...string) error {
+func (r *Runner) Build(ctx context.Context, pull bool, services ...string) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "build")
@@ -297,59 +297,59 @@ func (r *Runner) Build(pull bool, services ...string) error {
 
 	args = append(args, services...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // Pull pulls the latest images.
-func (r *Runner) Pull(services ...string) error {
+func (r *Runner) Pull(ctx context.Context, services ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "pull")
 	args = append(args, services...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // Restart restarts containers.
-func (r *Runner) Restart(services ...string) error {
+func (r *Runner) Restart(ctx context.Context, services ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "restart")
 	args = append(args, services...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // Composer runs composer in the xf container.
-func (r *Runner) Composer(args ...string) error {
-	return r.ExecOrRun("xf", true, append([]string{"composer"}, args...)...)
+func (r *Runner) Composer(ctx context.Context, args ...string) error {
+	return r.ExecOrRun(ctx, "xf", true, append([]string{"composer"}, args...)...)
 }
 
 // PHP runs PHP in the xf container.
-func (r *Runner) PHP(args ...string) error {
-	return r.ExecOrRun("xf", true, append([]string{"php"}, args...)...)
+func (r *Runner) PHP(ctx context.Context, args ...string) error {
+	return r.ExecOrRun(ctx, "xf", true, append([]string{"php"}, args...)...)
 }
 
 // PHPDebug runs PHP with XDebug enabled.
-func (r *Runner) PHPDebug(args ...string) error {
-	return r.ExecOrRunWithEnv("xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php"}, args...)...)
+func (r *Runner) PHPDebug(ctx context.Context, args ...string) error {
+	return r.ExecOrRunWithEnv(ctx, "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php"}, args...)...)
 }
 
 // XFCommand runs a XenForo CLI command.
-func (r *Runner) XFCommand(args ...string) error {
-	return r.ExecOrRun("xf", true, append([]string{"php", "cmd.php"}, args...)...)
+func (r *Runner) XFCommand(ctx context.Context, args ...string) error {
+	return r.ExecOrRun(ctx, "xf", true, append([]string{"php", "cmd.php"}, args...)...)
 }
 
 // XFCommandWithOutput runs a XenForo CLI command with custom output writers.
-func (r *Runner) XFCommandWithOutput(stdout, stderr io.Writer, args ...string) error {
-	return r.ExecOrRunWithOutput("xf", true, stdout, stderr, append([]string{"php", "cmd.php"}, args...)...)
+func (r *Runner) XFCommandWithOutput(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return r.ExecOrRunWithOutput(ctx, "xf", true, stdout, stderr, append([]string{"php", "cmd.php"}, args...)...)
 }
 
 // XFCommandDebug runs a XenForo CLI command with XDebug.
-func (r *Runner) XFCommandDebug(args ...string) error {
-	return r.ExecOrRunWithEnv("xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php", "cmd.php"}, args...)...)
+func (r *Runner) XFCommandDebug(ctx context.Context, args ...string) error {
+	return r.ExecOrRunWithEnv(ctx, "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php", "cmd.php"}, args...)...)
 }
 
 // RunWithEnv runs a command with additional environment variables.
-func (r *Runner) RunWithEnv(service string, rm bool, env map[string]string, cmd ...string) error {
+func (r *Runner) RunWithEnv(ctx context.Context, service string, rm bool, env map[string]string, cmd ...string) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "run")
@@ -361,11 +361,11 @@ func (r *Runner) RunWithEnv(service string, rm bool, env map[string]string, cmd 
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommand(args...)
+	return r.runDockerCommand(ctx, args...)
 }
 
 // RunWithOutput runs a one-off command in a new container with custom output writers.
-func (r *Runner) RunWithOutput(service string, rm bool, stdout, stderr io.Writer, cmd ...string) error {
+func (r *Runner) RunWithOutput(ctx context.Context, service string, rm bool, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
 
 	args = append(args, "run")
@@ -376,15 +376,15 @@ func (r *Runner) RunWithOutput(service string, rm bool, stdout, stderr io.Writer
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommandWithOutput(stdout, stderr, args...)
+	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
 }
 
 // GetURL returns the URL for accessing the XenForo site.
 // It detects OrbStack vs standard Docker.
-func (r *Runner) GetURL() (string, error) {
+func (r *Runner) GetURL(ctx context.Context) (string, error) {
 	isOrbStack := false
 
-	if info, err := exec.CommandContext(context.Background(), "docker", "info", "--format", "{{.OperatingSystem}}").Output(); err == nil {
+	if info, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.OperatingSystem}}").Output(); err == nil {
 		if strings.TrimSpace(string(info)) == "OrbStack" {
 			isOrbStack = true
 		}
@@ -394,7 +394,7 @@ func (r *Runner) GetURL() (string, error) {
 		return fmt.Sprintf("https://%s.xf.local", r.instance), nil
 	}
 
-	port, err := r.getServicePort("caddy", "80")
+	port, err := r.getServicePort(ctx, "caddy", "80")
 	if err != nil {
 		return "", err
 	}
@@ -409,7 +409,7 @@ func (r *Runner) WaitForReady(ctx context.Context, checkInterval time.Duration) 
 		case <-ctx.Done():
 			return clierrors.New(clierrors.CodeDockerCommandFailed, "timed out waiting for containers to be ready")
 		default:
-			cmd := r.buildDockerCommand("run", "--rm", "xf", "php", "-v")
+			cmd := r.buildDockerCommand(ctx, "run", "--rm", "xf", "php", "-v")
 			if err := cmd.Run(); err == nil {
 				return nil
 			}
@@ -437,7 +437,7 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 			args := r.buildComposeArgs()
 			args = append(args, "exec", "-T", "xf", "php", "-r", testScript)
 
-			cmd := exec.CommandContext(context.Background(), "docker", args...)
+			cmd := exec.CommandContext(ctx, "docker", args...)
 			cmd.Dir = r.xfDir
 
 			output, err := cmd.Output()
@@ -466,11 +466,11 @@ func (r *Runner) IsEnvironmentInitialized() bool {
 }
 
 // RunCapture runs a docker compose command and captures output.
-func (r *Runner) RunCapture(args ...string) (string, string, error) {
+func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string, error) {
 	allArgs := r.buildComposeArgs()
 	allArgs = append(allArgs, args...)
 
-	cmd := exec.CommandContext(context.Background(), "docker", allArgs...)
+	cmd := exec.CommandContext(ctx, "docker", allArgs...)
 	cmd.Dir = r.xfDir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
 
@@ -516,13 +516,13 @@ func (r *Runner) getDatabaseCredentials() (string, string) {
 }
 
 // runDockerCommand executes a docker compose command.
-func (r *Runner) runDockerCommand(args ...string) error {
-	return r.runDockerCommandWithOutput(os.Stdout, os.Stderr, args...)
+func (r *Runner) runDockerCommand(ctx context.Context, args ...string) error {
+	return r.runDockerCommandWithOutput(ctx, os.Stdout, os.Stderr, args...)
 }
 
 // runDockerCommandWithOutput executes a docker compose command with custom output.
-func (r *Runner) runDockerCommandWithOutput(stdout, stderr io.Writer, args ...string) error {
-	cmd := exec.CommandContext(context.Background(), "docker", args...)
+func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = r.xfDir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
@@ -537,28 +537,28 @@ func (r *Runner) runDockerCommandWithOutput(stdout, stderr io.Writer, args ...st
 	return nil
 }
 
-func (r *Runner) runDockerCommandCaptureStderr(args ...string) (string, error) {
+func (r *Runner) runDockerCommandCaptureStderr(ctx context.Context, args ...string) (string, error) {
 	var stderr bytes.Buffer
 
-	err := r.runDockerCommandWithOutput(os.Stdout, &stderr, args...)
+	err := r.runDockerCommandWithOutput(ctx, os.Stdout, &stderr, args...)
 
 	return stderr.String(), err
 }
 
-func (r *Runner) runDockerCommandCaptureStderrWithOutput(stdout io.Writer, args ...string) (string, error) {
+func (r *Runner) runDockerCommandCaptureStderrWithOutput(ctx context.Context, stdout io.Writer, args ...string) (string, error) {
 	var stderr bytes.Buffer
 
-	err := r.runDockerCommandWithOutput(stdout, &stderr, args...)
+	err := r.runDockerCommandWithOutput(ctx, stdout, &stderr, args...)
 
 	return stderr.String(), err
 }
 
 // buildDockerCommand creates a docker command with the given args.
-func (r *Runner) buildDockerCommand(extraArgs ...string) *exec.Cmd {
+func (r *Runner) buildDockerCommand(ctx context.Context, extraArgs ...string) *exec.Cmd {
 	args := r.buildComposeArgs()
 	args = append(args, extraArgs...)
 
-	cmd := exec.CommandContext(context.Background(), "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = r.xfDir
 	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
 
@@ -610,11 +610,11 @@ func (r *Runner) appendEnvVars(args []string, env map[string]string, flagFormat 
 }
 
 // getServicePort gets the exposed port for a service.
-func (r *Runner) getServicePort(service, internalPort string) (string, error) {
+func (r *Runner) getServicePort(ctx context.Context, service, internalPort string) (string, error) {
 	args := r.buildComposeArgs()
 	args = append(args, "port", service, internalPort)
 
-	cmd := exec.CommandContext(context.Background(), "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = r.xfDir
 
 	output, err := cmd.Output()
@@ -630,11 +630,11 @@ func (r *Runner) getServicePort(service, internalPort string) (string, error) {
 	return "", clierrors.Newf(clierrors.CodeDockerCommandFailed, "unexpected port output: %s", output)
 }
 
-func (r *Runner) isServiceRunning(service string) (bool, error) {
+func (r *Runner) isServiceRunning(ctx context.Context, service string) (bool, error) {
 	args := r.buildComposeArgs()
 	args = append(args, "ps", "--status", "running", "--services", service)
 
-	cmd := exec.CommandContext(context.Background(), "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = r.xfDir
 
 	output, err := cmd.Output()
@@ -679,8 +679,8 @@ func parseEnvValue(content, key string) string {
 }
 
 // CheckDockerRunning checks if Docker is running.
-func CheckDockerRunning() error {
-	cmd := exec.CommandContext(context.Background(), "docker", "info")
+func CheckDockerRunning(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "docker", "info")
 	if err := cmd.Run(); err != nil {
 		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker is not running. Start Docker Desktop (or docker daemon) and retry")
 	}
@@ -689,8 +689,8 @@ func CheckDockerRunning() error {
 }
 
 // CheckDockerComposeAvailable checks if Docker Compose is available.
-func CheckDockerComposeAvailable() error {
-	cmd := exec.CommandContext(context.Background(), "docker", "compose", "version")
+func CheckDockerComposeAvailable(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "docker", "compose", "version")
 	if err := cmd.Run(); err != nil {
 		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker Compose plugin is not available. Install/upgrade Docker and ensure 'docker compose' works")
 	}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -52,14 +53,14 @@ func init() {
 }
 
 func runPHP(cmd *cobra.Command, args []string) error {
-	return runPHPWithMode(args, false)
+	return runPHPWithMode(cmd.Context(), args, false)
 }
 
 func runPHPDebug(cmd *cobra.Command, args []string) error {
-	return runPHPWithMode(args, true)
+	return runPHPWithMode(cmd.Context(), args, true)
 }
 
-func runPHPWithMode(args []string, debug bool) error {
+func runPHPWithMode(ctx context.Context, args []string, debug bool) error {
 	xfDir, phpArgs, err := resolveXenForoDirAndArgs(args)
 	if err != nil {
 		return err
@@ -72,8 +73,8 @@ func runPHPWithMode(args []string, debug bool) error {
 
 	if debug {
 		ui.PrintInfo(fmt.Sprintf("Running with XDebug: php %s", strings.Join(phpArgs, " ")))
-		return runner.PHPDebug(phpArgs...)
+		return runner.PHPDebug(ctx, phpArgs...)
 	}
 
-	return runner.PHP(phpArgs...)
+	return runner.PHP(ctx, phpArgs...)
 }

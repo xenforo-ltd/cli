@@ -1,7 +1,6 @@
 package customerapi
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -32,7 +31,7 @@ func TestGetLicenseDownloadablesEncodesQuery(t *testing.T) {
 		oauthCfg:   &config.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 
-	_, err := client.GetLicenseDownloadables(context.Background(), "ABC 123&x")
+	_, err := client.GetLicenseDownloadables(t.Context(), "ABC 123&x")
 	if err != nil {
 		t.Fatalf("GetLicenseDownloadables error: %v", err)
 	}

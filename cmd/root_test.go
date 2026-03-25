@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -55,7 +54,7 @@ func TestRunAsXenForoCommandOutsideDirReturnsActionableError(t *testing.T) {
 	t.Setenv("XF_DIR", "")
 	t.Chdir(t.TempDir())
 
-	err := runAsXenForoCommand([]string{"list"}, exec.Command)
+	err := runAsXenForoCommand(t.Context(), []string{"list"}, exec.Command)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -86,7 +85,7 @@ func TestRunAsXenForoCommandFallsBackToLocalWhenComposeMissing(t *testing.T) {
 		0,
 	)
 
-	if err := runAsXenForoCommand([]string{"xf-dev:import"}, cmdFn); err != nil {
+	if err := runAsXenForoCommand(t.Context(), []string{"xf-dev:import"}, cmdFn); err != nil {
 		t.Fatalf("runAsXenForoCommand returned error: %v", err)
 	}
 }
@@ -107,7 +106,7 @@ func TestRunAsLocalXenForoCommandBuildsExpectedInvocation(t *testing.T) {
 func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing.T) {
 	root := t.TempDir()
 	cmdFn := func(_ string, _ ...string) *exec.Cmd {
-		return exec.CommandContext(context.Background(), "__xf_missing_php_binary__")
+		return exec.CommandContext(t.Context(), "__xf_missing_php_binary__")
 	}
 
 	err := runAsLocalXenForoCommand(root, []string{"list"}, cmdFn)
@@ -161,7 +160,7 @@ func helperCommand(t *testing.T, expectedArgs, expectedWd string, exitCode int) 
 		cs = append(cs, "-test.run=TestHelperProcess", "--", command)
 		cs = append(cs, args...)
 
-		cmd := exec.CommandContext(context.Background(), os.Args[0], cs...)
+		cmd := exec.CommandContext(t.Context(), os.Args[0], cs...)
 
 		cmd.Env = append(os.Environ(),
 			"GO_WANT_HELPER_PROCESS=1",

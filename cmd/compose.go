@@ -42,5 +42,5 @@ func runCompose(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return runner.Compose(composeArgs...)
+	return runner.Compose(cmd.Context(), composeArgs...)
 }
