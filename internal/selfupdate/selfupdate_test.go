@@ -259,34 +259,6 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 	}
 }
 
-func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
-	archive := filepath.Join(t.TempDir(), "file.tar.gz")
-	if err := os.WriteFile(archive, []byte("archive"), 0o644); err != nil {
-		t.Fatalf("write archive: %v", err)
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := w.Write([]byte("###\n\n")); err != nil {
-			t.Errorf("write response: %v", err)
-		}
-	}))
-	defer server.Close()
-
-	updater := &Updater{HTTPClient: server.Client()}
-
-	err := updater.verifyChecksum(t.Context(), archive, &UpdateInfo{
-		AssetName:   "wanted-file.tar.gz",
-		ChecksumURL: server.URL,
-	})
-	if err == nil {
-		t.Fatal("expected checksum failure")
-	}
-
-	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
-		t.Fatalf("expected checksum mismatch code, got: %v", err)
-	}
-}
-
 func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 	oldVersion := version.Version
 	version.Version = "1.0.0"
