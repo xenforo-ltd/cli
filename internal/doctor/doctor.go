@@ -307,10 +307,13 @@ func (d *Doctor) checkCacheDirectory() {
 		result.Details = cacheDir
 		result.Suggestion = "Check directory permissions"
 	} else {
-		os.Remove(testFile)
-
-		result.Status = StatusOK
-		result.Message = fmt.Sprintf("Cache directory: %s", cacheDir)
+		if err := os.Remove(testFile); err != nil {
+			result.Status = StatusWarning
+			result.Message = fmt.Sprintf("Cache directory writable but cleanup failed: %v", err)
+		} else {
+			result.Status = StatusOK
+			result.Message = fmt.Sprintf("Cache directory: %s", cacheDir)
+		}
 	}
 
 	d.results = append(d.results, result)
@@ -362,7 +365,13 @@ func (d *Doctor) checkDiskSpace(ctx context.Context) {
 		// Try alternative parsing for different df output formats.
 		fields := strings.Fields(lines[1])
 		if len(fields) >= 4 {
-			fmt.Sscanf(fields[3], "%d", &available)
+			if _, err := fmt.Sscanf(fields[3], "%d", &available); err != nil {
+				result.Status = StatusSkipped
+				result.Message = "Could not parse available disk space"
+				d.results = append(d.results, result)
+
+				return
+			}
 		}
 	}
 

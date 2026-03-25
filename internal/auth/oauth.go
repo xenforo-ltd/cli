@@ -218,7 +218,11 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 
 	// Revocation should return 200 OK even if token was already invalid
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return clierrors.Newf(clierrors.CodeAPIRequestFailed, "token revocation failed (status %d; body unreadable)", resp.StatusCode)
+		}
+
 		return clierrors.Newf(clierrors.CodeAPIRequestFailed, "token revocation failed (status %d): %s", resp.StatusCode, string(body))
 	}
 

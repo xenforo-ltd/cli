@@ -115,7 +115,9 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 			RefreshToken: "refresh456",
 			Scope:        "read write",
 		}
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -157,7 +159,9 @@ func TestOAuthClient_RefreshToken(t *testing.T) {
 			ExpiresIn:    3600,
 			RefreshToken: "new-refresh-token",
 		}
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -186,7 +190,9 @@ func TestOAuthClient_IntrospectToken(t *testing.T) {
 			Username: "testuser",
 			Scope:    "read write",
 		}
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -261,7 +267,9 @@ func TestCallbackServer(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
-		server.Shutdown(ctx)
+		if err := server.Shutdown(ctx); err != nil {
+			t.Logf("callback server shutdown: %v", err)
+		}
 	}()
 
 	go func() {
@@ -333,7 +341,9 @@ func TestCallbackServer_Timeout(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
-		server.Shutdown(ctx)
+		if err := server.Shutdown(ctx); err != nil {
+			t.Errorf("shutdown: %v", err)
+		}
 	}()
 
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)

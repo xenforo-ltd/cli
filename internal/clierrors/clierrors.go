@@ -159,7 +159,10 @@ func (e *CLIError) JSON() string {
 		je.Cause = e.Cause.Error()
 	}
 
-	b, _ := json.Marshal(je)
+	b, err := json.Marshal(je)
+	if err != nil {
+		return fmt.Sprintf(`{"code": %q, "message": %q}`, e.Code, e.Message)
+	}
 
 	return string(b)
 }

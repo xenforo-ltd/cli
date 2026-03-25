@@ -45,7 +45,13 @@ func TestDoRetriesWithBody(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
-		data, _ := io.ReadAll(r.Body)
+
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			return
+		}
+
 		received = append(received, data)
 
 		if attempts == 1 {
@@ -104,7 +110,10 @@ func TestRefreshTokenSingleFlight(t *testing.T) {
 		refreshMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"access_token":"new","refresh_token":"refresh","token_type":"Bearer","expires_in":3600}`))
+
+		if _, err := w.Write([]byte(`{"access_token":"new","refresh_token":"refresh","token_type":"Bearer","expires_in":3600}`)); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -125,7 +134,9 @@ func TestRefreshTokenSingleFlight(t *testing.T) {
 		wg.Go(func() {
 			<-start
 
-			_ = client.refreshToken(t.Context(), "old")
+			if err := client.refreshToken(t.Context(), "old"); err != nil {
+				t.Logf("refreshToken: %v", err)
+			}
 		})
 	}
 

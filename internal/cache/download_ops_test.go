@@ -19,7 +19,10 @@ func TestDownloadAndUseCache(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Disposition", `attachment; filename="xf.zip"`)
-		_, _ = w.Write(payload)
+
+		if _, err := w.Write(payload); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -63,7 +66,9 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 	m := &Manager{basePath: t.TempDir()}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("payload"))
+		if _, err := w.Write([]byte("payload")); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -113,13 +118,19 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") == "Bearer bad" {
 			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write([]byte("forbidden"))
+
+			if _, err := w.Write([]byte("forbidden")); err != nil {
+				t.Errorf("write response: %v", err)
+			}
 
 			return
 		}
 
 		w.Header().Set("Content-Disposition", `attachment; filename="secure.zip"`)
-		_, _ = w.Write(payload)
+
+		if _, err := w.Write(payload); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 

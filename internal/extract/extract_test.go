@@ -44,11 +44,16 @@ func TestZipFileRejectsSymlink(t *testing.T) {
 
 	file, err := zw.CreateHeader(header)
 	if err != nil {
-		zw.Close()
+		if closeErr := zw.Close(); closeErr != nil {
+			t.Logf("close zip writer: %v", closeErr)
+		}
+
 		t.Fatalf("create header: %v", err)
 	}
 
-	_, _ = file.Write([]byte("target"))
+	if _, err := file.Write([]byte("target")); err != nil {
+		t.Fatalf("write zip entry: %v", err)
+	}
 
 	if err := zw.Close(); err != nil {
 		t.Fatalf("close zip: %v", err)

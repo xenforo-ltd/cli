@@ -145,7 +145,15 @@ func runAsLocalXenForoCommand(xfDir string, args []string, cmdFn func(string, ..
 }
 
 func init() {
-	cobra.OnInitialize(func() { config.Init(configFile) })
+	cobra.OnInitialize(func() {
+		if err := config.Init(configFile); err != nil {
+			if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+				return
+			}
+
+			cobra.CheckErr(err)
+		}
+	})
 
 	rootCmd.InitDefaultCompletionCmd()
 
@@ -153,6 +161,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("no-interaction", "n", false, "disable interactive prompts")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
 
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
-	viper.BindPFlag("no_interaction", rootCmd.PersistentFlags().Lookup("no-interaction"))
+	if err := viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")); err != nil {
+		cobra.CheckErr(err)
+	}
+
+	if err := viper.BindPFlag("no_interaction", rootCmd.PersistentFlags().Lookup("no-interaction")); err != nil {
+		cobra.CheckErr(err)
+	}
 }

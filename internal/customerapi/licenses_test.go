@@ -20,7 +20,10 @@ func TestGetLicenseDownloadablesEncodesQuery(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"license_key":"key","downloadables":[]}`))
+
+		if _, err := w.Write([]byte(`{"license_key":"key","downloadables":[]}`)); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 

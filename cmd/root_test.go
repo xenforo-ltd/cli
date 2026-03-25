@@ -38,7 +38,10 @@ func TestFindXenForoDirTerminatesAtRoot(t *testing.T) {
 	done := make(chan struct{})
 
 	go func() {
-		_, _ = xf.GetXenForoDir(string(filepath.Separator))
+		if _, err := xf.GetXenForoDir(string(filepath.Separator)); err != nil {
+			// Error is expected; we're testing that the function terminates.
+			t.Logf("GetXenForoDir: %v", err)
+		}
 
 		close(done)
 	}()

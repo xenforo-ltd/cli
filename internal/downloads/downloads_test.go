@@ -19,13 +19,11 @@ var (
 )
 
 func v(id int, str string, ts string) customerapi.Version {
-	tm, _ := time.Parse(time.RFC3339, ts)
-
 	return customerapi.Version{
 		VersionID:  id,
 		VersionStr: str,
 		ReleaseDate: customerapi.UnixTime{
-			Time: tm,
+			Time: mustTime(ts),
 		},
 	}
 }

@@ -79,10 +79,18 @@ const (
 )
 
 // Println is a wrapper around lipgloss.Println for color-downsampled output.
-var Println = lipgloss.Println
+func Println(v ...any) int {
+	n, _ := lipgloss.Println(v...)
+
+	return n
+}
 
 // Printf is a wrapper around lipgloss.Printf for color-downsampled output.
-var Printf = lipgloss.Printf
+func Printf(format string, v ...any) int {
+	n, _ := lipgloss.Printf(format, v...)
+
+	return n
+}
 
 // StatusIcon renders a colored status symbol.
 func StatusIcon(status string) string {
@@ -603,7 +611,10 @@ func Confirm(prompt string, defaultYes bool) bool {
 	}
 
 	fmt.Printf("%s [%s]: ", prompt, defaultStr)
-	fmt.Scanln(&response)
+
+	if _, err := fmt.Scanln(&response); err != nil {
+		return defaultYes
+	}
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	if response == "" {

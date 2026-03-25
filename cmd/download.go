@@ -55,7 +55,9 @@ func init() {
 	downloadCmd.Flags().IntVar(&flagDownloadVersionID, "version", 0, "version ID to download")
 	downloadCmd.Flags().BoolVar(&flagDownloadForce, "force", false, "force re-download even if cached")
 
-	downloadCmd.MarkFlagRequired("license")
+	if err := downloadCmd.MarkFlagRequired("license"); err != nil {
+		cobra.CheckErr(err)
+	}
 
 	rootCmd.AddCommand(downloadCmd)
 }

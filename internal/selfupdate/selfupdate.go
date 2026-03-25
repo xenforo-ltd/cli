@@ -163,7 +163,10 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	if err != nil {
 		return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to create temporary directory", err)
 	}
-	defer os.RemoveAll(tmpDir)
+
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	archivePath := filepath.Join(tmpDir, info.AssetName)
 
@@ -203,7 +206,11 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	// On Windows, we need to move the old file first.
 	if runtime.GOOS == windowsOS {
 		oldPath := execPath + ".old"
-		os.Remove(oldPath) // Remove any existing .old file.
+
+		// Remove any existing .old file; ignore "not exist" since that's expected.
+		if err := os.Remove(oldPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to remove stale backup", err)
+		}
 
 		if err := os.Rename(execPath, oldPath); err != nil {
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to backup old binary", err)
@@ -211,11 +218,17 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 
 		if err := os.Rename(newBinaryPath, execPath); err != nil {
 			// Try to restore the old binary.
-			os.Rename(oldPath, execPath)
+			if restoreErr := os.Rename(oldPath, execPath); restoreErr != nil {
+				return clierrors.Wrapf(clierrors.CodeUpdateFailed, err, "failed to replace binary (restore also failed: %v)", restoreErr)
+			}
+
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to replace binary", err)
 		}
 
-		os.Remove(oldPath) // Clean up the old binary.
+		// Clean up the old binary; ignore "not exist" errors.
+		if err := os.Remove(oldPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to remove old binary", err)
+		}
 	} else {
 		if err := os.Rename(newBinaryPath, execPath); err != nil {
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to replace binary", err)
@@ -617,7 +630,9 @@ func parseVersion(v string) []int {
 
 	result := make([]int, len(parts))
 	for i, p := range parts {
-		fmt.Sscanf(p, "%d", &result[i])
+		if _, err := fmt.Sscanf(p, "%d", &result[i]); err != nil {
+			result[i] = 0
+		}
 	}
 
 	return result

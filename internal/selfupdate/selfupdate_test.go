@@ -212,7 +212,9 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("abc123  other-file.tar.gz\n"))
+		if _, err := w.Write([]byte("abc123  other-file.tar.gz\n")); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -264,7 +266,9 @@ func TestVerifyChecksumFailsWhenChecksumMalformed(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("###\n\n"))
+		if _, err := w.Write([]byte("###\n\n")); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -356,7 +360,9 @@ func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/asset":
-			_, _ = w.Write(archiveData)
+			if _, err := w.Write(archiveData); err != nil {
+				t.Errorf("write asset: %v", err)
+			}
 		case "/checksums":
 			_, _ = fmt.Fprintf(w, "%s  %s\n", archiveChecksum, archiveName)
 		default:

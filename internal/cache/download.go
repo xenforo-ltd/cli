@@ -95,8 +95,8 @@ func (m *Manager) download(ctx context.Context, opts DownloadOptions, authToken 
 
 	entry, err := m.finalizeEntry(opts, filePath, entryPath)
 	if err != nil {
-		os.Remove(filePath)
-		return nil, err
+		rmErr := os.Remove(filePath)
+		return nil, errors.Join(err, rmErr)
 	}
 
 	return &DownloadResult{
@@ -162,8 +162,8 @@ func checkResponseStatus(resp *http.Response, authToken string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		if authToken != "" {
-			body, _ := io.ReadAll(resp.Body)
-			if len(body) > 0 && len(body) < 500 {
+			body, err := io.ReadAll(resp.Body)
+			if err == nil {
 				return clierrors.Newf(clierrors.CodeDownloadFailed, "download failed with status %d: %s", resp.StatusCode, string(body))
 			}
 		}
@@ -212,33 +212,36 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 	closeErr := f.Close()
 
 	if copyErr != nil {
-		os.Remove(tmpPath)
-		return 0, clierrors.Wrap(clierrors.CodeDownloadFailed, "download interrupted", copyErr)
+		rmErr := os.Remove(tmpPath)
+		return 0, errors.Join(clierrors.Wrap(clierrors.CodeDownloadFailed, "download interrupted", copyErr), rmErr)
 	}
 
 	if closeErr != nil {
-		os.Remove(tmpPath)
-		return 0, clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to finalize download file", closeErr)
+		rmErr := os.Remove(tmpPath)
+		return 0, errors.Join(clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to finalize download file", closeErr), rmErr)
 	}
 
 	if expectedChecksum != "" {
 		checksum, err := CalculateChecksum(tmpPath)
 		if err != nil {
-			os.Remove(tmpPath)
-			return 0, err
+			rmErr := os.Remove(tmpPath)
+			return 0, errors.Join(err, rmErr)
 		}
 
 		if checksum != expectedChecksum {
-			os.Remove(tmpPath)
+			rmErr := os.Remove(tmpPath)
 
-			return 0, clierrors.Newf(clierrors.CodeChecksumMismatch,
-				"checksum mismatch: expected %s, got %s", expectedChecksum, checksum)
+			return 0, errors.Join(
+				clierrors.Newf(clierrors.CodeChecksumMismatch,
+					"checksum mismatch: expected %s, got %s", expectedChecksum, checksum),
+				rmErr,
+			)
 		}
 	}
 
 	if err := os.Rename(tmpPath, destPath); err != nil {
-		os.Remove(tmpPath)
-		return 0, clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to finalize download", err)
+		rmErr := os.Remove(tmpPath)
+		return 0, errors.Join(clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to finalize download", err), rmErr)
 	}
 
 	return downloaded, nil

@@ -1,6 +1,7 @@
 package initflow
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +11,10 @@ import (
 )
 
 func tv(id int, str string, stable bool, ts string) customerapi.Version {
-	tm, _ := time.Parse(time.RFC3339, ts)
+	tm, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		panic(fmt.Sprintf("parse time %q: %v", ts, err))
+	}
 
 	return customerapi.Version{
 		VersionID:  id,
