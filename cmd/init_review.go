@@ -79,10 +79,10 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	for {
 		clearScreen()
-		fmt.Println()
-		fmt.Println(ui.Bold.Render("Review configuration"))
+		ui.Println()
+		ui.Println(ui.Bold.Render("Review configuration"))
 		printReviewSummary(ctx, client, opts)
-		fmt.Println()
+		ui.Println()
 
 		choice := "continue"
 
@@ -154,8 +154,8 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.VersionString, opts.ProductOverrides, nil)
 	if err == nil {
-		fmt.Println()
-		fmt.Println(ui.Bold.Render("Add-on versions"))
+		ui.Println()
+		ui.Println(ui.Bold.Render("Add-on versions"))
 
 		pairs := make([]ui.KVPair, 0, len(selections))
 		for _, s := range selections {
@@ -177,7 +177,7 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 		}
 
 		if len(pairs) == 0 {
-			fmt.Printf("%s%s\n", ui.Indent1, ui.Dim.Render("None"))
+			ui.Printf("%s%s\n", ui.Indent1, ui.Dim.Render("None"))
 		} else {
 			ui.PrintKeyValuePaddedWithIndent(pairs, ui.Indent1)
 		}
@@ -193,8 +193,8 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 	sort.Strings(keys)
 
 	if len(keys) > 0 {
-		fmt.Println()
-		fmt.Println(ui.Bold.Render("Environment values"))
+		ui.Println()
+		ui.Println(ui.Bold.Render("Environment values"))
 
 		pairs := make([]ui.KVPair, 0, len(keys))
 		for _, k := range keys {

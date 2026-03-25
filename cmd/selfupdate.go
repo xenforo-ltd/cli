@@ -75,7 +75,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Downloading %s...\n", info.AssetName)
+	ui.Printf("Downloading %s...\n", info.AssetName)
 
 	var progressBar *ui.ProgressBar
 
@@ -89,7 +89,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		}
 	})
 	if err != nil {
-		fmt.Println()
+		ui.Println()
 		return err
 	}
 

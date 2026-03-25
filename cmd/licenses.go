@@ -116,7 +116,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal licenses", err)
 		}
 
-		fmt.Println(string(data))
+		ui.Println(string(data))
 
 		return nil
 	}
@@ -270,7 +270,7 @@ func runLicensesVerbose(licenses []customerapi.License) {
 		}
 
 		if i < len(licenses)-1 {
-			fmt.Println()
+			ui.Println()
 		}
 	}
 }

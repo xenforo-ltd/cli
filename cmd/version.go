@@ -43,11 +43,11 @@ Examples:
 		if flagVersionJSON {
 			data, err := json.MarshalIndent(info, "", "  ")
 			if err != nil {
-				fmt.Printf("Error: %s\n", err)
+				ui.Printf("Error: %s\n", err)
 				return
 			}
 
-			fmt.Println(string(data))
+			ui.Println(string(data))
 
 			return
 		}

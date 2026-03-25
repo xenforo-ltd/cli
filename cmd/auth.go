@@ -206,7 +206,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 				return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 			}
 
-			fmt.Println(string(data))
+			ui.Println(string(data))
 
 			return nil
 		}
@@ -227,7 +227,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 					return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 				}
 
-				fmt.Println(string(data))
+				ui.Println(string(data))
 
 				return nil
 			}
@@ -282,7 +282,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal auth status", err)
 		}
 
-		fmt.Println(string(data))
+		ui.Println(string(data))
 
 		return nil
 	}
@@ -419,7 +419,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.PrintSuccess("Token refreshed successfully!")
-	fmt.Println()
+	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("New expiry", newToken.ExpiresAt.Format(time.RFC1123)),
 		ui.KV("Time until expiry", newToken.TimeUntilExpiry().Round(time.Minute).String()),

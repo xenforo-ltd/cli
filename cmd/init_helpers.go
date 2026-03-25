@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -156,7 +157,7 @@ func inferSiteTitleFromEnv(opts *InitOptions) string {
 }
 
 func clearScreen() {
-	fmt.Print("\033[H\033[2J")
+	_, _ = fmt.Fprint(os.Stdout, "\033[H\033[2J")
 }
 
 func validateReviewInputs(opts *InitOptions) error {

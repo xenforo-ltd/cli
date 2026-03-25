@@ -610,7 +610,7 @@ func Confirm(prompt string, defaultYes bool) bool {
 		defaultStr = "Y/n"
 	}
 
-	fmt.Printf("%s [%s]: ", prompt, defaultStr)
+	Printf("%s [%s]: ", prompt, defaultStr)
 
 	if _, err := fmt.Scanln(&response); err != nil {
 		return defaultYes

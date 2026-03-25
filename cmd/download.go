@@ -84,7 +84,7 @@ func runDownload(cmd *cobra.Command, args []string) error {
 
 func listDownloadables(ctx context.Context, client *customerapi.Client, licenseKey string) error {
 	ui.PrintInfo(fmt.Sprintf("Fetching available downloads for license %s...", ui.Bold.Render(licenseKey)))
-	fmt.Println()
+	ui.Println()
 
 	downloadables, err := client.GetLicenseDownloadables(ctx, licenseKey)
 	if err != nil {
@@ -109,7 +109,7 @@ func listDownloadables(ctx context.Context, client *customerapi.Client, licenseK
 
 func listVersions(ctx context.Context, client *customerapi.Client, licenseKey string, downloadID string) error {
 	ui.PrintInfo(fmt.Sprintf("Fetching available versions for %s...", ui.Bold.Render(downloadID)))
-	fmt.Println()
+	ui.Println()
 
 	versions, err := client.GetLicenseVersions(ctx, licenseKey, downloadID)
 	if err != nil {
@@ -145,7 +145,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 		return err
 	}
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("Filename", info.Filename),
 		ui.KV("Version", ui.Version.Render(info.VersionString)),
@@ -166,9 +166,9 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 			valid, err := cacheManager.Verify(entry)
 			if err == nil && valid {
 				if _, statErr := os.Stat(entry.FilePath); statErr == nil {
-					fmt.Println()
+					ui.Println()
 					ui.PrintSuccess(fmt.Sprintf("Already cached: %s", ui.Path.Render(entry.FilePath)))
-					fmt.Println()
+					ui.Println()
 					ui.PrintKeyValuePadded([]ui.KVPair{
 						ui.KV("Size", ui.FormatBytes(entry.Metadata.Size)),
 						ui.KV("Downloaded", entry.Metadata.DownloadedAt.Format("2006-01-02 15:04:05")),
@@ -188,7 +188,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	downloadURL := client.GetDownloadURL(licenseKey, downloadID, versionID)
 
-	fmt.Println()
+	ui.Println()
 	ui.PrintInfo("Downloading...")
 
 	var progressBar *ui.ProgressBar
@@ -221,13 +221,13 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 		progressBar.Finish()
 	}
 
-	fmt.Println()
+	ui.Println()
 
 	if result.WasCached {
 		ui.PrintSuccess(fmt.Sprintf("Used cached file: %s", ui.Path.Render(result.Entry.FilePath)))
 	} else {
 		ui.PrintSuccess(fmt.Sprintf("Downloaded: %s", ui.Path.Render(result.Entry.FilePath)))
-		fmt.Println()
+		ui.Println()
 		ui.PrintKeyValuePadded([]ui.KVPair{
 			ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),
 			ui.KV("Checksum", ui.Dim.Render(result.Entry.Metadata.Checksum[:16]+"...")),
