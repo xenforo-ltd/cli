@@ -13,9 +13,10 @@ func resetGlobals(t *testing.T) {
 	t.Helper()
 
 	viper.Reset()
+
 	cacheOnce = sync.Once{}
 	cache = Config{}
-	cacheErr = nil
+	errCache = nil
 }
 
 func TestOAuthEndpoints(t *testing.T) {
@@ -69,12 +70,15 @@ func TestOAuthEndpoints(t *testing.T) {
 			if ep.Auth != tt.wantAuth {
 				t.Errorf("Auth = %q, want %q", ep.Auth, tt.wantAuth)
 			}
+
 			if ep.Token != tt.wantToken {
 				t.Errorf("Token = %q, want %q", ep.Token, tt.wantToken)
 			}
+
 			if ep.Introspect != tt.wantIntro {
 				t.Errorf("Introspect = %q, want %q", ep.Introspect, tt.wantIntro)
 			}
+
 			if ep.Revoke != tt.wantRevoke {
 				t.Errorf("Revoke = %q, want %q", ep.Revoke, tt.wantRevoke)
 			}

@@ -15,7 +15,7 @@ import (
 var (
 	cacheOnce sync.Once
 	cache     Config
-	cacheErr  error
+	errCache  error
 )
 
 // Config holds all CLI configuration values.
@@ -113,11 +113,11 @@ func Init(configFile string) error {
 func Load() (Config, error) {
 	cacheOnce.Do(func() {
 		if err := viper.Unmarshal(&cache); err != nil {
-			cacheErr = clierrors.Wrap(clierrors.CodeConfigInvalid, "failed to unmarshal config", err)
+			errCache = clierrors.Wrap(clierrors.CodeConfigInvalid, "failed to unmarshal config", err)
 		}
 	})
 
-	return cache, cacheErr
+	return cache, errCache
 }
 
 // Save writes the current configuration to the config file.

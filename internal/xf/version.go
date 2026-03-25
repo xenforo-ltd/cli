@@ -164,6 +164,10 @@ func ParseVersionID(versionID int) *Version {
 			v.String += fmt.Sprintf(" RC %d", v.PLLevel)
 		case StabilityPL:
 			v.String += fmt.Sprintf(" PL %d", v.PLLevel)
+		case StabilityUnknown:
+			v.String += fmt.Sprintf(" (unknown %d)", v.StabNum)
+		case StabilityStable:
+			break
 		}
 	}
 

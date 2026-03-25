@@ -55,7 +55,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			statusStr = ui.StatusIcon("warning")
 		case doctor.StatusError:
 			statusStr = ui.StatusIcon("error")
-		default:
+		case doctor.StatusSkipped:
 			statusStr = ui.StatusIcon("skipped")
 		}
 
