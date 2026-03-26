@@ -13,7 +13,7 @@ services:
       - mailpit
 
   mailpit:
-    image: axllent/mailpit:v${MAILPIT_VERSION:-1.28}
+    image: axllent/mailpit:v${MAILPIT_VERSION:-1.29}
     environment:
       MP_DATABASE: /data/mailpit.db
       MP_SMTP_AUTH: ${XF_MAIL_USERNAME:-xf}:${XF_MAIL_PASSWORD:-password}

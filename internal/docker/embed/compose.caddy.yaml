@@ -4,7 +4,7 @@ services:
       - caddy
 
   caddy:
-    image: caddy:${CADDY_VERSION:-2.10}-alpine
+    image: caddy:${CADDY_VERSION:-2.11}-alpine
     depends_on:
       - xf
     networks:

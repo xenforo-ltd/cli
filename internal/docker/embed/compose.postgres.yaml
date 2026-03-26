@@ -9,7 +9,7 @@ services:
       - postgres
 
   postgres:
-    image: postgres:${POSTGRES_VERSION:-18.1}-alpine
+    image: postgres:${POSTGRES_VERSION:-18.3}-alpine
     environment:
       POSTGRES_USER: ${XF_DB_USER:-xf}
       POSTGRES_PASSWORD: ${XF_DB_PASSWORD:-password}

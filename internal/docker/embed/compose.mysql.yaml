@@ -14,7 +14,7 @@ services:
       - mysql
 
   mysql:
-    image: mariadb:${MARIADB_VERSION:-12.1}
+    image: mariadb:${MARIADB_VERSION:-12.2}
     command:
       - mariadbd
       - --server-id=1
