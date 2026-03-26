@@ -3,7 +3,6 @@ package docker
 
 import (
 	"embed"
-	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -153,24 +152,3 @@ func GetDockerIgnoreDefault() ([]byte, error) {
 }
 
 // ListEmbeddedFiles returns all embedded Docker file paths.
-func ListEmbeddedFiles() ([]string, error) {
-	var files []string
-
-	err := fs.WalkDir(dockerFS, EmbedDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !d.IsDir() {
-			relPath := strings.TrimPrefix(path, EmbedDir+"/")
-			files = append(files, relPath)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to list embedded files", err)
-	}
-
-	return files, nil
-}
