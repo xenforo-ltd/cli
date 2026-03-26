@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -53,7 +52,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(services) > 0 {
-		ui.PrintInfo(fmt.Sprintf("Showing logs for: %s", strings.Join(services, ", ")))
+		ui.PrintInfo("Showing logs for: " + strings.Join(services, ", "))
 	} else {
 		ui.PrintInfo("Showing logs for all services")
 	}

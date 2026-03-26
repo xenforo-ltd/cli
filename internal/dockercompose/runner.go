@@ -399,7 +399,7 @@ func (r *Runner) GetURL(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("http://localhost:%s", port), nil
+	return "http://localhost:" + port, nil
 }
 
 // WaitForReady waits for the xf container to be ready to accept commands.
@@ -472,7 +472,7 @@ func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string
 
 	cmd := exec.CommandContext(ctx, "docker", allArgs...)
 	cmd.Dir = r.xfDir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
+	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 
@@ -528,7 +528,7 @@ func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr 
 	cmd.Stderr = stderr
 	cmd.Stdin = os.Stdin
 
-	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
+	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
 
 	if err := cmd.Run(); err != nil {
 		return clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "docker command failed")
@@ -560,7 +560,7 @@ func (r *Runner) buildDockerCommand(ctx context.Context, extraArgs ...string) *e
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = r.xfDir
-	cmd.Env = append(os.Environ(), fmt.Sprintf("XF_DIR=%s", r.xfDir))
+	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
 
 	return cmd
 }

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -58,7 +57,7 @@ func runDebug(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ui.PrintInfo(fmt.Sprintf("Running with XDebug: %s", args[0]))
+	ui.PrintInfo("Running with XDebug: " + args[0])
 
 	return runner.XFCommandDebug(cmd.Context(), args...)
 }

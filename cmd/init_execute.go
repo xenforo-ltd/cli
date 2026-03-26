@@ -213,7 +213,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	} else {
 		ui.Println()
 		ui.Println("To start the environment:")
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", opts.TargetPath)))
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("cd "+opts.TargetPath))
 		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
 	}
 
@@ -345,7 +345,7 @@ func parseInstallImportMessage(line string) string {
 			}
 		}
 
-		return fmt.Sprintf("importing %s", name)
+		return "importing " + name
 	}
 
 	return "importing data"
@@ -428,7 +428,7 @@ func prepareTargetDirectory(targetPath string) error {
 			return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create target directory", err)
 		}
 
-		ui.PrintSubstep(fmt.Sprintf("Created directory: %s", ui.Path.Render(targetPath)))
+		ui.PrintSubstep("Created directory: " + ui.Path.Render(targetPath))
 
 		return nil
 	}
@@ -637,8 +637,8 @@ func configureEnvironment(opts *InitOptions) error {
 		return err
 	}
 
-	ui.PrintSubstep(fmt.Sprintf("Configured instance: %s", opts.InstanceName))
-	ui.PrintDetail(fmt.Sprintf("Admin email: %s", opts.AdminEmail))
+	ui.PrintSubstep("Configured instance: " + opts.InstanceName)
+	ui.PrintDetail("Admin email: " + opts.AdminEmail)
 
 	return nil
 }

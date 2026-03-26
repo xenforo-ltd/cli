@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -142,7 +142,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 }
 
 func runLicensesTable(licenses []customerapi.License) {
-	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
+	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(strconv.Itoa(len(licenses))))
 
 	headers := []string{"LICENSE", "SITE TITLE", "SITE URL", "PRODUCT", "STATUS", "EXPIRES", "DOWNLOAD"}
 	rows := make([][]string, 0, len(licenses))
@@ -210,7 +210,7 @@ func formatLicenseSite(lic customerapi.License) (string, string) {
 }
 
 func runLicensesVerbose(licenses []customerapi.License) {
-	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(fmt.Sprintf("%d", len(licenses))))
+	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(strconv.Itoa(len(licenses))))
 
 	for i, lic := range licenses {
 		var statusText string

@@ -120,7 +120,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 		if opts.LicenseKey == "" {
 			opts.LicenseKey = meta.LicenseKey
-			pairs = append(pairs, ui.KV("License key", fmt.Sprintf("%s (from metadata)", opts.LicenseKey)))
+			pairs = append(pairs, ui.KV("License key", opts.LicenseKey+" (from metadata)"))
 		}
 
 		opts.Products = meta.InstalledProducts
@@ -256,7 +256,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 
 		err = huh.NewSelect[int]().
 			Title("Select target version").
-			Description(fmt.Sprintf("Current: %s", opts.CurrentVersion.String)).
+			Description("Current: " + opts.CurrentVersion.String).
 			Options(versionOptions...).
 			Value(&opts.TargetVersionID).
 			Run()
@@ -346,7 +346,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	} else {
 		ui.Println()
 		ui.Println("Files have been upgraded. Run the following to complete:")
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", opts.TargetPath)))
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("cd "+opts.TargetPath))
 		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
 		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf xf:upgrade"))
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -129,7 +130,7 @@ func listVersions(ctx context.Context, client *customerapi.Client, licenseKey st
 			stable = ui.Success.Render(" (stable)")
 		}
 
-		ui.Printf("%s%s %s%s\n", ui.Indent1, ui.Dim.Render(fmt.Sprintf("%d", v.VersionID)), ui.Version.Render(v.VersionStr), stable)
+		ui.Printf("%s%s %s%s\n", ui.Indent1, ui.Dim.Render(strconv.Itoa(v.VersionID)), ui.Version.Render(v.VersionStr), stable)
 	}
 
 	ui.Printf("\nUse %s to specify which version to download.\n", ui.Command.Render("--version <id>"))
@@ -167,7 +168,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 			if err == nil && valid {
 				if _, statErr := os.Stat(entry.FilePath); statErr == nil {
 					ui.Println()
-					ui.PrintSuccess(fmt.Sprintf("Already cached: %s", ui.Path.Render(entry.FilePath)))
+					ui.PrintSuccess("Already cached: " + ui.Path.Render(entry.FilePath))
 					ui.Println()
 					ui.PrintKeyValuePadded([]ui.KVPair{
 						ui.KV("Size", ui.FormatBytes(entry.Metadata.Size)),
@@ -224,9 +225,9 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 	ui.Println()
 
 	if result.WasCached {
-		ui.PrintSuccess(fmt.Sprintf("Used cached file: %s", ui.Path.Render(result.Entry.FilePath)))
+		ui.PrintSuccess("Used cached file: " + ui.Path.Render(result.Entry.FilePath))
 	} else {
-		ui.PrintSuccess(fmt.Sprintf("Downloaded: %s", ui.Path.Render(result.Entry.FilePath)))
+		ui.PrintSuccess("Downloaded: " + ui.Path.Render(result.Entry.FilePath))
 		ui.Println()
 		ui.PrintKeyValuePadded([]ui.KVPair{
 			ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),

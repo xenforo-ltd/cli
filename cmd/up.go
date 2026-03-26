@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -63,8 +62,8 @@ func runUp(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ui.PrintInfo(fmt.Sprintf("Starting Docker environment: %s", runner.Instance()))
-	ui.PrintDetail(fmt.Sprintf("Directory: %s", ui.Path.Render(xfDir)))
+	ui.PrintInfo("Starting Docker environment: " + runner.Instance())
+	ui.PrintDetail("Directory: " + ui.Path.Render(xfDir))
 
 	detach := flagUpDetach
 	if cmd.Flags().Changed("no-detach") {

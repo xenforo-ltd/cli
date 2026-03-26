@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/xenforo-ltd/cli/internal/clierrors"
@@ -285,7 +286,7 @@ func (c *EnvConfig) ConfigureEnv(envPath string) error {
 	}
 
 	if c.AdminHueShift != 0 {
-		values["XF_ADMIN_HUE_SHIFT"] = fmt.Sprintf("%d", c.AdminHueShift)
+		values["XF_ADMIN_HUE_SHIFT"] = strconv.Itoa(c.AdminHueShift)
 	}
 
 	if c.PHPVersion != "" {

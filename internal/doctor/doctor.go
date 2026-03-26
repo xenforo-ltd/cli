@@ -276,7 +276,7 @@ func (d *Doctor) checkCacheDirectory() {
 			result.Suggestion = "Check permissions for the parent directory"
 		} else {
 			result.Status = StatusOK
-			result.Message = fmt.Sprintf("Cache directory created: %s", cacheDir)
+			result.Message = "Cache directory created: " + cacheDir
 		}
 
 		d.results = append(d.results, result)
@@ -312,7 +312,7 @@ func (d *Doctor) checkCacheDirectory() {
 			result.Message = fmt.Sprintf("Cache directory writable but cleanup failed: %v", err)
 		} else {
 			result.Status = StatusOK
-			result.Message = fmt.Sprintf("Cache directory: %s", cacheDir)
+			result.Message = "Cache directory: " + cacheDir
 		}
 	}
 
@@ -386,7 +386,7 @@ func (d *Doctor) checkDiskSpace(ctx context.Context) {
 		result.Suggestion = "XenForo downloads can be large. Consider freeing up disk space."
 	} else {
 		result.Status = StatusOK
-		result.Message = fmt.Sprintf("Available disk space: %s", ui.FormatBytes(availableBytes))
+		result.Message = "Available disk space: " + ui.FormatBytes(availableBytes)
 	}
 
 	d.results = append(d.results, result)
@@ -420,7 +420,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodHead, target.url, nil)
 		if err != nil {
-			details = append(details, fmt.Sprintf("%s: failed to create request", target.name))
+			details = append(details, target.name+": failed to create request")
 			allOK = false
 
 			continue
@@ -428,7 +428,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			details = append(details, fmt.Sprintf("%s: unreachable", target.name))
+			details = append(details, target.name+": unreachable")
 			allOK = false
 
 			continue
@@ -436,7 +436,7 @@ func (d *Doctor) checkNetwork(ctx context.Context) {
 
 		resp.Body.Close()
 
-		details = append(details, fmt.Sprintf("%s: OK", target.name))
+		details = append(details, target.name+": OK")
 	}
 
 	if allOK {

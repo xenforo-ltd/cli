@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -46,7 +45,7 @@ func runComposer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ui.PrintInfo(fmt.Sprintf("Running: composer %s", strings.Join(composerArgs, " ")))
+	ui.PrintInfo("Running: composer " + strings.Join(composerArgs, " "))
 
 	return runner.Composer(cmd.Context(), composerArgs...)
 }

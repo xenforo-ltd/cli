@@ -128,7 +128,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create request", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
+	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	req.Header.Set("User-Agent", userAgent())
 	req.Header.Set("Accept", "application/json")
 

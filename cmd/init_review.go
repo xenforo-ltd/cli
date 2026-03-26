@@ -440,7 +440,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 
 		choice := selectOptions[0].Value
 		if err := huh.NewSelect[int]().
-			Title(fmt.Sprintf("Select version for %s", product)).
+			Title("Select version for " + product).
 			Description("Showing latest 10 versions. Choose manual entry for older versions.").
 			Options(selectOptions...).
 			Value(&choice).Run(); err != nil {
@@ -523,7 +523,7 @@ func editEnvValues(opts *InitOptions) error {
 		}
 
 		value := envVals[key]
-		if err := huh.NewInput().Title(fmt.Sprintf("Value for %s", key)).Value(&value).Run(); err != nil {
+		if err := huh.NewInput().Title("Value for " + key).Value(&value).Run(); err != nil {
 			return err
 		}
 

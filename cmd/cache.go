@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -203,7 +204,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
 		ui.StatusIcon("info"),
-		ui.Bold.Render(fmt.Sprintf("%d", len(entries))),
+		ui.Bold.Render(strconv.Itoa(len(entries))),
 		ui.Bold.Render(ui.FormatBytes(totalSize)))
 
 	headers := []string{"LICENSE", "PRODUCT", "VERSION", "SIZE", "DOWNLOADED"}
@@ -228,7 +229,7 @@ func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
 		ui.StatusIcon("info"),
-		ui.Bold.Render(fmt.Sprintf("%d", len(entries))),
+		ui.Bold.Render(strconv.Itoa(len(entries))),
 		ui.Bold.Render(ui.FormatBytes(totalSize)))
 
 	currentLicense := ""

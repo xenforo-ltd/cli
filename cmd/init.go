@@ -281,7 +281,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		return err
 	}
 
-	ui.PrintSuccess(fmt.Sprintf("Configured instance: %s", opts.InstanceName))
+	ui.PrintSuccess("Configured instance: " + opts.InstanceName)
 
 	ui.PrintStep(3, 3, "Starting environment")
 
@@ -297,7 +297,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 		url, err := runner.GetURL(ctx)
 		if err == nil && url != "" {
-			ui.PrintDetail(fmt.Sprintf("Site: %s", url))
+			ui.PrintDetail("Site: " + url)
 		}
 	} else {
 		ui.PrintDetail("Skipped (use --up flag to start containers)")
@@ -312,7 +312,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	if !opts.StartContainers {
 		ui.Println()
 		ui.Println("To start the environment:")
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render(fmt.Sprintf("cd %s", xfDir)))
+		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("cd "+xfDir))
 		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
 	}
 
