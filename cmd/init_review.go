@@ -15,6 +15,28 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+const (
+	reviewDone = "__done__"
+)
+
+type overrideMode int
+
+const (
+	modeInferred overrideMode = iota
+	modeOverride
+)
+
+func (m overrideMode) String() string {
+	switch m {
+	case modeInferred:
+		return "inferred"
+	case modeOverride:
+		return "override"
+	default:
+		return ""
+	}
+}
+
 func chooseCoreVersionInteractively(opts *InitOptions) error {
 	display := initflow.BuildVersionOptions(opts.CoreVersions, 10)
 
@@ -372,9 +394,9 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 			addonOptions = append(addonOptions, huh.NewOption(label, p))
 		}
 
-		addonOptions = append(addonOptions, huh.NewOption("Done", "__done__"))
+		addonOptions = append(addonOptions, huh.NewOption("Done", reviewDone))
 
-		product := "__done__"
+		product := reviewDone
 		if err := huh.NewSelect[string]().
 			Title("Select add-on override to edit").
 			Options(addonOptions...).
@@ -382,13 +404,13 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 			return err
 		}
 
-		if product == "__done__" {
+		if product == reviewDone {
 			return nil
 		}
 
-		mode := "inferred"
+		mode := modeInferred
 		if _, ok := opts.ProductOverrides[product]; ok {
-			mode = "override"
+			mode = modeOverride
 		}
 
 		currentVersion := "auto"
@@ -402,17 +424,17 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 			}
 		}
 
-		if err := huh.NewSelect[string]().
+		if err := huh.NewSelect[overrideMode]().
 			Title("Choose override mode").
 			Options(
-				huh.NewOption(fmt.Sprintf("Use current version [%s]", currentVersion), "inferred"),
-				huh.NewOption("Set specific version", "override"),
+				huh.NewOption(fmt.Sprintf("Use current version [%s]", currentVersion), modeInferred),
+				huh.NewOption("Set specific version", modeOverride),
 			).
 			Value(&mode).Run(); err != nil {
 			return err
 		}
 
-		if mode == "inferred" {
+		if mode == modeInferred {
 			delete(opts.ProductOverrides, product)
 			continue
 		}
@@ -491,9 +513,9 @@ func editEnvValues(opts *InitOptions) error {
 		}
 
 		options = append(options, huh.NewOption("Add new variable", "__add__"))
-		options = append(options, huh.NewOption("Done", "__done__"))
+		options = append(options, huh.NewOption("Done", reviewDone))
 
-		choice := "__done__"
+		choice := reviewDone
 		if len(options) > 0 {
 			choice = options[0].Value
 		}
@@ -505,7 +527,7 @@ func editEnvValues(opts *InitOptions) error {
 			return err
 		}
 
-		if choice == "__done__" {
+		if choice == reviewDone {
 			return nil
 		}
 
@@ -557,7 +579,7 @@ func currentEnvPreview(opts *InitOptions) (map[string]string, map[string]string)
 
 	for k, v := range base {
 		merged[k] = v
-		sources[k] = "inferred"
+		sources[k] = modeInferred.String()
 	}
 
 	for k, v := range opts.EnvResolved {
@@ -565,7 +587,7 @@ func currentEnvPreview(opts *InitOptions) (map[string]string, map[string]string)
 
 		src := opts.EnvSources[k]
 		if src == "" {
-			src = "override"
+			src = modeOverride.String()
 		}
 
 		sources[k] = src
