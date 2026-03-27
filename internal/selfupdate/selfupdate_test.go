@@ -162,7 +162,7 @@ func TestExtractBinaryFromTarGz(t *testing.T) {
 	archivePath := filepath.Join(tmp, "xf-v1.0.0-linux-amd64.tar.gz")
 
 	binaryContent := []byte("new-binary")
-	if err := os.WriteFile(archivePath, makeTarGzArchive(t, "xf", binaryContent), 0o644); err != nil {
+	if err := os.WriteFile(archivePath, makeTarGzArchive(t, "xf", binaryContent), 0o600); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -186,7 +186,7 @@ func TestExtractBinaryFromZip(t *testing.T) {
 	archivePath := filepath.Join(tmp, "xf-v1.0.0-windows-amd64.zip")
 
 	binaryContent := []byte("new-binary-windows")
-	if err := os.WriteFile(archivePath, makeZipArchive(t, "xf.exe", binaryContent), 0o644); err != nil {
+	if err := os.WriteFile(archivePath, makeZipArchive(t, "xf.exe", binaryContent), 0o600); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -207,7 +207,7 @@ func TestExtractBinaryFromZip(t *testing.T) {
 
 func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "file.tar.gz")
-	if err := os.WriteFile(archive, []byte("archive"), 0o644); err != nil {
+	if err := os.WriteFile(archive, []byte("archive"), 0o600); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -235,7 +235,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 
 func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "file.tar.gz")
-	if err := os.WriteFile(archive, []byte("archive"), 0o644); err != nil {
+	if err := os.WriteFile(archive, []byte("archive"), 0o600); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -320,7 +320,7 @@ func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 	execPath := filepath.Join(tmp, runtimeBinaryName())
 
 	oldContent := []byte("old-binary")
-	if err := os.WriteFile(execPath, oldContent, 0o755); err != nil {
+	if err := os.WriteFile(execPath, oldContent, 0o600); err != nil {
 		t.Fatalf("write old binary: %v", err)
 	}
 
@@ -406,7 +406,7 @@ func makeTarGzArchive(t *testing.T, binaryName string, binaryContent []byte) []b
 
 	header := &tar.Header{
 		Name: binaryName,
-		Mode: 0o755,
+		Mode: 0o750,
 		Size: int64(len(binaryContent)),
 	}
 	if err := tw.WriteHeader(header); err != nil {

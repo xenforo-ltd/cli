@@ -67,7 +67,7 @@ func TestDetectVersion(t *testing.T) {
 	dir := t.TempDir()
 
 	xfPath := filepath.Join(dir, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfPath), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
@@ -76,7 +76,7 @@ class XF {
     public static $version = '2.3.8';
     public static $versionId = 2030871;
 }`
-	if err := os.WriteFile(xfPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(xfPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 

@@ -40,7 +40,7 @@ func Init(xfDir string, opts InitOptions) error {
 			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default env", err)
 		}
 
-		if err := os.WriteFile(envPath, envDefault, 0o644); err != nil {
+		if err := os.WriteFile(envPath, envDefault, 0o600); err != nil {
 			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .env file", err)
 		}
 
@@ -66,7 +66,7 @@ func Init(xfDir string, opts InitOptions) error {
 			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default dockerignore", err)
 		}
 
-		if err := os.WriteFile(dockerignorePath, ignoreDefault, 0o644); err != nil {
+		if err := os.WriteFile(dockerignorePath, ignoreDefault, 0o600); err != nil {
 			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .dockerignore file", err)
 		}
 	}

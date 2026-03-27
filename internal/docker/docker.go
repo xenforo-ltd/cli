@@ -43,7 +43,7 @@ func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) erro
 		targetPath := filepath.Join(targetDir, relPath, entry.Name())
 
 		if entry.IsDir() {
-			if err := os.MkdirAll(targetPath, 0o755); err != nil {
+			if err := os.MkdirAll(targetPath, 0o750); err != nil {
 				return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create directory", err)
 			}
 
@@ -83,11 +83,11 @@ func extractFile(srcPath, targetPath string) error {
 	}
 
 	parentDir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+	if err := os.MkdirAll(parentDir, 0o750); err != nil {
 		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create parent directory", err)
 	}
 
-	if err := os.WriteFile(targetPath, data, 0o644); err != nil {
+	if err := os.WriteFile(targetPath, data, 0o600); err != nil {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write file", err)
 	}
 
@@ -107,14 +107,14 @@ func extractDefaultFile(srcPath, targetPath string) error {
 	}
 
 	parentDir := filepath.Dir(targetBase)
-	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+	if err := os.MkdirAll(parentDir, 0o750); err != nil {
 		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create parent directory", err)
 	}
 
 	if existingData, err := os.ReadFile(targetBase); err == nil {
 		if string(existingData) != string(data) {
 			defaultPath := targetBase + ".default"
-			if err := os.WriteFile(defaultPath, data, 0o644); err != nil {
+			if err := os.WriteFile(defaultPath, data, 0o600); err != nil {
 				return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write default file", err)
 			}
 		}
@@ -122,7 +122,7 @@ func extractDefaultFile(srcPath, targetPath string) error {
 		return nil
 	}
 
-	if err := os.WriteFile(targetBase, data, 0o644); err != nil {
+	if err := os.WriteFile(targetBase, data, 0o600); err != nil {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write file", err)
 	}
 

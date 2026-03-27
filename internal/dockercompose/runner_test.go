@@ -21,7 +21,7 @@ func TestBuildComposeArgsIncludesContextAndOverride(t *testing.T) {
 		"compose.override.yaml",
 	}
 	for _, name := range files {
-		if err := os.WriteFile(filepath.Join(tmp, name), []byte("services: {}\n"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmp, name), []byte("services: {}\n"), 0o600); err != nil {
 			t.Fatalf("write %s: %v", name, err)
 		}
 	}
@@ -194,7 +194,7 @@ func newRunnerWithFakeDocker(t *testing.T) (*Runner, string) {
 	t.Helper()
 
 	xfDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(xfDir, "compose.yaml"), []byte("services: {}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(xfDir, "compose.yaml"), []byte("services: {}\n"), 0o600); err != nil {
 		t.Fatalf("write compose.yaml: %v", err)
 	}
 
@@ -237,7 +237,7 @@ if [[ "$args" == *" run "* ]]; then
 fi
 exit 0
 `
-	if err := os.WriteFile(dockerPath, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(dockerPath, []byte(script), 0o700); err != nil {
 		t.Fatalf("write fake docker: %v", err)
 	}
 

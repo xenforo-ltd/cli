@@ -13,7 +13,7 @@ func TestGetXenForoDirFindsParent(t *testing.T) {
 	root := testutils.SetupXenForoDir(t)
 
 	nested := filepath.Join(root, "nested", "path")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
+	if err := os.MkdirAll(nested, 0o750); err != nil {
 		t.Fatalf("mkdir nested: %v", err)
 	}
 

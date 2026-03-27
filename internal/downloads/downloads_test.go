@@ -255,7 +255,7 @@ func TestDownloadSelection_Branches(t *testing.T) {
 
 	t.Run("returns cached entry", func(t *testing.T) {
 		p := filepath.Join(t.TempDir(), "cached.zip")
-		if err := os.WriteFile(p, []byte("cached"), 0o644); err != nil {
+		if err := os.WriteFile(p, []byte("cached"), 0o600); err != nil {
 			t.Fatalf("write cached file: %v", err)
 		}
 

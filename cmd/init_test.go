@@ -46,7 +46,7 @@ func TestConfigureEnvironmentSetsContextsWhenProvided(t *testing.T) {
 	envPath := filepath.Join(dir, ".env")
 
 	initial := "XF_CONTEXTS=legacy\nXF_INSTANCE=old\n"
-	if err := os.WriteFile(envPath, []byte(initial), 0o644); err != nil {
+	if err := os.WriteFile(envPath, []byte(initial), 0o600); err != nil {
 		t.Fatalf("write .env: %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestConfigureEnvironmentPreservesContextsWhenNotProvided(t *testing.T) {
 	envPath := filepath.Join(dir, ".env")
 
 	initial := "XF_CONTEXTS=legacy\nXF_INSTANCE=old\n"
-	if err := os.WriteFile(envPath, []byte(initial), 0o644); err != nil {
+	if err := os.WriteFile(envPath, []byte(initial), 0o600); err != nil {
 		t.Fatalf("write .env: %v", err)
 	}
 
@@ -105,7 +105,7 @@ func TestConfigureEnvironmentAppliesEnvOverrides(t *testing.T) {
 	envPath := filepath.Join(dir, ".env")
 
 	initial := "XF_CONTEXTS=legacy\nXF_INSTANCE=old\n"
-	if err := os.WriteFile(envPath, []byte(initial), 0o644); err != nil {
+	if err := os.WriteFile(envPath, []byte(initial), 0o600); err != nil {
 		t.Fatalf("write .env: %v", err)
 	}
 

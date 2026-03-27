@@ -196,7 +196,7 @@ func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(
 	}
 
 	if runtime.GOOS != windowsOS {
-		if err := os.Chmod(newBinaryPath, 0o755); err != nil {
+		if err := os.Chmod(newBinaryPath, 0o700); err != nil {
 			return clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to set permissions on new binary", err)
 		}
 	}
@@ -286,7 +286,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 
 		outPath := filepath.Join(destDir, name)
 
-		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
@@ -339,7 +339,7 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 
 		outPath := filepath.Join(destDir, name)
 
-		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
 			inFile.Close()
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)

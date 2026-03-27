@@ -18,11 +18,11 @@ func TestInitCreatesDockerFilesForXenForoDirectory(t *testing.T) {
 	dir := t.TempDir()
 
 	xfPath := filepath.Join(dir, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfPath), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := os.WriteFile(xfPath, []byte("<?php"), 0o644); err != nil {
+	if err := os.WriteFile(xfPath, []byte("<?php"), 0o600); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
@@ -57,22 +57,22 @@ func TestInitDoesNotOverwriteXenForoCoreFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	xfPath := filepath.Join(dir, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfPath), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
 	originalXF := "<?php\n// xenforo core marker\n"
-	if err := os.WriteFile(xfPath, []byte(originalXF), 0o644); err != nil {
+	if err := os.WriteFile(xfPath, []byte(originalXF), 0o600); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
 	existingCore := filepath.Join(dir, "src", "Entity", "User.php")
-	if err := os.MkdirAll(filepath.Dir(existingCore), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(existingCore), 0o750); err != nil {
 		t.Fatalf("mkdir core dir: %v", err)
 	}
 
 	coreContent := "<?php\n// custom core file\n"
-	if err := os.WriteFile(existingCore, []byte(coreContent), 0o644); err != nil {
+	if err := os.WriteFile(existingCore, []byte(coreContent), 0o600); err != nil {
 		t.Fatalf("write core file: %v", err)
 	}
 

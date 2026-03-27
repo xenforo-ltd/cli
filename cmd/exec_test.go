@@ -13,11 +13,11 @@ func TestResolveXenForoDirAndArgs_WithExplicitPath(t *testing.T) {
 	root := t.TempDir()
 
 	xfFile := filepath.Join(root, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfFile), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfFile), 0o750); err != nil {
 		t.Fatalf("mkdir src: %v", err)
 	}
 
-	if err := os.WriteFile(xfFile, []byte("<?php"), 0o644); err != nil {
+	if err := os.WriteFile(xfFile, []byte("<?php"), 0o600); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
@@ -39,11 +39,11 @@ func TestResolveXenForoDirAndArgs_AutoDetectsFromCWD(t *testing.T) {
 	root := t.TempDir()
 
 	xfFile := filepath.Join(root, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfFile), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfFile), 0o750); err != nil {
 		t.Fatalf("mkdir src: %v", err)
 	}
 
-	if err := os.WriteFile(xfFile, []byte("<?php"), 0o644); err != nil {
+	if err := os.WriteFile(xfFile, []byte("<?php"), 0o600); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
@@ -79,11 +79,11 @@ func TestExecInvocationScenarios(t *testing.T) {
 	root := t.TempDir()
 
 	xfFile := filepath.Join(root, "src", "XF.php")
-	if err := os.MkdirAll(filepath.Dir(xfFile), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(xfFile), 0o750); err != nil {
 		t.Fatalf("mkdir src: %v", err)
 	}
 
-	if err := os.WriteFile(xfFile, []byte("<?php"), 0o644); err != nil {
+	if err := os.WriteFile(xfFile, []byte("<?php"), 0o600); err != nil {
 		t.Fatalf("write XF.php: %v", err)
 	}
 

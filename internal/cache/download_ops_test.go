@@ -186,12 +186,12 @@ func TestDownloadWithAuthUsesCache(t *testing.T) {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
 
 	filePath := filepath.Join(dir, meta.Filename)
-	if err := os.WriteFile(filePath, []byte("cached"), 0o644); err != nil {
+	if err := os.WriteFile(filePath, []byte("cached"), 0o600); err != nil {
 		t.Fatalf("write cached file failed: %v", err)
 	}
 

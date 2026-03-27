@@ -151,7 +151,7 @@ func (m *Manager) SaveMetadata(licenseKey string, metadata *EntryMetadata) error
 		return err
 	}
 
-	if err := os.MkdirAll(entryPath, 0o755); err != nil {
+	if err := os.MkdirAll(entryPath, 0o750); err != nil {
 		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create cache directory", err)
 	}
 
@@ -162,7 +162,7 @@ func (m *Manager) SaveMetadata(licenseKey string, metadata *EntryMetadata) error
 		return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal metadata", err)
 	}
 
-	if err := os.WriteFile(metadataPath, data, 0o644); err != nil {
+	if err := os.WriteFile(metadataPath, data, 0o600); err != nil {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write cache metadata", err)
 	}
 

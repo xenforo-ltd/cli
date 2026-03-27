@@ -28,12 +28,12 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
 
-	if err := os.MkdirAll(entryPath, 0o755); err != nil {
+	if err := os.MkdirAll(entryPath, 0o750); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
 
 	filePath := filepath.Join(entryPath, meta.Filename)
-	if err := os.WriteFile(filePath, []byte("archive"), 0o644); err != nil {
+	if err := os.WriteFile(filePath, []byte("archive"), 0o600); err != nil {
 		t.Fatalf("write file failed: %v", err)
 	}
 
@@ -99,11 +99,11 @@ func TestManagerListAndTotalSize(t *testing.T) {
 			t.Fatalf("EntryPath failed: %v", err)
 		}
 
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("mkdir failed: %v", err)
 		}
 
-		if err := os.WriteFile(filepath.Join(dir, meta.Filename), []byte("x"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, meta.Filename), []byte("x"), 0o600); err != nil {
 			t.Fatalf("write file failed: %v", err)
 		}
 
@@ -148,7 +148,7 @@ func TestManagerPurge(t *testing.T) {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
 

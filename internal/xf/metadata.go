@@ -80,7 +80,7 @@ func WriteMetadata(xfDir string, meta *Metadata) error {
 		return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to serialize metadata", err)
 	}
 
-	if err := os.WriteFile(metaPath, data, 0o644); err != nil {
+	if err := os.WriteFile(metaPath, data, 0o600); err != nil {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write metadata file", err)
 	}
 

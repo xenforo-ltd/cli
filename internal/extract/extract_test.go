@@ -40,7 +40,7 @@ func TestZipFileRejectsSymlink(t *testing.T) {
 	buf := &bytes.Buffer{}
 	zw := zip.NewWriter(buf)
 	header := &zip.FileHeader{Name: "link"}
-	header.SetMode(os.ModeSymlink | 0o755)
+	header.SetMode(os.ModeSymlink | 0o750)
 
 	file, err := zw.CreateHeader(header)
 	if err != nil {
@@ -59,7 +59,7 @@ func TestZipFileRejectsSymlink(t *testing.T) {
 		t.Fatalf("close zip: %v", err)
 	}
 
-	if err := os.WriteFile(zipPath, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(zipPath, buf.Bytes(), 0o600); err != nil {
 		t.Fatalf("write zip: %v", err)
 	}
 
@@ -94,7 +94,7 @@ func TestExtractFileOverwriteBehavior(t *testing.T) {
 		t.Fatalf("close zip: %v", err)
 	}
 
-	if err := os.WriteFile(zipPath, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(zipPath, buf.Bytes(), 0o600); err != nil {
 		t.Fatalf("write zip: %v", err)
 	}
 
@@ -105,7 +105,7 @@ func TestExtractFileOverwriteBehavior(t *testing.T) {
 	defer reader.Close()
 
 	dest := filepath.Join(tmpDir, "XF.php")
-	if err := os.WriteFile(dest, []byte("old"), 0o644); err != nil {
+	if err := os.WriteFile(dest, []byte("old"), 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
 
@@ -234,5 +234,5 @@ func writeZip(zipPath string, files map[string]string) error {
 		return err
 	}
 
-	return os.WriteFile(zipPath, buf.Bytes(), 0o644)
+	return os.WriteFile(zipPath, buf.Bytes(), 0o600)
 }

@@ -206,7 +206,7 @@ func updateEnvFile(path string, values map[string]string) error {
 	}
 
 	output := strings.Join(lines, "\n")
-	if err := os.WriteFile(path, []byte(output), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(output), 0o600); err != nil {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .env file", err)
 	}
 

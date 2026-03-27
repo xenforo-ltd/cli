@@ -82,7 +82,7 @@ func (m *Manager) download(ctx context.Context, opts DownloadOptions, authToken 
 		return nil, err
 	}
 
-	if err := os.MkdirAll(entryPath, 0o755); err != nil {
+	if err := os.MkdirAll(entryPath, 0o750); err != nil {
 		return nil, clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create cache directory", err)
 	}
 

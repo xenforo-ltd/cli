@@ -69,7 +69,7 @@ func TestPrepareTargetDirectory(t *testing.T) {
 
 	t.Run("rejects file path", func(t *testing.T) {
 		file := filepath.Join(t.TempDir(), "file")
-		if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
 			t.Fatalf("seed file: %v", err)
 		}
 
@@ -80,7 +80,7 @@ func TestPrepareTargetDirectory(t *testing.T) {
 
 	t.Run("non-empty dir", func(t *testing.T) {
 		dir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(dir, "something.txt"), []byte("x"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "something.txt"), []byte("x"), 0o600); err != nil {
 			t.Fatalf("seed file: %v", err)
 		}
 
@@ -93,15 +93,15 @@ func TestPrepareTargetDirectory(t *testing.T) {
 		dir := t.TempDir()
 
 		xfPath := filepath.Join(dir, "src", "XF.php")
-		if err := os.MkdirAll(filepath.Dir(xfPath), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(xfPath), 0o750); err != nil {
 			t.Fatalf("create XF src dir: %v", err)
 		}
 
-		if err := os.WriteFile(xfPath, []byte("<?php // XF stub"), 0o644); err != nil {
+		if err := os.WriteFile(xfPath, []byte("<?php // XF stub"), 0o600); err != nil {
 			t.Fatalf("seed XF.php: %v", err)
 		}
 
-		if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte("x"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte("x"), 0o600); err != nil {
 			t.Fatalf("seed extra file: %v", err)
 		}
 

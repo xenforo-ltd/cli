@@ -269,7 +269,7 @@ func (d *Doctor) checkCacheDirectory() {
 
 	info, err := os.Stat(cacheDir)
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		if err := os.MkdirAll(cacheDir, 0o750); err != nil {
 			result.Status = StatusError
 			result.Message = "Cannot create cache directory"
 			result.Details = fmt.Sprintf("Path: %s\nError: %s", cacheDir, err.Error())
@@ -301,7 +301,7 @@ func (d *Doctor) checkCacheDirectory() {
 	}
 
 	testFile := filepath.Join(cacheDir, ".write-test")
-	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
 		result.Status = StatusError
 		result.Message = "Cache directory is not writable"
 		result.Details = cacheDir

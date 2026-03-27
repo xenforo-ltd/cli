@@ -424,7 +424,7 @@ func formatProductNames(products []string, titleMap map[string]string) string {
 func prepareTargetDirectory(targetPath string) error {
 	info, err := os.Stat(targetPath)
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		if err := os.MkdirAll(targetPath, 0o750); err != nil {
 			return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create target directory", err)
 		}
 
