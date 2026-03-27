@@ -280,6 +280,12 @@ func NewCallbackServer(ctx context.Context, path string) (*CallbackServer, error
 
 	cs.server = &http.Server{
 		Handler: mux,
+
+		ReadHeaderTimeout: 5 * time.Second,
+
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	return cs, nil
