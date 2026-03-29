@@ -59,53 +59,14 @@ func (m *Manager) BasePath() string {
 	return m.basePath
 }
 
-func sanitizePathComponent(s string) (string, error) {
-	if s == "" {
-		return "", clierrors.New(clierrors.CodeValidationFailed, "path component cannot be empty")
-	}
-
-	if strings.ContainsAny(s, `/\\`) {
-		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path component: %s", s)
-	}
-
-	if strings.Contains(s, "..") {
-		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path component: %s", s)
-	}
-
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
-			continue
-		}
-
-		return "", clierrors.Newf(clierrors.CodeValidationFailed, "invalid path component: %s", s)
-	}
-
-	return s, nil
-}
-
 // EntryPath returns the directory path for a cache entry.
 func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (string, error) {
-	safeLicense, err := sanitizePathComponent(licenseKey)
-	if err != nil {
-		return "", err
+	p := filepath.Clean(filepath.Join(m.basePath, licenseKey, downloadID, version))
+	if !strings.HasPrefix(p, m.basePath+string(filepath.Separator)) {
+		return "", clierrors.New(clierrors.CodeValidationFailed, "invalid cache path components")
 	}
 
-	safeDownload, err := sanitizePathComponent(downloadID)
-	if err != nil {
-		return "", err
-	}
-
-	safeVersion, err := sanitizePathComponent(version)
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(
-		m.basePath,
-		safeLicense,
-		safeDownload,
-		safeVersion,
-	), nil
+	return p, nil
 }
 
 // MetadataFilename is the name of the metadata file for each cache entry.
@@ -210,12 +171,10 @@ func (m *Manager) PurgeAll() error {
 
 // PurgeLicense removes all cached files for a specific license.
 func (m *Manager) PurgeLicense(licenseKey string) error {
-	safeLicense, err := sanitizePathComponent(licenseKey)
-	if err != nil {
-		return err
+	licensePath := filepath.Clean(filepath.Join(m.basePath, licenseKey))
+	if !strings.HasPrefix(licensePath, m.basePath+string(filepath.Separator)) {
+		return clierrors.New(clierrors.CodeValidationFailed, "invalid license key")
 	}
-
-	licensePath := filepath.Join(m.basePath, safeLicense)
 
 	if err := os.RemoveAll(licensePath); err != nil && !os.IsNotExist(err) {
 		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to purge license cache", err)
@@ -261,18 +220,16 @@ func (m *Manager) List() ([]*Entry, error) {
 func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 	var entries []*Entry
 
-	safeLicense, err := sanitizePathComponent(licenseKey)
-	if err != nil {
-		return nil, err
+	licensePath := filepath.Clean(filepath.Join(m.basePath, licenseKey))
+	if !strings.HasPrefix(licensePath, m.basePath+string(filepath.Separator)) {
+		return nil, clierrors.New(clierrors.CodeValidationFailed, "invalid license key")
 	}
-
-	licensePath := filepath.Join(m.basePath, safeLicense)
 
 	if _, err := os.Stat(licensePath); os.IsNotExist(err) {
 		return entries, nil
 	}
 
-	err = filepath.WalkDir(licensePath, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(licensePath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

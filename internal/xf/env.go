@@ -319,7 +319,7 @@ func GetXenForoDir(startDir string) (string, error) {
 		dir = parent
 	}
 
-	if xfDir := os.Getenv("XF_DIR"); xfDir != "" {
+	if xfDir := filepath.Clean(os.Getenv("XF_DIR")); xfDir != "." {
 		if _, err := os.Stat(filepath.Join(xfDir, "src", "XF.php")); err == nil {
 			return xfDir, nil
 		}
