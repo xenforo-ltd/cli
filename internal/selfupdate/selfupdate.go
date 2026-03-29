@@ -38,6 +38,8 @@ const (
 	// DownloadTimeout is the timeout for downloading updates.
 	DownloadTimeout = 5 * time.Minute
 
+	maxBinarySize = 32 * 1024 * 1024 // 32 MB
+
 	windowsOS = "windows"
 )
 
@@ -284,16 +286,27 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 			continue
 		}
 
+		if header.Size > maxBinarySize {
+			return "", clierrors.Newf(clierrors.CodeUpdateFailed, "update binary %s exceeds maximum allowed size of %d bytes", name, maxBinarySize)
+		}
+
 		outPath := filepath.Join(destDir, name)
+		limitedReader := io.LimitReader(tarReader, maxBinarySize)
 
 		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
 
-		if _, err := io.Copy(outFile, tarReader); err != nil {
+		written, err := io.Copy(outFile, limitedReader)
+		if err != nil {
 			outFile.Close()
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
+		}
+
+		if written > maxBinarySize {
+			outFile.Close()
+			return "", clierrors.Newf(clierrors.CodeUpdateFailed, "update binary %s exceeds maximum allowed size of %d bytes", name, maxBinarySize)
 		}
 
 		if err := outFile.Close(); err != nil {
@@ -332,12 +345,17 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 			continue
 		}
 
+		if file.UncompressedSize64 > maxBinarySize {
+			return "", clierrors.Newf(clierrors.CodeUpdateFailed, "update binary %s exceeds maximum allowed size of %d bytes", name, maxBinarySize)
+		}
+
 		inFile, err := file.Open()
 		if err != nil {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to read update binary from archive", err)
 		}
 
 		outPath := filepath.Join(destDir, name)
+		limitedReader := io.LimitReader(inFile, maxBinarySize)
 
 		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
@@ -345,11 +363,19 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
 		}
 
-		if _, err := io.Copy(outFile, inFile); err != nil {
+		written, err := io.Copy(outFile, limitedReader)
+		if err != nil {
 			outFile.Close()
 			inFile.Close()
 
 			return "", clierrors.Wrap(clierrors.CodeUpdateFailed, "failed to extract update binary", err)
+		}
+
+		if written > maxBinarySize {
+			outFile.Close()
+			inFile.Close()
+
+			return "", clierrors.Newf(clierrors.CodeUpdateFailed, "update binary %s exceeds maximum allowed size of %d bytes", name, maxBinarySize)
 		}
 
 		if err := outFile.Close(); err != nil {

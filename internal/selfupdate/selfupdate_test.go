@@ -181,6 +181,25 @@ func TestExtractBinaryFromTarGz(t *testing.T) {
 	}
 }
 
+func TestExtractBinaryFromTarGzRejectsOversizedBinary(t *testing.T) {
+	tmp := t.TempDir()
+	archivePath := filepath.Join(tmp, "xf-v1.0.0-linux-amd64.tar.gz")
+
+	binaryContent := bytes.Repeat([]byte("x"), maxBinarySize+1)
+	if err := os.WriteFile(archivePath, makeTarGzArchive(t, "xf", binaryContent), 0o600); err != nil {
+		t.Fatalf("write archive: %v", err)
+	}
+
+	_, err := extractBinaryFromArchive(archivePath, tmp)
+	if err == nil {
+		t.Fatal("expected oversized binary extraction to fail")
+	}
+
+	if !clierrors.Is(err, clierrors.CodeUpdateFailed) {
+		t.Fatalf("expected update failed code, got: %v", err)
+	}
+}
+
 func TestExtractBinaryFromZip(t *testing.T) {
 	tmp := t.TempDir()
 	archivePath := filepath.Join(tmp, "xf-v1.0.0-windows-amd64.zip")
@@ -202,6 +221,25 @@ func TestExtractBinaryFromZip(t *testing.T) {
 
 	if !bytes.Equal(data, binaryContent) {
 		t.Fatalf("binary content mismatch")
+	}
+}
+
+func TestExtractBinaryFromZipRejectsOversizedBinary(t *testing.T) {
+	tmp := t.TempDir()
+	archivePath := filepath.Join(tmp, "xf-v1.0.0-windows-amd64.zip")
+
+	binaryContent := bytes.Repeat([]byte("x"), maxBinarySize+1)
+	if err := os.WriteFile(archivePath, makeZipArchive(t, "xf", binaryContent), 0o600); err != nil {
+		t.Fatalf("write archive: %v", err)
+	}
+
+	_, err := extractBinaryFromArchive(archivePath, tmp)
+	if err == nil {
+		t.Fatal("expected oversized binary extraction to fail")
+	}
+
+	if !clierrors.Is(err, clierrors.CodeUpdateFailed) {
+		t.Fatalf("expected update failed code, got: %v", err)
 	}
 }
 

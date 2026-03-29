@@ -11,6 +11,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
+const maxFileSize = 32 * 1024 * 1024 // 32 MB
+
 // Options configures the extraction behavior.
 type Options struct {
 	// StripComponents removes this many leading path components from extracted files.
@@ -97,6 +99,10 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 }
 
 func extractFile(file *zip.File, destPath string, opts *Options) error {
+	if file.UncompressedSize64 > maxFileSize {
+		return clierrors.Newf(clierrors.CodeValidationFailed, "file %s is too large to extract", file.Name)
+	}
+
 	if isSymlink(file) {
 		return clierrors.Newf(clierrors.CodeValidationFailed, "symlink entries are not allowed in archive: %s", file.Name)
 	}
@@ -123,14 +129,21 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 		mode = 0o600
 	}
 
+	limitedReader := io.LimitReader(srcFile, maxFileSize)
+
 	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
 		return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to create file: %s", destPath)
 	}
 	defer destFile.Close()
 
-	if _, err := io.Copy(destFile, srcFile); err != nil {
+	written, err := io.Copy(destFile, limitedReader)
+	if err != nil {
 		return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to write file: %s", destPath)
+	}
+
+	if written > maxFileSize {
+		return clierrors.Newf(clierrors.CodeValidationFailed, "file %s is too large to extract", file.Name)
 	}
 
 	return nil
