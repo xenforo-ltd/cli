@@ -336,7 +336,7 @@ func (d *Doctor) checkDiskSpace(ctx context.Context) {
 	cacheDir := cfg.CachePath
 
 	// Use df command to check disk space (works on macOS and Linux).
-	cmd := exec.CommandContext(ctx, "df", "-k", cacheDir)
+	cmd := exec.CommandContext(ctx, "df", "-k", "--", cacheDir)
 
 	output, err := cmd.Output()
 	if err != nil {
