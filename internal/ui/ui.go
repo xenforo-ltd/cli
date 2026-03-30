@@ -385,7 +385,12 @@ func NewSpinnerOutputWriter(spinner *Spinner, writer io.Writer) io.Writer {
 
 func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 	if w.spinner == nil {
-		return w.writer.Write(p)
+		n, err := w.writer.Write(p)
+		if err != nil {
+			return n, fmt.Errorf("failed to write spinner output: %w", err)
+		}
+
+		return n, nil
 	}
 
 	w.spinner.mu.Lock()
@@ -397,7 +402,7 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 
 	n, err := w.writer.Write(p)
 	if err != nil {
-		return n, err
+		return n, fmt.Errorf("failed to write spinner output: %w", err)
 	}
 
 	if w.spinner.running {

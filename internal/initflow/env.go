@@ -22,7 +22,7 @@ var (
 func ParseEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open env file %s: %w", path, err)
 	}
 	defer file.Close()
 
@@ -54,7 +54,7 @@ func ParseEnvFile(path string) (map[string]string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read env file %s: %w", path, err)
 	}
 
 	return values, nil

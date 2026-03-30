@@ -1,11 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/doctor"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
@@ -83,7 +83,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	switch {
 	case doc.HasErrors():
 		ui.PrintError("Some checks failed")
-		return clierrors.New(clierrors.CodeInternal, "health check failed")
+		return fmt.Errorf("health check failed: %w", ErrInternal)
 	case doc.HasWarnings():
 		ui.PrintWarning("Some checks have warnings")
 	default:

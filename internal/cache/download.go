@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/stream"
 	"github.com/xenforo-ltd/cli/internal/version"
 )
@@ -83,7 +82,7 @@ func (m *Manager) download(ctx context.Context, opts DownloadOptions, authToken 
 	}
 
 	if err := os.MkdirAll(entryPath, 0o750); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create cache directory", err)
+		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	filePath := filepath.Join(entryPath, filename)
@@ -122,7 +121,7 @@ func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 
 	if _, err := os.Stat(entry.FilePath); err != nil {
 		if !os.IsNotExist(err) {
-			return nil, err
+			return nil, fmt.Errorf("failed to stat cached file %s: %w", entry.FilePath, err)
 		}
 
 		return nil, ErrCacheMiss
@@ -134,7 +133,7 @@ func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeDownloadFailed, "failed to create download request", err)
+		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
 
 	v := version.Get()
@@ -149,7 +148,7 @@ func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) 
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeDownloadFailed, "download request failed", err)
+		return nil, fmt.Errorf("download request failed: %w", err)
 	}
 
 	return resp, nil
@@ -157,18 +156,18 @@ func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) 
 
 func checkResponseStatus(resp *http.Response, authToken string) error {
 	if authToken != "" && resp.StatusCode == http.StatusUnauthorized {
-		return clierrors.New(clierrors.CodeAuthExpired, "authentication expired - run 'xf auth login'")
+		return fmt.Errorf("authentication expired - run 'xf auth login': %w", ErrAuthExpired)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		if authToken != "" {
 			body, err := io.ReadAll(resp.Body)
-			if err == nil {
-				return clierrors.Newf(clierrors.CodeDownloadFailed, "download failed with status %d: %s", resp.StatusCode, string(body))
+			if err != nil {
+				return fmt.Errorf("download failed with status %d: %s: %w", resp.StatusCode, string(body), err)
 			}
 		}
 
-		return clierrors.Newf(clierrors.CodeDownloadFailed, "download failed with status %d", resp.StatusCode)
+		return fmt.Errorf("download failed with status %d: %w", resp.StatusCode, ErrDownloadFailed)
 	}
 
 	return nil
@@ -192,7 +191,14 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 
 	f, err := os.Create(tmpPath)
 	if err != nil {
-		return 0, clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to create download file", err)
+		return 0, fmt.Errorf("failed to create download file: %w", err)
+	}
+
+	fail := func(err error) (int64, error) {
+		_ = f.Close()
+		rmErr := os.Remove(tmpPath)
+
+		return 0, errors.Join(err, rmErr)
 	}
 
 	var downloaded int64
@@ -208,40 +214,27 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 		},
 	}
 
-	_, copyErr := io.Copy(f, reader)
-	closeErr := f.Close()
-
-	if copyErr != nil {
-		rmErr := os.Remove(tmpPath)
-		return 0, errors.Join(clierrors.Wrap(clierrors.CodeDownloadFailed, "download interrupted", copyErr), rmErr)
+	if _, err := io.Copy(f, reader); err != nil {
+		return fail(fmt.Errorf("failed to copy download data: %w", err))
 	}
 
-	if closeErr != nil {
-		rmErr := os.Remove(tmpPath)
-		return 0, errors.Join(clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to finalize download file", closeErr), rmErr)
+	if err := f.Close(); err != nil {
+		return fail(fmt.Errorf("failed to close download file: %w", err))
 	}
 
 	if expectedChecksum != "" {
 		checksum, err := CalculateChecksum(tmpPath)
 		if err != nil {
-			rmErr := os.Remove(tmpPath)
-			return 0, errors.Join(err, rmErr)
+			return fail(fmt.Errorf("failed to calculate checksum: %w", err))
 		}
 
 		if checksum != expectedChecksum {
-			rmErr := os.Remove(tmpPath)
-
-			return 0, errors.Join(
-				clierrors.Newf(clierrors.CodeChecksumMismatch,
-					"checksum mismatch: expected %s, got %s", expectedChecksum, checksum),
-				rmErr,
-			)
+			return fail(fmt.Errorf("checksum mismatch: expected %s, got %s: %w", expectedChecksum, checksum, ErrChecksumMismatch))
 		}
 	}
 
 	if err := os.Rename(tmpPath, destPath); err != nil {
-		rmErr := os.Remove(tmpPath)
-		return 0, errors.Join(clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to finalize download", err), rmErr)
+		return fail(fmt.Errorf("failed to finalize download: %w", err))
 	}
 
 	return downloaded, nil
@@ -250,7 +243,7 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 func (m *Manager) finalizeEntry(opts DownloadOptions, filePath, entryPath string) (*Entry, error) {
 	info, err := os.Stat(filePath)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to stat downloaded file", err)
+		return nil, fmt.Errorf("failed to stat downloaded file: %w", err)
 	}
 
 	checksum, err := CalculateChecksum(filePath)

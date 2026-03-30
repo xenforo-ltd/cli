@@ -13,8 +13,8 @@ func SetupXenForoDir(t *testing.T) string {
 	t.Setenv("XF_DIR", "")
 
 	root := t.TempDir()
-
 	xfFile := filepath.Join(root, "src", "XF.php")
+
 	if err := os.MkdirAll(filepath.Dir(xfFile), 0o750); err != nil {
 		t.Fatalf("mkdir src: %v", err)
 	}

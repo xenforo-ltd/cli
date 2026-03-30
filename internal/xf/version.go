@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 // Stability represents the release stability of a XenForo version.
@@ -97,25 +95,25 @@ func ParseVersionString(versionStr string) (*Version, error) {
 
 	parts := strings.Split(versionStr, ".")
 	if len(parts) < 2 {
-		return nil, clierrors.Newf(clierrors.CodeInvalidInput, "invalid version format: %s", v.String)
+		return nil, fmt.Errorf("invalid version format %s: %w", v.String, ErrInvalidInput)
 	}
 
 	var err error
 
 	v.Major, err = strconv.Atoi(parts[0])
 	if err != nil {
-		return nil, clierrors.Newf(clierrors.CodeInvalidInput, "invalid major version: %s", parts[0])
+		return nil, fmt.Errorf("invalid major version %s: %w", parts[0], err)
 	}
 
 	v.Minor, err = strconv.Atoi(parts[1])
 	if err != nil {
-		return nil, clierrors.Newf(clierrors.CodeInvalidInput, "invalid minor version: %s", parts[1])
+		return nil, fmt.Errorf("invalid minor version %s: %w", parts[1], err)
 	}
 
 	if len(parts) >= 3 {
 		v.Patch, err = strconv.Atoi(parts[2])
 		if err != nil {
-			return nil, clierrors.Newf(clierrors.CodeInvalidInput, "invalid patch version: %s", parts[2])
+			return nil, fmt.Errorf("invalid patch version %s: %w", parts[2], err)
 		}
 	}
 
@@ -210,10 +208,10 @@ func DetectVersion(xfDir string) (*Version, error) {
 	file, err := os.Open(xfPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, clierrors.New(clierrors.CodeFileNotFound, "not a XenForo installation: src/XF.php not found")
+			return nil, fmt.Errorf("not a XenForo installation: src/XF.php not found: %w", err)
 		}
 
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read XF.php", err)
+		return nil, fmt.Errorf("failed to read XF.php: %w", err)
 	}
 	defer file.Close()
 
@@ -243,11 +241,11 @@ func DetectVersion(xfDir string) (*Version, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read XF.php", err)
+		return nil, fmt.Errorf("failed to read XF.php: %w", err)
 	}
 
 	if versionStr == "" && versionID == 0 {
-		return nil, clierrors.New(clierrors.CodeInvalidInput, "could not detect XenForo version from XF.php")
+		return nil, fmt.Errorf("could not detect XenForo version from XF.php: %w", ErrInvalidInput)
 	}
 
 	// Prefer using the version ID as it's more precise

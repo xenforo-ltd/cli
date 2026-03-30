@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -67,13 +68,22 @@ func runPHPWithMode(ctx context.Context, args []string, debug bool) error {
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	if debug {
 		ui.PrintInfo("Running with XDebug: php " + strings.Join(phpArgs, " "))
-		return runner.PHPDebug(ctx, phpArgs...)
+
+		if err := runner.PHPDebug(ctx, phpArgs...); err != nil {
+			return fmt.Errorf("failed to run PHP with XDebug: %w", err)
+		}
+
+		return nil
 	}
 
-	return runner.PHP(ctx, phpArgs...)
+	if err := runner.PHP(ctx, phpArgs...); err != nil {
+		return fmt.Errorf("failed to run PHP command: %w", err)
+	}
+
+	return nil
 }

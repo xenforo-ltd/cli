@@ -3,6 +3,7 @@ package extract
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -222,17 +223,21 @@ func writeZip(zipPath string, files map[string]string) error {
 	for name, content := range files {
 		w, err := zw.Create(name)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create zip entry %q: %w", name, err)
 		}
 
 		if _, err := w.Write([]byte(content)); err != nil {
-			return err
+			return fmt.Errorf("failed to write zip entry %q: %w", name, err)
 		}
 	}
 
 	if err := zw.Close(); err != nil {
-		return err
+		return fmt.Errorf("failed to close zip writer for %s: %w", zipPath, err)
 	}
 
-	return os.WriteFile(zipPath, buf.Bytes(), 0o600)
+	if err := os.WriteFile(zipPath, buf.Bytes(), 0o600); err != nil {
+		return fmt.Errorf("failed to write zip file %s: %w", zipPath, err)
+	}
+
+	return nil
 }

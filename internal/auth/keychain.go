@@ -3,9 +3,9 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 
 	"github.com/zalando/go-keyring"
@@ -74,16 +74,16 @@ func (k *Keychain) IsAvailable() bool {
 // SaveToken stores a token in the keychain.
 func (k *Keychain) SaveToken(token *Token) error {
 	if token == nil {
-		return clierrors.New(clierrors.CodeInvalidInput, "token cannot be nil")
+		return fmt.Errorf("token cannot be nil: %w", ErrInvalidInput)
 	}
 
 	data, err := json.Marshal(token)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeKeychainWriteFailed, "failed to marshal token", err)
+		return fmt.Errorf("failed to marshal token: %w", err)
 	}
 
 	if err := keyring.Set(KeyringService, KeyringUser, string(data)); err != nil {
-		return clierrors.Wrap(clierrors.CodeKeychainWriteFailed, "failed to save token to keychain", err)
+		return fmt.Errorf("failed to save token to keychain: %w", err)
 	}
 
 	return nil
@@ -94,15 +94,15 @@ func (k *Keychain) LoadToken() (*Token, error) {
 	data, err := keyring.Get(KeyringService, KeyringUser)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
-			return nil, clierrors.New(clierrors.CodeAuthRequired, "not authenticated - run 'xf auth login'")
+			return nil, fmt.Errorf("not authenticated - run 'xf auth login': %w", err)
 		}
 
-		return nil, clierrors.Wrap(clierrors.CodeKeychainReadFailed, "failed to read token from keychain", err)
+		return nil, fmt.Errorf("failed to read token from keychain: %w", err)
 	}
 
 	var token Token
 	if err := json.Unmarshal([]byte(data), &token); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeKeychainReadFailed, "failed to parse token from keychain", err)
+		return nil, fmt.Errorf("failed to parse token from keychain: %w", err)
 	}
 
 	return &token, nil
@@ -116,7 +116,7 @@ func (k *Keychain) DeleteToken() error {
 			return nil
 		}
 
-		return clierrors.Wrap(clierrors.CodeKeychainWriteFailed, "failed to delete token from keychain", err)
+		return fmt.Errorf("failed to delete token from keychain: %w", err)
 	}
 
 	return nil
@@ -127,8 +127,7 @@ func RequireAuth() (*Token, error) {
 	kc := NewKeychain()
 
 	if !kc.IsAvailable() {
-		return nil, clierrors.New(clierrors.CodeKeychainUnavailable,
-			"system keychain is not available - this is required for secure token storage")
+		return nil, fmt.Errorf("system keychain is not available - this is required for secure token storage: %w", ErrAuthRequired)
 	}
 
 	token, err := kc.LoadToken()
@@ -139,12 +138,11 @@ func RequireAuth() (*Token, error) {
 	// Check if token matches current configuration
 	cfg, err := config.Load()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load authentication configuration: %w", err)
 	}
 
 	if token.BaseURL != cfg.OAuth.BaseURL {
-		return nil, clierrors.New(clierrors.CodeAuthRequired,
-			"authenticated for a different configuration - run 'xf auth login'")
+		return nil, fmt.Errorf("authenticated for a different configuration - run 'xf auth login': %w", ErrAuthRequired)
 	}
 
 	return token, nil

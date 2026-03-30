@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
@@ -36,13 +38,13 @@ func runDown(cmd *cobra.Command, args []string) error {
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	ui.PrintInfo("Stopping Docker environment...")
 
 	if err := runner.Down(cmd.Context()); err != nil {
-		return err
+		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}
 
 	ui.PrintSuccess("Docker environment stopped")

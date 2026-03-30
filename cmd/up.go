@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
@@ -50,16 +50,16 @@ func runUp(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
 	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to verify Docker is running: %w", err)
 	}
 
 	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	ui.PrintInfo("Starting Docker environment: " + runner.Instance())
@@ -71,7 +71,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := runner.Up(ctx, detach); err != nil {
-		return err
+		return fmt.Errorf("failed to start Docker environment: %w", err)
 	}
 
 	ui.PrintSuccess("Docker environment started")
@@ -90,12 +90,12 @@ func getXenForoDir(args []string) (string, error) {
 	if len(args) > 0 {
 		absPath, err := filepath.Abs(args[0])
 		if err != nil {
-			return "", clierrors.Wrap(clierrors.CodeInvalidInput, "invalid path", err)
+			return "", fmt.Errorf("invalid path: %w", err)
 		}
 
 		xfPath := filepath.Join(absPath, "src", "XF.php")
 		if _, err := os.Stat(xfPath); os.IsNotExist(err) {
-			return "", clierrors.Newf(clierrors.CodeInvalidInput, "not a XenForo directory: %s", absPath)
+			return "", fmt.Errorf("not a XenForo directory %s: %w", absPath, err)
 		}
 
 		return absPath, nil
@@ -103,12 +103,12 @@ func getXenForoDir(args []string) (string, error) {
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to get working directory", err)
+		return "", fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to find XenForo directory: %w", err)
 	}
 
 	return xfDir, nil

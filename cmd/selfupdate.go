@@ -45,7 +45,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	info, err := updater.CheckForUpdate(ctx)
 	if err != nil {
 		spinner.StopWithMessage("error", "Failed to check for updates")
-		return err
+		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 
 	spinner.Stop()
@@ -90,7 +90,7 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	})
 	if err != nil {
 		ui.Println()
-		return err
+		return fmt.Errorf("failed to install self-update: %w", err)
 	}
 
 	if progressBar != nil {

@@ -1,12 +1,11 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
-
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 func TestResolveXenForoDirAndArgs_WithExplicitPath(t *testing.T) {
@@ -66,8 +65,8 @@ func TestResolveXenForoDirAndArgs_AutoDetectsFromCWD(t *testing.T) {
 func TestValidateExecInvocation(t *testing.T) {
 	if err := validateExecInvocation([]string{"xf"}); err == nil {
 		t.Fatal("expected error for missing command")
-	} else if !clierrors.Is(err, clierrors.CodeInvalidInput) {
-		t.Fatalf("expected invalid input code, got %v", err)
+	} else if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected invalid input error, got %v", err)
 	}
 
 	if err := validateExecInvocation([]string{"xf", "php", "-v"}); err != nil {

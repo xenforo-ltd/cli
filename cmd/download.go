@@ -66,7 +66,7 @@ func init() {
 func runDownload(cmd *cobra.Command, args []string) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create customer API client: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Minute)
@@ -89,7 +89,7 @@ func listDownloadables(ctx context.Context, client *customerapi.Client, licenseK
 
 	downloadables, err := client.GetLicenseDownloadables(ctx, licenseKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch available downloads for license %s: %w", licenseKey, err)
 	}
 
 	if len(downloadables.Downloadables) == 0 {
@@ -114,7 +114,7 @@ func listVersions(ctx context.Context, client *customerapi.Client, licenseKey st
 
 	versions, err := client.GetLicenseVersions(ctx, licenseKey, downloadID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch versions for %s: %w", downloadID, err)
 	}
 
 	if len(versions.Versions) == 0 {
@@ -143,7 +143,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	info, err := client.GetDownloadInfo(ctx, licenseKey, downloadID, versionID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get download info for %s version %d: %w", downloadID, versionID, err)
 	}
 
 	ui.Println()
@@ -154,13 +154,13 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	cacheManager, err := cache.NewManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize cache manager: %w", err)
 	}
 
 	if !force {
 		entry, err := cacheManager.GetEntry(licenseKey, downloadID, info.VersionString)
 		if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
-			return err
+			return fmt.Errorf("failed to check cache for %s %s: %w", downloadID, info.VersionString, err)
 		}
 
 		if entry != nil {
@@ -184,7 +184,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	accessToken, err := client.GetAccessToken()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get access token for download: %w", err)
 	}
 
 	downloadURL := client.GetDownloadURL(licenseKey, downloadID, versionID)
@@ -215,7 +215,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	result, err := cacheManager.DownloadWithAuth(ctx, opts, accessToken, progress)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to download %s version %d: %w", downloadID, versionID, err)
 	}
 
 	if progressBar != nil {

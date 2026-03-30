@@ -325,7 +325,7 @@ func TestCallbackServer(t *testing.T) {
 	select {
 	case <-time.After(200 * time.Millisecond):
 	case <-ctx.Done():
-		t.Fatal("unexpected context timeout while sending second callback")
+		t.Errorf("unexpected context timeout while sending second callback: %v", ctx.Err())
 	}
 }
 

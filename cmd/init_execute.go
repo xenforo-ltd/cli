@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/cache"
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
@@ -25,7 +24,7 @@ import (
 func executeInit(ctx context.Context, opts *InitOptions) error {
 	cfg, err := config.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	if opts.InstanceName == "" {
@@ -38,7 +37,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	client, err := customerapi.NewClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create customer API client: %w", err)
 	}
 
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
@@ -82,7 +81,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		Contexts:          opts.Contexts,
 	}
 	if err := xfcmd.Init(opts.TargetPath, xfcmdOpts); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker configuration: %w", err)
 	}
 
 	ui.PrintSuccess("Docker configuration ready")
@@ -115,7 +114,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	runner, err := dockercompose.NewRunner(opts.TargetPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	siteURL := fallbackBoardURL(opts.InstanceName)
@@ -125,7 +124,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintSubstep("Running docker compose up...")
 
 			if err := runner.Up(ctx, true); err != nil {
-				return err
+				return fmt.Errorf("failed to start Docker environment: %w", err)
 			}
 		} else {
 			spinner := ui.NewSpinner("Starting Docker environment...")
@@ -136,7 +135,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				spinner.StopWithMessage("error", "Failed to start containers")
 				printHiddenOutputTail("Docker output", tracker.TailLines())
 
-				return err
+				return fmt.Errorf("failed to start Docker environment: %w", err)
 			}
 
 			spinner.StopWithMessage("success", "Docker containers started")
@@ -158,7 +157,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintSubstep("Waiting for database to be ready...")
 
 			if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
-				return err
+				return fmt.Errorf("failed waiting for database to become ready: %w", err)
 			}
 
 			installArgs := make([]string, 0, 8)
@@ -434,7 +433,7 @@ func prepareTargetDirectory(targetPath string) error {
 	info, err := os.Stat(targetPath)
 	if os.IsNotExist(err) {
 		if err := os.MkdirAll(targetPath, 0o750); err != nil {
-			return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create target directory", err)
+			return fmt.Errorf("failed to create target directory: %w", err)
 		}
 
 		ui.PrintSubstep("Created directory: " + ui.Path.Render(targetPath))
@@ -443,16 +442,16 @@ func prepareTargetDirectory(targetPath string) error {
 	}
 
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to check target directory", err)
+		return fmt.Errorf("failed to check target directory: %w", err)
 	}
 
 	if !info.IsDir() {
-		return clierrors.New(clierrors.CodeInvalidInput, "target path exists but is not a directory")
+		return fmt.Errorf("target path exists but is not a directory: %w", ErrInvalidInput)
 	}
 
 	entries, err := os.ReadDir(targetPath)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read target directory", err)
+		return fmt.Errorf("failed to read target directory: %w", err)
 	}
 
 	nonHiddenCount := 0
@@ -473,10 +472,10 @@ func prepareTargetDirectory(targetPath string) error {
 			ui.PrintWarning("Directory already contains a XenForo installation")
 			ui.PrintDetail("Only Docker configuration files will be updated")
 		} else {
-			return clierrors.Newf(
-				clierrors.CodeInvalidInput,
-				"target directory is not empty (%d visible items); use an empty directory or an existing XenForo directory",
+			return fmt.Errorf(
+				"target directory is not empty (%d visible items); use an empty directory or an existing XenForo directory: %w",
 				nonHiddenCount,
+				ErrInvalidInput,
 			)
 		}
 	} else {
@@ -489,7 +488,7 @@ func prepareTargetDirectory(targetPath string) error {
 func downloadProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions) (map[string]*cache.Entry, error) {
 	cacheManager, err := cache.NewManager()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize cache manager: %w", err)
 	}
 
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
@@ -500,7 +499,7 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 		ui.PrintWarning(fmt.Sprintf("No versions available for %s, skipping", product))
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve product selections for license %s: %w", opts.LicenseKey, err)
 	}
 
 	for _, selection := range selections {
@@ -554,7 +553,7 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 		}
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to download %s: %w", selection.Product, err)
 		}
 
 		if selection.Product == "xenforo" && opts.VersionString == "" {
@@ -582,7 +581,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 		}
 
 		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to extract XenForo", err)
+			return fmt.Errorf("failed to extract XenForo: %w", err)
 		}
 
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
@@ -608,7 +607,7 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 		}
 
 		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			return clierrors.Wrapf(clierrors.CodeFileWriteFailed, err, "failed to extract %s", product)
+			return fmt.Errorf("failed to extract %s: %w", product, err)
 		}
 
 		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
@@ -621,7 +620,7 @@ func configureEnvironment(opts *InitOptions) error {
 	envPath := xf.GetEnvPath(opts.TargetPath)
 
 	if _, err := xf.ReadEnvFile(envPath); err != nil {
-		return clierrors.Wrap(clierrors.CodeFileNotFound, ".env file not found after xf init", err)
+		return fmt.Errorf(".env file not found after xf init: %w", err)
 	}
 
 	updates := map[string]string{
@@ -643,7 +642,7 @@ func configureEnvironment(opts *InitOptions) error {
 	maps.Copy(updates, opts.EnvResolved)
 
 	if err := xf.WriteEnvFile(envPath, updates); err != nil {
-		return err
+		return fmt.Errorf("failed to write environment configuration: %w", err)
 	}
 
 	ui.PrintSubstep("Configured instance: " + opts.InstanceName)

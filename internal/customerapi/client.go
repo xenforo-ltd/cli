@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,9 +14,16 @@ import (
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/auth"
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/version"
+)
+
+var (
+	// ErrAPIError indicates the API returned an error response.
+	ErrAPIError = errors.New("API error")
+
+	// ErrAuthExpired indicates the authentication token has expired.
+	ErrAuthExpired = errors.New("authentication expired")
 )
 
 // Client is an authenticated HTTP client for the XenForo Customer API.
@@ -38,12 +46,12 @@ type tokenStore interface {
 func NewClient() (*Client, error) {
 	token, err := auth.RequireAuth()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load authentication token: %w", err)
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load customer API configuration: %w", err)
 	}
 
 	return &Client{
@@ -71,7 +79,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	if body != nil {
 		data, err := io.ReadAll(body)
 		if err != nil {
-			return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to read request body", err)
+			return nil, fmt.Errorf("failed to read request body: %w", err)
 		}
 
 		bodyBytes = data
@@ -107,13 +115,17 @@ func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
 		return err
 	}
 
-	return json.NewDecoder(resp.Body).Decode(result)
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("failed to decode API response for %s: %w", path, err)
+	}
+
+	return nil
 }
 
 func (c *Client) doWithRetry(ctx context.Context, method, path string, body []byte, allowRetry bool) (*http.Response, error) {
 	token, err := c.keychain.LoadToken()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load authentication token from keychain: %w", err)
 	}
 
 	url := c.baseURL + path
@@ -125,7 +137,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 
 	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create request", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
@@ -138,7 +150,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "request failed", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	if resp.StatusCode == http.StatusUnauthorized && allowRetry {
@@ -150,8 +162,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 		}
 
 		if err := refresh(ctx, token.AccessToken); err != nil {
-			return nil, clierrors.Wrap(clierrors.CodeAuthExpired,
-				"authentication expired and refresh failed - run 'xf auth login'", err)
+			return nil, fmt.Errorf("authentication expired and refresh failed - run 'xf auth login': %w", err)
 		}
 
 		return c.doWithRetry(ctx, method, path, body, false)
@@ -166,7 +177,7 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 
 	token, err := c.keychain.LoadToken()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load authentication token from keychain: %w", err)
 	}
 
 	if token.AccessToken != staleToken {
@@ -174,17 +185,21 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	}
 
 	if token.RefreshToken == "" {
-		return clierrors.New(clierrors.CodeAuthExpired, "no refresh token available")
+		return fmt.Errorf("no refresh token available: %w", ErrAuthExpired)
 	}
 
 	oauthClient := auth.NewOAuthClient(c.oauthCfg)
 
 	newToken, err := oauthClient.RefreshToken(ctx, token.RefreshToken)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to refresh authentication token: %w", err)
 	}
 
-	return c.keychain.SaveToken(newToken)
+	if err := c.keychain.SaveToken(newToken); err != nil {
+		return fmt.Errorf("failed to save refreshed authentication token: %w", err)
+	}
+
+	return nil
 }
 
 // Error represents an error response from the API.
@@ -203,7 +218,7 @@ type ErrorResponse struct {
 func ParseError(body []byte) (*ErrorResponse, error) {
 	var errResp ErrorResponse
 	if err := json.Unmarshal(body, &errResp); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse API error response: %w", err)
 	}
 
 	return &errResp, nil
@@ -217,13 +232,13 @@ func CheckResponse(resp *http.Response) error {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return clierrors.Newf(clierrors.CodeAPIResponseInvalid, "API error (status %d): failed to read response", resp.StatusCode)
+		return fmt.Errorf("API error (status %d): failed to read response: %w", resp.StatusCode, err)
 	}
 
 	errResp, parseErr := ParseError(body)
 	if parseErr != nil || len(errResp.Errors) == 0 {
-		return clierrors.Newf(clierrors.CodeAPIRequestFailed, "API error (status %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("API error (status %d): %s: %w", resp.StatusCode, string(body), parseErr)
 	}
 
-	return clierrors.Newf(clierrors.CodeAPIRequestFailed, "API error: %s", errResp.Errors[0].Message)
+	return fmt.Errorf("API error: %s: %w", errResp.Errors[0].Message, ErrAPIError)
 }

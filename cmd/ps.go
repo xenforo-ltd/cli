@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
@@ -36,10 +38,14 @@ func runPs(cmd *cobra.Command, args []string) error {
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	ui.PrintInfo("Container status:")
 
-	return runner.PS(cmd.Context())
+	if err := runner.PS(cmd.Context()); err != nil {
+		return fmt.Errorf("failed to list container status: %w", err)
+	}
+
+	return nil
 }

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
@@ -21,15 +19,6 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 	"github.com/xenforo-ltd/cli/internal/xfcmd"
-)
-
-// ErrUsernameTooShort is returned when username validation fails.
-var (
-	ErrUsernameTooShort   = errors.New("username must be at least 3 characters")
-	ErrPasswordRequired   = errors.New("password is required")
-	ErrInvalidEmail       = errors.New("invalid email address")
-	ErrAdminUserRequired  = errors.New("admin username is required")
-	ErrValidEmailRequired = errors.New("valid admin email is required")
 )
 
 var initCmd = &cobra.Command{
@@ -158,7 +147,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeInvalidInput, "invalid target path", err)
+		return fmt.Errorf("invalid target path: %w", err)
 	}
 
 	opts := &InitOptions{
@@ -186,13 +175,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if opts.EnvFile != "" {
 		fileEnv, err = initflow.ParseEnvFile(opts.EnvFile)
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse --env-file", err)
+			return fmt.Errorf("failed to parse --env-file: %w", err)
 		}
 	}
 
 	flagEnv, err := initflow.ParseEnvFlags(opts.EnvFlags)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse --env", err)
+		return fmt.Errorf("failed to parse --env: %w", err)
 	}
 
 	opts.EnvResolved, opts.EnvSources = initflow.MergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
@@ -212,7 +201,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	if !cfg.NoInteraction {
@@ -240,7 +229,7 @@ func detectXenForo(path string) (bool, error) {
 		return false, nil
 	}
 
-	return false, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to check XenForo path", err)
+	return false, fmt.Errorf("failed to check XenForo path: %w", err)
 }
 
 func initExisting(ctx context.Context, opts *InitOptions) error {
@@ -250,13 +239,13 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	xfDir := opts.TargetPath
 
 	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to verify Docker is running: %w", err)
 	}
 
 	ui.PrintSuccess("Docker is running")
 
 	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
 	}
 
 	ui.PrintSuccess("Docker Compose is available")
@@ -274,7 +263,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if err := xfcmd.InitExisting(xfDir, xfcmdOpts); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker files in existing XenForo directory: %w", err)
 	}
 
 	ui.PrintSuccess("Docker configuration files extracted")
@@ -293,11 +282,11 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	if opts.StartContainers {
 		runner, err := dockercompose.NewRunner(xfDir)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}
 
 		if err := runner.Up(ctx, true); err != nil {
-			return err
+			return fmt.Errorf("failed to start Docker environment: %w", err)
 		}
 
 		url, err := runner.GetURL(ctx)
@@ -351,7 +340,7 @@ func configureExistingEnv(opts *InitOptions) error {
 	maps.Copy(updates, opts.EnvResolved)
 
 	if err := xf.WriteEnvFile(envPath, updates); err != nil {
-		return err
+		return fmt.Errorf("failed to write environment configuration: %w", err)
 	}
 
 	return nil
@@ -361,13 +350,13 @@ func checkPrerequisites(ctx context.Context) error {
 	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 
 	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to verify Docker is running: %w", err)
 	}
 
 	ui.PrintSuccess("Docker is running")
 
 	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
 	}
 
 	ui.PrintSuccess("Docker Compose is available")
@@ -401,7 +390,7 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 	}
 
 	if len(missing) > 0 {
-		return clierrors.Newf(clierrors.CodeInvalidInput, "missing required flags in non-interactive mode: %s", strings.Join(missing, ", "))
+		return fmt.Errorf("missing required flags in non-interactive mode: %s: %w", strings.Join(missing, ", "), ErrInvalidInput)
 	}
 
 	if len(opts.Products) == 0 {
@@ -416,7 +405,7 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create customer API client: %w", err)
 	}
 
 	if title := inferSiteTitleFromEnv(opts); title != "" {
@@ -426,11 +415,11 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	if opts.LicenseKey == "" {
 		licenses, err := client.GetLicenses(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to fetch licenses: %w", err)
 		}
 
 		if len(licenses) == 0 {
-			return clierrors.New(clierrors.CodeAPINotFound, "no licenses found for your account")
+			return fmt.Errorf("no licenses found for your account: %w", ErrNotFound)
 		}
 
 		var licenseOptions []huh.Option[string]
@@ -443,7 +432,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		if len(licenseOptions) == 0 {
-			return clierrors.New(clierrors.CodeAPIForbidden, "no licenses with download access found")
+			return fmt.Errorf("no licenses with download access found: %w", ErrForbidden)
 		}
 
 		err = huh.NewSelect[string]().
@@ -452,14 +441,14 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&opts.LicenseKey).
 			Run()
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeInvalidInput, "license selection cancelled", err)
+			return fmt.Errorf("license selection cancelled: %w", err)
 		}
 	}
 
 	if len(opts.Products) == 0 {
 		downloadables, err := client.GetLicenseDownloadables(ctx, opts.LicenseKey)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to fetch available downloads for license %s: %w", opts.LicenseKey, err)
 		}
 
 		var productOptions []huh.Option[string]
@@ -481,7 +470,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&selectedProducts).
 			Run()
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeInvalidInput, "product selection cancelled", err)
+			return fmt.Errorf("product selection cancelled: %w", err)
 		}
 
 		opts.Products = ensureCoreFirstUnique(append([]string{"xenforo"}, selectedProducts...))
@@ -493,11 +482,11 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 
 	versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, "xenforo")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch XenForo versions for license %s: %w", opts.LicenseKey, err)
 	}
 
 	if len(versions.Versions) == 0 {
-		return clierrors.New(clierrors.CodeAPINotFound, "no versions available")
+		return fmt.Errorf("no versions available: %w", ErrNotFound)
 	}
 
 	initflow.SortVersionsDesc(versions.Versions)
@@ -519,7 +508,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.VersionID == 0 {
-		return clierrors.New(clierrors.CodeInvalidInput, "core version is required")
+		return fmt.Errorf("core version is required: %w", ErrInvalidInput)
 	}
 
 	if opts.AdminUser == "" || opts.AdminPassword == "" || opts.AdminEmail == "" {
@@ -573,7 +562,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return clierrors.Wrap(clierrors.CodeInvalidInput, "credential input cancelled", err)
+			return fmt.Errorf("credential input cancelled: %w", err)
 		}
 	}
 

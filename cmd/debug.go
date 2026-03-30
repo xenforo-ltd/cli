@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"errors"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -9,11 +9,6 @@ import (
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
-)
-
-// ErrGetCurrentDirectory is returned when the current directory cannot be determined.
-var (
-	ErrGetCurrentDirectory = errors.New("failed to get current directory")
 )
 
 var debugCmd = &cobra.Command{
@@ -49,15 +44,19 @@ func runDebug(cmd *cobra.Command, args []string) error {
 
 	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find XenForo directory: %w", err)
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	ui.PrintInfo("Running with XDebug: " + args[0])
 
-	return runner.XFCommandDebug(cmd.Context(), args...)
+	if err := runner.XFCommandDebug(cmd.Context(), args...); err != nil {
+		return fmt.Errorf("failed to run XenForo command with XDebug: %w", err)
+	}
+
+	return nil
 }

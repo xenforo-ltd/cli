@@ -3,17 +3,13 @@ package xf
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 const metadataFilename = ".xf.json"
-
-// ErrMetadataNotFound is returned when the metadata file cannot be found.
-var ErrMetadataNotFound = errors.New("metadata not found")
 
 // Metadata stores CLI-specific information about a XenForo installation.
 // This file is created during `init` and used by `upgrade` to remember settings.
@@ -55,12 +51,12 @@ func ReadMetadata(xfDir string) (*Metadata, error) {
 			return nil, ErrMetadataNotFound
 		}
 
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read metadata file", err)
+		return nil, fmt.Errorf("failed to read metadata file: %w", err)
 	}
 
 	var meta Metadata
 	if err := json.Unmarshal(data, &meta); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeInvalidInput, "failed to parse metadata file", err)
+		return nil, fmt.Errorf("failed to parse metadata file: %w", err)
 	}
 
 	return &meta, nil
@@ -77,11 +73,11 @@ func WriteMetadata(xfDir string, meta *Metadata) error {
 
 	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeInvalidInput, "failed to serialize metadata", err)
+		return fmt.Errorf("failed to serialize metadata: %w", err)
 	}
 
 	if err := os.WriteFile(metaPath, data, 0o600); err != nil {
-		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write metadata file", err)
+		return fmt.Errorf("failed to write metadata file: %w", err)
 	}
 
 	return nil

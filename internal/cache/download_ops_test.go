@@ -3,14 +3,13 @@ package cache
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 func TestDownloadAndUseCache(t *testing.T) {
@@ -83,8 +82,8 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 		t.Fatal("expected checksum mismatch")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
-		t.Fatalf("expected checksum mismatch code, got: %v", err)
+	if !errors.Is(err, ErrChecksumMismatch) {
+		t.Fatalf("expected checksum mismatch error, got: %v", err)
 	}
 }
 
@@ -106,8 +105,8 @@ func TestDownloadWithAuthUnauthorized(t *testing.T) {
 		t.Fatal("expected unauthorized error")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeAuthExpired) {
-		t.Fatalf("expected auth expired code, got: %v", err)
+	if !errors.Is(err, ErrAuthExpired) {
+		t.Fatalf("expected auth expired error, got: %v", err)
 	}
 }
 
@@ -144,8 +143,8 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 		t.Fatal("expected forbidden error")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeDownloadFailed) {
-		t.Fatalf("expected download failed code, got: %v", err)
+	if !errors.Is(err, ErrDownloadFailed) {
+		t.Fatalf("expected download failed error, got: %v", err)
 	}
 
 	sum := sha256.Sum256(payload)

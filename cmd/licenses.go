@@ -3,12 +3,12 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -44,7 +44,7 @@ func init() {
 func runLicenses(cmd *cobra.Command, args []string) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create customer API client: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
@@ -52,7 +52,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 
 	licenses, err := client.GetLicenses(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch licenses: %w", err)
 	}
 
 	if flagLicensesJSON {
@@ -113,7 +113,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 
 		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal licenses", err)
+			return fmt.Errorf("failed to marshal licenses: %w", err)
 		}
 
 		ui.Println(string(data))
@@ -128,7 +128,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	if cfg.Verbose {

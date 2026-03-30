@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/version"
 )
 
@@ -195,7 +195,7 @@ func TestExtractBinaryFromTarGzRejectsOversizedBinary(t *testing.T) {
 		t.Fatal("expected oversized binary extraction to fail")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeUpdateFailed) {
+	if !errors.Is(err, ErrUpdateFailed) {
 		t.Fatalf("expected update failed code, got: %v", err)
 	}
 }
@@ -238,7 +238,7 @@ func TestExtractBinaryFromZipRejectsOversizedBinary(t *testing.T) {
 		t.Fatal("expected oversized binary extraction to fail")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeUpdateFailed) {
+	if !errors.Is(err, ErrUpdateFailed) {
 		t.Fatalf("expected update failed code, got: %v", err)
 	}
 }
@@ -266,7 +266,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 		t.Fatal("expected checksum mismatch error")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
+	if !errors.Is(err, ErrChecksumMismatch) {
 		t.Fatalf("expected checksum mismatch code, got: %v", err)
 	}
 }
@@ -292,7 +292,7 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 		t.Fatal("expected checksum failure")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeChecksumMismatch) {
+	if !errors.Is(err, ErrChecksumMismatch) {
 		t.Fatalf("expected checksum mismatch code, got: %v", err)
 	}
 }
@@ -500,5 +500,10 @@ func (t *rewriteHostTransport) RoundTrip(req *http.Request) (*http.Response, err
 	cloned.URL.Host = t.host
 	cloned.URL.Scheme = t.scheme
 
-	return t.base.RoundTrip(cloned)
+	resp, err := t.base.RoundTrip(cloned)
+	if err != nil {
+		return nil, fmt.Errorf("round trip failed: %w", err)
+	}
+
+	return resp, nil
 }

@@ -2,14 +2,13 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/spf13/viper"
-
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 var (
@@ -75,7 +74,7 @@ func Init(configFile string) error {
 	} else {
 		configDir, err := os.UserConfigDir()
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeConfigReadFailed, "could not determine user config directory", err)
+			return fmt.Errorf("could not determine user config directory: %w", err)
 		}
 
 		viper.AddConfigPath(filepath.Join(configDir, "xf"))
@@ -85,7 +84,7 @@ func Init(configFile string) error {
 
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeConfigReadFailed, "could not determine user cache directory", err)
+		return fmt.Errorf("could not determine user cache directory: %w", err)
 	}
 
 	viper.AllowEmptyEnv(true)
@@ -103,7 +102,7 @@ func Init(configFile string) error {
 	viper.SetDefault("oauth.redirect_path", "/customer-oauth/complete")
 
 	if err := viper.ReadInConfig(); err != nil {
-		return clierrors.Wrap(clierrors.CodeConfigReadFailed, "failed to read config file", err)
+		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
 	return nil
@@ -113,7 +112,7 @@ func Init(configFile string) error {
 func Load() (Config, error) {
 	cacheOnce.Do(func() {
 		if err := viper.Unmarshal(&cache); err != nil {
-			errCache = clierrors.Wrap(clierrors.CodeConfigInvalid, "failed to unmarshal config", err)
+			errCache = fmt.Errorf("failed to unmarshal config: %w", err)
 		}
 	})
 
@@ -122,5 +121,9 @@ func Load() (Config, error) {
 
 // Save writes the current configuration to the config file.
 func Save() error {
-	return viper.WriteConfig()
+	if err := viper.WriteConfig(); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }

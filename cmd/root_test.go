@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/testutils"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -62,8 +62,8 @@ func TestRunAsXenForoCommandOutsideDirReturnsActionableError(t *testing.T) {
 		t.Fatal("expected error")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeInvalidInput) {
-		t.Fatalf("expected invalid input code, got: %v", err)
+	if !errors.Is(err, xf.ErrInvalidInput) {
+		t.Fatalf("expected invalid input error, got: %v", err)
 	}
 
 	if got := err.Error(); got == "" || !containsAll(got, "unknown command", "not in a XenForo directory") {
@@ -117,8 +117,8 @@ func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing
 		t.Fatal("expected error")
 	}
 
-	if !clierrors.Is(err, clierrors.CodeInvalidInput) {
-		t.Fatalf("expected invalid input code, got: %v", err)
+	if !errors.Is(err, exec.ErrNotFound) {
+		t.Fatalf("expected invalid input error, got: %v", err)
 	}
 
 	if got := err.Error(); !containsAll(got, "PHP", "PATH") {

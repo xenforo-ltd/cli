@@ -1,7 +1,11 @@
 // Package stream provides utilities for tracking download and streaming progress.
 package stream
 
-import "io"
+import (
+	"errors"
+	"fmt"
+	"io"
+)
 
 // ProgressReader tracks read progress from a source reader.
 type ProgressReader struct {
@@ -21,5 +25,13 @@ func (pr *ProgressReader) Read(p []byte) (int, error) {
 		}
 	}
 
-	return n, err
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return n, io.EOF
+		}
+
+		return n, fmt.Errorf("failed to read progress stream: %w", err)
+	}
+
+	return n, nil
 }

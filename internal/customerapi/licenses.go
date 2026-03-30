@@ -3,6 +3,7 @@ package customerapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -20,12 +21,12 @@ func (t *UnixTime) UnmarshalJSON(data []byte) error {
 		// Try parsing as a regular time string
 		var timeStr string
 		if err := json.Unmarshal(data, &timeStr); err != nil {
-			return err
+			return fmt.Errorf("failed to parse UnixTime JSON value: %w", err)
 		}
 
 		parsed, err := time.Parse(time.RFC3339, timeStr)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse RFC3339 timestamp %q: %w", timeStr, err)
 		}
 
 		t.Time = parsed
@@ -182,7 +183,7 @@ func (c *Client) GetDownloadURL(licenseKey string, downloadID string, versionID 
 func (c *Client) GetAccessToken() (string, error) {
 	token, err := c.keychain.LoadToken()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to load authentication token from keychain: %w", err)
 	}
 
 	return token.AccessToken, nil

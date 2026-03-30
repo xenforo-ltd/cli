@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/cache"
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
@@ -115,7 +114,7 @@ func init() {
 func runCacheList(cmd *cobra.Command, args []string) error {
 	manager, err := cache.NewManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize cache manager: %w", err)
 	}
 
 	var entries []*cache.Entry
@@ -126,7 +125,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list cached downloads: %w", err)
 	}
 
 	if flagCacheJSON {
@@ -159,7 +158,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 
 		data, err := json.MarshalIndent(jsonEntries, "", "  ")
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeInternal, "failed to marshal cache list", err)
+			return fmt.Errorf("failed to marshal cache list: %w", err)
 		}
 
 		ui.Println(string(data))
@@ -191,7 +190,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	if cfg.Verbose {
@@ -270,13 +269,13 @@ func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 func runCachePurge(cmd *cobra.Command, args []string) error {
 	manager, err := cache.NewManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize cache manager: %w", err)
 	}
 
 	if flagCacheLicenseKey != "" {
 		entries, err := manager.ListForLicense(flagCacheLicenseKey)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to list cached downloads for license %s: %w", flagCacheLicenseKey, err)
 		}
 
 		if len(entries) == 0 {
@@ -290,7 +289,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 		}
 
 		if err := manager.PurgeLicense(flagCacheLicenseKey); err != nil {
-			return err
+			return fmt.Errorf("failed to purge cached downloads for license %s: %w", flagCacheLicenseKey, err)
 		}
 
 		ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) for license %s (%s freed).",
@@ -306,7 +305,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 
 	entries, err := manager.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list cached downloads: %w", err)
 	}
 
 	if len(entries) == 0 {
@@ -320,7 +319,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := manager.PurgeAll(); err != nil {
-		return err
+		return fmt.Errorf("failed to purge all cached downloads: %w", err)
 	}
 
 	ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) (%s freed).", len(entries), ui.FormatBytes(totalSize)))
@@ -331,7 +330,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 func runCachePath(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	ui.Println(ui.Path.Render(cfg.CachePath))

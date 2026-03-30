@@ -4,6 +4,7 @@ package dockercompose
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,8 +14,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/xf"
+)
+
+var (
+	// ErrUnexpectedOutput indicates that an operation produced unexpected output.
+	ErrUnexpectedOutput = errors.New("unexpected output")
+
+	// ErrTimeout indicates an operation timed out.
+	ErrTimeout = errors.New("operation timed out")
+
+	// ErrEnvNotInitialized indicates the Docker environment is not initialized.
+	ErrEnvNotInitialized = errors.New("environment not initialized")
 )
 
 // Runner handles Docker Compose operations for a XenForo installation.
@@ -29,12 +40,12 @@ type Runner struct {
 func NewRunner(xfDir string) (*Runner, error) {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")
 	if _, err := os.Stat(xfPath); os.IsNotExist(err) {
-		return nil, clierrors.New(clierrors.CodeInvalidInput, "not a XenForo directory (src/XF.php not found)")
+		return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", err)
 	}
 
 	composePath := filepath.Join(xfDir, "compose.yaml")
 	if _, err := os.Stat(composePath); os.IsNotExist(err) {
-		return nil, clierrors.New(clierrors.CodeDockerEnvNotInitialized, "Docker environment not initialized (compose.yaml not found)")
+		return nil, errors.Join(fmt.Errorf("environment not initialized (compose.yaml not found): %w", ErrEnvNotInitialized), err)
 	}
 
 	envPath := filepath.Join(xfDir, ".env")
@@ -407,7 +418,7 @@ func (r *Runner) WaitForReady(ctx context.Context, checkInterval time.Duration) 
 	for {
 		select {
 		case <-ctx.Done():
-			return clierrors.New(clierrors.CodeDockerCommandFailed, "timed out waiting for containers to be ready")
+			return fmt.Errorf("timed out waiting for containers to be ready: %w", ctx.Err())
 		default:
 			cmd := r.buildDockerCommand(ctx, "run", "--rm", "xf", "php", "-v")
 			if err := cmd.Run(); err == nil {
@@ -432,7 +443,7 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 	for range maxAttempts {
 		select {
 		case <-ctx.Done():
-			return clierrors.New(clierrors.CodeDockerCommandFailed, "timed out waiting for database")
+			return fmt.Errorf("timed out waiting for database: %w", ctx.Err())
 		default:
 			args := r.buildComposeArgs()
 			args = append(args, "exec", "-T", "xf", "php", "-r", testScript)
@@ -449,7 +460,7 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 		}
 	}
 
-	return clierrors.New(clierrors.CodeDockerCommandFailed, "timed out waiting for database to be ready")
+	return fmt.Errorf("timed out waiting for database to be ready: %w", ErrTimeout)
 }
 
 func escapePHPString(value string) string {
@@ -484,7 +495,7 @@ func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string
 	stderr := stderrBuf.String()
 
 	if err != nil {
-		err = clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "docker command failed")
+		err = fmt.Errorf("docker command failed: %w", err)
 	}
 
 	return stdout, stderr, err
@@ -531,7 +542,7 @@ func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr 
 	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
 
 	if err := cmd.Run(); err != nil {
-		return clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "docker command failed")
+		return fmt.Errorf("docker command failed: %w", err)
 	}
 
 	return nil
@@ -619,7 +630,7 @@ func (r *Runner) getServicePort(ctx context.Context, service, internalPort strin
 
 	output, err := cmd.Output()
 	if err != nil {
-		return "", clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "failed to get port for %s", service)
+		return "", fmt.Errorf("failed to get port for %s: %w", service, err)
 	}
 
 	parts := strings.Split(strings.TrimSpace(string(output)), ":")
@@ -627,7 +638,7 @@ func (r *Runner) getServicePort(ctx context.Context, service, internalPort strin
 		return parts[len(parts)-1], nil
 	}
 
-	return "", clierrors.Newf(clierrors.CodeDockerCommandFailed, "unexpected port output: %s", output)
+	return "", fmt.Errorf("unexpected port output: %s: %w", output, ErrUnexpectedOutput)
 }
 
 func (r *Runner) isServiceRunning(ctx context.Context, service string) (bool, error) {
@@ -639,7 +650,7 @@ func (r *Runner) isServiceRunning(ctx context.Context, service string) (bool, er
 
 	output, err := cmd.Output()
 	if err != nil {
-		return false, clierrors.Wrapf(clierrors.CodeDockerCommandFailed, err, "failed to check running status for service %s", service)
+		return false, fmt.Errorf("failed to check running status for service %s: %w", service, err)
 	}
 
 	for line := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
@@ -682,7 +693,7 @@ func parseEnvValue(content, key string) string {
 func CheckDockerRunning(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "docker", "info")
 	if err := cmd.Run(); err != nil {
-		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker is not running. Start Docker Desktop (or docker daemon) and retry")
+		return fmt.Errorf("docker not running: %w", err)
 	}
 
 	return nil
@@ -692,7 +703,7 @@ func CheckDockerRunning(ctx context.Context) error {
 func CheckDockerComposeAvailable(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "docker", "compose", "version")
 	if err := cmd.Run(); err != nil {
-		return clierrors.New(clierrors.CodeDockerNotRunning, "Docker Compose plugin is not available. Install/upgrade Docker and ensure 'docker compose' works")
+		return fmt.Errorf("docker compose not available: %w", err)
 	}
 
 	return nil

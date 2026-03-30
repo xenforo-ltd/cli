@@ -2,11 +2,11 @@
 package xfcmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/docker"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -21,7 +21,7 @@ type InitOptions struct {
 func Init(xfDir string, opts InitOptions) error {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")
 	if _, err := os.Stat(xfPath); os.IsNotExist(err) {
-		return clierrors.New(clierrors.CodeInvalidInput, "not a XenForo directory (src/XF.php not found)")
+		return fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", err)
 	}
 
 	extractOpts := docker.ExtractOptions{
@@ -30,18 +30,18 @@ func Init(xfDir string, opts InitOptions) error {
 	}
 
 	if err := docker.ExtractDockerFilesWithOptions(xfDir, extractOpts); err != nil {
-		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to extract Docker files", err)
+		return fmt.Errorf("failed to extract Docker files: %w", err)
 	}
 
 	envPath := filepath.Join(xfDir, ".env")
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
 		envDefault, err := docker.GetEnvDefault()
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default env", err)
+			return fmt.Errorf("failed to read default env: %w", err)
 		}
 
 		if err := os.WriteFile(envPath, envDefault, 0o600); err != nil {
-			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .env file", err)
+			return fmt.Errorf("failed to write .env file: %w", err)
 		}
 
 		dirName := filepath.Base(xfDir)
@@ -55,7 +55,7 @@ func Init(xfDir string, opts InitOptions) error {
 		}
 
 		if err := xf.WriteEnvFile(envPath, updates); err != nil {
-			return err
+			return fmt.Errorf("failed to update generated .env file: %w", err)
 		}
 	}
 
@@ -63,11 +63,11 @@ func Init(xfDir string, opts InitOptions) error {
 	if _, err := os.Stat(dockerignorePath); os.IsNotExist(err) {
 		ignoreDefault, err := docker.GetDockerIgnoreDefault()
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read default dockerignore", err)
+			return fmt.Errorf("failed to read default dockerignore: %w", err)
 		}
 
 		if err := os.WriteFile(dockerignorePath, ignoreDefault, 0o600); err != nil {
-			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .dockerignore file", err)
+			return fmt.Errorf("failed to write .dockerignore file: %w", err)
 		}
 	}
 

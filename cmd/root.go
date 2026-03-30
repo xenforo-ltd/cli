@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/xf"
@@ -66,22 +65,7 @@ func Execute(ctx context.Context) {
 }
 
 func handleError(err error) {
-	if cliErr, ok := errors.AsType[*clierrors.CLIError](err); ok {
-		verbose := false
-
-		cfg, err := config.Load()
-		if err == nil {
-			verbose = cfg.Verbose
-		}
-
-		if verbose {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", cliErr.Error())
-		} else {
-			fmt.Fprintf(os.Stderr, "Error [%s]: %s\n", cliErr.Code, cliErr.Message)
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
-	}
+	fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
 }
 
 func isKnownCommand(name string) bool {
@@ -105,24 +89,28 @@ func isKnownCommand(name string) bool {
 func runAsXenForoCommand(ctx context.Context, args []string, cmdFn func(string, ...string) *exec.Cmd) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return clierrors.New(clierrors.CodeInvalidInput, "failed to get current directory")
+		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
 	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
-		return clierrors.Newf(clierrors.CodeInvalidInput, "unknown command: %s (not in a XenForo directory)", args[0])
+		return fmt.Errorf("unknown command: %s (not in a XenForo directory): %w", args[0], err)
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		if clierrors.Is(err, clierrors.CodeDockerEnvNotInitialized) {
+		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
 			return runAsLocalXenForoCommand(xfDir, args, cmdFn)
 		}
 
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	return runner.XFCommand(ctx, args...)
+	if err := runner.XFCommand(ctx, args...); err != nil {
+		return fmt.Errorf("failed to run XenForo command %q: %w", args[0], err)
+	}
+
+	return nil
 }
 
 func runAsLocalXenForoCommand(xfDir string, args []string, cmdFn func(string, ...string) *exec.Cmd) error {
@@ -135,7 +123,7 @@ func runAsLocalXenForoCommand(xfDir string, args []string, cmdFn func(string, ..
 
 	if err := cmd.Run(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return clierrors.New(clierrors.CodeInvalidInput, "local PHP executable not found in PATH")
+			return fmt.Errorf("local PHP executable not found in PATH: %w", err)
 		}
 
 		return fmt.Errorf("local XenForo command failed: %w", err)

@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 )
 
@@ -71,29 +70,29 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Token, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create token request", err)
+		return nil, fmt.Errorf("failed to create token request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to exchange code for token", err)
+		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIResponseInvalid, "failed to read token response", err)
+		return nil, fmt.Errorf("failed to read token response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, clierrors.Newf(clierrors.CodeAPIRequestFailed, "token exchange failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token exchange failed (status %d): %s: %w", resp.StatusCode, string(body), ErrAuthFailed)
 	}
 
 	var tokenResp TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIResponseInvalid, "failed to parse token response", err)
+		return nil, fmt.Errorf("failed to parse token response: %w", err)
 	}
 
 	return c.tokenFromResponse(&tokenResp), nil
@@ -110,29 +109,29 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Token, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create refresh request", err)
+		return nil, fmt.Errorf("failed to create refresh request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to refresh token", err)
+		return nil, fmt.Errorf("failed to refresh token: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIResponseInvalid, "failed to read refresh response", err)
+		return nil, fmt.Errorf("failed to read refresh response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, clierrors.Newf(clierrors.CodeAuthExpired, "token refresh failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token refresh failed (status %d): %s: %w", resp.StatusCode, string(body), ErrAuthExpired)
 	}
 
 	var tokenResp TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIResponseInvalid, "failed to parse refresh response", err)
+		return nil, fmt.Errorf("failed to parse refresh response: %w", err)
 	}
 
 	token := c.tokenFromResponse(&tokenResp)
@@ -167,29 +166,29 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Introspect, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create introspect request", err)
+		return nil, fmt.Errorf("failed to create introspect request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to introspect token", err)
+		return nil, fmt.Errorf("failed to introspect token: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIResponseInvalid, "failed to read introspect response", err)
+		return nil, fmt.Errorf("failed to read introspect response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, clierrors.Newf(clierrors.CodeAPIRequestFailed, "token introspection failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token introspection failed (status %d): %s: %w", resp.StatusCode, string(body), ErrAuthFailed)
 	}
 
 	var introspectResp IntrospectResponse
 	if err := json.Unmarshal(body, &introspectResp); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIResponseInvalid, "failed to parse introspect response", err)
+		return nil, fmt.Errorf("failed to parse introspect response: %w", err)
 	}
 
 	return &introspectResp, nil
@@ -205,14 +204,14 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Revoke, strings.NewReader(data.Encode()))
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to create revoke request", err)
+		return fmt.Errorf("failed to create revoke request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to revoke token", err)
+		return fmt.Errorf("failed to revoke token: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -220,10 +219,10 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return clierrors.Newf(clierrors.CodeAPIRequestFailed, "token revocation failed (status %d; body unreadable)", resp.StatusCode)
+			return fmt.Errorf("token revocation failed (status %d; body unreadable): %w", resp.StatusCode, err)
 		}
 
-		return clierrors.Newf(clierrors.CodeAPIRequestFailed, "token revocation failed (status %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("token revocation failed (status %d): %s: %w", resp.StatusCode, body, ErrAuthFailed)
 	}
 
 	return nil
@@ -265,7 +264,7 @@ func NewCallbackServer(ctx context.Context, path string) (*CallbackServer, error
 
 	listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeInternal, "failed to start callback server", err)
+		return nil, fmt.Errorf("failed to start callback server: %w", err)
 	}
 
 	cs := &CallbackServer{
@@ -315,15 +314,19 @@ func (cs *CallbackServer) WaitForCallback(ctx context.Context) (*CallbackResult,
 	case result := <-cs.result:
 		return &result, nil
 	case err := <-cs.serveErr:
-		return nil, clierrors.Wrap(clierrors.CodeAuthFailed, "callback server error", err)
+		return nil, fmt.Errorf("callback server error: %w", err)
 	case <-ctx.Done():
-		return nil, clierrors.New(clierrors.CodeAuthFailed, "authentication timed out")
+		return nil, fmt.Errorf("authentication timed out: %w", ctx.Err())
 	}
 }
 
 // Shutdown gracefully shuts down the callback server.
 func (cs *CallbackServer) Shutdown(ctx context.Context) error {
-	return cs.server.Shutdown(ctx)
+	if err := cs.server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("failed to shut down callback server: %w", err)
+	}
+
+	return nil
 }
 
 func (cs *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {

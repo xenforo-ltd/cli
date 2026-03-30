@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/cache"
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
@@ -86,7 +85,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	absPath, err := filepath.Abs(targetPath)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeInvalidInput, "invalid target path", err)
+		return fmt.Errorf("invalid target path: %w", err)
 	}
 
 	opts := &UpgradeOptions{
@@ -100,7 +99,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	currentVersion, err := xf.DetectVersion(absPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to detect current XenForo version: %w", err)
 	}
 
 	opts.CurrentVersion = currentVersion
@@ -112,7 +111,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	meta, err := xf.ReadMetadata(absPath)
 	if err != nil && !errors.Is(err, xf.ErrMetadataNotFound) {
-		return err
+		return fmt.Errorf("failed to read installation metadata: %w", err)
 	}
 
 	if meta != nil {
@@ -135,7 +134,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	if !cfg.NoInteraction {
@@ -167,7 +166,7 @@ func validateUpgradeFlags(opts *UpgradeOptions) error {
 	}
 
 	if len(missing) > 0 {
-		return clierrors.Newf(clierrors.CodeInvalidInput, "missing required flags in non-interactive mode: %s", strings.Join(missing, ", "))
+		return fmt.Errorf("missing required flags in non-interactive mode: %s: %w", strings.Join(missing, ", "), ErrInvalidInput)
 	}
 
 	if len(opts.Products) == 0 {
@@ -180,17 +179,17 @@ func validateUpgradeFlags(opts *UpgradeOptions) error {
 func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create customer API client: %w", err)
 	}
 
 	if opts.LicenseKey == "" {
 		licenses, err := client.GetLicenses(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to fetch licenses: %w", err)
 		}
 
 		if len(licenses) == 0 {
-			return clierrors.New(clierrors.CodeAPINotFound, "no licenses found for your account")
+			return fmt.Errorf("no licenses found for your account: %w", ErrNotFound)
 		}
 
 		var licenseOptions []huh.Option[string]
@@ -207,7 +206,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		if len(licenseOptions) == 0 {
-			return clierrors.New(clierrors.CodeAPIForbidden, "no licenses with download access found")
+			return fmt.Errorf("no licenses with download access found: %w", ErrForbidden)
 		}
 
 		err = huh.NewSelect[string]().
@@ -216,7 +215,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 			Value(&opts.LicenseKey).
 			Run()
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeInvalidInput, "license selection cancelled", err)
+			return fmt.Errorf("license selection cancelled: %w", err)
 		}
 	}
 
@@ -227,11 +226,11 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 	if opts.TargetVersionID == 0 {
 		versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, "xenforo")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to fetch XenForo versions for license %s: %w", opts.LicenseKey, err)
 		}
 
 		if len(versions.Versions) == 0 {
-			return clierrors.New(clierrors.CodeAPINotFound, "no versions available")
+			return fmt.Errorf("no versions available: %w", ErrNotFound)
 		}
 
 		var versionOptions []huh.Option[int]
@@ -261,7 +260,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 			Value(&opts.TargetVersionID).
 			Run()
 		if err != nil {
-			return clierrors.Wrap(clierrors.CodeInvalidInput, "version selection cancelled", err)
+			return fmt.Errorf("version selection cancelled: %w", err)
 		}
 
 		for _, v := range versions.Versions {
@@ -277,14 +276,13 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 
 func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	if opts.TargetVersionID <= opts.CurrentVersion.ID {
-		return clierrors.Newf(clierrors.CodeInvalidInput,
-			"target version %d is not newer than current version %d",
-			opts.TargetVersionID, opts.CurrentVersion.ID)
+		return fmt.Errorf("target version %d is not newer than current version %d: %w",
+			opts.TargetVersionID, opts.CurrentVersion.ID, ErrInvalidInput)
 	}
 
 	client, err := customerapi.NewClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create customer API client: %w", err)
 	}
 
 	step := 1
@@ -323,7 +321,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 
 		runner, err := dockercompose.NewRunner(opts.TargetPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}
 
 		if err := runner.XFCommand(ctx, "xf:upgrade"); err != nil {
@@ -360,7 +358,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts *UpgradeOptions) (map[string]*cache.Entry, error) {
 	cacheManager, err := cache.NewManager()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize cache manager: %w", err)
 	}
 
 	cachedFiles := make(map[string]*cache.Entry)
@@ -369,7 +367,7 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 		ui.PrintWarning(fmt.Sprintf("No versions available for %s, skipping", product))
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve upgrade selections for license %s: %w", opts.LicenseKey, err)
 	}
 
 	for _, selection := range selections {
@@ -377,7 +375,7 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 
 		entry, versionStr, err := downloads.DownloadSelection(ctx, client, cacheManager, opts.LicenseKey, selection, false, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to download %s for upgrade: %w", selection.Product, err)
 		}
 
 		if selection.Product == "xenforo" && opts.TargetVersionString == "" {

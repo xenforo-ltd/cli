@@ -10,8 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 // EnvConfig represents the configuration values in a .env file.
@@ -60,10 +58,10 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, clierrors.New(clierrors.CodeFileNotFound, ".env file not found")
+			return nil, fmt.Errorf(".env file not found: %w", err)
 		}
 
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read .env file", err)
+		return nil, fmt.Errorf("failed to read .env file: %w", err)
 	}
 	defer file.Close()
 
@@ -91,7 +89,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeFileReadFailed, "error reading .env file", err)
+		return nil, fmt.Errorf("error reading .env file: %w", err)
 	}
 
 	return env, nil
@@ -127,7 +125,7 @@ func WriteEnvFile(path string, values map[string]string) error {
 func createEnvFile(path string, values map[string]string) error {
 	file, err := os.Create(path)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to create .env file", err)
+		return fmt.Errorf("failed to create .env file: %w", err)
 	}
 	defer file.Close()
 
@@ -146,7 +144,7 @@ func createEnvFile(path string, values map[string]string) error {
 		}
 
 		if _, err := fmt.Fprintf(file, "%s=%s\n", key, value); err != nil {
-			return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write to .env file", err)
+			return fmt.Errorf("failed to write to .env file: %w", err)
 		}
 	}
 
@@ -156,7 +154,7 @@ func createEnvFile(path string, values map[string]string) error {
 func updateEnvFile(path string, values map[string]string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read .env file", err)
+		return fmt.Errorf("failed to read .env file: %w", err)
 	}
 
 	lines := strings.Split(string(content), "\n")
@@ -207,7 +205,7 @@ func updateEnvFile(path string, values map[string]string) error {
 
 	output := strings.Join(lines, "\n")
 	if err := os.WriteFile(path, []byte(output), 0o600); err != nil {
-		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write .env file", err)
+		return fmt.Errorf("failed to write .env file: %w", err)
 	}
 
 	return nil
@@ -325,7 +323,7 @@ func GetXenForoDir(startDir string) (string, error) {
 		}
 	}
 
-	return "", clierrors.New(clierrors.CodeInvalidInput, "not in a XenForo directory and XF_DIR not set")
+	return "", fmt.Errorf("not in a XenForo directory and XF_DIR not set: %w", ErrInvalidInput)
 }
 
 // GenerateInstanceName generates a Docker-safe instance name from a directory name.

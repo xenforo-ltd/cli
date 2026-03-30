@@ -3,12 +3,11 @@ package docker
 
 import (
 	"embed"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 )
 
 //go:embed embed/*
@@ -35,7 +34,7 @@ func ExtractDockerFilesWithOptions(targetDir string, opts ExtractOptions) error 
 func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) error {
 	entries, err := dockerFS.ReadDir(srcDir)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read embedded directory", err)
+		return fmt.Errorf("failed to read embedded directory: %w", err)
 	}
 
 	for _, entry := range entries {
@@ -44,7 +43,7 @@ func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) erro
 
 		if entry.IsDir() {
 			if err := os.MkdirAll(targetPath, 0o750); err != nil {
-				return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create directory", err)
+				return fmt.Errorf("failed to create directory: %w", err)
 			}
 
 			if err := extractDir(srcPath, targetDir, filepath.Join(relPath, entry.Name()), overwriteBaseFiles); err != nil {
@@ -79,16 +78,16 @@ func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) erro
 func extractFile(srcPath, targetPath string) error {
 	data, err := dockerFS.ReadFile(srcPath)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read embedded file", err)
+		return fmt.Errorf("failed to read embedded file: %w", err)
 	}
 
 	parentDir := filepath.Dir(targetPath)
 	if err := os.MkdirAll(parentDir, 0o750); err != nil {
-		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create parent directory", err)
+		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	if err := os.WriteFile(targetPath, data, 0o600); err != nil {
-		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write file", err)
+		return fmt.Errorf("failed to write file: %w", err)
 	}
 
 	return nil
@@ -103,19 +102,19 @@ func extractDefaultFile(srcPath, targetPath string) error {
 
 	data, err := dockerFS.ReadFile(srcPath)
 	if err != nil {
-		return clierrors.Wrap(clierrors.CodeFileReadFailed, "failed to read embedded default file", err)
+		return fmt.Errorf("failed to read embedded default file: %w", err)
 	}
 
 	parentDir := filepath.Dir(targetBase)
 	if err := os.MkdirAll(parentDir, 0o750); err != nil {
-		return clierrors.Wrap(clierrors.CodeDirCreateFailed, "failed to create parent directory", err)
+		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	if existingData, err := os.ReadFile(targetBase); err == nil {
 		if string(existingData) != string(data) {
 			defaultPath := targetBase + ".default"
 			if err := os.WriteFile(defaultPath, data, 0o600); err != nil {
-				return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write default file", err)
+				return fmt.Errorf("failed to write default file: %w", err)
 			}
 		}
 
@@ -123,7 +122,7 @@ func extractDefaultFile(srcPath, targetPath string) error {
 	}
 
 	if err := os.WriteFile(targetBase, data, 0o600); err != nil {
-		return clierrors.Wrap(clierrors.CodeFileWriteFailed, "failed to write file", err)
+		return fmt.Errorf("failed to write file: %w", err)
 	}
 
 	return nil
@@ -135,7 +134,7 @@ func GetDockerFile(name string) ([]byte, error) {
 
 	data, err := dockerFS.ReadFile(embeddedPath)
 	if err != nil {
-		return nil, clierrors.Wrapf(clierrors.CodeFileReadFailed, err, "failed to read embedded file: %s", name)
+		return nil, fmt.Errorf("failed to read embedded file: %s: %w", name, err)
 	}
 
 	return data, nil

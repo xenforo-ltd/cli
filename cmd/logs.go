@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	if len(services) > 0 {
@@ -57,5 +58,9 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		ui.PrintInfo("Showing logs for all services")
 	}
 
-	return runner.Logs(cmd.Context(), flagLogsFollow, services...)
+	if err := runner.Logs(cmd.Context(), flagLogsFollow, services...); err != nil {
+		return fmt.Errorf("failed to show container logs: %w", err)
+	}
+
+	return nil
 }

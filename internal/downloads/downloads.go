@@ -4,6 +4,7 @@ package downloads
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"sort"
 	"strconv"
@@ -11,8 +12,15 @@ import (
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/cache"
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
+)
+
+var (
+	// ErrAPINotFound indicates the requested resource was not found.
+	ErrAPINotFound = errors.New("resource not found")
+
+	// ErrInvalidInput indicates invalid input was provided.
+	ErrInvalidInput = errors.New("invalid input")
 )
 
 type versionClient interface {
@@ -65,11 +73,11 @@ func ResolveSelections(
 
 	coreVersions, err := client.GetLicenseVersions(ctx, licenseKey, "xenforo")
 	if err != nil {
-		return nil, clierrors.Wrap(clierrors.CodeAPIRequestFailed, "failed to get versions for xenforo", err)
+		return nil, fmt.Errorf("failed to get versions for xenforo: %w", err)
 	}
 
 	if len(coreVersions.Versions) == 0 {
-		return nil, clierrors.New(clierrors.CodeAPINotFound, "no xenforo versions available")
+		return nil, fmt.Errorf("no xenforo versions available: %w", ErrAPINotFound)
 	}
 
 	sortVersions(coreVersions.Versions)
@@ -88,7 +96,7 @@ func ResolveSelections(
 	for _, product := range products {
 		if product == "xenforo" {
 			if coreVersionID == 0 {
-				return nil, clierrors.New(clierrors.CodeInvalidInput, "xenforo core version ID is required")
+				return nil, fmt.Errorf("xenforo core version ID is required: %w", ErrInvalidInput)
 			}
 
 			versionStr := coreVersionString
@@ -114,7 +122,7 @@ func ResolveSelections(
 		if overrideID := overrides[product]; overrideID > 0 {
 			info, err := client.GetDownloadInfo(ctx, licenseKey, product, overrideID)
 			if err != nil {
-				return nil, clierrors.Wrapf(clierrors.CodeAPIRequestFailed, err, "failed to resolve override for %s", product)
+				return nil, fmt.Errorf("failed to resolve override for %s: %w", product, err)
 			}
 
 			selections = append(selections, Selection{
@@ -129,7 +137,7 @@ func ResolveSelections(
 
 		versions, err := client.GetLicenseVersions(ctx, licenseKey, product)
 		if err != nil {
-			return nil, clierrors.Wrapf(clierrors.CodeAPIRequestFailed, err, "failed to get versions for %s", product)
+			return nil, fmt.Errorf("failed to get versions for %s: %w", product, err)
 		}
 
 		if len(versions.Versions) == 0 {
@@ -264,7 +272,7 @@ func DownloadSelection(ctx context.Context, client *customerapi.Client, cacheMan
 func downloadSelection(ctx context.Context, client downloadClient, cacheManager cacheDownloader, licenseKey string, selection Selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
 	info, err := client.GetDownloadInfo(ctx, licenseKey, selection.Product, selection.VersionID)
 	if err != nil {
-		return nil, "", clierrors.Wrapf(clierrors.CodeAPIRequestFailed, err, "failed to get download info for %s", selection.Product)
+		return nil, "", fmt.Errorf("failed to get download info for %s: %w", selection.Product, err)
 	}
 
 	versionStr := selection.VersionString
@@ -275,7 +283,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 	if !skipCache {
 		entry, err := cacheManager.GetEntry(licenseKey, selection.Product, versionStr)
 		if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
-			return nil, "", err
+			return nil, "", fmt.Errorf("failed to check cache for %s %s: %w", selection.Product, versionStr, err)
 		}
 
 		if entry != nil {
@@ -290,7 +298,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 
 	accessToken, err := client.GetAccessToken()
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to get access token for %s: %w", selection.Product, err)
 	}
 
 	downloadURL := client.GetDownloadURL(licenseKey, selection.Product, selection.VersionID)
@@ -305,7 +313,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 
 	result, err := cacheManager.DownloadWithAuth(ctx, downloadOpts, accessToken, progress)
 	if err != nil {
-		return nil, "", clierrors.Wrapf(clierrors.CodeDownloadFailed, err, "failed to download %s", selection.Product)
+		return nil, "", fmt.Errorf("failed to download %s: %w", selection.Product, err)
 	}
 
 	return result.Entry, versionStr, nil

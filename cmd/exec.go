@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/clierrors"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
@@ -47,7 +46,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
 	service := execArgs[0]
@@ -55,7 +54,11 @@ func runExec(cmd *cobra.Command, args []string) error {
 
 	ui.PrintInfo(fmt.Sprintf("Executing in %s: %s", service, strings.Join(cmdArgs, " ")))
 
-	return runner.Exec(cmd.Context(), service, cmdArgs...)
+	if err := runner.Exec(cmd.Context(), service, cmdArgs...); err != nil {
+		return fmt.Errorf("failed to execute command in service %s: %w", service, err)
+	}
+
+	return nil
 }
 
 func resolveXenForoDirAndArgs(args []string) (string, []string, error) {
@@ -76,7 +79,7 @@ func resolveXenForoDirAndArgs(args []string) (string, []string, error) {
 
 func validateExecInvocation(execArgs []string) error {
 	if len(execArgs) < 2 {
-		return clierrors.New(clierrors.CodeInvalidInput, "exec requires <service> <command> [args...]")
+		return fmt.Errorf("exec requires <service> <command> [args...]: %w", ErrInvalidInput)
 	}
 
 	return nil
