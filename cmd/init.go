@@ -262,7 +262,11 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	ui.PrintSuccess("Docker Compose is available")
 	ui.Println()
 
-	ui.PrintStep(1, 3, "Setting up Docker configuration")
+	step := 1
+	totalSteps := 3
+
+	ui.PrintStep(step, totalSteps, "Setting up Docker configuration")
+	step++
 
 	xfcmdOpts := xfcmd.InitOptions{
 		OverwriteExisting: true,
@@ -275,7 +279,8 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 	ui.PrintSuccess("Docker configuration files extracted")
 
-	ui.PrintStep(2, 3, "Configuring environment")
+	ui.PrintStep(step, totalSteps, "Configuring environment")
+	step++
 
 	if err := configureExistingEnv(opts); err != nil {
 		return err
@@ -283,7 +288,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 	ui.PrintSuccess("Configured instance: " + opts.InstanceName)
 
-	ui.PrintStep(3, 3, "Starting environment")
+	ui.PrintStep(step, totalSteps, "Starting environment")
 
 	if opts.StartContainers {
 		runner, err := dockercompose.NewRunner(xfDir)
@@ -530,13 +535,14 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			opts.SiteTitle = "XenForo"
 		}
 
+		minimumUsernameLength := 3
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
 					Title("Admin username").
 					Value(&opts.AdminUser).
 					Validate(func(s string) error {
-						if len(s) < 3 {
+						if len(s) < minimumUsernameLength {
 							return ErrUsernameTooShort
 						}
 

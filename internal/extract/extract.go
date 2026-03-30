@@ -225,7 +225,9 @@ func GetZipRootDirectory(zipPath string) (string, error) {
 
 	firstFile := reader.File[0].Name
 
-	parts := strings.SplitN(filepath.ToSlash(firstFile), "/", 2)
+	archiveRootParts := 2
+
+	parts := strings.SplitN(filepath.ToSlash(firstFile), "/", archiveRootParts)
 	if len(parts) == 0 {
 		return "", nil
 	}
@@ -233,7 +235,7 @@ func GetZipRootDirectory(zipPath string) (string, error) {
 	root := parts[0]
 
 	for _, file := range reader.File {
-		fileParts := strings.SplitN(filepath.ToSlash(file.Name), "/", 2)
+		fileParts := strings.SplitN(filepath.ToSlash(file.Name), "/", archiveRootParts)
 		if len(fileParts) == 0 || fileParts[0] != root {
 			return "", nil
 		}

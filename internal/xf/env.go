@@ -341,8 +341,9 @@ func GenerateInstanceName(dirName string) string {
 		name = "xf"
 	}
 
-	if len(name) > 32 {
-		name = name[:32]
+	maxInstanceNameLength := 32
+	if len(name) > maxInstanceNameLength {
+		name = name[:maxInstanceNameLength]
 	}
 
 	return name

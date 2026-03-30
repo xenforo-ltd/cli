@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	reviewDone = "__done__"
+	reviewDone   = "__done__"
+	versionCount = 10
 )
 
 type overrideMode int
@@ -38,7 +39,7 @@ func (m overrideMode) String() string {
 }
 
 func chooseCoreVersionInteractively(opts *InitOptions) error {
-	display := initflow.BuildVersionOptions(opts.CoreVersions, 10)
+	display := initflow.BuildVersionOptions(opts.CoreVersions, versionCount)
 
 	versionOptions := make([]huh.Option[int], 0, len(display)+1)
 	for _, d := range display {
@@ -56,7 +57,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 
 	if err := huh.NewSelect[int]().
 		Title("Select XenForo version").
-		Description("Showing latest 10 versions. Choose manual entry for older versions.").
+		Description(fmt.Sprintf("Showing latest %d versions. Choose manual entry for older versions.", versionCount)).
 		Options(versionOptions...).
 		Value(&selection).
 		Run(); err != nil {
@@ -449,7 +450,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 		}
 
 		initflow.SortVersionsDesc(versions.Versions)
-		optsList := initflow.BuildVersionOptions(versions.Versions, 10)
+		optsList := initflow.BuildVersionOptions(versions.Versions, versionCount)
 
 		selectOptions := make([]huh.Option[int], 0, len(optsList)+1)
 		for _, d := range optsList {
@@ -463,7 +464,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 		choice := selectOptions[0].Value
 		if err := huh.NewSelect[int]().
 			Title("Select version for " + product).
-			Description("Showing latest 10 versions. Choose manual entry for older versions.").
+			Description(fmt.Sprintf("Showing latest %d versions. Choose manual entry for older versions.", versionCount)).
 			Options(selectOptions...).
 			Value(&choice).Run(); err != nil {
 			return err
@@ -497,17 +498,19 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 }
 
 func editEnvValues(opts *InitOptions) error {
+	additionalEnvChoices := 2
+
 	for {
 		envVals, _ := currentEnvPreview(opts)
 
-		keys := make([]string, 0, len(envVals)+2)
+		keys := make([]string, 0, len(envVals)+additionalEnvChoices)
 		for k := range envVals {
 			keys = append(keys, k)
 		}
 
 		sort.Strings(keys)
 
-		options := make([]huh.Option[string], 0, len(keys)+2)
+		options := make([]huh.Option[string], 0, len(keys)+additionalEnvChoices)
 		for _, k := range keys {
 			options = append(options, huh.NewOption(fmt.Sprintf("%s=%s", k, envVals[k]), k))
 		}

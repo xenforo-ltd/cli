@@ -12,15 +12,18 @@ type TableStyle struct {
 	Separator string
 }
 
+// TablePadding is the number of spaces to pad between columns.
+const TablePadding = 2
+
 // DefaultTableStyle returns the default table styling.
 func DefaultTableStyle() TableStyle {
 	return TableStyle{
 		Header: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(ColorSubtle).
-			PaddingRight(2),
+			PaddingRight(TablePadding),
 		Cell: lipgloss.NewStyle().
-			PaddingRight(2),
+			PaddingRight(TablePadding),
 		Separator: "  ",
 	}
 }

@@ -287,10 +287,12 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 		return err
 	}
 
+	step := 1
 	totalSteps := 3
 
 	ui.Println()
-	ui.PrintStep(1, totalSteps, "Downloading upgrade files")
+	ui.PrintStep(step, totalSteps, "Downloading upgrade files")
+	step++
 
 	cachedFiles, err := downloadUpgradeFiles(ctx, client, opts)
 	if err != nil {
@@ -298,7 +300,8 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	}
 
 	ui.Println()
-	ui.PrintStep(2, totalSteps, "Upgrading files")
+	ui.PrintStep(step, totalSteps, "Upgrading files")
+	step++
 
 	if err := overlayUpgradeFiles(cachedFiles, opts.TargetPath); err != nil {
 		return err
@@ -316,7 +319,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	ui.Println()
 
 	if !opts.SkipUpgrade {
-		ui.PrintStep(3, totalSteps, "Running XenForo upgrade")
+		ui.PrintStep(step, totalSteps, "Running XenForo upgrade")
 
 		runner, err := dockercompose.NewRunner(opts.TargetPath)
 		if err != nil {
@@ -330,7 +333,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 			ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:upgrade", opts.TargetPath)))
 		}
 	} else {
-		ui.PrintStep(3, totalSteps, "Skipped (--skip-upgrade flag set)")
+		ui.PrintStep(step, totalSteps, "Skipped (--skip-upgrade flag set)")
 	}
 
 	ui.Println()

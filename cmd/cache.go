@@ -246,8 +246,10 @@ func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 		ui.Printf("\n%s%s %s\n", ui.Indent1, ui.Bold.Render(e.Metadata.DownloadID), ui.Version.Render("v"+e.Metadata.Version))
 
 		shortChecksum := e.Metadata.Checksum
-		if len(shortChecksum) > 12 {
-			shortChecksum = shortChecksum[:12] + "..."
+		shortChecksumLength := 12
+
+		if len(shortChecksum) > shortChecksumLength {
+			shortChecksum = shortChecksum[:shortChecksumLength] + "..."
 		}
 
 		pairs := []ui.KVPair{

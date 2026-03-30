@@ -109,8 +109,10 @@ func init() {
 	authCmd.AddCommand(authLogoutCmd)
 	authCmd.AddCommand(authRefreshCmd)
 
+	defaultTimeout := 5 * time.Minute
+
 	authStatusCmd.Flags().BoolVar(&flagAuthStatusJSON, "json", false, "output as JSON")
-	authLoginCmd.Flags().IntVar(&flagAuthTimeout, "timeout", 300, "timeout in seconds for browser authentication")
+	authLoginCmd.Flags().IntVar(&flagAuthTimeout, "timeout", int(defaultTimeout/time.Second), "timeout in seconds for browser authentication")
 
 	rootCmd.AddCommand(authCmd)
 }

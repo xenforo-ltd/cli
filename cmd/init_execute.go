@@ -44,17 +44,21 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
 	totalSteps := 7
+	step := 1
 
 	ui.Println()
-	ui.PrintStep(1, totalSteps, "Preparing target directory")
+	ui.PrintStep(step, totalSteps, "Preparing target directory")
 	ui.PrintDetail(opts.TargetPath)
+
+	step++
 
 	if err := prepareTargetDirectory(opts.TargetPath); err != nil {
 		return err
 	}
 
 	ui.Println()
-	ui.PrintStep(2, totalSteps, "Downloading XenForo files")
+	ui.PrintStep(step, totalSteps, "Downloading XenForo files")
+	step++
 
 	cachedFiles, err := downloadProducts(ctx, client, opts)
 	if err != nil {
@@ -62,14 +66,16 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	}
 
 	ui.Println()
-	ui.PrintStep(3, totalSteps, "Extracting XenForo files")
+	ui.PrintStep(step, totalSteps, "Extracting XenForo files")
+	step++
 
 	if err := extractProducts(cachedFiles, opts.TargetPath, titleMap); err != nil {
 		return err
 	}
 
 	ui.Println()
-	ui.PrintStep(4, totalSteps, "Setting up Docker configuration")
+	ui.PrintStep(step, totalSteps, "Setting up Docker configuration")
+	step++
 
 	xfcmdOpts := xfcmd.InitOptions{
 		OverwriteExisting: true,
@@ -94,7 +100,8 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	}
 
 	ui.Println()
-	ui.PrintStep(5, totalSteps, "Configuring environment")
+	ui.PrintStep(step, totalSteps, "Configuring environment")
+	step++
 
 	if err := configureEnvironment(opts); err != nil {
 		return err
@@ -103,7 +110,8 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	ui.PrintSuccess("Environment configured")
 
 	ui.Println()
-	ui.PrintStep(6, totalSteps, "Starting Docker environment")
+	ui.PrintStep(step, totalSteps, "Starting Docker environment")
+	step++
 
 	runner, err := dockercompose.NewRunner(opts.TargetPath)
 	if err != nil {
@@ -144,7 +152,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		}
 
 		ui.Println()
-		ui.PrintStep(7, totalSteps, "Installing XenForo")
+		ui.PrintStep(step, totalSteps, "Installing XenForo")
 
 		if !opts.SkipInstall {
 			ui.PrintSubstep("Waiting for database to be ready...")
@@ -331,14 +339,15 @@ func parseInstallImportMessage(line string) string {
 			return "importing data"
 		}
 
-		parts := strings.SplitN(inside, ":", 2)
+		partsCount := 2
+		parts := strings.SplitN(inside, ":", partsCount)
 
 		name := strings.ToLower(strings.TrimSpace(parts[0]))
 		if name == "" {
 			return "importing data"
 		}
 
-		if len(parts) == 2 {
+		if len(parts) == partsCount {
 			percent := strings.TrimSpace(parts[1])
 			if percent != "" {
 				return fmt.Sprintf("importing %s (%s)", name, percent)

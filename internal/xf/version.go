@@ -23,6 +23,12 @@ const (
 	StabilityStable  Stability = "stable"
 	StabilityPL      Stability = "pl"
 	StabilityUnknown Stability = "unknown"
+
+	stabilityAlphaNumber  = 1
+	stabilityBetaNumber   = 3
+	stabilityRCNumber     = 5
+	stabilityStableNumber = 7
+	stabilityPLNumber     = 9
 )
 
 // Version represents a XenForo version with both string and ID representations.
@@ -44,14 +50,14 @@ func ParseVersionString(versionStr string) (*Version, error) {
 	versionStr = strings.TrimSpace(versionStr)
 
 	v.Stability = StabilityStable
-	v.StabNum = 7
+	v.StabNum = stabilityStableNumber
 	v.PLLevel = 1
 
 	lowerStr := strings.ToLower(versionStr)
 	switch {
 	case strings.Contains(lowerStr, string(StabilityAlpha)):
 		v.Stability = StabilityAlpha
-		v.StabNum = 1
+		v.StabNum = stabilityAlphaNumber
 		// Extract alpha number if present
 		if matches := regexp.MustCompile(`alpha\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
@@ -61,7 +67,7 @@ func ParseVersionString(versionStr string) (*Version, error) {
 	case strings.Contains(lowerStr, string(StabilityBeta)):
 		v.Stability = StabilityBeta
 
-		v.StabNum = 3
+		v.StabNum = stabilityBetaNumber
 		if matches := regexp.MustCompile(`beta\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
@@ -70,7 +76,7 @@ func ParseVersionString(versionStr string) (*Version, error) {
 	case strings.Contains(lowerStr, string(StabilityRC)) || strings.Contains(lowerStr, "release candidate"):
 		v.Stability = StabilityRC
 
-		v.StabNum = 5
+		v.StabNum = stabilityRCNumber
 		if matches := regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
@@ -79,7 +85,7 @@ func ParseVersionString(versionStr string) (*Version, error) {
 	case strings.Contains(lowerStr, string(StabilityPL)) || strings.Contains(lowerStr, "patch level"):
 		v.Stability = StabilityPL
 
-		v.StabNum = 9
+		v.StabNum = stabilityPLNumber
 		if matches := regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
@@ -139,15 +145,15 @@ func ParseVersionID(versionID int) *Version {
 	v.Major = versionID
 
 	switch v.StabNum {
-	case 1:
+	case stabilityAlphaNumber:
 		v.Stability = StabilityAlpha
-	case 3:
+	case stabilityBetaNumber:
 		v.Stability = StabilityBeta
-	case 5:
+	case stabilityRCNumber:
 		v.Stability = StabilityRC
-	case 7:
+	case stabilityStableNumber:
 		v.Stability = StabilityStable
-	case 9:
+	case stabilityPLNumber:
 		v.Stability = StabilityPL
 	default:
 		v.Stability = StabilityUnknown
