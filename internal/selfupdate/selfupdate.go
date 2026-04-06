@@ -50,11 +50,6 @@ const (
 	windowsOS = "windows"
 )
 
-var (
-	executablePath  = os.Executable
-	evaluateSymlink = filepath.EvalSymlinks
-)
-
 // Release represents a GitHub release.
 type Release struct {
 	TagName     string    `json:"tag_name"`
@@ -148,22 +143,26 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 
 // Update downloads and applies the new version.
 func (u *Updater) Update(ctx context.Context, info *UpdateInfo, progressFn func(downloaded, total int64)) error {
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+
+	return u.updateAtPath(ctx, execPath, info, progressFn)
+}
+
+func (u *Updater) updateAtPath(ctx context.Context, execPath string, info *UpdateInfo, progressFn func(downloaded, total int64)) error {
 	if !info.HasUpdate {
 		return fmt.Errorf("no update available: %w", ErrUpdateFailed)
 	}
 
 	if info.AssetURL == "" || info.AssetName == "" {
 		return fmt.Errorf("update asset information is incomplete: %w", ErrUpdateFailed)
-	}
-
-	execPath, err := executablePath()
-	if err != nil {
-		return fmt.Errorf("failed to get executable path: %w", err)
-	}
-
-	execPath, err = evaluateSymlink(execPath)
-	if err != nil {
-		return fmt.Errorf("failed to resolve executable path: %w", err)
 	}
 
 	// Create a temporary working directory in the binary directory to keep renames atomic.

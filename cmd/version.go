@@ -32,46 +32,48 @@ Examples:
 
   # Output as JSON (useful for scripting)
   xf version --json`,
-	Run: func(cmd *cobra.Command, args []string) {
-		info := version.Get()
-
-		if flagVersionShort {
-			ui.Println(ui.Version.Render(info.Short()))
-			return
-		}
-
-		if flagVersionJSON {
-			data, err := json.MarshalIndent(info, "", "  ")
-			if err != nil {
-				ui.Printf("Error: %s\n", err)
-				return
-			}
-
-			ui.Println(string(data))
-
-			return
-		}
-
-		ui.Printf("%s %s\n\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
-
-		var pairs []ui.KVPair
-		if info.Commit != "" && info.Commit != "unknown" {
-			pairs = append(pairs, ui.KV("Commit", ui.Dim.Render(info.Commit)))
-		}
-
-		if info.Date != "" && info.Date != "unknown" {
-			pairs = append(pairs, ui.KV("Built", info.Date))
-		}
-
-		pairs = append(pairs, ui.KV("Go version", info.GoVersion))
-		pairs = append(pairs, ui.KV("Platform", fmt.Sprintf("%s/%s", info.OS, info.Arch)))
-
-		ui.PrintKeyValuePadded(pairs)
-	},
+	RunE: runVersion,
 }
 
 func init() {
 	versionCmd.Flags().BoolVar(&flagVersionJSON, "json", false, "output as JSON")
 	versionCmd.Flags().BoolVarP(&flagVersionShort, "short", "s", false, "print only the version number")
 	rootCmd.AddCommand(versionCmd)
+}
+
+func runVersion(cmd *cobra.Command, args []string) error {
+	info := version.Get()
+
+	if flagVersionShort {
+		ui.Println(ui.Version.Render(info.Short()))
+		return nil
+	}
+
+	if flagVersionJSON {
+		data, err := json.MarshalIndent(info, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error encoding version info as JSON: %w", err)
+		}
+
+		ui.Println(string(data))
+
+		return nil
+	}
+
+	ui.Printf("%s %s\n\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
+
+	var pairs []ui.KVPair
+	if info.Commit != "" && info.Commit != "unknown" {
+		pairs = append(pairs, ui.KV("Commit", ui.Dim.Render(info.Commit)))
+	}
+
+	if info.Date != "" && info.Date != "unknown" {
+		pairs = append(pairs, ui.KV("Built", info.Date))
+	}
+
+	pairs = append(pairs, ui.KV("Go version", info.GoVersion))
+	pairs = append(pairs, ui.KV("Platform", fmt.Sprintf("%s/%s", info.OS, info.Arch)))
+
+	ui.PrintKeyValuePadded(pairs)
+	return nil
 }
