@@ -75,5 +75,6 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	pairs = append(pairs, ui.KV("Platform", fmt.Sprintf("%s/%s", info.OS, info.Arch)))
 
 	ui.PrintKeyValuePadded(pairs)
+
 	return nil
 }

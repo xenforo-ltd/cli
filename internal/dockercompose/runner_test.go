@@ -15,7 +15,7 @@ const windowsOS = "windows"
 
 var (
 	sharedFakeDockerPath string
-	sharedFakeDockerErr  error
+	errSharedFakeDocker  error
 	sharedFakeDockerOnce sync.Once
 )
 
@@ -208,7 +208,7 @@ func newRunnerWithFakeDocker(t *testing.T) (*Runner, string) {
 	sharedFakeDockerOnce.Do(func() {
 		binDir, err := os.MkdirTemp("", "xf-fake-docker-*")
 		if err != nil {
-			sharedFakeDockerErr = fmt.Errorf("create fake docker dir: %w", err)
+			errSharedFakeDocker = fmt.Errorf("create fake docker dir: %w", err)
 			return
 		}
 
@@ -250,11 +250,12 @@ fi
 exit 0
 `
 		if err := os.WriteFile(sharedFakeDockerPath, []byte(script), 0o700); err != nil {
-			sharedFakeDockerErr = fmt.Errorf("write fake docker: %w", err)
+			errSharedFakeDocker = fmt.Errorf("write fake docker: %w", err)
 		}
 	})
-	if sharedFakeDockerErr != nil {
-		t.Fatalf("set up fake docker: %v", sharedFakeDockerErr)
+
+	if errSharedFakeDocker != nil {
+		t.Fatalf("set up fake docker: %v", errSharedFakeDocker)
 	}
 
 	logFile := filepath.Join(t.TempDir(), "docker.log")

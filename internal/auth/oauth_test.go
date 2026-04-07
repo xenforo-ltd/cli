@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -81,12 +82,12 @@ func TestOAuthClient_AuthorizationURL(t *testing.T) {
 		State:               "state789",
 	}
 
-	url := client.AuthorizationURL(pkce, "http://localhost:8080/callback")
+	uri := client.AuthorizationURL(pkce, "http://localhost:8080/callback")
 
 	expectedParams := []string{
 		"client_id=test-client",
 		"response_type=code",
-		"redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback",
+		"redirect_uri=" + url.QueryEscape("http://localhost:8080/callback"),
 		"scope=read+write",
 		"state=state789",
 		"code_challenge=challenge456",
@@ -94,8 +95,8 @@ func TestOAuthClient_AuthorizationURL(t *testing.T) {
 	}
 
 	for _, param := range expectedParams {
-		if !strings.Contains(url, param) {
-			t.Errorf("AuthorizationURL() missing param %q, got: %s", param, url)
+		if !strings.Contains(uri, param) {
+			t.Errorf("AuthorizationURL() missing param %q, got: %s", param, uri)
 		}
 	}
 }
@@ -289,6 +290,7 @@ func TestCallbackServer(t *testing.T) {
 			defer resp.Body.Close()
 
 			_, _ = io.Copy(io.Discard, resp.Body)
+
 			done <- nil
 		}()
 
