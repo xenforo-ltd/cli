@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -263,6 +265,36 @@ func TestCallbackServer(t *testing.T) {
 
 	server.Start()
 
+	client := &http.Client{
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	sendCallback := func(query string) <-chan error {
+		done := make(chan error, 1)
+
+		go func() {
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, uri+query, nil)
+			if err != nil {
+				done <- err
+				return
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				done <- err
+				return
+			}
+			defer resp.Body.Close()
+
+			_, _ = io.Copy(io.Discard, resp.Body)
+			done <- nil
+		}()
+
+		return done
+	}
+
 	defer func() {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
@@ -272,23 +304,7 @@ func TestCallbackServer(t *testing.T) {
 		}
 	}()
 
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, uri+"?code=test-code&state=test-state", nil)
-		if err != nil {
-			t.Errorf("Failed to create HTTP request: %v", err)
-			return
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Errorf("Failed to make HTTP request: %v", err)
-			return
-		}
-
-		defer resp.Body.Close()
-	}()
+	firstCallbackDone := sendCallback("?code=test-code&state=test-state")
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -306,26 +322,14 @@ func TestCallbackServer(t *testing.T) {
 		t.Errorf("State = %q, want %q", result.State, "test-state")
 	}
 
-	go func() {
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, uri+"?code=second-code&state=test-state", nil)
-		if err != nil {
-			t.Errorf("Failed to create HTTP request: %v", err)
-			return
-		}
+	if err := <-firstCallbackDone; err != nil {
+		t.Fatalf("Failed to make first HTTP request: %v", err)
+	}
 
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Errorf("Failed to make HTTP request: %v", err)
-			return
-		}
+	secondCallbackDone := sendCallback("?code=second-code&state=test-state")
 
-		defer resp.Body.Close()
-	}()
-
-	select {
-	case <-time.After(200 * time.Millisecond):
-	case <-ctx.Done():
-		t.Errorf("unexpected context timeout while sending second callback: %v", ctx.Err())
+	if err := <-secondCallbackDone; err != nil {
+		t.Fatalf("Failed to make second HTTP request: %v", err)
 	}
 }
 
@@ -346,11 +350,11 @@ func TestCallbackServer_Timeout(t *testing.T) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(-time.Second))
 	defer cancel()
 
 	_, err = server.WaitForCallback(ctx)
-	if err == nil {
-		t.Error("WaitForCallback() should have timed out")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("WaitForCallback() error = %v, want DeadlineExceeded", err)
 	}
 }

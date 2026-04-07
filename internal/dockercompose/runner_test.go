@@ -7,10 +7,17 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 )
 
 const windowsOS = "windows"
+
+var (
+	sharedFakeDockerPath string
+	sharedFakeDockerErr  error
+	sharedFakeDockerOnce sync.Once
+)
 
 func TestBuildComposeArgsIncludesContextAndOverride(t *testing.T) {
 	tmp := t.TempDir()
@@ -198,11 +205,16 @@ func newRunnerWithFakeDocker(t *testing.T) (*Runner, string) {
 		t.Fatalf("write compose.yaml: %v", err)
 	}
 
-	binDir := t.TempDir()
-	logFile := filepath.Join(t.TempDir(), "docker.log")
-	dockerPath := filepath.Join(binDir, "docker")
+	sharedFakeDockerOnce.Do(func() {
+		binDir, err := os.MkdirTemp("", "xf-fake-docker-*")
+		if err != nil {
+			sharedFakeDockerErr = fmt.Errorf("create fake docker dir: %w", err)
+			return
+		}
 
-	script := `#!/usr/bin/env bash
+		sharedFakeDockerPath = filepath.Join(binDir, "docker")
+
+		script := `#!/usr/bin/env bash
 set -euo pipefail
 if [[ -n "${DOCKER_LOG_FILE:-}" ]]; then
   printf '%s\n' "$*" >> "$DOCKER_LOG_FILE"
@@ -237,11 +249,16 @@ if [[ "$args" == *" run "* ]]; then
 fi
 exit 0
 `
-	if err := os.WriteFile(dockerPath, []byte(script), 0o700); err != nil {
-		t.Fatalf("write fake docker: %v", err)
+		if err := os.WriteFile(sharedFakeDockerPath, []byte(script), 0o700); err != nil {
+			sharedFakeDockerErr = fmt.Errorf("write fake docker: %w", err)
+		}
+	})
+	if sharedFakeDockerErr != nil {
+		t.Fatalf("set up fake docker: %v", sharedFakeDockerErr)
 	}
 
-	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, os.Getenv("PATH")))
+	logFile := filepath.Join(t.TempDir(), "docker.log")
+	t.Setenv("PATH", fmt.Sprintf("%s%c%s", filepath.Dir(sharedFakeDockerPath), os.PathListSeparator, os.Getenv("PATH")))
 	t.Setenv("DOCKER_LOG_FILE", logFile)
 
 	runner := &Runner{
