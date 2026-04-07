@@ -1,5 +1,4 @@
-// Package cmd provides CLI command definitions.
-package cmd
+package main
 
 import (
 	"context"

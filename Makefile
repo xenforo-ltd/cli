@@ -1,55 +1,109 @@
-.PHONY: build release run test test-v test-cover fmt vet clean tidy help all
+PKG_DIR := ./cmd/xf
+DIST_DIR := ./dist/
 
-BINARY := xf
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-DATE := $(shell date -u +%Y-%m-%d)
-LDFLAGS := -ldflags "-X github.com/xenforo-ltd/cli/internal/version.Version=$(VERSION) \
+DATE := $(shell date -u +%Y-%m-%d 2>/dev/null || echo "unknown")
+
+LDFLAGS := -X github.com/xenforo-ltd/cli/internal/version.Version=$(VERSION) \
 	-X github.com/xenforo-ltd/cli/internal/version.Commit=$(COMMIT) \
-	-X github.com/xenforo-ltd/cli/internal/version.Date=$(DATE)"
+	-X github.com/xenforo-ltd/cli/internal/version.Date=$(DATE)
 
-all: fmt vet test build
+.DEFAULT_GOAL := all
+.PHONY: all
+all: lint test build
 
+.PHONY: build
+## Build the binary
 build:
-	go build -o $(BINARY) .
+	go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR) $(PKG_DIR)
 
-release:
-	go build $(LDFLAGS) -o $(BINARY) .
+.PHONY: clean
+## Remove build artifacts
+clean:
+	rm -rf $(DIST_DIR)
 
-run:
-	go run . $(ARGS)
+.PHONY: fix
+## Apply automated fixes
+fix:
+	go fix ./...
 
-test:
-	go test ./...
-
-test-v:
-	go test ./... -v
-
-test-cover:
-	go test ./... -cover
-
+.PHONY: fmt
+## Format source files
 fmt:
 	go fmt ./...
 
-vet:
-	go vet ./...
+.PHONY: fmt-check
+## Check formatting without making changes
+fmt-check:
+	gofmt -l .
 
-clean:
-	rm -f $(BINARY)
+.PHONY: help
+## Show this help message
+help:
+	@echo 'Usage:'
+	@awk '/^## /{help=substr($$0,4); next} /^[[:alnum:]_.-]+:/{if(help){printf "  %-16s %s\n", $$1, help; help=""}}' $(MAKEFILE_LIST)
 
-tidy:
+.PHONY: install
+## Install the binary
+install:
+	cd "$(PKG_DIR)" && go install -ldflags "$(LDFLAGS)" .
+
+.PHONY: lint
+## Run linters
+lint: vet fmt-check
+
+.PHONY: lint-ci
+## Run linters (golangci-lint)
+lint-ci:
+	golangci-lint run
+
+.PHONY: list
+## List module dependencies
+list:
+	go list -m -u all
+
+.PHONY: mod-tidy
+## Tidy module dependencies
+mod-tidy:
 	go mod tidy
 
-help:
-	@echo "Available targets:"
-	@echo "  make build      - Build the binary"
-	@echo "  make release    - Build with version info (VERSION=x.x.x)"
-	@echo "  make run        - Run without building (ARGS='version')"
-	@echo "  make test       - Run all tests"
-	@echo "  make test-v     - Run tests with verbose output"
-	@echo "  make test-cover - Run tests with coverage"
-	@echo "  make fmt        - Format code"
-	@echo "  make vet        - Check for common mistakes"
-	@echo "  make clean      - Remove built binary"
-	@echo "  make tidy       - Update dependencies"
-	@echo "  make all        - Format, vet, test, and build"
+.PHONY mod-tidy-diff
+## Check module dependencies without making changes
+mod-tidy-diff:
+	go mod tidy -diff
+
+.PHONY: mod-verify
+## Verify module dependencies
+mod-verify:
+	go mod verify
+
+.PHONY: test
+## Run the test suite
+test:
+	go test ./...
+
+.PHONY: test-coverage
+## Run tests with coverage
+test-coverage:
+	go test -race -covermode=atomic -coverprofile=coverage.out ./...
+
+.PHONY: test-race
+## Run tests with the race detector
+test-race:
+	go test -race ./...
+
+.PHONY: test-v
+## Run tests with verbose output
+test-v:
+	go test -v ./...
+
+.PHONY: uninstall
+## Remove the installed binary
+uninstall:
+	cd "$(PKG_DIR)" && go clean -i
+
+.PHONY: vet
+## Check for common mistakes
+vet:
+	go vet ./...

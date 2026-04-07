@@ -30,4 +30,4 @@ go.work.sum
 # env file
 .env
 
-xf
+cmd/xf/xf
