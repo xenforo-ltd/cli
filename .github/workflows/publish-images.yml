@@ -1,4 +1,4 @@
-name: Publish CI images
+name: Publish images
 
 on:
   workflow_dispatch:
@@ -8,18 +8,18 @@ on:
 
   push:
     branches:
-      - 'main'
+      - "main"
     paths:
-      - 'internal/docker/embed/Dockerfile'
+      - "internal/docker/embed/Dockerfile"
 
   pull_request:
     branches:
-      - 'main'
+      - "main"
     paths:
-      - 'internal/docker/embed/Dockerfile'
+      - "internal/docker/embed/Dockerfile"
 
 concurrency:
-  group: "${{ github.workflow }}@${{ github.head_ref || github.ref }}"
+  group: "${{ github.workflow }}@${{ github.head_ref || github.ref_name }}"
   cancel-in-progress: true
 
 permissions:
@@ -36,13 +36,13 @@ env:
   REGISTRY_NAMESPACE: ${{ github.repository_owner }}
 
 jobs:
-  publish-ci:
-    name: Publish CI images
-    runs-on: ubuntu-latest
+  publish-images:
+    name: Publish images
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     strategy:
       matrix:
-        php-version: ['7.2', '8.0', '8.4', '8.5']
+        php-version: [ "7.2", "8.0", "8.4", "8.5" ]
 
     steps:
       - name: Checkout repository
@@ -84,5 +84,6 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           provenance: false
           cache-from: type=gha,scope=${{ github.ref_name }}-${{ matrix.php-version }}
-          cache-to: type=gha,scope=${{ github.ref_name }}-${{ matrix.php-version }},mode=max
+          cache-to: type=gha,scope=${{ github.ref_name }}-${{ matrix.php-version
+            }},mode=max
           push: ${{ github.event_name != 'pull_request' }}
