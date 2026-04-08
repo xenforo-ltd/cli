@@ -1,4 +1,4 @@
-# Security Policy
+# Security policy
 
 ## Supported versions
 
@@ -8,13 +8,12 @@ Only the latest released version is supported with security fixes.
 
 Please do not open public issues for security vulnerabilities.
 
-Send a private report with:
+Send a private report to <security@xenforo.com> with:
+
 1. Affected version
 2. Impact summary
 3. Reproduction steps or proof of concept
 4. Suggested remediation (if available)
-
-Contact: security@xenforo.com
 
 ## Response expectations
 

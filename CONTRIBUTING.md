@@ -27,6 +27,7 @@ Thanks for contributing.
 ## Reporting issues
 
 Use the issue templates and include:
+
 1. `xf version --json`
 2. Host OS and architecture
 3. Exact command and output
