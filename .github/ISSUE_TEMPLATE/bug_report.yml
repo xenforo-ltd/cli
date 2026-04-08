@@ -1,32 +1,66 @@
 name: Bug report
 description: Report a reproducible problem
-labels: [bug]
+type: Bug
+
 body:
-  - type: textarea
-    id: summary
+  - id: note
+    type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report!
+
+  - id: summary
+    type: textarea
     attributes:
       label: Summary
       description: What happened and what did you expect?
+      placeholder: An error occurred when I...
     validations:
       required: true
-  - type: textarea
-    id: steps
+
+  - id: steps
+    type: textarea
     attributes:
       label: Steps to reproduce
       description: Include exact commands and relevant output.
+      placeholder: |
+        1. Run `xf --help`
+        2. See error
     validations:
       required: true
-  - type: input
-    id: version
+
+  - id: version
+    type: textarea
     attributes:
       label: xf version
-      description: Paste output of `xf version --json`
+      description: Paste output of `xf version --json`.
+      placeholder: |
+        {
+          "version": "1.0.0",
+          "commit": "abc1234",
+          "date": "2026-01-01",
+          "go_version": "go1.26.0",
+          "os": "darwin",
+          "arch": "arm64"
+        }
+      render: json
     validations:
       required: true
-  - type: input
-    id: platform
+
+  - id: screenshots
+    type: upload
     attributes:
-      label: OS/Architecture
-      description: e.g. macOS 14 arm64
+      label: Upload screenshots
+      description: If applicable, add screenshots to help explain your problem.
     validations:
-      required: true
+      required: false
+      accept: ".png,.jpg,.jpeg,.gif,.webp"
+
+  - id: terms
+    type: checkboxes
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/xenforo-ltd/cli/blob/main/CODE_OF_CONDUCT.md).
+      options:
+        - label: I agree to follow the [Code of Conduct](https://github.com/xenforo-ltd/cli/blob/main/CODE_OF_CONDUCT.md)
+          required: true

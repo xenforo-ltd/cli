@@ -1,18 +1,18 @@
 ## Summary
 
-- 
+
 
 ## Changes
 
-- 
+-
 
 ## Validation
 
 - [ ] `go vet ./...`
+- [ ] `gofmt -l .`
 - [ ] `go test ./...`
-- [ ] `go test -race ./...`
-- [ ] Updated docs/help text (if needed)
+- [ ] Updated documentation (if applicable)
 
 ## Risks
 
-- 
+-
