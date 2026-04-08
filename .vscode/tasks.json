@@ -1,0 +1,82 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "make all",
+			"detail": "Build the binary",
+			"icon": {
+				"id": "build",
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true,
+			},
+			"command": "make",
+			"args": [
+				"all",
+			],
+			"problemMatcher": [
+				"$go",
+			],
+		},
+		{
+			"label": "make test",
+			"detail": "Run the test suite",
+			"icon": {
+				"id": "beaker",
+			},
+			"group": {
+				"kind": "test",
+				"isDefault": true,
+			},
+			"command": "make",
+			"args": [
+				"test",
+			],
+			"problemMatcher": [
+				"$go",
+			],
+		},
+		{
+			"label": "make {target}",
+			"detail": "Run the selected target",
+			"icon": {
+				"id": "tools",
+			},
+			"command": "make",
+			"args": [
+				"${input:makeTarget}",
+			],
+			"problemMatcher": [
+				"$go",
+			],
+		},
+	],
+	"inputs": [
+		{
+			"id": "makeTarget",
+			"type": "pickString",
+			"description": "Select a target to run",
+			"default": "all",
+			"options": [
+				"build",
+				"clean",
+				"fix",
+				"fmt",
+				"fmt-check",
+				"install",
+				"lint",
+				"lint-ci",
+				"list",
+				"mod-tidy",
+				"mod-verify",
+				"test",
+				"test-coverage",
+				"test-race",
+				"test-v",
+				"uninstall",
+				"vet",
+			],
+		},
+	],
+}

@@ -1,0 +1,32 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Go",
+			"type": "go",
+			"request": "launch",
+			"console": "integratedTerminal",
+			"mode": "auto",
+			"hideSystemGoroutines": true,
+			"cwd": "${input:cwd}",
+			"program": "cmd/xf",
+			"args": [
+				"${input:command}",
+			],
+		},
+	],
+	"inputs": [
+		{
+			"id": "cwd",
+			"type": "promptString",
+			"description": "Enter the working directory",
+			"default": ".",
+		},
+		{
+			"id": "command",
+			"type": "promptString",
+			"description": "Enter the command to run",
+			"default": "version --json",
+		},
+	],
+}

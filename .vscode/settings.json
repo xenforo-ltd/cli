@@ -1,0 +1,23 @@
+{
+	"chat.tools.terminal.autoApprove": {
+		"/^go (build|doc|fix|fmt|get|list|mod|run|test|version|vet)\\b.*$/": true,
+		"golangci-lint": true,
+		"make": true,
+	},
+	"go.lintTool": "golangci-lint",
+	"go.lintFlags": [
+		"--path-mode=abs",
+		"--fast-only",
+	],
+	"go.formatTool": "custom",
+	"go.alternateTools": {
+		"customFormatter": "golangci-lint",
+	},
+	"go.formatFlags": [
+		"fmt",
+		"--stdin",
+	],
+	"gopls": {
+		"ui.semanticTokens": true,
+	},
+}

@@ -1,0 +1,12 @@
+{
+	"recommendations": [
+		"davidanson.vscode-markdownlint",
+		"docker.docker",
+		"editorconfig.editorconfig",
+		"github.vscode-github-actions",
+		"github.vscode-pull-request-github",
+		"golang.go",
+		"matthewpi.caddyfile-support",
+		"ms-azuretools.vscode-containers",
+	]
+}
