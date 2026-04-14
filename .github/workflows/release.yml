@@ -27,11 +27,19 @@ jobs:
         with:
           go-version: stable
 
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          version: '2.13'
+          args: --verbose --current --strip all
+        env:
+          OUTPUT: RELEASE.md
+
       - name: Release
         uses: goreleaser/goreleaser-action@v7
         with:
           version: '~> v2'
-          args: release --clean
+          args: release --clean --release-notes <(cat RELEASE.md | tail -n +3)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}

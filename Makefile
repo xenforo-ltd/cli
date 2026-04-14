@@ -18,10 +18,20 @@ all: lint test build
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR) $(PKG_DIR)
 
+.PHONY: changelog
+## Generate changelog (git-cliff)
+changelog:
+	git cliff --output
+
 .PHONY: clean
 ## Remove build artifacts
 clean:
 	rm -rf $(DIST_DIR)
+
+.PHONY: dist
+## Create a snapshot release (goreleaser)
+dist:
+	goreleaser release --clean --snapshot
 
 .PHONY: fix
 ## Apply automated fixes
@@ -79,9 +89,16 @@ mod-verify:
 	go mod verify
 
 .PHONY: release
-## Create a snapshot release (goreleaser)
+## Generate changelog, commit it, and create a release tag (git-cliff)
+release: TAG ?= $(shell git cliff --bumped-version)
 release:
-	goreleaser release --clean --snapshot
+	@test -n "$(TAG)" || { echo "release: failed to determine TAG"; exit 1; }
+	@echo "Tagging release: $(TAG)"
+	git cliff --tag $(TAG) --output
+	git add CHANGELOG.md
+	git commit -m "chore(release): $(TAG)"
+	git tag $(TAG) -m "Release $(TAG)"
+	@echo "Tagged release: $(TAG)"
 
 .PHONY: test
 ## Run the test suite
