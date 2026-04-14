@@ -67,10 +67,10 @@ archives:
 
 release:
   prerelease: auto
-  name_template: "XenForo CLI {{.Version}}"
+  name_template: "XenForo CLI v{{.Version}}"
 
 homebrew_casks:
-  - name: xf-huh
+  - name: xf-cli
     description: "Command line interface for XenForo"
     homepage: "https://github.com/xenforo-ltd/cli"
 
@@ -96,9 +96,13 @@ homebrew_casks:
         - "~/.cache/xf/"
 
     # skip_upload: auto
-    commit_msg_template: "XenForo CLI: {{.Version}}"
+    commit_msg_template: "XenForo CLI: v{{.Version}}"
 
     repository:
       owner: xenforo-ltd
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
+    commit_author:
+      name: github-actions[bot]
+      email: github-actions[bot]@users.noreply.github.com
