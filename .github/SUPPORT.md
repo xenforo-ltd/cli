@@ -1,36 +1,37 @@
 # Support
 
-## Getting Help
+## Getting help
 
-For issues, questions, or feature requests related to this CLI tool, please:
+For help with the XenForo CLI:
 
-1. **Check existing issues** - Search [GitHub Issues](https://github.com/xenforo-ltd/cli/issues) to see if your question has been answered
-2. **Review documentation** - Check the README for common solutions
-3. **Create a new issue** - If you can't find an answer, open a [new GitHub Issue](https://github.com/xenforo-ltd/cli/issues/new) with:
+1. **Review documentation**: Check the README for common solutions.
+2. **Ask a question**: Use the [development discussions forum](https://xenforo.com/community/forums/xenforo-development-discussions.34/) for usage and help questions.
+3. **Report a bug or request a feature**: Check [existing issues](https://github.com/xenforo-ltd/cli/issues), then open a [new issue](https://github.com/xenforo-ltd/cli/issues/new) if needed. For bug reports, include:
 
-    - A clear description of the problem
-    - Steps to reproduce
-    - Your environment (OS, CLI version)
-    - Any relevant error messages
+    - A clear description of the problem.
+    - Steps to reproduce.
+    - Your operating system and CLI version.
+    - Any relevant error output.
 
-## Reporting Bugs
+## Reporting bugs
 
-Please include:
+Include:
 
-- The exact command you ran
-- Expected vs. actual behavior
-- Full error output
-- Your system information
+- The exact command you ran.
+- Expected and actual behavior.
+- Full error output.
+- Your system information.
 
-## Security Issues
+## Security issues
 
-Do not open public issues for security vulnerabilities. Instead, contact the maintainers privately.
+Do not open public issues for security vulnerabilities. Instead, contact the
+maintainers privately as described in [SECURITY.md](SECURITY.md).
 
 ## Community
 
-- GitHub Discussions: For questions and general discussion
-- GitHub Issues: For bugs and feature requests
+- [Development discussions forum](https://xenforo.com/community/forums/xenforo-development-discussions.34/): Questions and general discussion.
+- [GitHub Issues](https://github.com/xenforo-ltd/cli/issues): Bug reports and feature requests.
 
-## Version Support
+## Version support
 
 Check the package documentation for the currently supported versions.

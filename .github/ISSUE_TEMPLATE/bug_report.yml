@@ -7,13 +7,13 @@ body:
     type: markdown
     attributes:
       value: |
-        Thanks for taking the time to file a bug report!
+        Thank you for reporting a bug.
 
   - id: summary
     type: textarea
     attributes:
       label: Summary
-      description: What happened and what did you expect?
+      description: Describe the expected and actual behavior.
       placeholder: An error occurred when I...
     validations:
       required: true
@@ -24,16 +24,16 @@ body:
       label: Steps to reproduce
       description: Include exact commands and relevant output.
       placeholder: |
-        1. Run `xf --help`
-        2. See error
+        1. Run `xf --help`.
+        2. See the error.
     validations:
       required: true
 
   - id: version
     type: textarea
     attributes:
-      label: xf version
-      description: Paste output of `xf version --json`.
+      label: CLI version
+      description: Paste the output of `xf version --json`.
       placeholder: |
         {
           "version": "1.0.0",
@@ -51,7 +51,7 @@ body:
     type: upload
     attributes:
       label: Upload screenshots
-      description: If applicable, add screenshots to help explain your problem.
+      description: Add screenshots if they help explain the problem.
     validations:
       required: false
       accept: ".png,.jpg,.jpeg,.gif,.webp"
@@ -62,5 +62,5 @@ body:
       label: Code of Conduct
       description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/xenforo-ltd/cli/blob/main/.github/CODE_OF_CONDUCT.md).
       options:
-        - label: I agree to follow the [Code of Conduct](https://github.com/xenforo-ltd/cli/blob/main/.github/CODE_OF_CONDUCT.md)
+        - label: I agree to follow the [Code of Conduct](https://github.com/xenforo-ltd/cli/blob/main/.github/CODE_OF_CONDUCT.md).
           required: true

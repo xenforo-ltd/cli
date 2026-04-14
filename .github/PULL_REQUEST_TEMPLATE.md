@@ -1,5 +1,5 @@
 <!--
-Keep this PR description concise.
+Keep this pull request description concise.
 
 - Prefer bullets over paragraphs.
 - Do not narrate the diff or list every changed file.
@@ -31,7 +31,7 @@ Keep this PR description concise.
 
 ## Checklist
 
-- [ ] The change is focused and does not include unrelated work.
-- [ ] Relevant automated and/or manual testing has been performed.
-- [ ] UI changes include screenshots or video where appropriate.
-- [ ] Upgrade, compatibility, and performance implications have been considered.
+- [ ] Keep the change focused and exclude unrelated work.
+- [ ] Perform relevant automated testing, manual testing, or both.
+- [ ] Include screenshots or video for UI changes where appropriate.
+- [ ] Consider upgrade, compatibility, and performance implications.
