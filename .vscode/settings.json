@@ -20,4 +20,11 @@
 	"gopls": {
 		"ui.semanticTokens": true,
 	},
+	"github-actions.workflows.pinned.workflows": [
+		".github/workflows/ci.yml",
+		".github/workflows/clean-images.yml",
+		".github/workflows/go-mod.yml",
+		".github/workflows/publish-images.yml",
+		".github/workflows/release.yml"
+	],
 }

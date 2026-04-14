@@ -53,7 +53,7 @@ notarize:
 
 archives:
   - formats: [ tar.gz ]
-    wrap_in_directory: true
+    wrap_in_directory: true # TODO: why??
     name_template: >-
       {{ .ProjectName }}_
       {{- if eq .Os "darwin" }}macOS_
@@ -101,7 +101,54 @@ homebrew_casks:
     repository:
       owner: xenforo-ltd
       name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.GITHUB_TOKEN_GORELEASER }}"
+
+    commit_author:
+      name: github-actions[bot]
+      email: github-actions[bot]@users.noreply.github.com
+
+winget:
+  - name: xf-cli
+    # package_identifier: myproject.myproject
+    short_description: "Command line interface for XenForo"
+    license: "mit"
+    publisher: XenForo Ltd.
+    publisher_url: https://xenforo.com
+    publisher_support_url: "https://github.com/xenforo-ltd/cli/issues/new"
+    privacy_url: "http://xenforo.com/privacy-policy/"
+
+    # package_name: "Foo Bar"
+
+    commit_msg_template: "XenForo CLI: v{{.Version}}"
+
+    # path: manifests/g/goreleaser/myproject/1.19
+    # homepage: "https://example.com/"
+    # description: "Software to create fast and easy drum rolls."
+    # license_url: "https://goreleaser.com/license"
+    # copyright: "Becker Software LTDA"
+    # copyright_url: "https://goreleaser.com/copyright"
+
+    # skip_upload: true
+
+    # release_notes: "{{.Changelog}}"
+    # release_notes_url: "https://foo.bar/changelog/{{.Version}}"
+    # installation_notes: "Information on how to install. Can also be a URL"
+
+    tags:
+      - cli
+      - xenforo
+
+    repository:
+      owner: xenforo-ltd
+      name: winget-pkgs
+      # token: "{{ .Env.GITHUB_TOKEN_GORELEASER }}"
+      branch: "{{.ProjectName}}-{{.Version}}"
+      # pull_request:
+      #   enabled: true
+      #   base:
+      #     owner: microsoft
+      #     name: winget-pkgs
+      #     branch: master
 
     commit_author:
       name: github-actions[bot]

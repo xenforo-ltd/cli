@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/compose"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -42,41 +42,33 @@ func init() {
 }
 
 func runUp(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+
 	xfDir, err := getXenForoDir(args)
 	if err != nil {
 		return err
 	}
 
-	ctx := cmd.Context()
-
-	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker is running: %w", err)
-	}
-
-	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
-	}
-
-	runner, err := dockercompose.NewRunner(xfDir)
+	env, err := compose.NewEnv(ctx, xfDir)
 	if err != nil {
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
+		return fmt.Errorf("failed to load compose environment: %w", err)
 	}
 
-	ui.PrintInfo("Starting Docker environment: " + runner.Instance())
-	ui.PrintDetail("Directory: " + ui.Path.Render(xfDir))
+	ui.PrintInfo("Starting Docker environment: " + env.Instance())
+	ui.PrintDetail("Directory: " + ui.Path.Render(env.Dir()))
 
-	detach := flagUpDetach
+	attach := !flagUpDetach
 	if cmd.Flags().Changed("no-detach") {
-		detach = false
+		attach = true
 	}
 
-	if err := runner.Up(ctx, detach); err != nil {
+	if err := env.Up(ctx, attach); err != nil {
 		return fmt.Errorf("failed to start Docker environment: %w", err)
 	}
 
 	ui.PrintSuccess("Docker environment started")
 
-	url, err := runner.GetURL(ctx)
+	url, err := env.GetUrl(ctx)
 	if err == nil && url != "" {
 		ui.Println()
 		ui.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(url))

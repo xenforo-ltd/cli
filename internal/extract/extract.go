@@ -22,8 +22,6 @@ type Options struct {
 	// For example, if StripComponents=1 and the archive contains "upload/src/XF.php",
 	// it will be extracted as "src/XF.php".
 	StripComponents int
-
-	// OverwriteExisting allows overwriting existing files.
 	OverwriteExisting bool
 
 	// PreservePermissions preserves file permissions from the archive.

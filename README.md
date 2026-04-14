@@ -1,5 +1,7 @@
 # XenForo CLI (`xf`)
 
+# TODO: fix this and AGENTS.md, CONTRIBUTING.md, SUPPORT.md
+
 A command-line tool for provisioning and managing XenForo development environments with Docker.
 
 ## Requirements
