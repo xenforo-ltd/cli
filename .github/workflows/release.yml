@@ -49,7 +49,7 @@ jobs:
       - name: Release
         uses: goreleaser/goreleaser-action@v7.3.0
         with:
-          version: '~> v2'
+          version: "~> v2"
           args: release --clean --release-notes ${{ runner.temp }}/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -40,7 +40,7 @@ checksum:
 
 notarize:
   macos:
-    - enabled: "{{ isEnvSet \"MACOS_SIGN_P12\" }}"
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
 
       sign:
         certificate: "{{.Env.MACOS_SIGN_P12}}"
@@ -52,7 +52,7 @@ notarize:
         issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
 
 archives:
-  - formats: [ tar.gz ]
+  - formats: [tar.gz]
     wrap_in_directory: true
     name_template: >-
       {{ .ProjectName }}_
@@ -63,7 +63,7 @@ archives:
 
     format_overrides:
       - goos: windows
-        formats: [ zip ]
+        formats: [zip]
 
 release:
   prerelease: auto

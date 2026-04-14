@@ -21,7 +21,7 @@ services:
     ports:
       - "8025"
     labels:
-        - dev.orbstack.domains=mail.${XF_INSTANCE:-}.xf.local
+      - dev.orbstack.domains=mail.${XF_INSTANCE:-}.xf.local
     networks:
       - mailpit
     volumes:
