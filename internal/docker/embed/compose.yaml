@@ -17,6 +17,9 @@ services:
         - PHP_BUILD_SQLSRV=${PHP_BUILD_SQLSRV:-0}
         - PHP_BUILD_IMAGICK=${XF_IMAGICK_ENABLE:-0}
         - PHP_INSTALL_FFMPEG=${XF_XFMG_FFMPEG_ENABLE:-0}
+      labels:
+        - dev.orbstack.icon=https://avatars.githubusercontent.com/u/19973382
+        - dev.orbstack.compose-icon=https://avatars.githubusercontent.com/u/19973382
     env_file:
       - .env
     volumes:

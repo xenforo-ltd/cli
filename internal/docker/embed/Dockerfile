@@ -19,6 +19,15 @@ ARG PHP_INSTALL_FFMPEG=0
 
 FROM php:${PHP_VERSION}-${PHP_VARIANT}-alpine AS php
 
+LABEL org.opencontainers.image.title="XenForo"
+LABEL org.opencontainers.image.description="A PHP runtime for XenForo"
+LABEL org.opencontainers.image.vendor="XenForo Ltd."
+LABEL org.opencontainers.image.authors="XenForo Ltd. <support@xenforo.com>"
+LABEL org.opencontainers.image.url="https://xenforo.com"
+LABEL org.opencontainers.image.source="https://github.com/xenforo-ltd/cli"
+LABEL org.opencontainers.image.documentation="https://github.com/xenforo-ltd/cli/blob/main/README.md"
+LABEL org.opencontainers.image.licenses="MIT"
+
 ARG PHP_VERSION_IGBINARY
 ARG PHP_VERSION_IMAGICK
 ARG PHP_VERSION_REDIS

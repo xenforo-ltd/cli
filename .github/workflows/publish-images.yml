@@ -28,7 +28,7 @@ permissions:
 
 env:
   IMAGE: php-ci
-  IMAGE_DESCRIPTION: A PHP build for XenForo CI
+  IMAGE_DESCRIPTION: A PHP runtime for XenForo CI
   IMAGE_TARGET: ci
   IMAGE_PHP_VARIANT: cli
   IMAGE_LATEST_VERSION: 8.5
