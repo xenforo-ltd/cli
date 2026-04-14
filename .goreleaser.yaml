@@ -101,7 +101,7 @@ homebrew_casks:
     repository:
       owner: xenforo-ltd
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN_GORELEASER }}"
+      token: "{{ .Env.GORELEASER_GITHUB_TOKEN }}"
 
     commit_author:
       name: github-actions[bot]
@@ -132,7 +132,7 @@ winget:
     repository:
       owner: xenforo-ltd
       name: winget-pkgs
-      token: "{{ .Env.GITHUB_TOKEN_GORELEASER }}"
+      token: "{{ .Env.GORELEASER_GITHUB_TOKEN }}"
       branch: "{{.ProjectName}}-{{.Version}}"
       # pull_request:
       #   enabled: true
