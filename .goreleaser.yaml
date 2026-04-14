@@ -32,8 +32,8 @@ builds:
       - -X version.Commit={{.Commit}}
       - -X version.Date={{.CommitDate}}
 
-gomod:
-  proxy: true
+# gomod:
+#   proxy: true
 
 checksum:
   name_template: "checksums.txt"
