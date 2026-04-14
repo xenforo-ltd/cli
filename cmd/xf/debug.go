@@ -13,8 +13,8 @@ import (
 
 var debugCmd = &cobra.Command{
 	Use:   "debug <command> [args...]",
-	Short: "Run XenForo CLI commands with XDebug",
-	Long: `Run XenForo CLI commands with XDebug enabled for debugging.
+	Short: "Run XenForo CLI commands with Xdebug",
+	Long: `Run XenForo CLI commands with Xdebug enabled for debugging.
 
 This is the equivalent of running with XDEBUG_SESSION=1 to trigger your IDE debugger.
 
@@ -52,10 +52,10 @@ func runDebug(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Running with XDebug: " + args[0])
+	ui.PrintInfo("Running with Xdebug: " + args[0])
 
 	if err := runner.XFCommandDebug(cmd.Context(), args...); err != nil {
-		return fmt.Errorf("failed to run XenForo command with XDebug: %w", err)
+		return fmt.Errorf("failed to run XenForo command with Xdebug: %w", err)
 	}
 
 	return nil

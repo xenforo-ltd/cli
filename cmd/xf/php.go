@@ -34,14 +34,14 @@ Examples:
 
 var phpDebugCmd = &cobra.Command{
 	Use:   "php-debug [path] -- [args...]",
-	Short: "Run PHP with XDebug",
-	Long: `Run PHP with XDebug enabled in the Docker environment.
+	Short: "Run PHP with Xdebug",
+	Long: `Run PHP with Xdebug enabled in the Docker environment.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
 All arguments after -- are passed to PHP.
 
 Examples:
-  # Run PHP script with XDebug
+  # Run PHP script with Xdebug
   xf php-debug -- my-script.php`,
 	Args: cobra.MinimumNArgs(0),
 	RunE: runPHPDebug,
@@ -72,10 +72,10 @@ func runPHPWithMode(ctx context.Context, args []string, debug bool) error {
 	}
 
 	if debug {
-		ui.PrintInfo("Running with XDebug: php " + strings.Join(phpArgs, " "))
+		ui.PrintInfo("Running with Xdebug: php " + strings.Join(phpArgs, " "))
 
 		if err := runner.PHPDebug(ctx, phpArgs...); err != nil {
-			return fmt.Errorf("failed to run PHP with XDebug: %w", err)
+			return fmt.Errorf("failed to run PHP with Xdebug: %w", err)
 		}
 
 		return nil

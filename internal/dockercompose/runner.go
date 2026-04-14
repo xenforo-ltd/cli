@@ -339,7 +339,7 @@ func (r *Runner) PHP(ctx context.Context, args ...string) error {
 	return r.ExecOrRun(ctx, "xf", true, append([]string{"php"}, args...)...)
 }
 
-// PHPDebug runs PHP with XDebug enabled.
+// PHPDebug runs PHP with Xdebug enabled.
 func (r *Runner) PHPDebug(ctx context.Context, args ...string) error {
 	return r.ExecOrRunWithEnv(ctx, "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php"}, args...)...)
 }
@@ -354,7 +354,7 @@ func (r *Runner) XFCommandWithOutput(ctx context.Context, stdout, stderr io.Writ
 	return r.ExecOrRunWithOutput(ctx, "xf", true, stdout, stderr, append([]string{"php", "cmd.php"}, args...)...)
 }
 
-// XFCommandDebug runs a XenForo CLI command with XDebug.
+// XFCommandDebug runs a XenForo CLI command with Xdebug.
 func (r *Runner) XFCommandDebug(ctx context.Context, args ...string) error {
 	return r.ExecOrRunWithEnv(ctx, "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php", "cmd.php"}, args...)...)
 }
