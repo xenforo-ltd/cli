@@ -40,16 +40,16 @@ checksum:
 
 notarize:
   macos:
-    - enabled: "{{ isEnvSet \"MACOS_CERT_P12_BASE64\" }}"
+    - enabled: "{{ isEnvSet \"MACOS_SIGN_P12\" }}"
 
       sign:
-        certificate: "{{.Env.MACOS_CERT_P12_BASE64}}"
-        password: "{{.Env.MACOS_CERT_PASSWORD}}"
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
 
       notarize:
-        issuer_id: "{{.Env.APPLE_API_ISSUER_ID}}"
-        key_id: "{{.Env.APPLE_API_KEY_ID}}"
-        key: "{{.Env.APPLE_API_PRIVATE_KEY_P8_BASE64}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
 
 archives:
   - formats: [ tar.gz ]

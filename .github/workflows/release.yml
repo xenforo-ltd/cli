@@ -31,6 +31,11 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MACOS_SIGN_P12: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_NOTARY_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY_P8_BASE64 }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
 
       - uses: actions/attest@v4
         with:
