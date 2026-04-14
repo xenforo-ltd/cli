@@ -36,7 +36,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: stable
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9
@@ -63,7 +63,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: stable
 
       - name: ${{ matrix.name }}
         run: ${{ matrix.command }}
@@ -79,7 +79,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: stable
 
       - name: Test coverage
         run: make test-coverage
