@@ -38,18 +38,18 @@ gomod:
 checksum:
   name_template: "checksums.txt"
 
-# notarize:
-#   macos:
-#     - enabled: "{{ isEnvSet \"MACOS_SIGN_P12\" }}"
+notarize:
+  macos:
+    - enabled: "{{ isEnvSet \"MACOS_SIGN_P12\" }}"
 
-#       sign:
-#         certificate: "{{.Env.MACOS_SIGN_P12}}"
-#         password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
 
-#       notarize:
-#         key: "{{.Env.MACOS_NOTARY_KEY}}"
-#         key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
-#         issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+      notarize:
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
 
 archives:
   - formats: [ tar.gz ]
