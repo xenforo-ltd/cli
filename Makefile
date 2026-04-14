@@ -16,7 +16,7 @@ all: lint test build
 .PHONY: build
 ## Build the binary
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR) $(PKG_DIR)
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR) $(PKG_DIR)
 
 .PHONY: changelog
 ## Generate changelog (git-cliff)
@@ -27,6 +27,7 @@ changelog:
 ## Remove build artifacts
 clean:
 	rm -rf $(DIST_DIR)
+	rm coverage.out
 
 .PHONY: dist
 ## Create a snapshot release (goreleaser)
@@ -57,7 +58,7 @@ help:
 .PHONY: install
 ## Install the binary
 install:
-	cd "$(PKG_DIR)" && go install -ldflags "$(LDFLAGS)" .
+	cd "$(PKG_DIR)" && CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)" .
 
 .PHONY: lint
 ## Run linters
