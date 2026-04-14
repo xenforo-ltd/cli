@@ -87,5 +87,4 @@ jobs:
       - name: Upload coverage report
         uses: codecov/codecov-action@v6
         env:
-          # TODO: move to top?
           CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
