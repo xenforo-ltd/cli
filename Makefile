@@ -3,7 +3,7 @@ DIST_DIR := ./dist/
 
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-DATE := $(shell date -u +%Y-%m-%d 2>/dev/null || echo "unknown")
+DATE := $(shell git show -s --format=%cI HEAD 2>/dev/null || echo "unknown")
 
 LDFLAGS := -X github.com/xenforo-ltd/cli/internal/version.Version=$(VERSION) \
 	-X github.com/xenforo-ltd/cli/internal/version.Commit=$(COMMIT) \
@@ -36,7 +36,7 @@ fmt:
 .PHONY: fmt-check
 ## Check formatting without making changes
 fmt-check:
-	gofmt -l .
+	test -z "$$(gofmt -l . | tee /dev/stderr)"
 
 .PHONY: help
 ## Show this help message
@@ -77,6 +77,11 @@ mod-tidy-diff:
 ## Verify module dependencies
 mod-verify:
 	go mod verify
+
+.PHONY: release
+## Create a snapshot release (goreleaser)
+release:
+	goreleaser release --clean --snapshot
 
 .PHONY: test
 ## Run the test suite
