@@ -283,7 +283,15 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 			continue
 		}
 
-		name := path.Base(header.Name)
+		cleanName := path.Clean(header.Name)
+		if cleanName == "." ||
+			path.IsAbs(cleanName) ||
+			strings.Contains(cleanName, "/") ||
+			strings.HasPrefix(cleanName, "..") {
+			continue
+		}
+
+		name := path.Base(cleanName)
 		if !isBinaryCandidate(name) {
 			continue
 		}
@@ -293,6 +301,13 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		}
 
 		outPath := filepath.Join(destDir, name)
+		relPath, err := filepath.Rel(destDir, outPath)
+		if err != nil ||
+			relPath == ".." ||
+			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("invalid update binary path in archive: %s: %w", header.Name, ErrUpdateFailed)
+		}
+
 		limitedReader := io.LimitReader(tarReader, maxBinarySize)
 
 		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -342,7 +357,14 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 			continue
 		}
 
-		name := path.Base(file.Name)
+		cleanName := path.Clean(file.Name)
+		if cleanName == "." ||
+			strings.HasPrefix(cleanName, "/") ||
+			strings.Contains(cleanName, "..") {
+			continue
+		}
+
+		name := path.Base(cleanName)
 		if !isBinaryCandidate(name) {
 			continue
 		}
@@ -357,6 +379,17 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 		}
 
 		outPath := filepath.Join(destDir, name)
+		relPath, err := filepath.Rel(destDir, outPath)
+		if err != nil ||
+			relPath == ".." ||
+			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+			closeErr := inFile.Close()
+			return "", errors.Join(
+				fmt.Errorf("invalid update binary path in archive: %s: %w", file.Name, ErrUpdateFailed),
+				closeErr,
+			)
+		}
+
 		limitedReader := io.LimitReader(inFile, maxBinarySize)
 
 		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
