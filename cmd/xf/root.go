@@ -14,14 +14,16 @@ import (
 
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/version"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 var configFile string
 
 var rootCmd = &cobra.Command{
-	Use:   "xf",
-	Short: "Provision and manage XenForo development environments",
+	Use:     "xf",
+	Version: version.Version,
+	Short:   "Provision and manage XenForo development environments",
 	Long: `The XenForo CLI is a command-line tool for provisioning and managing
 XenForo development environments using Docker.
 
