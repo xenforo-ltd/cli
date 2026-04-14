@@ -95,7 +95,7 @@ homebrew_casks:
         - "~/Library/Caches/xf/"
         - "~/.cache/xf/"
 
-    # skip_upload: auto
+    skip_upload: auto
     commit_msg_template: "XenForo CLI: v{{.Version}}"
 
     repository:
@@ -125,7 +125,7 @@ winget:
     tags:
       - xenforo
 
-    # skip_upload: auto
+    skip_upload: auto
     commit_msg_template: "XenForo CLI: v{{.Version}}"
 
     repository:
