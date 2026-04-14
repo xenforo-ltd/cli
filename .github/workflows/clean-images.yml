@@ -10,9 +10,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: write
+permissions: {}
 
 env:
   PACKAGE: php-ci
@@ -21,10 +19,12 @@ jobs:
   clean-images:
     name: Clean images
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      packages: write # required to clean old images
 
     steps:
       - name: Delete old versions
-        uses: actions/delete-package-versions@v5
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5
         with:
           package-type: container
           package-name: ${{ env.PACKAGE }}
