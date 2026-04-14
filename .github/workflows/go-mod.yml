@@ -21,13 +21,14 @@ concurrency:
   group: "${{ github.workflow }}@${{ github.head_ref || github.ref_name }}"
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   go-mod:
     name: Go modules
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code

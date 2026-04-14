@@ -22,8 +22,7 @@ concurrency:
   group: "${{ github.workflow }}@${{ github.head_ref || github.ref_name }}"
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   IMAGE: php-ci
@@ -40,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read
       packages: write # required to publish images
     strategy:
       matrix:

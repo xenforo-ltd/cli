@@ -9,8 +9,7 @@ concurrency:
   group: "${{ github.workflow }}@${{ github.head_ref || github.ref_name }}"
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   release:
