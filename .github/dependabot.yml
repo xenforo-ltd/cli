@@ -1,16 +1,24 @@
 version: 2
-updates:
-  - package-ecosystem: "docker"
-    directory: "/internal/docker/embed"
-    cooldown:
-      default-days: 7
+
+multi-ecosystem-groups:
+  docker:
     schedule:
       interval: "monthly"
 
-    groups:
-      docker:
-        patterns:
-          - "*"
+updates:
+  - package-ecosystem: "docker"
+    multi-ecosystem-group: "docker"
+    directory: "/internal/docker/embed"
+    patterns: ["*"]
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "docker-compose"
+    multi-ecosystem-group: "docker"
+    directory: "/internal/docker/embed"
+    patterns: ["*"]
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "github-actions"
     directory: "/"
