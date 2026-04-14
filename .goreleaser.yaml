@@ -101,7 +101,45 @@ homebrew_casks:
     repository:
       owner: xenforo-ltd
       name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.GITHUB_TOKEN_GORELEASER }}"
+
+    commit_author:
+      name: github-actions[bot]
+      email: github-actions[bot]@users.noreply.github.com
+
+winget:
+  - name: xf-cli
+    package_identifier: XenForo.CLI
+    package_name: "XenForo CLI"
+    short_description: "Command line interface for XenForo"
+    homepage: "https://github.com/xenforo-ltd/cli"
+    license: "mit"
+    license_url: "https://github.com/xenforo-ltd/cli/blob/main/LICENSE"
+    release_notes_url: "https://github.com/xenforo-ltd/cli/releases/tag/{{.Tag}}"
+    publisher: XenForo Ltd.
+    publisher_url: https://xenforo.com
+    publisher_support_url: "https://github.com/xenforo-ltd/cli/issues/new"
+    privacy_url: "http://xenforo.com/privacy-policy/"
+
+    tags:
+      - xenforo
+
+    # skip_upload: auto
+    commit_msg_template: "XenForo CLI: v{{.Version}}"
+
+    installation_notes: "Information on how to install. Can also be a URL"
+
+    repository:
+      owner: xenforo-ltd
+      name: winget-pkgs
+      token: "{{ .Env.GITHUB_TOKEN_GORELEASER }}"
+      branch: "{{.ProjectName}}-{{.Version}}"
+      # pull_request:
+      #   enabled: true
+      #   base:
+      #     owner: microsoft
+      #     name: winget-pkgs
+      #     branch: master
 
     commit_author:
       name: github-actions[bot]
