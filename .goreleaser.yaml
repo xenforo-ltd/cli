@@ -68,3 +68,37 @@ archives:
 release:
   prerelease: auto
   name_template: "XenForo CLI {{.Version}}"
+
+homebrew_casks:
+  - name: xf-huh
+    description: "Command line interface for XenForo"
+    homepage: "https://github.com/xenforo-ltd/cli"
+
+    binaries:
+      - bin/xf
+
+    generate_completions_from_executable:
+      shell_parameter_format: cobra
+      args:
+        - completions
+      shells:
+        - bash
+        - zsh
+        - fish
+        - pwsh
+
+    zap:
+      trash:
+        - "~/Library/Application Support/xf/"
+        - "~/.config/xf/"
+      delete:
+        - "~/Library/Caches/xf/"
+        - "~/.cache/xf/"
+
+    # skip_upload: auto
+    commit_msg_template: "XenForo CLI: {{.Version}}"
+
+    repository:
+      owner: xenforo-ltd
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
