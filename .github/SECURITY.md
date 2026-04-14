@@ -8,7 +8,7 @@ Only the latest released version is supported with security fixes.
 
 Please do not open public issues for security vulnerabilities.
 
-Send a private report to <security@xenforo.com> with:
+Send a [private report](https://github.com/xenforo-ltd/cli/security/advisories/new) with:
 
 1. Affected version
 2. Impact summary
