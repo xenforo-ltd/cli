@@ -38,7 +38,7 @@ env:
 jobs:
   publish-images:
     name: Publish images
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       matrix:
