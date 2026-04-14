@@ -149,6 +149,10 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 		return fmt.Errorf("file %s is too large to extract: %w", file.Name, ErrInvalidArchive)
 	}
 
+	if err := destFile.Close(); err != nil {
+		return fmt.Errorf("failed to close file: %s: %w", destPath, err)
+	}
+
 	return nil
 }
 
