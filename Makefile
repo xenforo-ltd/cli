@@ -68,7 +68,7 @@ list:
 mod-tidy:
 	go mod tidy
 
-.PHONY mod-tidy-diff
+.PHONY: mod-tidy-diff
 ## Check module dependencies without making changes
 mod-tidy-diff:
 	go mod tidy -diff
