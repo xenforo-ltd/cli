@@ -77,15 +77,15 @@ homebrew_casks:
     binaries:
       - bin/xf
 
-    generate_completions_from_executable:
-      shell_parameter_format: cobra
-      args:
-        - completion
-      shells:
-        - bash
-        - zsh
-        - fish
-        - pwsh
+    # generate_completions_from_executable:
+    #   shell_parameter_format: cobra
+    #   args:
+    #     - completion
+    #   shells:
+    #     - bash
+    #     - zsh
+    #     - fish
+    #     - pwsh
 
     zap:
       trash:
