@@ -1,645 +1,337 @@
-# XenForo CLI (`xf`)
+# XenForo CLI
 
-A command-line tool for provisioning and managing XenForo development environments with Docker.
+<img src="assets/icon-rounded.svg" width="96" hspace="16" vspace="4" align="left" alt="XenForo CLI icon">
 
-## Requirements
+[![XenForo](https://img.shields.io/badge/XenForo-%230F578A)](https://xenforo.com)
+[![License](https://img.shields.io/github/license/xenforo-ltd/cli)](https://github.com/xenforo-ltd/cli/blob/main/LICENSE)
+[![Version](https://img.shields.io/github/v/release/xenforo-ltd/cli)](https://github.com/xenforo-ltd/cli/releases)
+[![Status](https://img.shields.io/github/check-runs/xenforo-ltd/cli/main?label=status)](https://github.com/xenforo-ltd/cli/actions)
+[![Codecov](https://img.shields.io/codecov/c/github/xenforo-ltd/cli)](https://app.codecov.io/gh/xenforo-ltd/cli)
 
-- Go
-- Docker with Docker Compose plugin
-- Git
-- System keychain (optional when using file storage or `XF_TOKEN`)
-  - macOS Keychain
-  - Windows Credential Manager
-  - Linux Secret Service
+A command-line tool for XenForo license holders to provision and manage local
+development environments. It authenticates against your XenForo customer
+account, downloads packages, and orchestrates Docker-based environments.
 
-## Quick Start
+## Prerequisites
 
-```bash
-# Build locally
-make build
+To manage environments, you must install
+[Docker](https://docs.docker.com/get-docker/) with the
+[Compose](https://docs.docker.com/compose/install/) plugin.
 
-# Authenticate
-./xf auth login
+## Installation
 
-# Initialize a project
-./xf init ./my-project
+Install the XenForo CLI using one of the methods below.
 
-# Show all built-in xf commands
-./xf --help
-```
-
-## Install
+### Homebrew
 
 ```bash
-# Homebrew (macOS and Linux)
 brew install xenforo-ltd/tap/xf-cli
-
-# macOS and Linux, installs into ~/.xf/bin
-curl -fsSL https://raw.githubusercontent.com/xenforo-ltd/cli/main/scripts/install.sh | bash
 ```
+
+### WinGet
 
 ```powershell
-# Windows, installs into %USERPROFILE%\.xf\bin
-irm https://raw.githubusercontent.com/xenforo-ltd/cli/main/scripts/install.ps1 | iex
+winget install XenForo.CLI
 ```
 
-Update an installer-managed copy with `xf self-update`, or with `brew upgrade`
-if you installed it with Homebrew.
+### GitHub Releases
 
-To install from source into `$(go env GOBIN)` or `$(go env GOPATH)/bin`:
+Download the latest binary archive from the
+[releases page](https://github.com/xenforo-ltd/cli/releases).
+
+## Quick start
 
 ```bash
-go install ./cmd/xf
-```
-
-## Command Routing
-
-`xf` supports two command types:
-
-1. Built-in commands such as `xf init`, `xf up`, `xf auth login`.
-2. XenForo commands: if the first token is not a built-in command, `xf` forwards it to XenForo inside Docker.
-   If Docker config is not initialized (no `compose.yaml`), `xf` falls back to local execution as `php cmd.php <args...>`.
-
-Use this to discover available XenForo commands:
-
-```bash
-# Run from a XenForo directory (or set XF_DIR)
-xf list
-
-# Run a XenForo command directly
-xf xf-dev:import
-```
-
-If you are not in a XenForo directory, set `XF_DIR` to a directory that contains `src/XF.php`.
-
-### Passing arguments to wrapped tools
-
-`php`, `php-debug`, `composer`, `compose`, `exec` and `debug` wrap another tool.
-For these commands:
-
-> **`xf`'s own flags go before the command name. Everything after it belongs to
-> the wrapped tool.**
-
-```bash
-# Flags after the command reach the tool
-xf php -v                       # runs: php -v
-xf composer outdated --direct   # runs: composer outdated --direct
-
-# xf's own flags go first
-xf --verbose php my-script.php
-
-# A leading -- is accepted and removed, for habit or clarity
-xf php -- -v
-```
-
-Because everything after the command is forwarded, `xf php --help` shows PHP's
-help, not `xf`'s. Use `xf help php` (or `xf help composer`, and so on) to read
-`xf`'s help for a wrapped command.
-
-All other commands parse flags normally and accept them in any position. `xf logs
---follow` and `xf logs xf --follow` are equivalent, because `--follow` belongs to
-`xf` rather than to a wrapped tool.
-
-### Known limitation
-
-Global flags cannot currently be combined with the direct XenForo route, because
-that route is only taken when the first argument is not a flag:
-
-```bash
-xf xf-dev:import        # works
-xf -v xf-dev:import     # prints xf's help and exits 0 without running anything
-```
-
-Use a wrapped command if you need this, for example `xf --verbose debug xf-dev:import`.
-
-## CLI Usage
-
-### Authentication
-
-Choose the credential source that suits your environment:
-
-- **Keychain** (default): browser login stores tokens in the system keychain.
-- **File**: set `auth.storage` to `file` in `config.json`, or set `XF_AUTH_STORAGE=file` for each invocation. Login, refresh, and logout then use this store.
-- **Environment**: a non-empty `XF_TOKEN` overrides either store. Supply a raw OAuth access token, without a `Bearer ` prefix. The token is kept in memory and sent to the configured OAuth base URL (`oauth.base_url` / `XF_OAUTH_BASE_URL`).
-
-To select file storage permanently, merge this setting into your configuration:
-
-```json
-{
-  "auth": {
-    "storage": "file"
-  }
-}
-```
-
-Or select it through the environment:
-
-```bash
-export XF_AUTH_STORAGE=file
-xf auth login
-xf auth status
-```
-
-Credentials are stored in `auth.json` beside `config.json` (also when using `--config`). Without a custom configuration path, this is the OS user configuration directory under `xf`. The file includes access and refresh tokens, expiry, and the OAuth base URL. Unix files are created with mode `0600`; overly broad permissions and symlinks are rejected for normal use. Login checks storage before opening the browser. Logout can read and delete a regular file with overly broad permissions so its tokens can be revoked, but it never follows a credential-file symlink. Refresh replaces the file atomically on Unix. Windows replacement uses the OS rename operation and does not offer the same atomicity guarantee. Keep this file private and out of version control. Login and status display the resolved credential-file path. Changing stores does not copy or remove credentials in the previous store; log in to populate the selected store.
-
-For CI, inject `XF_TOKEN` using your CI secret settings, then run commands normally:
-
-```bash
-xf --no-interaction download --license … --download xenforo --version …
-```
-
-`XF_TOKEN` must contain an existing OAuth access token; this option does not issue tokens or provide unattended login. Unset or empty values use the selected persistent store. Whitespace or control characters are rejected. Environment tokens cannot be refreshed by the CLI: replace the CI secret when it expires. While `XF_TOKEN` is active, `auth login`, `auth refresh`, and `auth logout` explain how to manage it externally; unset it to manage stored credentials. Unsetting a token does not revoke it on the server. An invalid environment token never falls back to stored credentials.
-
-`auth status` reports the credential source without exposing the token. For environment tokens it validates with the server; JSON validity and expiry fields are `null` when unknown. `auth status --json` also returns JSON for credential errors, with a stable `reason` such as `not_authenticated`, `store_unavailable`, `configuration_mismatch`, `invalid_credentials`, or `storage_error`. A normal logged-out state has no `error` field. `doctor` checks the selected credential source for usability, preflighting writable persistent stores before reporting authentication healthy, reports storage failures separately from being logged out, and reports environment-token presence without claiming server validity.
-
-
-```bash
-# Log in
+# Authenticate
 xf auth login
 
-# Log in with a custom browser callback timeout (seconds)
-xf auth login --timeout 600
-
-# Check auth status
-xf auth status
-xf auth status --json
-
-# Refresh token
-xf auth refresh
-
-# Log out and revoke tokens
-xf auth logout
-```
-
-### Initialize
-
-```bash
-# Interactive init
+# Initialize a project
 xf init ./my-project
-
-# Interactive flow notes:
-# - XenForo core is always installed
-# - You choose only additional products
-# - Core version picker shows the latest 10 versions + manual entry
-# - A final review screen lets you edit all values before work starts
-
-# Non-interactive init
-xf init ./my-project \
-  --license 02306C2650 \
-  --version 2030871 \
-  --products xfmg,xfes \
-  --admin-user admin \
-  --admin-password secret \
-  --admin-email admin@example.com
-
-# Existing directory mode
-xf init ./existing-xf-project --existing
-xf init ./existing-xf-project --existing --up
-
-# Composer dependencies are installed automatically when the target
-# tracks a composer.json (repository checkouts). Release packages ship
-# vendor/ prebuilt and are skipped.
-
-# .env overrides (file + inline; inline wins)
-xf init ./my-project \
-  --env-file ./my.env \
-  --env XF_TITLE="My Site"
-
-# Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
-# You can override either key via --env-file/--env.
 ```
 
-Init and worktree setup build JavaScript for XF and add-ons with a `build.json`,
-even without starting containers. Release packages omit this file and are skipped.
-Use `--skip-build-js` to skip these builds; normal `xf up` does not build JS.
+By default, `xf init` starts the Docker environment, installs XenForo, and
+prints the site URL. Open that URL in your browser.
+
+## CLI usage
 
-### Upgrade
+### CLI configuration
 
-```bash
-# Interactive upgrade
-xf upgrade ./my-project
+Default configuration file locations:
 
-# Upgrade to a specific version
-xf upgrade ./my-project --version 2030971
+| Platform | Path                                                            |
+| -------- | --------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/xf/config.json`                  |
+| Linux    | `$XDG_CONFIG_HOME/xf/config.json` or `~/.config/xf/config.json` |
+| Windows  | `%AppData%\xf\config.json`                                      |
+
+Use `--config` to select another file.
+
+Set CLI environment variables in your shell. These are separate from the
+project's `.env` file, which configures the Docker environment.
+
+| Variable            | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| `XF_DIR`            | Sets the XenForo installation to use when outside an installation |
+| `XF_AUTH_STORAGE`   | Selects credential storage: `keychain` or `file`                  |
+| `XF_TOKEN`          | Supplies an OAuth access token instead of stored credentials      |
+| `XF_VERBOSE`        | Enables verbose output                                            |
+| `XF_NO_INTERACTION` | Disables interactive prompts                                      |
+| `XF_CACHE_PATH`     | Sets the CLI cache directory                                      |
+
+Authentication uses the system keychain by default. To use file storage, set
+`auth.storage` to `file` in `config.json`, or set `XF_AUTH_STORAGE=file`.
+Credentials are then stored as plaintext in `auth.json` beside the configuration
+file. Keep this file private and out of version control.
+
+For CI, a non-empty `XF_TOKEN` overrides stored credentials. Supply an existing
+OAuth access token without the `Bearer` prefix, using your CI secret settings.
+The CLI cannot refresh environment tokens. Replace the secret when it expires.
+Unset `XF_TOKEN` before using `auth` commands to manage stored credentials.
+
+### Routing
+
+If the provided command is not a built-in command, it is forwarded to XenForo.
+When a Docker environment is initialized, it uses the running service or a
+one-off container if the service is stopped. Otherwise, it uses local PHP.
+
+For `php`, `php-debug`, `composer`, `compose`, `exec`, and `debug`, put the
+CLI's global flags before the command name. Everything after it belongs to the
+wrapped tool. For example, `xf --verbose php -v` enables CLI logging and runs
+`php -v`. Use `xf help php`, not `xf php --help`, to read the CLI's wrapper
+help.
+
+Direct XenForo commands cannot be combined with global flags. Use a wrapper
+instead, for example `xf --verbose debug xf-dev:import`.
+
+### Commands
+
+Run `xf --help` to list every command, and `xf help <command>` for full command
+help. Run `xf list` from a XenForo directory to see XenForo commands.
+
+#### Getting started
+
+Authenticate and set up a XenForo development environment.
+
+| Command    | Description                                      |
+| ---------- | ------------------------------------------------ |
+| `auth`     | Manage authentication                            |
+| `download` | Download XenForo packages                        |
+| `init`     | Initialize a new XenForo development environment |
+| `licenses` | List your XenForo licenses                       |
+
+#### Environment
+
+Manage installations and worktrees. Docker operations require
+[Docker with the Compose plugin](#prerequisites).
+
+| Command    | Description                                |
+| ---------- | ------------------------------------------ |
+| `db`       | Open the environment's database            |
+| `down`     | Stop the Docker environment                |
+| `logs`     | Show container logs                        |
+| `ps`       | List running containers                    |
+| `reboot`   | Restart the Docker environment             |
+| `up`       | Start the Docker environment               |
+| `update`   | Update the Docker environment from the CLI |
+| `upgrade`  | Upgrade an existing XenForo installation   |
+| `worktree` | Create and manage development worktrees    |
+
+#### Run tools
+
+Build add-ons and run development tools.
+
+| Command     | Description                              |
+| ----------- | ---------------------------------------- |
+| `build`     | Build an add-on release                  |
+| `compose`   | Run a Docker Compose command             |
+| `composer`  | Run Composer commands                    |
+| `debug`     | Run XenForo CLI commands with Xdebug     |
+| `exec`      | Execute a command in a running container |
+| `php`       | Run PHP commands                         |
+| `php-debug` | Run PHP with Xdebug                      |
+
+#### Maintenance
 
-# Skip running xf:upgrade
-xf upgrade ./my-project --version 2030971 --skip-upgrade
-```
+Maintain the CLI and check its configuration.
 
-### Download Packages
+| Command       | Description                                                |
+| ------------- | ---------------------------------------------------------- |
+| `cache`       | Manage cached downloads                                    |
+| `completion`  | Generate the autocompletion script for the specified shell |
+| `doctor`      | Check system health and dependencies                       |
+| `help`        | Help about any command                                     |
+| `self-update` | Update XenForo CLI to the latest version                   |
+| `version`     | Print version information                                  |
 
-```bash
-# List downloads for a license
-xf download --license 02306C2650
-
-# List versions for a product
-xf download --license 02306C2650 --download xenforo
-
-# Download a specific version
-xf download --license 02306C2650 --download xenforo --version 12345
-
-# Force re-download even if cached
-xf download --license 02306C2650 --download xenforo --version 12345 --force
-```
-
-### Cache
-
-```bash
-xf cache list
-xf cache list --license 02306C2650
-xf cache list --json
-xf cache purge --license 02306C2650
-xf cache purge --all
-xf cache path
-```
-
-### Docker Environment
-
-```bash
-# Lifecycle
-xf up
-xf down
-xf reboot
-
-# Update environment files and images after upgrading the CLI
-xf update
-
-# Status and logs
-xf ps
-xf logs
-xf logs --follow
-
-# Docker Compose passthrough
-xf compose ps
-xf compose exec xf mysql -u root
-
-# Exec into a service
-xf exec xf ls -la
-```
-
-### Database
-
-Open the environment's MySQL database in TablePlus. On macOS with OrbStack
-the container's `orb.local` hostname is used, so no ports need publishing.
-
-```bash
-# Open in TablePlus
-xf db
-
-# Print the connection URL instead
-xf db --print-url
-
-# Open the database client inside the container (any platform)
-xf db shell
-
-# Forward arguments to the client
-xf db shell -e 'show tables;'
-```
-
-`xf database` is an alias. Only MySQL environments are supported for now.
-
-### Worktrees
-
-A worktree is a second checkout of the same repository on its own branch or
-workspace, with its own Docker containers and database. `create` makes worktrees
-alongside the source checkout: `~/Sites/main` gains
-`~/Sites/main.worktrees/<name>`.
-
-The source repository decides the backend. A repository that uses Jujutsu —
-including one colocated with Git — gets a Jujutsu workspace named from
-`<branch>`; no bookmark is created or moved. A plain Git repository gets a Git
-worktree and branch. In Git the argument is a branch name; in Jujutsu it is a
-workspace name. `--base` accepts the selected backend's revision syntax: a Git
-ref or a Jujutsu revset.
-
-By default `create` clones the source environment — database, `data/` and
-`internal_data/` — and points the cloned board at its own URL, labelling its
-title with the worktree name.
-
-A worktree's name comes from the branch's last segment, lowercased with
-punctuation turned into dashes: `dev/xfs/user-state-ladder-redesign` becomes
-`user-state-ladder-redesign`. The same name is used for the directory, the
-Docker instance and the URL, `https://user-state-ladder-redesign.xf.local`. If
-the name is already taken — by another worktree, such as `dev/24x/feature` and
-`dev/xfs/feature`, by the source checkout's own instance, or by an existing
-Docker environment — a number is added:
-`feature-2`, `feature-3`. Pass `--instance` to choose the Docker instance name
-yourself.
-
-`path` and `remove` accept either the branch or the worktree's name.
-
-`create --json` intentionally does not run setup: setup writes progress to
-stdout, which would corrupt the JSON document. It therefore requires
-`--no-setup`, and the accepted invocation writes exactly one JSON document to
-stdout.
-
-`adopt <path>` registers an existing linked worktree or Jujutsu workspace that
-xf did not create, so it appears in `list`, `list-all` and `prune`, and can be
-addressed by `path` and `remove` wherever it lives. Adoption is metadata-only:
-it reads the checkout's root, source and branch or workspace name and records
-them, and changes nothing in the checkout or its version-control state. The path
-may be the checkout root or any directory inside it, absolute or relative to
-your current directory. The checkout must be a XenForo checkout with a regular
-`src/XF.php`; the source or main checkout is refused, as is a Git checkout in a
-detached HEAD state. A Jujutsu workspace named `HEAD` is not detached and is
-accepted.
-
-Adoption stores canonical paths, so an alias and the directory it resolves to
-are one record. The instance name comes from `--instance`, otherwise from a
-non-empty `XF_INSTANCE` in the checkout's `.env`, otherwise it is derived from
-the branch or workspace name, without a collision suffix. The value is recorded
-only: adoption does not write `.env`, create an isolated Docker environment or
-move containers, so a later `remove` still reads the checkout's own
-configuration. When that configuration names the source environment's instance,
-adoption warns, because `remove` will refuse to tear such an environment down
-without `--keep-containers`. Re-adopting a path refreshes its record, including
-the registration time and instance, and clears its cloned flag.
-
-```bash
-# Create a worktree and set up its environment
-xf worktree create dev/24x/feature
-
-# Base the new checkout on something other than the current HEAD
-xf worktree create dev/24x/feature --base main
-
-# Install a clean forum instead of cloning the source environment
-xf worktree create dev/24x/feature --fresh
-
-# Create the worktree without setting anything up
-xf worktree create dev/24x/feature --no-setup
-
-# Print the created worktree as JSON (requires --no-setup)
-xf worktree create dev/24x/feature --no-setup --json
-
-# Configure the environment but leave the containers stopped
-xf worktree create dev/24x/feature --no-up
-
-# Register an existing worktree or workspace at any location
-xf worktree adopt ../shared/feature
-
-# Record a Docker instance name for an adopted checkout
-xf worktree adopt ../shared/feature --instance my-feature
-
-# Print the registration as JSON
-xf worktree adopt ../shared/feature --json
-
-# List worktrees (this project / all known projects)
-xf worktree list
-xf worktree list-all
-
-# Machine-readable output
-xf worktree list --json
-
-# Print the path of a worktree (bare output, shell-substitution safe)
-cd "$(xf worktree path dev/24x/feature)"
-cd "$(xf worktree path feature)"
-
-# Remove a worktree and its containers and volumes
-xf worktree remove dev/24x/feature
-
-# Remove the worktree but leave its containers and volumes running
-xf worktree remove dev/24x/feature --keep-containers
-
-# Drop registry entries for worktrees that no longer exist
-xf worktree prune
-```
-
-`list`, `path` and `remove` are project-scoped: run them from the source
-checkout or from one of its adopted workspaces. `adopt` takes an explicit path
-and `list-all` reads the registry, so neither has to run from inside a
-repository. `path` resolves a branch or
-workspace name exactly, including through the registry, before falling back to
-a directory name at the conventional location. A checkout whose directory name
-matches the argument but whose branch is different therefore does not capture
-it. An adopted checkout outside the conventional location is addressed by its
-full branch or workspace name; its directory name is not a registry key.
-
-`remove` refuses a worktree that holds uncommitted changes or commits that
-exist on no remote, and lists what would be lost. The files `create` generates
-(`compose*.yaml`, `.env`, `.dockerignore`) do not count as changes. Passing
-`--force` overrides both checks, so reach for it only once you have read what
-the refusal reported. Removal is destructive for adopted checkouts just as for
-created ones, and it verifies that the target really is a registered, non-source
-checkout of the current repository before deleting anything — even with
-`--force`. An adopted record's instance name does not retarget containers:
-removal reads the checkout's own Docker configuration. It also refuses to tear
-down that configuration when it uses the source environment's instance,
-because doing so would delete the source's database and volumes; pass
-`--keep-containers` to remove only the checkout.
-
-Because cloning copies an installed database, `--no-up` and `--fresh` both skip
-it: `--fresh` installs a clean forum instead, while `--no-up` leaves the
-worktree with no database until you start it and install one yourself.
-
-### Add-on Builds
-
-Run these commands from the XenForo installation or a directory beneath it,
-or set `XF_DIR` to the installation path. The add-on ID is optional: without it,
-the add-on is inferred from the enclosing directory under `src/addons`, falling
-back to `XF`.
-
-```bash
-# Build a release ZIP and hash manifest
-xf build Vendor/AddOn
-
-# Reuse installed dependencies
-xf build Vendor/AddOn --skip-composer
-
-# Override the ZIP timestamp with a Unix timestamp supplied by CI
-BUILD_DATE=1767225600 xf build Vendor/AddOn
-
-# Build JavaScript without creating a release
-xf build js Vendor/AddOn
-
-# Rebuild JavaScript when inputs change
-xf build js Vendor/AddOn --watch
-```
-
-The add-on's optional `build.json` controls file selection, minification, rollups,
-and release commands. Without it, the build root is the add-on directory, all
-eligible files are included, and no JavaScript or exec tasks run. Built-in
-exclusions still apply. Hidden files and directories are excluded unless whitelist
-patterns explicitly name their dot-prefixed components. For example, `.htaccess`
-includes that file, `.config/**` includes visible files under `.config`, and
-`**` alone does not include hidden paths. Blacklist rules and reserved build-file
-exclusions still apply. Additional files and JavaScript inputs are looked up in
-the build root's `_files` directory first, then in the build root itself.
-Additional entries may be literal file or directory paths, or glob patterns.
-
-Minifying a script writes its `*.min.js` companion and an external
-`*.min.js.map` source map, and links the map from the minified file. Maps do not
-embed original sources (`sourcesContent`); the unminified sources ship alongside
-them. Rollups concatenate their inputs as plain text without stripping comments.
-Wildcard rollup inputs exclude `.min.js` files and outputs of later rollups;
-list a file explicitly to include it. Earlier rollup outputs can be used for
-chaining. A bundle's own output and minified companion are always excluded
-from its inputs. Minification always runs after rollups: a `minify` pattern that
-matches the bundle produces its `*.min.js` companion and a map that points back
-at the readable bundle.
-
-Builds check only the `addon.json` fields they use: a usable `version_string`
-and a valid `composer_autoload` path when provided. Full metadata validation is
-deferred. The add-on's `addon.json` and a declared Composer `installed.json` are
-always included, regardless of whitelist and blacklist rules; additional-file
-overrides still apply. The Composer file must be available even with
-`--skip-composer`. Release builds export XML
-from the add-on's prepared `_output` directory into `_data`, after Composer and
-before JavaScript tasks. Non-empty type directories require `_metadata.jsonl`,
-and listed files must match their recorded hashes. Unknown types, unknown JSON
-fields, and custom PHP export handlers are rejected. JavaScript-only builds do
-not export data or require `_output` or `_data`.
-
-Every ZIP entry uses the build start time by default, including generated files
-and instructions. Set `BUILD_DATE` to a Unix timestamp to override it and
-reproduce a previous archive. The timestamp must fall between 1980-01-01 and
-2106-02-07 06:28:15 UTC. Source modification times do not affect the ZIP bytes.
-
-`hash_exclude` is an optional array of paths or globs omitted from `hashes.json`
-without removing files from the ZIP. Patterns match upload destinations relative
-to the build root; additional files mapped outside that root use their
-installation-relative destination. Use `**/index.html` to exclude that filename
-at any depth. A literal directory path also excludes its descendants.
-
-Releases are written to the add-on's `_releases` directory; the generated hash
-manifest is written to `hashes.json` in the add-on directory. Composer uses the
-Docker environment when configured, or the host otherwise.
-
-Configured `exec` commands run on the host unless the first argument is `@php`,
-`@composer`, or `@xf`. These aliases use the Docker environment when
-`compose.yaml` is present, running in the `xf` service or a one-off container,
-and run on the host otherwise. `@php` and `@composer` run in the add-on
-directory, like ordinary commands. `@xf` runs `php cmd.php` in the installation
-root and accepts XenForo command arguments, not `xf` CLI options. Aliases are
-recognized only as the exact first argument. Docker failures are reported and
-never retried on the host.
-
-```json
-{
-  "exec": [
-    ["@php", "build.php", "{version_string}"],
-    "@composer dump-autoload --no-dev",
-    ["@xf", "xf-dev:rebuild-caches"]
-  ]
-}
-```
-
-### PHP / Composer / Debug
-
-```bash
-# PHP and Composer
-xf php -v
-xf composer install
-xf composer outdated --direct
-
-# XenForo command with XDebug enabled
-xf debug xf-dev:import
-
-# PHP with XDebug enabled
-xf php-debug -v
-
-# Read xf's help for a wrapped command
-xf help php
-```
-
-`xf composer` uses the Docker environment when `compose.yaml` is present,
-executing in the running `xf` service or starting a one-off container otherwise.
-Without `compose.yaml`, it runs the host's Composer in the XenForo directory.
-Docker failures are reported rather than retried on the host.
-
-### Other Commands
-
-```bash
-xf licenses
-xf doctor
-xf self-update
-xf self-update --check-only
-xf version
-xf version --json
-xf version --short
-```
-
-### Shell Completion
-
-```bash
-# Example: zsh
-xf completion zsh
-```
-
-### Global Flags
+#### Global flags
 
 Available on all built-in commands:
 
 ```bash
--n, --no-interaction   # Disable prompts (for CI/automation)
--v, --verbose          # Enable verbose output
--c, --config <path>    # Use an alternative config file
+# Path to config file
+-c, --config <path>
+
+# Disable interactive prompts
+-n, --no-interaction
+
+# Enable verbose output
+-v, --verbose
 ```
 
-## Data and Paths
+## Environment usage
 
-- Config: `~/.config/xf/config.json`
-- Cache: `~/.config/xf/cache`
-- Project metadata file: `.xf.json`
-- OAuth token storage: system keychain service `xf` by default, or `auth.json` beside the configuration file when file storage is selected.
+The default environment enables development features and uses predictable
+credentials. Do not expose it publicly.
 
-## Development Commands
+Configure the environment by setting variables in the `.env` file at the root of
+your XenForo installation. Their values override options set in the XenForo
+control panel. To customize the XenForo configuration further, create a
+`src/config.override.php` file.
 
-### Make
+[Contexts](#contexts) can override variables from `.env`. To extend or override
+the Compose configuration, create a `compose.override.yaml` file. Run
+`xf reboot` to apply runtime changes. See
+[Updating environments](#updating-environments) for image changes.
 
-```bash
-make build         # Build the binary
-make test          # Run all tests
-make test-v        # Run tests with verbose output
-make test-coverage # Run tests with coverage
-make fmt           # Format code
-make lint          # Run go vet and check formatting
-make mod-tidy      # Tidy module dependencies
-make clean         # Remove build artifacts
-make all           # Lint, test, and build
-make help          # List all targets
-```
+Runtime settings read by `src/config.docker.php` also accept a `_FILE` suffix
+for a file path inside the container.
 
-### Go Directly
+### Environment configuration
 
-```bash
-# Build
-go build -o xf ./cmd/xf
+Settings and contexts marked <sup>[1](#updating-environments)</sup> may require
+an image rebuild.
 
-# Run without building
-go run ./cmd/xf --help
-go run ./cmd/xf version
+| Variable                     | Description                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `XF_INSTANCE`                | Sets the [Compose project name](#running-multiple-environments)                                         |
+| `XF_CONTEXTS`                | Sets the environment [contexts](#contexts) to use <sup>[1](#updating-environments)</sup>                |
+| `XF_TITLE`                   | Sets the XenForo board title                                                                            |
+| `XF_EMAIL`                   | Sets the XenForo default email address                                                                  |
+| `XF_CONTACT_EMAIL`           | Sets the XenForo contact email address                                                                  |
+| `XF_COOKIE_PREFIX`           | Sets the XenForo cookie prefix                                                                          |
+| `XF_DB_USER`                 | Sets the database username (defaults for `mysql`, `postgres`)                                           |
+| `XF_DB_PASSWORD`             | Sets the database password (defaults for `mysql`, `postgres`)                                           |
+| `XF_DB_DATABASE`             | Sets the database name (defaults for `mysql`, `postgres`)                                               |
+| `XF_DB_REPLICATION_USER`     | Sets the replication username (defaults for `mysql-replication`)                                        |
+| `XF_DB_REPLICATION_PASSWORD` | Sets the replication password (defaults for `mysql-replication`)                                        |
+| `XF_MSSQL_PASSWORD`          | Sets the SQL Server SA password (defaults for `mssql`)                                                  |
+| `XF_MAIL_ENABLE`             | Enables or disables XenForo emails                                                                      |
+| `XF_MAIL_HOST`               | Sets the XenForo SMTP host                                                                              |
+| `XF_MAIL_PORT`               | Sets the XenForo SMTP port                                                                              |
+| `XF_MAIL_USERNAME`           | Sets the XenForo SMTP username                                                                          |
+| `XF_MAIL_PASSWORD`           | Sets the XenForo SMTP password                                                                          |
+| `XF_MAIL_SSL`                | Enables or disables SMTP SSL/TLS                                                                        |
+| `XF_XFES_SEARCH_USER`        | Sets the Elasticsearch username (defaults for `elasticsearch`)                                          |
+| `XF_XFES_SEARCH_PASSWORD`    | Sets the Elasticsearch password (defaults for `elasticsearch`)                                          |
+| `XF_CACHE_SESSIONS`          | Enables or disables caching XenForo user sessions                                                       |
+| `XF_CACHE_PAGES`             | Enables or disables the XenForo guest page cache                                                        |
+| `XF_IMAGICK_ENABLE`          | Enables or disables ImageMagick for image processing <sup>[1](#updating-environments)</sup>             |
+| `XF_XFMG_FFMPEG_ENABLE`      | Enables or disables FFmpeg features in the XenForo Media Gallery <sup>[1](#updating-environments)</sup> |
+| `XF_DEBUG`                   | Enables or disables XenForo debug mode                                                                  |
+| `XF_DEVELOPMENT`             | Enables or disables XenForo [development mode](#development-mode)                                       |
+| `XF_ADMIN_HUE_SHIFT`         | Sets the XenForo control panel hue shift                                                                |
+| `XDEBUG_MODE`                | Sets the Xdebug mode (`off`, `debug`, `coverage`, ...) for the `development` context                    |
 
-# Tests
-go test ./...
-go test ./... -v
-go test ./... -cover
-```
+#### Contexts
 
-## Project Structure
+Contexts are features selected by the colon-separated `XF_CONTEXTS` variable.
+The default is `caddy:mysql:development:caddy-development:redis:mailpit`.
 
-```text
-xf/
-├── cmd/xf/                 # Entry point
-├── internal/               # CLI implementation (see internal/README.md)
-├── scripts/                # Install/test scripts
-├── go.mod                  # Go module definition
-├── Makefile                # Build automation
-└── README.md
-```
+| Context             | Description                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| `caddy`             | Adds Caddy web server                                                                                    |
+| `caddy-development` | Adds the OrbStack domain `{instance}.xf.local` for Caddy                                                 |
+| `development`       | Mounts source files into the container and enables Xdebug support <sup>[1](#updating-environments)</sup> |
+| `elasticsearch`     | Configures the environment for running XenForo Enhanced Search with Elasticsearch                        |
+| `mailpit`           | Adds a Mailpit SMTP capture service                                                                      |
+| `mssql`             | Adds a SQL Server database <sup>[1](#updating-environments)</sup>                                        |
+| `mysql`             | Adds a MariaDB database <sup>[1](#updating-environments)</sup>                                           |
+| `mysql-replication` | Adds a MariaDB read replica (requires the `mysql` context)                                               |
+| `postgres`          | Adds a PostgreSQL database (for importing from Discourse) <sup>[1](#updating-environments)</sup>         |
+| `redis`             | Adds Redis and enables XenForo caching <sup>[1](#updating-environments)</sup>                            |
+
+#### Development mode
+
+Set `XF_DEVELOPMENT=1` to enable development mode. It includes all add-ons in
+development output, uses unminified JavaScript, and makes background job errors
+visible. It also disables live payments, statistics collection, sitemap
+submission, CAPTCHAs, and email confirmation, removes registration delays, and
+extends admin sessions.
+
+#### Advanced configuration
+
+These environment variables control advanced settings and typically do not need
+to be changed.
+
+| Variable                | Description                                                                                         |
+| ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `CADDY_VERSION`         | Sets the Caddy image version                                                                        |
+| `ELASTICSEARCH_VERSION` | Sets the Elasticsearch image version                                                                |
+| `MAILPIT_VERSION`       | Sets the Mailpit image version                                                                      |
+| `MARIADB_VERSION`       | Sets the MariaDB image version                                                                      |
+| `MSSQL_VERSION`         | Sets the SQL Server image version                                                                   |
+| `PHP_BUILD_MYSQL`       | Enables mysqli and pdo_mysql (auto-set for `mysql`) <sup>[1](#updating-environments)</sup>          |
+| `PHP_BUILD_PGSQL`       | Enables pgsql, pdo_pgsql, and YAML (auto-set for `postgres`) <sup>[1](#updating-environments)</sup> |
+| `PHP_BUILD_REDIS`       | Enables igbinary and PhpRedis (auto-set for `redis`) <sup>[1](#updating-environments)</sup>         |
+| `PHP_BUILD_SQLSRV`      | Enables sqlsrv and pdo_sqlsrv (auto-set for `mssql`) <sup>[1](#updating-environments)</sup>         |
+| `PHP_VERSION`           | Sets the PHP image version <sup>[1](#updating-environments)</sup>                                   |
+| `PHP_VERSION_COMPOSER`  | Sets the Composer version <sup>[1](#updating-environments)</sup>                                    |
+| `PHP_VERSION_IGBINARY`  | Sets the igbinary extension version <sup>[1](#updating-environments)</sup>                          |
+| `PHP_VERSION_IMAGICK`   | Sets the Imagick extension version <sup>[1](#updating-environments)</sup>                           |
+| `PHP_VERSION_REDIS`     | Sets the PhpRedis extension version <sup>[1](#updating-environments)</sup>                          |
+| `PHP_VERSION_SQLSRV`    | Sets the SQL Server PHP extensions version <sup>[1](#updating-environments)</sup>                   |
+| `PHP_VERSION_XDEBUG`    | Sets the Xdebug extension version <sup>[1](#updating-environments)</sup>                            |
+| `PHP_VERSION_YAML`      | Sets the YAML extension version <sup>[1](#updating-environments)</sup>                              |
+| `POSTGRES_VERSION`      | Sets the PostgreSQL image version                                                                   |
+| `REDIS_VERSION`         | Sets the Redis image version                                                                        |
+| `XDEBUG_CONFIG`         | Sets the Xdebug client connection settings                                                          |
+| `XF_DB_HOST`            | Sets the database host address (auto-set for `mysql`)                                               |
+| `XF_DB_PORT`            | Sets the database port                                                                              |
+| `XF_DB_REPLICATION`     | Enables MySQL read/write replication (auto-set for `mysql-replication`)                             |
+| `XF_DB_HOST_READ`       | Sets the read replica host (auto-set for `mysql-replication`)                                       |
+| `XF_CACHE_ENABLE`       | Enables XenForo caching (auto-set for `redis`)                                                      |
+| `XF_CACHE_HOST`         | Sets the cache server host (auto-set for `redis`)                                                   |
+| `XF_XFES_SEARCH_HOST`   | Sets the Elasticsearch host address (auto-set for `elasticsearch`)                                  |
+| `XF_XFES_SEARCH_PORT`   | Sets the Elasticsearch port                                                                         |
+| `XF_XFES_SEARCH_INDEX`  | Sets the Elasticsearch index name (auto-set for `elasticsearch`)                                    |
+
+### Updating environments
+
+Run `xf update` to refresh the shipped environment files, pull images, rebuild
+local images, and update running environments. Stopped environments remain
+stopped. Run `xf up` to start them.
+
+`xf update` preserves `.env` and `.dockerignore` but overwrites other shipped
+environment files. Keep customizations in override files.
+
+### Running multiple environments
+
+For multiple environments, set a different `XF_INSTANCE` for each one. Changing
+this value selects a different Compose project and its volumes. It does not
+migrate existing data.
 
 ## Security
 
-- OAuth tokens use the system keychain by default. File storage is an explicit opt-in and stores credentials as plaintext with owner-only file permissions on Unix. On Windows, access is controlled by the containing directory’s ACL; use a private user directory. There is no automatic plaintext fallback.
-- PKCE is used for OAuth authorization flow security.
-- Stored tokens are refreshed automatically when needed. Environment tokens must be replaced externally when expired or revoked.
-- Package extraction confines writes to the destination directory. Archive symlink entries are rejected, as are absolute or escaping symlinks encountered beneath the destination.
+Do not report security vulnerabilities in public issues.
 
-## Building for Release
+See [SECURITY.md](.github/SECURITY.md) for vulnerability reporting instructions.
 
-```bash
-# Update the changelog and tag the next version
-make release
+## Support
 
-# Or tag a specific version
-make release TAG=v1.0.0
-```
+Run `xf doctor` to diagnose common issues. For help, ask in the
+[development discussions forum](https://xenforo.com/community/forums/xenforo-development-discussions.34/).
+For bug reports and feature requests, use this repository's GitHub Issues.
+
+For support guidance, see [SUPPORT.md](.github/SUPPORT.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for development and contribution
+guidelines.
+
+## License
+
+Copyright (c) XenForo Ltd. All rights reserved.
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for
+details.
