@@ -80,7 +80,7 @@ homebrew_casks:
     generate_completions_from_executable:
       shell_parameter_format: cobra
       args:
-        - completions
+        - completion
       shells:
         - bash
         - zsh
