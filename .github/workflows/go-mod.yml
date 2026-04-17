@@ -1,0 +1,42 @@
+name: Go modules
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - "main"
+    paths:
+      - go.mod
+      - go.sum
+
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - go.mod
+      - go.sum
+
+concurrency:
+  group: "${{ github.workflow }}@${{ github.head_ref || github.ref_name }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go-mod:
+    name: Go modules
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+
+      - name: Go modules
+        run: make mod-tidy-diff

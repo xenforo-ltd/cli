@@ -9,228 +9,28 @@ permissions:
   contents: write
 
 jobs:
-  quality:
-    name: Quality Gate
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.mod"
-
-      - name: Check formatting
-        run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-            echo "The following files are not gofmt-formatted:"
-            echo "$unformatted"
-            exit 1
-          fi
-
-      - name: Go vet
-        run: go vet ./...
-
-      - name: Go test
-        run: go test ./...
-
-      - name: Go test (race)
-        run: go test -race ./...
-
-  build:
-    name: Build ${{ matrix.os }}-${{ matrix.arch }}
-    needs: quality
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      matrix:
-        include:
-          - os: linux
-            arch: amd64
-            runner: blacksmith-4vcpu-ubuntu-2404
-            ext: tar.gz
-          - os: linux
-            arch: arm64
-            runner: blacksmith-4vcpu-ubuntu-2404
-            ext: tar.gz
-          - os: darwin
-            arch: amd64
-            runner: macos-latest
-            ext: tar.gz
-          - os: darwin
-            arch: arm64
-            runner: macos-latest
-            ext: tar.gz
-          - os: windows
-            arch: amd64
-            runner: blacksmith-4vcpu-windows-2025
-            ext: zip
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.mod"
-
-      - name: Get version from tag
-        id: version
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-
-      - name: Get build date
-        id: date
-        shell: bash
-        run: echo "DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
-
-      - name: Build binary
-        shell: bash
-        env:
-          CGO_ENABLED: 0
-          GOOS: ${{ matrix.os }}
-          GOARCH: ${{ matrix.arch }}
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          COMMIT="${{ github.sha }}"
-          DATE="${{ steps.date.outputs.DATE }}"
-
-          LDFLAGS="-s -w"
-          LDFLAGS="$LDFLAGS -X github.com/xenforo-ltd/cli/internal/version.Version=$VERSION"
-          LDFLAGS="$LDFLAGS -X github.com/xenforo-ltd/cli/internal/version.Commit=$COMMIT"
-          LDFLAGS="$LDFLAGS -X github.com/xenforo-ltd/cli/internal/version.Date=$DATE"
-
-          BINARY_NAME="xf"
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            BINARY_NAME="xf.exe"
-          fi
-
-          go build -ldflags "$LDFLAGS" -o "$BINARY_NAME" .
-
-      - name: Import signing certificate (macOS)
-        if: matrix.os == 'darwin'
-        uses: apple-actions/import-codesign-certs@v6
-        with:
-          p12-file-base64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
-          p12-password: ${{ secrets.MACOS_CERT_PASSWORD }}
-          keychain-password: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
-
-      - name: Sign binary (macOS)
-        if: matrix.os == 'darwin'
-        shell: bash
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-
-          IDENTITY=$(security find-identity -v -p codesigning | grep 'Developer ID Application' | head -n 1 | sed -E 's/.*"(.+)"/\1/')
-          if [ -z "${IDENTITY:-}" ]; then
-            echo "No Developer ID Application identity found in available keychains."
-            exit 1
-          fi
-
-          if [ -n "${APPLE_TEAM_ID:-}" ] && [[ "$IDENTITY" != *"(${APPLE_TEAM_ID})"* ]]; then
-            echo "Found signing identity, but it does not match APPLE_TEAM_ID."
-            echo "Identity: $IDENTITY"
-            exit 1
-          fi
-
-          codesign --force --options runtime --timestamp --sign "$IDENTITY" xf
-          codesign --verify --strict --verbose=2 xf
-          codesign -dv --verbose=4 xf
-
-      - name: Notarize binary (macOS)
-        if: matrix.os == 'darwin'
-        shell: bash
-        env:
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
-          APPLE_API_PRIVATE_KEY_P8_BASE64: ${{ secrets.APPLE_API_PRIVATE_KEY_P8_BASE64 }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "${APPLE_API_KEY_ID:-}" ] || [ -z "${APPLE_API_ISSUER_ID:-}" ] || [ -z "${APPLE_API_PRIVATE_KEY_P8_BASE64:-}" ]; then
-            echo "Missing one or more required notarization secrets."
-            exit 1
-          fi
-
-          NOTARY_KEY_B64_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.b64"
-          NOTARY_KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
-          NOTARY_ZIP_PATH="$RUNNER_TEMP/xf-notary.zip"
-
-          printf '%s' "$APPLE_API_PRIVATE_KEY_P8_BASE64" | tr -d '[:space:]' > "$NOTARY_KEY_B64_PATH"
-          if ! base64 -D -i "$NOTARY_KEY_B64_PATH" > "$NOTARY_KEY_PATH" 2>/dev/null; then
-            echo "Failed to decode APPLE_API_PRIVATE_KEY_P8_BASE64 as base64."
-            exit 1
-          fi
-          if ! grep -q "BEGIN PRIVATE KEY" "$NOTARY_KEY_PATH"; then
-            echo "Decoded notarization key is not a valid .p8 private key."
-            exit 1
-          fi
-          chmod 600 "$NOTARY_KEY_PATH"
-
-          ditto -c -k --keepParent xf "$NOTARY_ZIP_PATH"
-
-          xcrun notarytool submit "$NOTARY_ZIP_PATH" \
-            --key "$NOTARY_KEY_PATH" \
-            --key-id "$APPLE_API_KEY_ID" \
-            --issuer "$APPLE_API_ISSUER_ID" \
-            --wait
-
-          # Notarization acceptance is the source of truth for CLI binaries.
-          # spctl --type exec may reject non-app bundles with "does not seem to be an app".
-          echo "Notarization accepted for macOS CLI artifact."
-
-      - name: Create archive (Unix)
-        if: matrix.os != 'windows'
-        shell: bash
-        run: |
-          ARCHIVE_NAME="xf-${{ steps.version.outputs.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
-          tar -czf "$ARCHIVE_NAME" xf
-          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
-
-      - name: Create archive (Windows)
-        if: matrix.os == 'windows'
-        shell: pwsh
-        run: |
-          $ARCHIVE_NAME = "xf-${{ steps.version.outputs.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}.zip"
-          Compress-Archive -Path xf.exe -DestinationPath $ARCHIVE_NAME
-          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $env:GITHUB_ENV
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: xf-${{ matrix.os }}-${{ matrix.arch }}
-          path: xf-${{ steps.version.outputs.VERSION }}-${{ matrix.os }}-${{ matrix.arch }}.${{ matrix.ext }}
-          retention-days: 1
-
   release:
-    name: Create Release
-    needs: build
+    name: Release
     runs-on: blacksmith-4vcpu-ubuntu-2404
+
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
+      - name: Checkout code
+        uses: actions/checkout@v6
         with:
-          path: artifacts
-          merge-multiple: true
+          fetch-depth: 0
 
-      - name: List artifacts
-        run: ls -la artifacts/
-
-      - name: Generate checksums
-        run: |
-          cd artifacts
-          sha256sum * > checksums.txt
-          cat checksums.txt
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Set up Go
+        uses: actions/setup-go@v6
         with:
-          generate_release_notes: true
-          files: |
-            artifacts/*
+          go-version-file: "go.mod"
+
+      - name: Release
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/attest@v4
+        with:
+          subject-checksums: ./dist/checksums.txt

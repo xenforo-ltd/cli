@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: xf
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: xf
+    binary: bin/xf
+    main: ./cmd/xf
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - arm64
+      - amd64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X version.Version={{.Version}}
+      - -X version.Commit={{.Commit}}
+      - -X version.Date={{.CommitDate}}
+
+gomod:
+  proxy: true
+
+checksum:
+  name_template: "checksums.txt"
+
+notarize:
+  macos:
+    - enabled: "{{ isEnvSet \"MACOS_CERT_P12_BASE64\" }}"
+
+      sign:
+        certificate: "{{.Env.MACOS_CERT_P12_BASE64}}"
+        password: "{{.Env.MACOS_CERT_PASSWORD}}"
+
+      notarize:
+        issuer_id: "{{.Env.APPLE_API_ISSUER_ID}}"
+        key_id: "{{.Env.APPLE_API_KEY_ID}}"
+        key: "{{.Env.APPLE_API_PRIVATE_KEY_P8_BASE64}}"
+
+archives:
+  - formats: [ tar.gz ]
+    wrap_in_directory: true
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- if eq .Os "darwin" }}macOS_
+      {{- else }}{{ .Os }}_{{ end }}
+      {{- .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+    format_overrides:
+      - goos: windows
+        formats: [ zip ]
+
+release:
+  prerelease: auto
+  name_template: "XenForo CLI {{.Version}}"

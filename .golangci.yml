@@ -1,0 +1,31 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: standard
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*archive/zip.ReadCloser).Close
+        - (*compress/gzip.Reader).Close
+        - (*os.File).Close
+        - (io.Closer).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - strconv.Atoi
+        - charm.land/lipgloss/v2.Fprint
+        - charm.land/lipgloss/v2.Fprintf
+        - charm.land/lipgloss/v2.Fprintln
+        - charm.land/lipgloss/v2.Printf
+        - charm.land/lipgloss/v2.Println
+
+formatters:
+  enable:
+    - gofmt

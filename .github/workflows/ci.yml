@@ -1,18 +1,34 @@
 name: CI
 
 on:
-  pull_request:
+  workflow_dispatch:
+
   push:
     branches:
-      - main
+      - "main"
+    paths:
+      - "**.go"
+      - .golangci.yml
+
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "**.go"
+      - .golangci.yml
+
+concurrency:
+  group: "${{ github.workflow }}@${{ github.head_ref || github.ref_name }}"
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  fmt:
-    name: gofmt
+  lint:
+    name: Lint
     runs-on: blacksmith-4vcpu-ubuntu-2404
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -20,30 +36,26 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
-      - name: Check formatting
-        run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-            echo "The following files are not gofmt-formatted:"
-            echo "$unformatted"
-            exit 1
-          fi
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11
 
   test:
-    name: test (${{ matrix.os }})
-    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.name }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - os: linux
-            runner: blacksmith-4vcpu-ubuntu-2404
-          - os: darwin
-            runner: macos-latest
-          - os: windows
-            runner: blacksmith-4vcpu-windows-2025
+          - name: Test
+            command: make test
+          - name: Test (race)
+            command: make test-race
+      fail-fast: false
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -51,13 +63,29 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
-      - name: Go vet
-        run: go vet ./...
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.command }}
 
-      - name: Go test
-        run: go test ./...
+  test-coverage:
+    name: Test (coverage)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
 
-      - name: Go test (race)
-        run: go test -race ./...
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+
+      - name: Test coverage
+        run: make test-coverage
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v6
+        env:
+          # TODO: move to top?
+          CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
