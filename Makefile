@@ -3,7 +3,7 @@ DIST_DIR := ./dist/
 
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-DATE := $(shell git show -s --format=%cI HEAD 2>/dev/null || echo "unknown")
+DATE := $(shell TZ=UTC git show -s --format=%cd --date=iso-strict-local HEAD 2>/dev/null || echo "unknown")
 
 LDFLAGS := -X github.com/xenforo-ltd/cli/internal/version.Version=$(VERSION) \
 	-X github.com/xenforo-ltd/cli/internal/version.Commit=$(COMMIT) \
