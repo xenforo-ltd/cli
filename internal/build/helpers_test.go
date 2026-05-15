@@ -37,6 +37,9 @@ func newFixture(t *testing.T, config string) fixture {
 	if err := os.Mkdir(filepath.Join(f.addon, "_data"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Mkdir(filepath.Join(f.addon, "_output"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	return f
 }
 

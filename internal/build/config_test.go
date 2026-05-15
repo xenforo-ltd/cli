@@ -126,7 +126,7 @@ func TestBuildMissingConfiguration(t *testing.T) {
 				if name == "build.json" && kind == "missing" {
 					writeFile(t, f.addon, "Demo.php", "<?php")
 					writeFile(t, f.addon, "js/demo.js", "console.log(1 + 2);")
-					writeFile(t, f.addon, "_output/metadata.json", "excluded")
+					writeFile(t, f.addon, "_output/.metadata.json", "excluded")
 					writeFile(t, f.addon, ".htaccess", "excluded by default")
 					writeFile(t, f.addon, ".git/objects/data", "excluded by default")
 					if err := build.BuildJavaScript(t.Context(), f.root, addOnID); err != nil {
@@ -138,7 +138,11 @@ func TestBuildMissingConfiguration(t *testing.T) {
 						t.Fatal(err)
 					}
 					entries := readArchive(t, result.ZipPath)
-					if len(entries) != 4 || entries["upload/"+addOnPath+"/Demo.php"].content != "<?php" {
+					dataFiles, err := os.ReadDir(filepath.Join(f.addon, "_data"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if len(entries) != 4+len(dataFiles) || entries["upload/"+addOnPath+"/Demo.php"].content != "<?php" {
 						t.Fatalf("unexpected default release contents: %#v", entries)
 					}
 					return

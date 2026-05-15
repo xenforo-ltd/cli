@@ -3,6 +3,7 @@ package build_test
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -46,7 +47,7 @@ func TestBuildRelease(t *testing.T) {
 		".partial/unselected.txt":   "not selected by a broad wildcard",
 		"excluded/nested/file.txt":  "excluded",
 		"omit.txt":                  "omitted",
-		"_output/file.txt":          "generated metadata",
+		"_output/.ignored.txt":      "generated metadata",
 		"_stubs/file.txt":           "stub",
 		"hashes.json":               "old manifest",
 		"_files/js/demo/source.js":  "console.log('extra');\n",
@@ -102,6 +103,14 @@ func TestBuildRelease(t *testing.T) {
 		"upload/extra.txt":                  "preferred",
 		"README.txt":                        "read me\n",
 		".htaccess":                         "explicit archive extra",
+	}
+	dataFiles, err := os.ReadDir(filepath.Join(f.addon, "_data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range dataFiles {
+		name := "_data/" + file.Name()
+		want[upload+name] = readFile(t, f.addon, name)
 	}
 	manifestName := upload + "hashes.json"
 	manifest, exists := entries[manifestName]
@@ -254,10 +263,18 @@ func TestBuildConfiguredRoots(t *testing.T) {
 	}
 }
 
-// TestBuildWarnings checks the missing-whitelist warning and its write errors.
+// TestBuildWarnings checks configuration and export warnings and their write errors.
 func TestBuildWarnings(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t, `{}`)
+	source := `{"custom":true}`
+	digest := md5.Sum([]byte(source))
+	metadata, err := json.Marshal(map[string]string{"_file": "demo.json", "hash": hex.EncodeToString(digest[:])})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, f.addon, "_output/api_scopes/demo.json", source)
+	writeFile(t, f.addon, "_output/api_scopes/_metadata.jsonl", string(metadata)+"\n")
 	var stderr bytes.Buffer
 	if _, err := build.Build(t.Context(), f.root, addOnID, build.WithIO(nil, nil, &stderr)); err != nil {
 		t.Fatal(err)
@@ -265,10 +282,18 @@ func TestBuildWarnings(t *testing.T) {
 	if !strings.Contains(stderr.String(), "no whitelist") {
 		t.Fatalf("missing warning: %q", stderr.String())
 	}
+	if !strings.Contains(stderr.String(), `warning: api_scopes: ignoring unknown field "custom"`) {
+		t.Fatalf("missing export warning: %q", stderr.String())
+	}
 	sentinel := errors.New("writer failed")
-	_, err := build.Build(t.Context(), f.root, addOnID, build.WithIO(nil, nil, failingWriter{sentinel}))
+	_, err = build.Build(t.Context(), f.root, addOnID, build.WithIO(nil, nil, failingWriter{sentinel}))
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("error = %v, want writer error", err)
+	}
+	writeFile(t, f.addon, "build.json", `{"whitelist":["addon.json"]}`)
+	_, err = build.Build(t.Context(), f.root, addOnID, build.WithIO(nil, nil, failingWriter{sentinel}))
+	if !errors.Is(err, sentinel) || !strings.Contains(err.Error(), "writing export warning") {
+		t.Fatalf("error = %v, want export warning writer error", err)
 	}
 }
 
@@ -288,7 +313,7 @@ func TestBuildSelectionErrors(t *testing.T) {
 		{"no upload is a file", `{}`, map[string]string{"_no_upload": "bad"}, "_no_upload must be a directory"},
 		{"no upload conflict", `{}`, map[string]string{"_no_upload/upload/" + addOnPath + "/addon.json": "bad"}, "conflicts with upload content"},
 		{"invalid archive name", `{}`, map[string]string{"bad:name.txt": "bad"}, "invalid archive path"},
-		{"data missing", `{}`, nil, "required _data directory is unavailable"},
+		{"data source missing", `{}`, nil, "reading development output"},
 		{"data is a file", `{}`, map[string]string{"_data": "bad"}, "_data must be a directory"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -298,11 +323,15 @@ func TestBuildSelectionErrors(t *testing.T) {
 			}
 			f := newFixture(t, tc.config)
 			if strings.HasPrefix(tc.name, "data ") {
-				if err := os.Remove(filepath.Join(f.addon, "_data")); err != nil {
+				name := "_data"
+				if tc.name == "data source missing" {
+					name = "_output"
+				}
+				if err := os.Remove(filepath.Join(f.addon, name)); err != nil {
 					t.Fatal(err)
 				}
 				if err := build.BuildJavaScript(t.Context(), f.root, addOnID); err != nil {
-					t.Fatalf("JavaScript-only build required _data: %v", err)
+					t.Fatalf("JavaScript-only build required data export inputs: %v", err)
 				}
 			}
 			for name, content := range tc.files {

@@ -375,6 +375,76 @@ Because cloning copies an installed database, `--no-up` and `--fresh` both skip
 it: `--fresh` installs a clean forum instead, while `--no-up` leaves the
 worktree with no database until you start it and install one yourself.
 
+### Add-on Builds
+
+Run these commands from the XenForo installation or a directory beneath it,
+or set `XF_DIR` to the installation path.
+
+```bash
+# Build a release ZIP and hash manifest
+xf build Vendor/AddOn
+
+# Reuse installed dependencies
+xf build Vendor/AddOn --skip-composer
+
+# Override the ZIP timestamp with a Unix timestamp supplied by CI
+BUILD_DATE=1767225600 xf build Vendor/AddOn
+
+# Build JavaScript without creating a release
+xf build-js Vendor/AddOn
+
+# Rebuild JavaScript when inputs change
+xf build-js Vendor/AddOn --watch
+```
+
+The add-on's optional `build.json` controls file selection, minification, rollups,
+and release commands. Without it, the build root is the add-on directory, all
+eligible files are included, and no JavaScript or exec tasks run. Built-in
+exclusions still apply. Hidden files and directories are excluded unless whitelist
+patterns explicitly name their dot-prefixed components. For example, `.htaccess`
+includes that file, `.config/**` includes visible files under `.config`, and
+`**` alone does not include hidden paths. Blacklist rules and reserved build-file
+exclusions still apply. Additional files and JavaScript inputs are looked up in
+the build root's `_files` directory first, then in the build root itself.
+
+Minifying a script writes its `*.min.js` companion and an external
+`*.min.js.map` source map, and links the map from the minified file. Maps do not
+embed original sources (`sourcesContent`); the unminified sources ship alongside
+them. Rollups concatenate their inputs as plain text without stripping comments.
+Wildcard rollup inputs exclude `.min.js` files and outputs of later rollups;
+list a file explicitly to include it. Earlier rollup outputs can be used for
+chaining. A bundle's own output and minified companion are always excluded
+from its inputs. Minification always runs after rollups: a `minify` pattern that
+matches the bundle produces its `*.min.js` companion and a map that points back
+at the readable bundle.
+
+Builds check only the `addon.json` fields they use: a usable `version_string`
+and a valid `composer_autoload` path when provided. Full metadata validation is
+deferred. A declared `composer_autoload` directory must have its `installed.json`
+included in the release, even with `--skip-composer`. Release builds export XML
+from the add-on's prepared `_output` directory into `_data`, after Composer and
+before JavaScript tasks. Non-empty type directories require `_metadata.jsonl`,
+and listed files must match their recorded hashes. Unknown types, unknown JSON
+fields, and custom PHP export handlers are rejected. JavaScript-only builds do
+not export data or require `_output` or `_data`.
+
+Every ZIP entry uses `1980-01-01 00:00:00 UTC` by default, including generated
+files and instructions. Set `BUILD_DATE` to a Unix timestamp to override
+this date. The timestamp must fall between 1980-01-01 and
+2106-02-07 06:28:15 UTC. Source modification times do not affect the ZIP bytes;
+the same binary, inputs, and settings produce the same archive.
+
+`hash_exclude` is an optional array of paths or globs omitted from `hashes.json`
+without removing files from the ZIP. Patterns match upload destinations relative
+to the build root; additional files mapped outside that root use their
+installation-relative destination. Use `**/index.html` to exclude that filename
+at any depth. A literal directory path also excludes its descendants.
+
+Releases are written to the add-on's `_releases` directory;
+the generated hash manifest is written to `_build/hashes.json`. Composer uses
+the Docker environment when configured, or the host otherwise. Configured
+`exec` commands run on the host.
+
 ### PHP / Composer / Debug
 
 ```bash

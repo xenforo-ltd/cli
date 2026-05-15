@@ -73,7 +73,8 @@ func WithTimestamp(timestamp time.Time) Option {
 // Without it, all eligible files beneath the add-on directory are included.
 // Composer uses the project's Docker environment when configured and runs on
 // the host otherwise. Configured exec commands always run on the host.
-// The add-on's _data directory must exist before any build tasks run.
+// Data is exported from prepared _output after Composer and before JavaScript
+// tasks. The export creates the add-on's _data directory if needed.
 // ZIP timestamps are fixed by default and do not use source modification times.
 func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*BuildResult, error) {
 	opts := applyOptions(options)
@@ -94,14 +95,6 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 	}
 
 	defer root.Close()
-	dataDir := path.Join(cfg.addOnDir, "_data")
-	info, err := root.Stat(filepath.FromSlash(dataDir))
-	if err != nil {
-		return nil, fmt.Errorf("required _data directory is unavailable; export add-on data before building: %w", err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("%s must be a directory", dataDir)
-	}
 
 	if cfg.includeAll {
 		if _, err := fmt.Fprintln(opts.stderr, "warning: no whitelist configured; including every eligible file in the build root"); err != nil {
@@ -124,6 +117,7 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 		tasks = append(tasks, composerTask{installationDir: installation.Name(), dir: cfg.prefix, streams: opts.commandStreams})
 	}
 
+	tasks = append(tasks, exportDataTask{dir: cfg.addOnDir, stderr: opts.stderr})
 	tasks = append(tasks, javascriptTasks(cfg)...)
 	if len(cfg.commands) > 0 {
 		tasks = append(tasks, execTask{commands: cfg.commands, dir: cfg.addOnDir, streams: opts.commandStreams})
@@ -178,12 +172,12 @@ type task interface {
 
 // runTasks runs tasks in order, stopping at the first error.
 // File-consuming tasks get fresh snapshots so they see earlier outputs.
-// Command-only tasks do not need snapshots.
+// Tasks that read their own inputs do not need snapshots.
 func runTasks(ctx context.Context, root *os.Root, tasks []task) error {
 	for _, task := range tasks {
 		var files []file
 		switch task.(type) {
-		case composerTask, execTask:
+		case composerTask, exportDataTask, execTask:
 			// These tasks inspect or generate files themselves.
 		default:
 			var err error
