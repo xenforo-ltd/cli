@@ -87,6 +87,9 @@ func TestPublicAPIsInvalidInstallation(t *testing.T) {
 			return err
 		}},
 		{"BuildJavaScript", build.BuildJavaScript},
+		{"WatchJavaScript", func(ctx context.Context, root, id string) error {
+			return build.WatchJavaScript(ctx, root, id, build.WatchOptions{})
+		}},
 	}
 	for _, api := range apis {
 		t.Run(api.name, func(t *testing.T) {

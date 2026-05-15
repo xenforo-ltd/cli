@@ -418,4 +418,7 @@ func TestPublicAPIsCancellation(t *testing.T) {
 	if err := build.BuildJavaScript(ctx, f.root, addOnID); !errors.Is(err, context.Canceled) {
 		t.Fatalf("BuildJavaScript error = %v, want cancellation", err)
 	}
+	if err := build.WatchJavaScript(ctx, f.root, addOnID, build.WatchOptions{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("WatchJavaScript error = %v, want cancellation", err)
+	}
 }
