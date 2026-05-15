@@ -1,18 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/xfcmd"
 )
 
 var composerCmd = &cobra.Command{
 	Use:   "composer [path] [args...]",
 	Short: "Run Composer commands",
-	Long: `Run Composer commands in the Docker environment.
+	Long: `Run Composer commands in the Docker environment when configured,
+or on the host otherwise.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
 
@@ -47,12 +47,7 @@ func runComposer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	runner, err := dockercompose.NewRunner(xfDir)
-	if err != nil {
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
-	}
-
-	if err := runner.ExecOrRun(cmd.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, append([]string{"composer"}, composerArgs...)...); err != nil {
+	if err := xfcmd.RunComposer(cmd.Context(), xfDir, os.Stdin, os.Stdout, os.Stderr, composerArgs...); err != nil {
 		return passthroughError(err, "failed to run Composer")
 	}
 

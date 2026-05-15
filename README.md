@@ -393,6 +393,11 @@ xf php-debug -v
 xf help php
 ```
 
+`xf composer` uses the Docker environment when `compose.yaml` is present,
+executing in the running `xf` service or starting a one-off container otherwise.
+Without `compose.yaml`, it runs the host's Composer in the XenForo directory.
+Docker failures are reported rather than retried on the host.
+
 ### Other Commands
 
 ```bash
