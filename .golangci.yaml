@@ -16,6 +16,8 @@ linters:
         - (*archive/zip.ReadCloser).Close
         - (*compress/gzip.Reader).Close
         - (*os.File).Close
+        - (*os.Root).Close
+        - (*os.Root).Remove
         - (io.Closer).Close
         - fmt.Fprint
         - fmt.Fprintf

@@ -5,7 +5,9 @@ go 1.27.0
 require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
+	github.com/bmatcuk/doublestar/v4 v4.10.3
 	github.com/charmbracelet/x/term v0.2.2
+	github.com/evanw/esbuild v0.28.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/zalando/go-keyring v0.2.8
