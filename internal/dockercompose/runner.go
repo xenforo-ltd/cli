@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/x/term"
+
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
@@ -313,7 +315,8 @@ func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
 //
 // env is passed as container environment variables so secrets stay out of the
 // process list. The streams are explicit so interactive commands and progress
-// writers behave the same whether the service is running or stopped.
+// writers behave the same whether the service is running or stopped. A TTY is
+// requested only when stdin is a terminal.
 func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	running, err := r.IsServiceRunning(ctx, service)
 	if err != nil {
@@ -323,6 +326,9 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]s
 	if running {
 		execArgs := r.buildComposeArgs()
 		execArgs = append(execArgs, "exec")
+		if input, ok := stdin.(*os.File); !ok || !term.IsTerminal(input.Fd()) {
+			execArgs = append(execArgs, "-T")
+		}
 		execArgs = r.appendEnvVars(execArgs, env, "-e")
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
@@ -333,10 +339,12 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]s
 		}
 
 		// stderr is captured only to detect the not-running case above. For any
-		// other failure it is the command's own error message, so replay it
-		// rather than let the caller exit silently.
-		if err != nil && stderrOutput != "" {
-			_, _ = io.WriteString(stderr, stderrOutput)
+		// other result, forward it: successful commands also write diagnostics
+		// and progress to stderr.
+		if stderrOutput != "" {
+			if _, writeErr := io.WriteString(stderr, stderrOutput); writeErr != nil && err == nil {
+				return writeErr
+			}
 		}
 
 		return err

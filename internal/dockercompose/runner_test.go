@@ -195,12 +195,12 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "ok")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, nil, os.Stdout, os.Stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
 		log := readDockerLog(t, logFile)
-		if !strings.Contains(log, " exec xf php -v") {
+		if !strings.Contains(log, " exec -T xf php -v") {
 			t.Fatalf("expected exec invocation, log:\n%s", log)
 		}
 
@@ -213,7 +213,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		runner, logFile := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, nil, os.Stdout, os.Stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -222,7 +222,7 @@ func TestExecOrRunBranching(t *testing.T) {
 			t.Fatalf("expected run invocation, log:\n%s", log)
 		}
 
-		if strings.Contains(log, " exec xf php -v") {
+		if strings.Contains(log, " exec -T xf php -v") {
 			t.Fatalf("did not expect exec invocation, log:\n%s", log)
 		}
 	})
@@ -232,12 +232,12 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "not_running")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, nil, os.Stdout, os.Stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
 		log := readDockerLog(t, logFile)
-		if !strings.Contains(log, " exec xf php -v") || !strings.Contains(log, " run --rm xf php -v") {
+		if !strings.Contains(log, " exec -T xf php -v") || !strings.Contains(log, " run --rm xf php -v") {
 			t.Fatalf("expected exec then run fallback, log:\n%s", log)
 		}
 	})
@@ -248,12 +248,12 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_EXEC_MODE", "ok")
 
 		var stdout, stderr strings.Builder
-		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, &stdout, &stderr, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, nil, &stdout, &stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
 		log := readDockerLog(t, logFile)
-		if !strings.Contains(log, " exec xf php -v") {
+		if !strings.Contains(log, " exec -T xf php -v") {
 			t.Fatalf("expected exec invocation, log:\n%s", log)
 		}
 	})
@@ -264,12 +264,12 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_EXEC_MODE", "not_running")
 
 		var stdout, stderr strings.Builder
-		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, &stdout, &stderr, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, nil, &stdout, &stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
 		log := readDockerLog(t, logFile)
-		if !strings.Contains(log, " exec xf php -v") || !strings.Contains(log, " run --rm xf php -v") {
+		if !strings.Contains(log, " exec -T xf php -v") || !strings.Contains(log, " run --rm xf php -v") {
 			t.Fatalf("expected exec then run fallback, log:\n%s", log)
 		}
 	})
@@ -285,7 +285,7 @@ func TestExecOrRunEnvBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "ok")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", map[string]string{"XDEBUG_SESSION": "1"}, nil, os.Stdout, os.Stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -293,7 +293,7 @@ func TestExecOrRunEnvBranching(t *testing.T) {
 
 		// The name alone goes in the arguments; the value is forwarded through
 		// the environment so it never appears in the host's process list.
-		if !strings.Contains(log, " exec -e XDEBUG_SESSION xf php -v") {
+		if !strings.Contains(log, " exec -T -e XDEBUG_SESSION xf php -v") {
 			t.Fatalf("expected exec invocation with env, log:\n%s", log)
 		}
 
@@ -314,7 +314,7 @@ func TestExecOrRunEnvBranching(t *testing.T) {
 		runner, logFile := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", map[string]string{"XDEBUG_SESSION": "1"}, nil, os.Stdout, os.Stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -331,7 +331,7 @@ func TestExecOrRunEnvBranching(t *testing.T) {
 			t.Fatalf("env value did not reach the docker process, log:\n%s", log)
 		}
 
-		if strings.Contains(log, " exec -e XDEBUG_SESSION xf php -v") {
+		if strings.Contains(log, " exec -T -e XDEBUG_SESSION xf php -v") {
 			t.Fatalf("did not expect exec invocation, log:\n%s", log)
 		}
 	})
