@@ -168,7 +168,7 @@ func TestOpenDatabaseShellRequiresRunningDatabase(t *testing.T) {
 		t.Fatalf("read docker log: %v", readErr)
 	}
 
-	for _, call := range strings.Split(strings.TrimSpace(string(calls)), "\n") {
+	for call := range strings.SplitSeq(strings.TrimSpace(string(calls)), "\n") {
 		if !strings.Contains(call, " ps ") {
 			t.Errorf("unexpected docker call: %s", call)
 		}

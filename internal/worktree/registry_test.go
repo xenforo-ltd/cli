@@ -321,10 +321,8 @@ func TestRegistryReserveConcurrently(t *testing.T) {
 	)
 
 	for i := range workers {
-		wg.Add(1)
 
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 
 			// Separate Registry values, as separate processes would have.
 			reg := &Registry{path: path}
@@ -337,7 +335,7 @@ func TestRegistryReserveConcurrently(t *testing.T) {
 			} else if !errors.Is(err, ErrNameReserved) {
 				t.Errorf("Reserve: %v", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
