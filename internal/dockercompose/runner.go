@@ -39,13 +39,21 @@ type Runner struct {
 // NewRunner creates a new Docker Compose runner for the given XenForo directory.
 func NewRunner(xfDir string) (*Runner, error) {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")
-	if _, err := os.Stat(xfPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", err)
+	if _, err := os.Stat(xfPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", err)
+		}
+
+		return nil, fmt.Errorf("cannot access src/XF.php: %w", err)
 	}
 
 	composePath := filepath.Join(xfDir, "compose.yaml")
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
-		return nil, errors.Join(fmt.Errorf("environment not initialized (compose.yaml not found): %w", ErrEnvNotInitialized), err)
+	if _, err := os.Stat(composePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.Join(fmt.Errorf("environment not initialized (compose.yaml not found): %w", ErrEnvNotInitialized), err)
+		}
+
+		return nil, fmt.Errorf("cannot access compose.yaml: %w", err)
 	}
 
 	envPath := filepath.Join(xfDir, ".env")

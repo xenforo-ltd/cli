@@ -94,8 +94,12 @@ func getXenForoDir(args []string) (string, error) {
 		}
 
 		xfPath := filepath.Join(absPath, "src", "XF.php")
-		if _, err := os.Stat(xfPath); os.IsNotExist(err) {
-			return "", fmt.Errorf("not a XenForo directory %s: %w", absPath, err)
+		if _, err := os.Stat(xfPath); err != nil {
+			if os.IsNotExist(err) {
+				return "", fmt.Errorf("not a XenForo directory %s: %w", absPath, err)
+			}
+
+			return "", fmt.Errorf("cannot access %s: %w", absPath, err)
 		}
 
 		return absPath, nil
