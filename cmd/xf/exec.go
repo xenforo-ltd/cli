@@ -31,6 +31,7 @@ Examples:
 }
 
 func init() {
+	execCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(execCmd)
 }
 
@@ -65,7 +66,7 @@ func resolveXenForoDirAndArgs(args []string) (string, []string, error) {
 	if len(args) > 0 {
 		potentialPath := args[0]
 		if dir, err := getXenForoDir([]string{potentialPath}); err == nil {
-			return dir, args[1:], nil
+			return dir, stripFlagSeparator(args[1:]), nil
 		}
 	}
 
@@ -74,7 +75,15 @@ func resolveXenForoDirAndArgs(args []string) (string, []string, error) {
 		return "", nil, err
 	}
 
-	return xfDir, args, nil
+	return xfDir, stripFlagSeparator(args), nil
+}
+
+func stripFlagSeparator(args []string) []string {
+	if len(args) > 0 && args[0] == "--" {
+		return args[1:]
+	}
+
+	return args
 }
 
 func validateExecInvocation(execArgs []string) error {

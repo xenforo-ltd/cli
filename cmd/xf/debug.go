@@ -33,6 +33,7 @@ Examples:
 }
 
 func init() {
+	debugCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(debugCmd)
 }
 

@@ -168,8 +168,8 @@ xf logs
 xf logs --follow
 
 # Docker Compose passthrough
-xf compose -- ps
-xf compose -- exec xf mysql -u root
+xf compose ps
+xf compose exec xf mysql -u root
 
 # Exec into a service
 xf exec xf ls -la
@@ -180,7 +180,8 @@ xf exec xf ls -la
 ```bash
 # PHP and Composer
 xf php -- -v
-xf composer -- install
+xf composer install
+xf composer outdated --direct
 
 # XenForo command with XDebug enabled
 xf debug xf-dev:import

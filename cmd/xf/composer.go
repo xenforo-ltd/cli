@@ -11,27 +11,31 @@ import (
 )
 
 var composerCmd = &cobra.Command{
-	Use:   "composer [path] -- [args...]",
+	Use:   "composer [path] [args...]",
 	Short: "Run Composer commands",
 	Long: `Run Composer commands in the Docker environment.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-All arguments after -- are passed to Composer.
+All arguments are passed to Composer.
 
 Examples:
   # Install dependencies
-  xf composer -- install
+  xf composer install
 
   # Update dependencies
-  xf composer -- update
+  xf composer update
+
+  # Pass flags directly
+  xf composer outdated --direct
 
   # Run composer in specific directory
-  xf composer ./my-project -- install`,
+  xf composer ./my-project install`,
 	Args: cobra.MinimumNArgs(0),
 	RunE: runComposer,
 }
 
 func init() {
+	composerCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(composerCmd)
 }
 

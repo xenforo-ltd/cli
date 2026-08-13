@@ -9,27 +9,28 @@ import (
 )
 
 var composeCmd = &cobra.Command{
-	Use:   "compose [path] -- [args...]",
+	Use:   "compose [path] [args...]",
 	Short: "Run a Docker Compose command",
 	Long: `Run a Docker Compose command directly.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-All arguments after -- are passed directly to 'docker compose'.
+All arguments are passed directly to 'docker compose'.
 
 Examples:
   # List services
-  xf compose -- ps
+  xf compose ps
 
   # Build services
-  xf compose -- build
+  xf compose build
 
   # Execute inside a running service
-  xf compose -- exec xf mysql -u root`,
+  xf compose exec xf mysql -u root`,
 	Args: cobra.MinimumNArgs(0),
 	RunE: runCompose,
 }
 
 func init() {
+	composeCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(composeCmd)
 }
 

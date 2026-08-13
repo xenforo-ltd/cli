@@ -12,19 +12,19 @@ import (
 )
 
 var phpCmd = &cobra.Command{
-	Use:   "php [path] -- [args...]",
+	Use:   "php [path] [args...]",
 	Short: "Run PHP commands",
 	Long: `Run PHP in the Docker environment.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-All arguments after -- are passed to PHP.
+All arguments are passed to PHP.
 
 Examples:
   # Check PHP version
   xf php -- -v
 
   # Run a PHP script
-  xf php -- my-script.php
+  xf php my-script.php
 
   # Run PHP in specific directory
   xf php ./my-project -- -v`,
@@ -33,21 +33,23 @@ Examples:
 }
 
 var phpDebugCmd = &cobra.Command{
-	Use:   "php-debug [path] -- [args...]",
+	Use:   "php-debug [path] [args...]",
 	Short: "Run PHP with Xdebug",
 	Long: `Run PHP with Xdebug enabled in the Docker environment.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-All arguments after -- are passed to PHP.
+All arguments are passed to PHP.
 
 Examples:
   # Run PHP script with Xdebug
-  xf php-debug -- my-script.php`,
+  xf php-debug my-script.php`,
 	Args: cobra.MinimumNArgs(0),
 	RunE: runPHPDebug,
 }
 
 func init() {
+	phpCmd.Flags().SetInterspersed(false)
+	phpDebugCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(phpCmd)
 	rootCmd.AddCommand(phpDebugCmd)
 }
