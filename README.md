@@ -58,6 +58,46 @@ xf xf-dev:import
 
 If you are not in a XenForo directory, set `XF_DIR` to a directory that contains `src/XF.php`.
 
+### Passing arguments to wrapped tools
+
+`php`, `php-debug`, `composer`, `compose`, `exec` and `debug` wrap another tool.
+For these commands:
+
+> **`xf`'s own flags go before the command name. Everything after it belongs to
+> the wrapped tool.**
+
+```bash
+# Flags after the command reach the tool
+xf php -v                       # runs: php -v
+xf composer outdated --direct   # runs: composer outdated --direct
+
+# xf's own flags go first
+xf --verbose php my-script.php
+
+# A leading -- is accepted and removed, for habit or clarity
+xf php -- -v
+```
+
+Because everything after the command is forwarded, `xf php --help` shows PHP's
+help, not `xf`'s. Use `xf help php` (or `xf help composer`, and so on) to read
+`xf`'s help for a wrapped command.
+
+All other commands parse flags normally and accept them in any position. `xf logs
+--follow` and `xf logs xf --follow` are equivalent, because `--follow` belongs to
+`xf` rather than to a wrapped tool.
+
+### Known limitation
+
+Global flags cannot currently be combined with the direct XenForo route, because
+that route is only taken when the first argument is not a flag:
+
+```bash
+xf xf-dev:import        # works
+xf -v xf-dev:import     # prints xf's help and exits 0 without running anything
+```
+
+Use a wrapped command if you need this, for example `xf --verbose debug xf-dev:import`.
+
 ## CLI Usage
 
 ### Authentication
@@ -179,7 +219,7 @@ xf exec xf ls -la
 
 ```bash
 # PHP and Composer
-xf php -- -v
+xf php -v
 xf composer install
 xf composer outdated --direct
 
@@ -187,7 +227,10 @@ xf composer outdated --direct
 xf debug xf-dev:import
 
 # PHP with XDebug enabled
-xf php-debug -- -v
+xf php-debug -v
+
+# Read xf's help for a wrapped command
+xf help php
 ```
 
 ### Other Commands

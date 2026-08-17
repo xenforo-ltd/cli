@@ -245,6 +245,42 @@ func TestNonPassthroughCommandsKeepFlexibleFlagPositions(t *testing.T) {
 	}
 }
 
+// TestDirectRouteIsSkippedWhenFirstArgIsAFlag pins a known limitation rather
+// than an intended behaviour.
+//
+// Execute only takes the direct XenForo route when the first argument is not a
+// flag, so `xf -v xf-dev:import` never reaches that route. Cobra then finds no
+// matching command and prints the root help, and because that is not an error
+// the process exits 0 without running anything.
+//
+// This test exists so that fixing it is a deliberate, visible change.
+func TestDirectRouteIsSkippedWhenFirstArgIsAFlag(t *testing.T) {
+	// A XenForo command is not a registered cobra command, so reaching it depends
+	// entirely on Execute's routing.
+	if isKnownCommand("xf-dev:import") {
+		t.Fatal("fixture must not be a built-in command")
+	}
+
+	// Execute takes the direct route only for a non-flag first argument. These
+	// are the inputs that decide it; the flagged form falls through to cobra,
+	// which resolves nothing and prints the root help without an error.
+	for _, tc := range []struct {
+		firstArg string
+		direct   bool
+	}{
+		{firstArg: "xf-dev:import", direct: true},
+		{firstArg: "list", direct: true},
+		{firstArg: "-v", direct: false},
+		{firstArg: "--verbose", direct: false},
+		{firstArg: "--help", direct: false},
+	} {
+		got := takesDirectXenForoRoute(tc.firstArg)
+		if got != tc.direct {
+			t.Errorf("takesDirectXenForoRoute(%q) = %v, want %v", tc.firstArg, got, tc.direct)
+		}
+	}
+}
+
 // TestLogsIsNotAPassthroughCommand documents a deliberate decision: --follow
 // belongs to xf, so logs keeps normal parsing.
 func TestLogsIsNotAPassthroughCommand(t *testing.T) {

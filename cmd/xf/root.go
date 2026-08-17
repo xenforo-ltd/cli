@@ -108,7 +108,7 @@ func Execute(ctx context.Context) {
 	if len(os.Args) > 1 {
 		firstArg := os.Args[1]
 
-		if !strings.HasPrefix(firstArg, "-") && firstArg != "help" && firstArg != "--help" && firstArg != "-h" {
+		if takesDirectXenForoRoute(firstArg) {
 			if !isKnownCommand(firstArg) {
 				if err := runAsXenForoCommand(ctx, os.Args[1:], exec.Command); err != nil {
 					handleError(err)
@@ -132,6 +132,17 @@ func Execute(ctx context.Context) {
 
 		os.Exit(1)
 	}
+}
+
+// takesDirectXenForoRoute reports whether a first argument is eligible to be
+// forwarded straight to XenForo, bypassing cobra.
+//
+// Known limitation: a leading flag is not eligible, so a global flag cannot be
+// combined with a direct XenForo command. `xf -v xf-dev:import` falls through to
+// cobra, which resolves nothing and prints the root help without an error.
+func takesDirectXenForoRoute(firstArg string) bool {
+	return !strings.HasPrefix(firstArg, "-") &&
+		firstArg != "help" && firstArg != "--help" && firstArg != "-h"
 }
 
 func handleError(err error) {
