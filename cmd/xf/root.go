@@ -42,8 +42,63 @@ Run XenForo commands directly (from a XenForo directory):
 `,
 }
 
+// usageError marks an error as caused by incorrect invocation (bad arguments or
+// flags), for which printing usage is genuinely helpful.
+type usageError struct {
+	err error
+}
+
+func newUsageError(err error) error {
+	return &usageError{err: err}
+}
+
+func (e *usageError) Error() string { return e.err.Error() }
+
+func (e *usageError) Unwrap() error { return e.err }
+
+// configureErrorHandling makes cobra print usage only for genuine misuse.
+//
+// By default cobra prints the full usage block for any error returned from RunE,
+// including runtime failures such as Docker being unavailable. That wrongly
+// implies the command was typed incorrectly. Usage is still printed for argument
+// and flag errors, where it is the helpful response.
+func configureErrorHandling(cmd *cobra.Command) {
+	cmd.SilenceUsage = true
+	// Execute prints errors itself; without this cobra prints them too.
+	cmd.SilenceErrors = true
+
+	// Execute may be called more than once by tests or an embedding program. Do
+	// not stack another usageError wrapper on every invocation.
+	if cmd.Args != nil && (cmd.Annotations == nil || cmd.Annotations[usageConfiguredAnnotation] != "true") {
+		args := cmd.Args
+		cmd.Args = func(c *cobra.Command, a []string) error {
+			if err := args(c, a); err != nil {
+				return newUsageError(err)
+			}
+
+			return nil
+		}
+	}
+	if cmd.Annotations == nil {
+		cmd.Annotations = make(map[string]string)
+	}
+	cmd.Annotations[usageConfiguredAnnotation] = "true"
+
+	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+		return newUsageError(err)
+	})
+
+	for _, sub := range cmd.Commands() {
+		configureErrorHandling(sub)
+	}
+}
+
+const usageConfiguredAnnotation = "xf.xenforo.com/usage-error-handling-configured"
+
 // Execute runs the CLI application.
 func Execute(ctx context.Context) {
+	configureErrorHandling(rootCmd)
+
 	if len(os.Args) > 1 {
 		firstArg := os.Args[1]
 
@@ -59,8 +114,16 @@ func Execute(ctx context.Context) {
 		}
 	}
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
+	executed, err := rootCmd.ExecuteContextC(ctx)
+	if err != nil {
 		handleError(err)
+
+		var usageErr *usageError
+		if errors.As(err, &usageErr) && executed != nil {
+			fmt.Fprintln(os.Stderr)
+			fmt.Fprint(os.Stderr, executed.UsageString())
+		}
+
 		os.Exit(1)
 	}
 }
