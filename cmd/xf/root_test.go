@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -57,7 +58,7 @@ func TestRunAsXenForoCommandOutsideDirReturnsActionableError(t *testing.T) {
 	t.Setenv("XF_DIR", "")
 	t.Chdir(t.TempDir())
 
-	err := runAsXenForoCommand(t.Context(), []string{"list"}, exec.Command)
+	err := runAsXenForoCommand(t.Context(), []string{"list"}, exec.CommandContext)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -101,18 +102,18 @@ func TestRunAsLocalXenForoCommandBuildsExpectedInvocation(t *testing.T) {
 		0,
 	)
 
-	if err := runAsLocalXenForoCommand(root, []string{"cron:run", "--verbose"}, cmdFn); err != nil {
+	if err := runAsLocalXenForoCommand(t.Context(), root, []string{"cron:run", "--verbose"}, cmdFn); err != nil {
 		t.Fatalf("runAsLocalXenForoCommand returned error: %v", err)
 	}
 }
 
 func TestRunAsLocalXenForoCommandReturnsActionableErrorWhenPHPMissing(t *testing.T) {
 	root := t.TempDir()
-	cmdFn := func(_ string, _ ...string) *exec.Cmd {
-		return exec.CommandContext(t.Context(), "__xf_missing_php_binary__")
+	cmdFn := func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		return exec.CommandContext(ctx, "__xf_missing_php_binary__")
 	}
 
-	err := runAsLocalXenForoCommand(root, []string{"list"}, cmdFn)
+	err := runAsLocalXenForoCommand(t.Context(), root, []string{"list"}, cmdFn)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -134,7 +135,7 @@ func TestRunAsLocalXenForoCommandReturnsErrorOnNonZeroExit(t *testing.T) {
 		2,
 	)
 
-	err := runAsLocalXenForoCommand(root, []string{"list"}, cmdFn)
+	err := runAsLocalXenForoCommand(t.Context(), root, []string{"list"}, cmdFn)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -154,16 +155,16 @@ func containsAll(s string, parts ...string) bool {
 	return true
 }
 
-func helperCommand(t *testing.T, expectedArgs, expectedWd string, exitCode int) func(string, ...string) *exec.Cmd {
+func helperCommand(t *testing.T, expectedArgs, expectedWd string, exitCode int) commandFunc {
 	t.Helper()
 	expectedWd = canonicalPath(t, expectedWd)
 
-	return func(command string, args ...string) *exec.Cmd {
+	return func(ctx context.Context, command string, args ...string) *exec.Cmd {
 		cs := make([]string, 0, len(args)+3)
 		cs = append(cs, "-test.run=TestHelperProcess", "--", command)
 		cs = append(cs, args...)
 
-		cmd := exec.CommandContext(t.Context(), os.Args[0], cs...)
+		cmd := exec.CommandContext(ctx, os.Args[0], cs...)
 
 		cmd.Env = append(os.Environ(),
 			"GO_WANT_HELPER_PROCESS=1",

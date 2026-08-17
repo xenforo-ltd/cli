@@ -110,7 +110,11 @@ func Execute(ctx context.Context) {
 
 		if takesDirectXenForoRoute(firstArg) {
 			if !isKnownCommand(firstArg) {
-				if err := runAsXenForoCommand(ctx, os.Args[1:], exec.Command); err != nil {
+				if err := runAsXenForoCommand(ctx, os.Args[1:], exec.CommandContext); err != nil {
+					if isInterrupted(err) {
+						os.Exit(exitInterrupted)
+					}
+
 					handleError(err)
 					os.Exit(1)
 				}
@@ -122,6 +126,12 @@ func Execute(ctx context.Context) {
 
 	executed, err := rootCmd.ExecuteContextC(ctx)
 	if err != nil {
+		// Ctrl-C is a deliberate user action, not a failure. Exit quietly with
+		// the conventional signal status rather than reporting an error.
+		if isInterrupted(err) {
+			os.Exit(exitInterrupted)
+		}
+
 		handleError(err)
 
 		var usageErr *usageError
@@ -132,6 +142,19 @@ func Execute(ctx context.Context) {
 
 		os.Exit(1)
 	}
+}
+
+// exitInterrupted is the conventional exit status for a process terminated by
+// SIGINT (128 + 2).
+const exitInterrupted = 130
+
+// isInterrupted reports whether an error is the result of the user cancelling
+// the command, typically with Ctrl-C.
+//
+// A timeout is deliberately excluded: unlike an interrupt, it is a failure the
+// user did not ask for and should still be reported.
+func isInterrupted(err error) bool {
+	return err != nil && errors.Is(err, context.Canceled)
 }
 
 // takesDirectXenForoRoute reports whether a first argument is eligible to be
@@ -167,7 +190,11 @@ func isKnownCommand(name string) bool {
 	return false
 }
 
-func runAsXenForoCommand(ctx context.Context, args []string, cmdFn func(string, ...string) *exec.Cmd) error {
+// commandFunc builds an external command. It is a seam for tests, and takes a
+// context so that cancellation reaches the child process.
+type commandFunc func(ctx context.Context, name string, args ...string) *exec.Cmd
+
+func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -181,7 +208,7 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn func(string, 
 	runner, err := dockercompose.NewRunner(xfDir)
 	if err != nil {
 		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
-			return runAsLocalXenForoCommand(xfDir, args, cmdFn)
+			return runAsLocalXenForoCommand(ctx, xfDir, args, cmdFn)
 		}
 
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
@@ -194,15 +221,21 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn func(string, 
 	return nil
 }
 
-func runAsLocalXenForoCommand(xfDir string, args []string, cmdFn func(string, ...string) *exec.Cmd) error {
+func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, cmdFn commandFunc) error {
 	cmdArgs := append([]string{"cmd.php"}, args...)
-	cmd := cmdFn("php", cmdArgs...)
+	cmd := cmdFn(ctx, "php", cmdArgs...)
 	cmd.Dir = xfDir
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
+		// The child is killed when the context ends, so report why it stopped
+		// rather than the resulting signal.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
 		if errors.Is(err, exec.ErrNotFound) {
 			return fmt.Errorf("local PHP executable not found in PATH: %w", err)
 		}

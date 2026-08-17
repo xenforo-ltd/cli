@@ -503,7 +503,7 @@ func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string
 	stderr := stderrBuf.String()
 
 	if err != nil {
-		err = fmt.Errorf("docker command failed: %w", err)
+		err = contextError(ctx, fmt.Errorf("docker command failed: %w", err))
 	}
 
 	return stdout, stderr, err
@@ -550,7 +550,7 @@ func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr 
 	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker command failed: %w", err)
+		return contextError(ctx, fmt.Errorf("docker command failed: %w", err))
 	}
 
 	return nil
@@ -570,6 +570,27 @@ func (r *Runner) runDockerCommandCaptureStderrWithOutput(ctx context.Context, st
 	err := r.runDockerCommandWithOutput(ctx, stdout, &stderr, args...)
 
 	return stderr.String(), err
+}
+
+// contextError replaces an execution failure with the context's own error when
+// the context has ended.
+//
+// exec.CommandContext kills the child process on cancellation, which surfaces as
+// "signal: killed" and describes the symptom rather than the cause. Substituting
+// the context error lets callers tell an interrupt or timeout apart from the
+// command genuinely failing.
+//
+// Returns err unchanged when the context is still live.
+func contextError(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+
+	return err
 }
 
 // buildDockerCommand creates a docker command with the given args.
@@ -638,7 +659,7 @@ func (r *Runner) getServicePort(ctx context.Context, service, internalPort strin
 
 	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get port for %s: %w", service, err)
+		return "", contextError(ctx, fmt.Errorf("failed to get port for %s: %w", service, err))
 	}
 
 	parts := strings.Split(strings.TrimSpace(string(output)), ":")
@@ -658,7 +679,7 @@ func (r *Runner) isServiceRunning(ctx context.Context, service string) (bool, er
 
 	output, err := cmd.Output()
 	if err != nil {
-		return false, fmt.Errorf("failed to check running status for service %s: %w", service, err)
+		return false, contextError(ctx, fmt.Errorf("failed to check running status for service %s: %w", service, err))
 	}
 
 	for line := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
@@ -701,7 +722,7 @@ func parseEnvValue(content, key string) string {
 func CheckDockerRunning(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "docker", "info")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker not running: %w", err)
+		return contextError(ctx, fmt.Errorf("docker not running: %w", err))
 	}
 
 	return nil
@@ -711,7 +732,7 @@ func CheckDockerRunning(ctx context.Context) error {
 func CheckDockerComposeAvailable(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "docker", "compose", "version")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker compose not available: %w", err)
+		return contextError(ctx, fmt.Errorf("docker compose not available: %w", err))
 	}
 
 	return nil
