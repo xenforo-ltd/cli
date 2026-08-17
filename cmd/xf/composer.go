@@ -16,7 +16,9 @@ var composerCmd = &cobra.Command{
 	Long: `Run Composer commands in the Docker environment.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-All arguments are passed to Composer.
+
+Everything after 'composer' is passed to Composer, including flags. Give xf's own
+flags before the command name, and use 'xf help composer' for this help text.
 
 Examples:
   # Install dependencies
@@ -30,12 +32,14 @@ Examples:
 
   # Run composer in specific directory
   xf composer ./my-project install`,
-	Args: cobra.MinimumNArgs(0),
-	RunE: runComposer,
+	// Everything after this command belongs to the target tool, including
+	// flags. xf's own flags must be given before the command name.
+	DisableFlagParsing: true,
+	Args:               cobra.MinimumNArgs(0),
+	RunE:               runComposer,
 }
 
 func init() {
-	composerCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(composerCmd)
 }
 

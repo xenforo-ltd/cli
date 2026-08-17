@@ -28,12 +28,14 @@ Examples:
   # Debug any xf command
   xf debug cron:run
   xf debug user:create --username test`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: runDebug,
+	// Everything after this command belongs to the target tool, including
+	// flags. xf's own flags must be given before the command name.
+	DisableFlagParsing: true,
+	Args:               cobra.MinimumNArgs(1),
+	RunE:               runDebug,
 }
 
 func init() {
-	debugCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(debugCmd)
 }
 

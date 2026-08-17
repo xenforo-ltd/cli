@@ -26,12 +26,14 @@ Examples:
 
   # Run arbitrary docker compose command
   xf compose -- exec xf mysql -u root`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: runExec,
+	// Everything after this command belongs to the target tool, including
+	// flags. xf's own flags must be given before the command name.
+	DisableFlagParsing: true,
+	Args:               cobra.MinimumNArgs(1),
+	RunE:               runExec,
 }
 
 func init() {
-	execCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(execCmd)
 }
 

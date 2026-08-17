@@ -14,7 +14,9 @@ var composeCmd = &cobra.Command{
 	Long: `Run a Docker Compose command directly.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-All arguments are passed directly to 'docker compose'.
+
+Everything after 'compose' is passed to 'docker compose', including flags. Give
+xf's own flags before the command name, and use 'xf help compose' for this help.
 
 Examples:
   # List services
@@ -25,12 +27,14 @@ Examples:
 
   # Execute inside a running service
   xf compose exec xf mysql -u root`,
-	Args: cobra.MinimumNArgs(0),
-	RunE: runCompose,
+	// Everything after this command belongs to the target tool, including
+	// flags. xf's own flags must be given before the command name.
+	DisableFlagParsing: true,
+	Args:               cobra.MinimumNArgs(0),
+	RunE:               runCompose,
 }
 
 func init() {
-	composeCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(composeCmd)
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -136,6 +137,13 @@ func TestResolveXenForoDirAndArgs_StripsSeparator(t *testing.T) {
 	})
 }
 
+// TestPassthroughCommandsForwardFlags asserts that flags intended for the target
+// tool are not consumed by xf.
+//
+// These commands set DisableFlagParsing, so cobra performs no parsing of its own
+// and the raw arguments arrive at RunE. The check therefore inspects what RunE
+// receives rather than cmd.Flags().Args(), which is only populated when cobra
+// parses.
 func TestPassthroughCommandsForwardFlags(t *testing.T) {
 	commands := []*cobra.Command{
 		composerCmd,
@@ -146,17 +154,56 @@ func TestPassthroughCommandsForwardFlags(t *testing.T) {
 		debugCmd,
 	}
 
+	want := []string{"outdated", "--direct"}
+
 	for _, cmd := range commands {
 		t.Run(cmd.Name(), func(t *testing.T) {
-			if err := cmd.ParseFlags([]string{"outdated", "--direct"}); err != nil {
-				t.Fatalf("ParseFlags failed: %v", err)
+			if !cmd.DisableFlagParsing {
+				t.Fatal("expected a passthrough command to set DisableFlagParsing")
 			}
 
-			if got := cmd.Flags().Args(); !reflect.DeepEqual(got, []string{"outdated", "--direct"}) {
-				t.Fatalf("args = %v, want %v", got, []string{"outdated", "--direct"})
+			got := captureForwardedArgs(t, cmd, want...)
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("args = %v, want %v", got, want)
 			}
 		})
 	}
+}
+
+// captureForwardedArgs runs cmd through the root command with the given
+// arguments and returns exactly what its RunE received, restoring the original
+// RunE afterwards.
+func captureForwardedArgs(t *testing.T, cmd *cobra.Command, args ...string) []string {
+	t.Helper()
+
+	original := cmd.RunE
+
+	var got []string
+
+	cmd.RunE = func(_ *cobra.Command, a []string) error {
+		got = a
+
+		return nil
+	}
+
+	t.Cleanup(func() {
+		cmd.RunE = original
+		rootCmd.SetArgs(nil)
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+	})
+
+	var out bytes.Buffer
+
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs(append([]string{cmd.Name()}, args...))
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("executing %s failed: %v", cmd.Name(), err)
+	}
+
+	return got
 }
 
 func TestExecInvocationScenarios(t *testing.T) {

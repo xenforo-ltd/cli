@@ -23,7 +23,13 @@ var configFile string
 var rootCmd = &cobra.Command{
 	Use:     "xf",
 	Version: version.Version,
-	Short:   "Provision and manage XenForo development environments",
+	// Required by the passthrough commands, which set DisableFlagParsing so that
+	// everything after them reaches the target tool. Without TraverseChildren,
+	// cobra defers parsing the root's persistent flags to the subcommand, which
+	// then forwards them instead: even `xf --verbose php script.php` would be
+	// swallowed, leaving no way to set xf's own flags on those commands.
+	TraverseChildren: true,
+	Short:            "Provision and manage XenForo development environments",
 	Long: `The XenForo CLI is a command-line tool for provisioning and managing
 XenForo development environments using Docker.
 
