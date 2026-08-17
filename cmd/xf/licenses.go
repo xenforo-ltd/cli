@@ -31,6 +31,7 @@ Examples:
 
   # Output as JSON (useful for scripting)
   xf licenses --json`,
+	Args: cobra.NoArgs,
 	RunE: runLicenses,
 }
 

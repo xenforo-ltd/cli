@@ -28,6 +28,7 @@ This command checks:
 Examples:
   # Run all health checks
   xf doctor`,
+	Args: cobra.NoArgs,
 	RunE: runDoctor,
 }
 

@@ -33,6 +33,11 @@ Examples:
 
   # Clear all cached downloads
   xf cache purge --all`,
+	// See the note on authCmd: NoArgs only takes effect when RunE is also set.
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 var cacheListCmd = &cobra.Command{
@@ -55,6 +60,7 @@ Examples:
 
   # List only downloads for a specific license
   xf cache list --license XF123-ABCD-1234`,
+	Args: cobra.NoArgs,
 	RunE: runCacheList,
 }
 
@@ -72,6 +78,7 @@ Examples:
 
   # Remove downloads for a specific license only
   xf cache purge --license XF123-ABCD-1234`,
+	Args: cobra.NoArgs,
 	RunE: runCachePurge,
 }
 
@@ -88,6 +95,7 @@ Examples:
 
   # Open cache directory in file manager (macOS)
   open $(xf cache path)`,
+	Args: cobra.NoArgs,
 	RunE: runCachePath,
 }
 

@@ -32,6 +32,7 @@ Examples:
 
   # Output as JSON (useful for scripting)
   xf version --json`,
+	Args: cobra.NoArgs,
 	RunE: runVersion,
 }
 

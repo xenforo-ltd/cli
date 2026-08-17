@@ -31,6 +31,13 @@ Examples:
 
   # Log out and revoke tokens
   xf auth logout`,
+	// NoArgs rejects an unknown subcommand with cobra's own error. RunE is
+	// required alongside it: without a RunE, cobra skips a parent's Args
+	// validator entirely and silently prints help instead.
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 var authLoginCmd = &cobra.Command{
@@ -48,6 +55,7 @@ in your system keychain.
 
 	  # Login with custom timeout
 	  xf auth login --timeout 600`,
+	Args: cobra.NoArgs,
 	RunE: runAuthLogin,
 }
 
@@ -65,6 +73,7 @@ Examples:
 
   # Output as JSON (useful for scripts)
   xf auth status --json`,
+	Args: cobra.NoArgs,
 	RunE: runAuthStatus,
 }
 
@@ -81,6 +90,7 @@ This command will:
 Examples:
   # Log out
   xf auth logout`,
+	Args: cobra.NoArgs,
 	RunE: runAuthLogout,
 }
 
@@ -95,6 +105,7 @@ to manually refresh before the token expires.
 Examples:
   # Manually refresh token
   xf auth refresh`,
+	Args: cobra.NoArgs,
 	RunE: runAuthRefresh,
 }
 

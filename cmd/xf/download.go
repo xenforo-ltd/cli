@@ -40,6 +40,7 @@ Examples:
 
   # Force re-download even if cached
   xf download --license XF123-ABCD-1234 --download xenforo --version 12345 --force`,
+	Args: cobra.NoArgs,
 	RunE: runDownload,
 }
 

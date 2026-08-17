@@ -25,6 +25,7 @@ Examples:
 
   # Just check for updates without installing
   xf self-update --check-only`,
+	Args: cobra.NoArgs,
 	RunE: runSelfUpdate,
 }
 
