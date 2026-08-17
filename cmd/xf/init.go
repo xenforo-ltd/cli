@@ -390,7 +390,7 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 	}
 
 	if len(missing) > 0 {
-		return fmt.Errorf("missing required flags in non-interactive mode: %s: %w", strings.Join(missing, ", "), ErrInvalidInput)
+		return newUsageError(fmt.Errorf("missing required flags in non-interactive mode: %s: %w", strings.Join(missing, ", "), ErrInvalidInput))
 	}
 
 	if len(opts.Products) == 0 {

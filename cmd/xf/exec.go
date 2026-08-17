@@ -88,7 +88,7 @@ func stripFlagSeparator(args []string) []string {
 
 func validateExecInvocation(execArgs []string) error {
 	if len(execArgs) < 2 {
-		return fmt.Errorf("exec requires <service> <command> [args...]: %w", ErrInvalidInput)
+		return newUsageError(fmt.Errorf("exec requires <service> <command> [args...]: %w", ErrInvalidInput))
 	}
 
 	return nil
