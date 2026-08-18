@@ -40,21 +40,28 @@ func runReboot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Stopping Docker environment...")
-
 	ctx := cmd.Context()
+
+	ui.PrintStep(1, 2, "Stopping "+runner.Instance())
 
 	if err := runner.Down(ctx); err != nil {
 		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}
 
-	ui.PrintInfo("Starting Docker environment...")
+	ui.PrintStep(2, 2, "Starting "+runner.Instance())
 
 	if err := runner.Up(ctx, true); err != nil {
 		return fmt.Errorf("failed to start Docker environment: %w", err)
 	}
 
-	ui.PrintSuccess("Docker environment restarted")
+	details := []ui.KVPair{}
+	if url, err := runner.GetURL(ctx); err == nil {
+		details = append(details, ui.KV("URL", ui.URL.Render(url)))
+	} else {
+		ui.PrintWarning("Could not determine the site URL")
+	}
+	ui.Println()
+	ui.SuccessBox("Docker environment restarted", details)
 
 	return nil
 }

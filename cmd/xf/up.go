@@ -61,8 +61,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Starting Docker environment: " + runner.Instance())
-	ui.PrintDetail("Directory: " + ui.Path.Render(xfDir))
+	ui.PrintInfo("Starting Docker environment " + ui.Bold.Render(runner.Instance()) + " " + ui.Muted.Render("("+ui.ShortHome(xfDir)+")"))
 
 	detach := flagUpDetach
 	if cmd.Flags().Changed("no-detach") {
@@ -73,13 +72,14 @@ func runUp(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to start Docker environment: %w", err)
 	}
 
-	ui.PrintSuccess("Docker environment started")
-
-	url, err := runner.GetURL(ctx)
-	if err == nil && url != "" {
-		ui.Println()
-		ui.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(url))
+	details := []ui.KVPair{}
+	if url, err := runner.GetURL(ctx); err == nil {
+		details = append(details, ui.KV("URL", ui.URL.Render(url)))
+	} else {
+		ui.PrintWarning("Could not determine the site URL")
 	}
+	ui.Println()
+	ui.SuccessBox("Docker environment started", details)
 
 	return nil
 }
@@ -95,7 +95,7 @@ func getXenForoDir(args []string) (string, error) {
 		xfPath := filepath.Join(absPath, "src", "XF.php")
 		if _, err := os.Stat(xfPath); err != nil {
 			if os.IsNotExist(err) {
-				return "", fmt.Errorf("not a XenForo directory %s: %w", absPath, err)
+				return "", markAs(os.ErrNotExist, "not a XenForo installation: %s (no src/XF.php found)", absPath)
 			}
 
 			return "", fmt.Errorf("cannot access %s: %w", absPath, err)

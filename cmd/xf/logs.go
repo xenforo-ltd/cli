@@ -51,10 +51,13 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	if len(services) > 0 {
-		ui.PrintInfo("Showing logs for: " + strings.Join(services, ", "))
-	} else {
-		ui.PrintInfo("Showing logs for all services")
+	if !flagLogsFollow {
+		target := "all services"
+		if len(services) > 0 {
+			target = strings.Join(services, ", ")
+		}
+
+		ui.PrintInfo("Showing logs for " + ui.Bold.Render(target))
 	}
 
 	if err := runner.Logs(cmd.Context(), flagLogsFollow, services...); err != nil {
