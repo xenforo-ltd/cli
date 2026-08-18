@@ -71,7 +71,21 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
-	totalSteps := plannedInitSteps(*opts, shouldRunComposer(opts.TargetPath))
+	// The composer-dependencies step only exists for packages that ship a
+	// composer.json (repository checkouts; see shouldRunComposer). Whether
+	// that's true can only be known once the xenforo package itself is
+	// available, so it's resolved (using the cache - free if this exact
+	// version was already downloaded) before the first step total is
+	// committed to output. Without this, "Preparing target directory" would
+	// print a provisional [1/n] that a later-discovered composer.json could
+	// invalidate, leaving an earlier line on screen that never matches the
+	// final [n/n].
+	hasComposer, err := detectComposerBeforeDownload(ctx, client, opts)
+	if err != nil {
+		return err
+	}
+
+	totalSteps := plannedInitSteps(*opts, hasComposer)
 	step := 1
 
 	ui.PrintStep(step, totalSteps, "Preparing target directory")
@@ -180,7 +194,11 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintWarning("Could not detect the site URL; using " + ui.URL.Render(siteURL))
 		}
 
-		if shouldRunComposer(opts.TargetPath) {
+		// Uses the same hasComposer captured before download (not a fresh
+		// shouldRunComposer(opts.TargetPath) filesystem check) so this gate
+		// can never disagree with the total plannedInitSteps already
+		// printed above.
+		if hasComposer {
 			if opts.SkipComposer {
 				ui.Println()
 				printSkippedStep(step, totalSteps, "Installing Composer dependencies", "--skip-composer")
@@ -562,6 +580,79 @@ func prepareTargetDirectory(targetPath string) error {
 	}
 
 	return nil
+}
+
+// detectComposerBeforeDownload determines whether the xenforo core package
+// for this run ships a composer.json, which decides whether the plan has a
+// "Installing Composer dependencies" step. It fetches (or reuses a cache hit
+// for) just the xenforo package - the same download downloadProducts will
+// need shortly, so a fresh run pays for it once and a cached run pays
+// nothing extra - and peeks inside the archive without extracting it.
+//
+// This has to happen before the first step total is printed: the answer
+// can't be known from the filesystem yet (nothing has been extracted), and
+// discovering it only after "Preparing target directory" and "Downloading
+// XenForo files" have already committed a total to the screen would leave
+// those lines showing a total the run later contradicts.
+func detectComposerBeforeDownload(ctx context.Context, client *customerapi.Client, opts *InitOptions) (bool, error) {
+	if opts.VersionID == 0 {
+		// Non-interactive validation guarantees this is set before
+		// executeInit runs; guard defensively rather than assume.
+		return false, nil
+	}
+
+	cacheManager, err := cache.NewManager()
+	if err != nil {
+		return false, fmt.Errorf("failed to initialize cache manager: %w", err)
+	}
+
+	selection := downloads.Selection{
+		Product:       "xenforo",
+		VersionID:     opts.VersionID,
+		VersionString: opts.VersionString,
+	}
+
+	var (
+		spinner    *ui.Spinner
+		lastUpdate int64
+	)
+
+	progress := func(current, total int64) {
+		if current-lastUpdate < 102400 && lastUpdate != 0 {
+			return
+		}
+
+		lastUpdate = current
+
+		msg := fmt.Sprintf("Checking XenForo package (%s)", ui.FormatBytes(current))
+		if spinner == nil {
+			spinner = ui.NewSpinner(msg)
+			spinner.Start()
+		} else {
+			spinner.UpdateMessage(msg)
+		}
+	}
+
+	entry, versionStr, err := downloads.DownloadSelection(ctx, client, cacheManager, opts.LicenseKey, selection, false, progress)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("failed to download xenforo: %w", err)
+	}
+
+	if opts.VersionString == "" {
+		opts.VersionString = versionStr
+	}
+
+	hasComposer, err := extract.ContainsUploadFile(entry.FilePath, "composer.json")
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect xenforo package: %w", err)
+	}
+
+	return hasComposer, nil
 }
 
 func downloadProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions) (map[string]*cache.Entry, error) {
