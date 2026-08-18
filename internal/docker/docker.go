@@ -4,6 +4,7 @@ package docker
 import (
 	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -162,4 +163,36 @@ func GetDockerIgnoreDefault() ([]byte, error) {
 	return GetDockerFile(".dockerignore.default")
 }
 
-// ListEmbeddedFiles returns all embedded Docker file paths.
+// ListEmbeddedFiles returns the repository-relative paths that extraction
+// writes into a XenForo directory, in no particular order.
+//
+// The list is derived from the embedded tree rather than hardcoded, so it
+// cannot drift as files are added to or removed from it. ".default" files are
+// reported under the name they are written as, matching extractDefaultFile.
+func ListEmbeddedFiles() ([]string, error) {
+	var paths []string
+
+	err := fs.WalkDir(dockerFS, EmbedDir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		rel, err := filepath.Rel(EmbedDir, filepath.FromSlash(p))
+		if err != nil {
+			return fmt.Errorf("failed to resolve embedded path %s: %w", p, err)
+		}
+
+		paths = append(paths, strings.TrimSuffix(rel, ".default"))
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list embedded files: %w", err)
+	}
+
+	return paths, nil
+}
