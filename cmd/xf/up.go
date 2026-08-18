@@ -17,10 +17,8 @@ var upCmd = &cobra.Command{
 	Short: "Start the Docker environment",
 	Long: `Start the Docker environment for a XenForo installation.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # Start in current directory (auto-detect)
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # Start in current directory (auto-detect)
   xf up
 
   # Start specific directory
@@ -28,8 +26,9 @@ Examples:
 
   # Start in foreground (not detached)
   xf up --no-detach`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runUp,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runUp,
 }
 
 var flagUpDetach bool

@@ -17,16 +17,15 @@ var selfUpdateCmd = &cobra.Command{
 	Long: `Check for and install updates to the xf tool.
 
 By default, this command will check for updates and install them automatically.
-Use --check-only to just check if an update is available without installing.
-
-Examples:
-  # Check for and install updates
+Use --check-only to just check if an update is available without installing.`,
+	Example: `  # Check for and install updates
   xf self-update
 
   # Just check for updates without installing
   xf self-update --check-only`,
-	Args: cobra.NoArgs,
-	RunE: runSelfUpdate,
+	Args:    cobra.NoArgs,
+	GroupID: "maint",
+	RunE:    runSelfUpdate,
 }
 
 func init() {

@@ -19,10 +19,8 @@ var cacheCmd = &cobra.Command{
 	Long: `Manage cached XenForo package downloads.
 
 Downloaded packages are cached locally to avoid re-downloading. Use these
-commands to view, manage, and clear the cache.
-
-Examples:
-  # List all cached downloads
+commands to view, manage, and clear the cache.`,
+	Example: `  # List all cached downloads
   xf cache list
 
   # List cached downloads for a specific license
@@ -34,7 +32,8 @@ Examples:
   # Clear all cached downloads
   xf cache purge --all`,
 	// See the note on authCmd: NoArgs only takes effect when RunE is also set.
-	Args: cobra.NoArgs,
+	Args:    cobra.NoArgs,
+	GroupID: "maint",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Help()
 	},
@@ -46,10 +45,8 @@ var cacheListCmd = &cobra.Command{
 	Long: `Display all cached downloads with their metadata.
 
 Shows download information including version, file size, checksum,
-and download date. Results can be filtered by license key.
-
-Examples:
-  # List all cached downloads (compact table)
+and download date. Results can be filtered by license key.`,
+	Example: `  # List all cached downloads (compact table)
   xf cache list
 
   # List with full details
@@ -70,10 +67,8 @@ var cachePurgeCmd = &cobra.Command{
 	Long: `Remove cached downloads to free up disk space.
 
 By default, requires explicit confirmation with --all flag. Use --license
-to selectively remove downloads for a specific license.
-
-Examples:
-  # Remove all cached downloads
+to selectively remove downloads for a specific license.`,
+	Example: `  # Remove all cached downloads
   xf cache purge --all
 
   # Remove downloads for a specific license only
@@ -87,10 +82,8 @@ var cachePathCmd = &cobra.Command{
 	Short: "Show cache directory location",
 	Long: `Display the path to the cache directory.
 
-Useful for scripting or manually inspecting cached files.
-
-Examples:
-  # Show cache path
+Useful for scripting or manually inspecting cached files.`,
+	Example: `  # Show cache path
   xf cache path
 
   # Open cache directory in file manager (macOS)

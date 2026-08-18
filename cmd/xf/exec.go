@@ -15,10 +15,8 @@ var execCmd = &cobra.Command{
 	Short: "Execute a command in a running container",
 	Long: `Execute a command in a running Docker container.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # Run a command in the xf container
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # Run a command in the xf container
   xf exec xf ls -la
 
   # Run a command in specific directory
@@ -30,6 +28,7 @@ Examples:
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(1),
+	GroupID:            "run",
 	RunE:               runExec,
 }
 

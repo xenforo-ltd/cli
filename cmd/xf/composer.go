@@ -18,10 +18,8 @@ var composerCmd = &cobra.Command{
 If no path is provided, the current directory will be searched for a XenForo installation.
 
 Everything after 'composer' is passed to Composer, including flags. Give xf's own
-flags before the command name, and use 'xf help composer' for this help text.
-
-Examples:
-  # Install dependencies
+flags before the command name, and use 'xf help composer' for this help text.`,
+	Example: `  # Install dependencies
   xf composer install
 
   # Update dependencies
@@ -36,6 +34,7 @@ Examples:
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(0),
+	GroupID:            "run",
 	RunE:               runComposer,
 }
 

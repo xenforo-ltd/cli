@@ -32,10 +32,8 @@ always predictable.
 
 'xf worktree create <branch>' creates the worktree and then initialises the
 environment: Docker configuration, containers, Composer dependencies and the
-XenForo installation.
-
-Examples:
-  # Create a worktree and set up its environment
+XenForo installation.`,
+	Example: `  # Create a worktree and set up its environment
   xf worktree create dev/24x/feature
 
   # Branch from somewhere other than the current HEAD
@@ -63,6 +61,7 @@ Examples:
 
 		return fmt.Errorf("unknown command %q for %q: %w", args[0], cmd.CommandPath(), ErrInvalidInput)
 	},
+	GroupID: "env",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Help()
 	},

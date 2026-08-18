@@ -33,22 +33,17 @@ var rootCmd = &cobra.Command{
 	// swallowed, leaving no way to set xf's own flags on those commands.
 	TraverseChildren: true,
 	Short:            "Provision and manage XenForo development environments",
-	Long: `The XenForo CLI is a command-line tool for provisioning and managing
-XenForo development environments using Docker.
+	Long: `Provision and manage Docker-based XenForo development environments:
+authentication, package downloads, caching, containers and worktrees.
 
-It handles OAuth authentication, downloads XenForo packages, manages
-caching, and orchestrates Docker-based development environments.
-
-Get started by authenticating:
+Inside a XenForo directory, unknown commands are forwarded to XenForo itself,
+so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
+	Example: `  # Authenticate, then create a project
   xf auth login
-
-Then initialize a new project:
   xf init ./my-project
 
-Run XenForo commands directly (from a XenForo directory):
-  xf list
-  xf xf-dev:import
-`,
+  # Run a XenForo command in the environment
+  xf xf-dev:import`,
 }
 
 // usageError marks an error as caused by incorrect invocation (bad arguments or
@@ -103,6 +98,40 @@ func configureErrorHandling(cmd *cobra.Command) {
 }
 
 const usageConfiguredAnnotation = "xf.xenforo.com/usage-error-handling-configured"
+
+// usageTemplate is cobra's default usage template with the section headings
+// and command names styled via the styleHeading/styleCommand template funcs
+// registered in init(). It is not otherwise restructured.
+const usageTemplate = `{{styleHeading "Usage:"}}{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+
+{{styleHeading "Aliases:"}}
+  {{.NameAndAliases}}{{end}}{{if .HasExample}}
+
+{{styleHeading "Examples:"}}
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}{{$cmds := .Commands}}{{if eq (len .Groups) 0}}
+
+{{styleHeading "Available Commands:"}}{{range $cmds}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{styleCommand (rpad .Name .NamePadding) }} {{.Short}}{{end}}{{end}}{{else}}{{range $group := .Groups}}
+
+{{styleHeading .Title}}{{range $cmds}}{{if (and (eq .GroupID $group.ID) (or .IsAvailableCommand (eq .Name "help")))}}
+  {{styleCommand (rpad .Name .NamePadding) }} {{.Short}}{{end}}{{end}}{{end}}{{if not .AllChildCommandsHaveGroup}}
+
+{{styleHeading "Additional Commands:"}}{{range $cmds}}{{if (and (eq .GroupID "") (or .IsAvailableCommand (eq .Name "help")))}}
+  {{styleCommand (rpad .Name .NamePadding) }} {{.Short}}{{end}}{{end}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+{{styleHeading "Flags:"}}
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+{{styleHeading "Global Flags:"}}
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
+
+{{styleHeading "Additional help topics:"}}{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{styleCommand (rpad .CommandPath .CommandPathPadding)}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`
 
 // Execute runs the CLI application.
 func Execute(ctx context.Context) {
@@ -348,7 +377,22 @@ func init() {
 		}
 	})
 
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "start", Title: "Getting started:"},
+		&cobra.Group{ID: "env", Title: "Environment:"},
+		&cobra.Group{ID: "run", Title: "Run tools:"},
+		&cobra.Group{ID: "maint", Title: "Maintenance:"},
+	)
+	rootCmd.SetHelpCommandGroupID("maint")
+	rootCmd.SetCompletionCommandGroupID("maint")
+
+	// Must run after SetCompletionCommandGroupID: it creates the completion
+	// command immediately, reading completionCommandGroupID at that point.
 	rootCmd.InitDefaultCompletionCmd()
+
+	cobra.AddTemplateFunc("styleHeading", func(s string) string { return ui.Bold.Render(s) })
+	cobra.AddTemplateFunc("styleCommand", func(s string) string { return ui.Command.Render(s) })
+	rootCmd.SetUsageTemplate(usageTemplate)
 
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "path to config file")
 	rootCmd.PersistentFlags().BoolP("no-interaction", "n", false, "disable interactive prompts")

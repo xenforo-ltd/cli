@@ -20,10 +20,8 @@ var authCmd = &cobra.Command{
 	Long: `Manage OAuth authentication with XenForo customer area.
 
 Authentication is required to download XenForo packages and access your licenses.
-Tokens are stored securely in your system keychain.
-
-Examples:
-  # Log in to your XenForo account
+Tokens are stored securely in your system keychain.`,
+	Example: `  # Log in to your XenForo account
   xf auth login
 
   # Check current authentication status
@@ -34,7 +32,8 @@ Examples:
 	// NoArgs rejects an unknown subcommand with cobra's own error. RunE is
 	// required alongside it: without a RunE, cobra skips a parent's Args
 	// validator entirely and silently prints help instead.
-	Args: cobra.NoArgs,
+	Args:    cobra.NoArgs,
+	GroupID: "start",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Help()
 	},
@@ -47,14 +46,12 @@ var authLoginCmd = &cobra.Command{
 
 This will open your browser to complete authentication. The CLI will automatically
 receive the authorization when you complete the login. Tokens are stored securely
-in your system keychain.
+in your system keychain.`,
+	Example: `  # Standard login (opens browser)
+  xf auth login
 
-	Examples:
-	  # Standard login (opens browser)
-	  xf auth login
-
-	  # Login with custom timeout
-	  xf auth login --timeout 600`,
+  # Login with custom timeout
+  xf auth login --timeout 600`,
 	Args: cobra.NoArgs,
 	RunE: runAuthLogin,
 }
@@ -65,10 +62,8 @@ var authStatusCmd = &cobra.Command{
 	Long: `Display the current authentication status, including token validity.
 
 This command shows whether you're authenticated, token expiration time,
-and performs server-side validation to ensure the token is still active.
-
-Examples:
-  # Show authentication status
+and performs server-side validation to ensure the token is still active.`,
+	Example: `  # Show authentication status
   xf auth status
 
   # Output as JSON (useful for scripts)
@@ -80,15 +75,8 @@ Examples:
 var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Log out and revoke tokens",
-	Long: `Revoke the current OAuth tokens and remove them from the keychain.
-
-This command will:
-  1. Revoke the access token on the server
-  2. Revoke the refresh token on the server (if present)
-  3. Remove tokens from your system keychain
-
-Examples:
-  # Log out
+	Long:  `Log out by revoking the access and refresh tokens and removing them from the system keychain.`,
+	Example: `  # Log out
   xf auth logout`,
 	Args: cobra.NoArgs,
 	RunE: runAuthLogout,
@@ -100,10 +88,8 @@ var authRefreshCmd = &cobra.Command{
 	Long: `Manually refresh the access token using the stored refresh token.
 
 Normally, tokens are refreshed automatically when needed. Use this command
-to manually refresh before the token expires.
-
-Examples:
-  # Manually refresh token
+to manually refresh before the token expires.`,
+	Example: `  # Manually refresh token
   xf auth refresh`,
 	Args: cobra.NoArgs,
 	RunE: runAuthRefresh,

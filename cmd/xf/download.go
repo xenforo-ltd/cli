@@ -26,10 +26,8 @@ downloads of the same version will use the cached copy.
 The download command works in stages:
   1. Without --download: Lists available packages for the license
   2. With --download: Lists available versions for that package
-  3. With --download and --version: Downloads the specified version
-
-Examples:
-  # List available packages for a license
+  3. With --download and --version: Downloads the specified version`,
+	Example: `  # List available packages for a license
   xf download --license XF123-ABCD-1234
 
   # List available versions for XenForo
@@ -40,8 +38,9 @@ Examples:
 
   # Force re-download even if cached
   xf download --license XF123-ABCD-1234 --download xenforo --version 12345 --force`,
-	Args: cobra.NoArgs,
-	RunE: runDownload,
+	Args:    cobra.NoArgs,
+	GroupID: "start",
+	RunE:    runDownload,
 }
 
 var (

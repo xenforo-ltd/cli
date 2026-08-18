@@ -17,6 +17,17 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
+func TestCommandsAreGrouped(t *testing.T) {
+	for _, c := range rootCmd.Commands() {
+		if c.Name() == "help" || c.Name() == "completion" {
+			continue
+		}
+		if c.GroupID == "" {
+			t.Errorf("command %q has no GroupID", c.Name())
+		}
+	}
+}
+
 func TestFirstErrorClause(t *testing.T) {
 	in := "failed to start Docker environment: docker command failed: exit status 1"
 	if got := firstErrorClause(in); got != "failed to start Docker environment" {
