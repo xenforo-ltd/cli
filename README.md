@@ -182,6 +182,10 @@ xf init ./my-project \
 xf init ./existing-xf-project --existing
 xf init ./existing-xf-project --existing --up
 
+# Composer dependencies are installed automatically when the target
+# tracks a composer.json (repository checkouts). Release packages ship
+# vendor/ prebuilt and are skipped.
+
 # .env overrides (file + inline; inline wins)
 xf init ./my-project \
   --env-file ./my.env \
@@ -251,6 +255,84 @@ xf compose exec xf mysql -u root
 # Exec into a service
 xf exec xf ls -la
 ```
+
+### Worktrees
+
+A worktree is a second checkout of the same repository on its own branch or
+workspace, with its own Docker containers and database. Worktrees are created
+alongside the source checkout: `~/Sites/main` gains
+`~/Sites/main.worktrees/<branch>`, named after the branch's last segment.
+
+The source repository decides the backend. A repository that uses Jujutsu —
+including one colocated with Git — gets a Jujutsu workspace named from
+`<branch>`; no bookmark is created or moved. A plain Git repository gets a Git
+worktree and branch. `--base` accepts the selected backend's revision syntax: a
+Git ref or a Jujutsu revset.
+
+By default `create` clones the source environment — database, `data/` and
+`internal_data/` — and points the cloned board at its own URL, labelling its
+title with the worktree name.
+
+Each worktree's Docker instance name is derived from the branch's final segment
+plus a short, stable suffix computed from the checkout path and the full branch
+name. Because branch names are reduced to their final segment, two branches such
+as `dev/24x/feature` and `dev/xfs/feature` would otherwise share a Compose
+project — and therefore containers and volumes. The suffix keeps their
+environments apart. Pass `--instance` to choose a name yourself.
+
+`create --json` intentionally does not run setup: setup writes progress to
+stdout, which would corrupt the JSON document. It therefore requires
+`--no-setup`, and the accepted invocation writes exactly one JSON document to
+stdout.
+
+```bash
+# Create a worktree and set up its environment
+xf worktree create dev/24x/feature
+
+# Base the new checkout on something other than the current HEAD
+xf worktree create dev/24x/feature --base main
+
+# Install a clean forum instead of cloning the source environment
+xf worktree create dev/24x/feature --fresh
+
+# Create the worktree without setting anything up
+xf worktree create dev/24x/feature --no-setup
+
+# Print the created worktree as JSON (requires --no-setup)
+xf worktree create dev/24x/feature --no-setup --json
+
+# Configure the environment but leave the containers stopped
+xf worktree create dev/24x/feature --no-up
+
+# List worktrees (this project / all known projects)
+xf worktree list
+xf worktree list-all
+
+# Machine-readable output
+xf worktree list --json
+
+# Print the path of a worktree (bare output, shell-substitution safe)
+cd "$(xf worktree path dev/24x/feature)"
+
+# Remove a worktree and its containers and volumes
+xf worktree remove dev/24x/feature
+
+# Remove the worktree but leave its containers and volumes running
+xf worktree remove dev/24x/feature --keep-containers
+
+# Drop registry entries for worktrees that no longer exist
+xf worktree prune
+```
+
+`remove` refuses a worktree that holds uncommitted changes or commits that
+exist on no remote, and lists what would be lost. The files `create` generates
+(`compose*.yaml`, `.env`, `.dockerignore`) do not count as changes. Passing
+`--force` overrides both checks, so reach for it only once you have read what
+the refusal reported.
+
+Because cloning copies an installed database, `--no-up` and `--fresh` both skip
+it: `--fresh` installs a clean forum instead, while `--no-up` leaves the
+worktree with no database until you start it and install one yourself.
 
 ### PHP / Composer / Debug
 
