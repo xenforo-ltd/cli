@@ -122,11 +122,16 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		OverwriteExisting: true,
 		Contexts:          opts.Contexts,
 	}
-	if err := xfcmd.Init(opts.TargetPath, xfcmdOpts); err != nil {
+	writtenDefaults, err := xfcmd.Init(opts.TargetPath, xfcmdOpts)
+	if err != nil {
 		return fmt.Errorf("failed to initialize Docker configuration: %w", err)
 	}
 
 	ui.PrintSuccess("Docker configuration ready")
+
+	for _, p := range writtenDefaults {
+		ui.PrintInfo("Updated defaults written to " + ui.Path.Render(p))
+	}
 
 	meta := &xf.Metadata{
 		LicenseKey:         opts.LicenseKey,

@@ -8,7 +8,7 @@ import (
 )
 
 func TestInitRejectsNonXenForoDirectory(t *testing.T) {
-	err := Init(t.TempDir(), InitOptions{})
+	_, err := Init(t.TempDir(), InitOptions{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -26,7 +26,7 @@ func TestInitCreatesDockerFilesForXenForoDirectory(t *testing.T) {
 		t.Fatalf("write XF.php: %v", err)
 	}
 
-	err := Init(dir, InitOptions{Contexts: []string{"caddy", "mysql"}})
+	_, err := Init(dir, InitOptions{Contexts: []string{"caddy", "mysql"}})
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestInitDoesNotOverwriteXenForoCoreFiles(t *testing.T) {
 		t.Fatalf("write core file: %v", err)
 	}
 
-	if err := InitExisting(dir, InitOptions{OverwriteExisting: true}); err != nil {
+	if _, err := InitExisting(dir, InitOptions{OverwriteExisting: true}); err != nil {
 		t.Fatalf("InitExisting failed: %v", err)
 	}
 

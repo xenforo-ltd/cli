@@ -296,11 +296,16 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		Contexts:          opts.Contexts,
 	}
 
-	if err := xfcmd.InitExisting(xfDir, xfcmdOpts); err != nil {
+	writtenDefaults, err := xfcmd.InitExisting(xfDir, xfcmdOpts)
+	if err != nil {
 		return fmt.Errorf("failed to initialize Docker files in existing XenForo directory: %w", err)
 	}
 
 	ui.PrintSuccess("Docker configuration files extracted")
+
+	for _, p := range writtenDefaults {
+		ui.PrintInfo("Updated defaults written to " + ui.Path.Render(p))
+	}
 
 	ui.Println()
 	ui.PrintStep(step, totalSteps, "Configuring environment")
