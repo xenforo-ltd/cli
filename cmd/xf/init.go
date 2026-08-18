@@ -35,7 +35,8 @@ Fresh Install Mode (default):
   4. Sets up Docker configuration
   5. Configures the .env file
   6. Runs 'up' to start the containers
-  7. Runs 'xf:install' to complete the installation
+  7. Runs 'composer install' if composer.json is present
+  8. Runs 'xf:install' to complete the installation
 
 Existing Directory Mode (--existing flag):
   For core developers who already have XenForo source files checked out.
@@ -45,6 +46,10 @@ Existing Directory Mode (--existing flag):
   2. Extracts Docker configuration files
   3. Configures the .env file
   4. Optionally starts containers (with --up flag)
+
+  Repository checkouts track composer.json, so dependencies are installed
+  automatically once the containers are running. Release packages ship
+  vendor/ prebuilt and have no manifest, so they are skipped.
 
 Examples:
   # Fresh install (interactive)
@@ -86,6 +91,7 @@ type InitOptions struct {
 	InstanceName     string
 	SkipUp           bool
 	SkipInstall      bool
+	SkipComposer     bool
 	ExistingOnly     bool
 	Contexts         []string
 	StartContainers  bool
@@ -109,6 +115,7 @@ var (
 	flagInitInstance      string
 	flagInitSkipUp        bool
 	flagInitSkipInstall   bool
+	flagInitSkipComposer  bool
 	flagInitExisting      bool
 	flagInitContexts      []string
 	flagInitUp            bool
@@ -127,6 +134,7 @@ func init() {
 	initCmd.Flags().StringVar(&flagInitInstance, "instance", "", "Docker instance name")
 	initCmd.Flags().BoolVar(&flagInitSkipUp, "skip-up", false, "skip starting Docker containers")
 	initCmd.Flags().BoolVar(&flagInitSkipInstall, "skip-install", false, "skip running xf:install")
+	initCmd.Flags().BoolVar(&flagInitSkipComposer, "skip-composer", false, "skip running composer install")
 	initCmd.Flags().BoolVar(&flagInitExisting, "existing", false, "initialize Docker in an existing XenForo directory (skips download)")
 	initCmd.Flags().StringSliceVar(&flagInitContexts, "contexts", nil, "Docker contexts to enable (e.g., caddy,mysql,development,redis)")
 	initCmd.Flags().BoolVar(&flagInitUp, "up", false, "start containers after initialization (for --existing mode)")
@@ -162,6 +170,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		InstanceName:     flagInitInstance,
 		SkipUp:           flagInitSkipUp,
 		SkipInstall:      flagInitSkipInstall,
+		SkipComposer:     flagInitSkipComposer,
 		ExistingOnly:     flagInitExisting,
 		Contexts:         flagInitContexts,
 		StartContainers:  flagInitUp,
@@ -232,6 +241,36 @@ func detectXenForo(path string) (bool, error) {
 	return false, fmt.Errorf("failed to check XenForo path: %w", err)
 }
 
+// validateAdminDetails reports whether the installer has everything it needs.
+//
+// installExistingXenForo passes these straight to xf:install, so a missing
+// value would install a broken administrator or an empty board title instead
+// of failing.
+func validateAdminDetails(opts *InitOptions) error {
+	var missing []string
+
+	if opts.AdminUser == "" {
+		missing = append(missing, "--admin-user")
+	}
+
+	if opts.AdminPassword == "" {
+		missing = append(missing, "--admin-password")
+	}
+
+	if opts.AdminEmail == "" {
+		missing = append(missing, "--admin-email")
+	}
+
+	if len(missing) > 0 {
+		return newUsageError(fmt.Errorf(
+			"missing required flags for the XenForo installation: %s: %w",
+			strings.Join(missing, ", "), ErrInvalidInput,
+		))
+	}
+
+	return nil
+}
+
 func initExisting(ctx context.Context, opts *InitOptions) error {
 	ui.Println(ui.Bold.Render("Initializing Docker environment in existing XenForo directory..."))
 	ui.Println()
@@ -250,6 +289,11 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 	ui.PrintSuccess("Docker Compose is available")
 	ui.Println()
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
 
 	step := 1
 	totalSteps := 3
@@ -279,6 +323,11 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 	ui.PrintStep(step, totalSteps, "Starting environment")
 
+	// Detection can fail or return nothing, and installing --url= empty would
+	// leave the board with no address at all, so the predictable instance URL
+	// is the starting point.
+	siteURL := fallbackBoardURL(opts.InstanceName)
+
 	if opts.StartContainers {
 		runner, err := dockercompose.NewRunner(xfDir)
 		if err != nil {
@@ -291,7 +340,42 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 		url, err := runner.GetURL(ctx)
 		if err == nil && url != "" {
+			siteURL = url
+
 			ui.PrintDetail("Site: " + url)
+		}
+
+		// Composer and the installer both run inside the container, so they can
+		// only follow a successful start.
+		if shouldRunComposer(xfDir) && !opts.SkipComposer {
+			ui.Println()
+
+			if err := runComposerInstall(ctx, runner, cfg.Verbose); err != nil {
+				return err
+			}
+		}
+
+		if !opts.SkipInstall && opts.AdminUser != "" {
+			// The installer receives these verbatim, so an empty value becomes
+			// an empty board title or an unusable administrator rather than a
+			// reported error.
+			if opts.SiteTitle == "" {
+				opts.SiteTitle = opts.EnvResolved["XF_TITLE"]
+			}
+
+			if opts.SiteTitle == "" {
+				opts.SiteTitle = fmt.Sprintf("XenForo [%s]", opts.InstanceName)
+			}
+
+			if err := validateAdminDetails(opts); err != nil {
+				return err
+			}
+
+			ui.Println()
+
+			if err := installExistingXenForo(ctx, runner, opts, siteURL, cfg.Verbose); err != nil {
+				return err
+			}
 		}
 	} else {
 		ui.PrintDetail("Skipped (use --up flag to start containers)")
@@ -573,6 +657,61 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	if err := runInteractiveReview(ctx, client, opts); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// installExistingXenForo runs xf:install in an already-configured environment.
+//
+// The password is passed through the environment rather than the command line,
+// so it does not appear in the container's process list.
+func installExistingXenForo(
+	ctx context.Context,
+	runner *dockercompose.Runner,
+	opts *InitOptions,
+	siteURL string,
+	verbose bool,
+) error {
+	if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
+		return fmt.Errorf("failed waiting for database to become ready: %w", err)
+	}
+
+	installArgs := []string{
+		"xf:install",
+		"--no-interaction",
+		"--clear",
+		"--user=" + opts.AdminUser,
+		"--email=" + opts.AdminEmail,
+		"--title=" + opts.SiteTitle,
+		"--url=" + siteURL,
+	}
+
+	installEnv := map[string]string{"XF_INSTALL_PASSWORD": opts.AdminPassword}
+	shellInstallArgs := []string{"sh", "-c", installShellCommand(installArgs)}
+
+	if verbose {
+		ui.PrintSubstep("Running XenForo installation...")
+
+		if err := runner.ExecOrRunWithEnv(ctx, "xf", true, installEnv, shellInstallArgs...); err != nil {
+			return fmt.Errorf("failed to install XenForo: %w", err)
+		}
+
+		return nil
+	}
+
+	spinner := ui.NewSpinner("Installing XenForo...")
+	spinner.Start()
+
+	tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
+
+	if err := runner.ExecOrRunWithEnvAndOutput(ctx, "xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
+		spinner.Stop()
+		printHiddenOutputTail("Installer output", tracker.TailLines())
+
+		return fmt.Errorf("failed to install XenForo: %w", err)
+	}
+
+	spinner.StopWithMessage("success", "XenForo installed")
 
 	return nil
 }
