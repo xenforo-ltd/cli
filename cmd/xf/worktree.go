@@ -219,14 +219,14 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 	if err := recordWorktree(entry); err != nil {
 		// The worktree exists and is usable; a registry failure must not
 		// present itself as a failed creation.
-		ui.PrintWarning(fmt.Sprintf("Could not record worktree in the registry: %v", err))
+		warnRegistryUpdateFailed()
 	}
 
 	if !flagWorktreeJSON {
-		ui.PrintSuccess("Created worktree " + result.Path)
-		ui.PrintKeyValuePadded([]ui.KVPair{
+		ui.SuccessBox("Created worktree", []ui.KVPair{
+			ui.KV("Path", ui.Path.Render(ui.ShortHome(result.Path))),
 			ui.KV("Branch", result.Branch),
-			ui.KV("Based on", result.SourceBranch),
+			ui.KV("Base branch", result.SourceBranch),
 			ui.KV("Instance", result.Instance),
 		})
 	}
@@ -261,7 +261,7 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 			entry.Cloned = true
 
 			if err := recordWorktree(entry); err != nil {
-				ui.PrintWarning(fmt.Sprintf("Could not record worktree in the registry: %v", err))
+				warnRegistryUpdateFailed()
 			}
 		}
 
@@ -270,7 +270,7 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		// would be wrong.
 		if !cloning && !flagWorktreeJSON && !flagWorktreeNoUp {
 			ui.Println()
-			ui.PrintKeyValuePadded([]ui.KVPair{
+			ui.InfoBox("Fresh install credentials", []ui.KVPair{
 				ui.KV("Admin user", defaultString(flagWorktreeAdminUser, defaultWorktreeAdminUser)),
 				ui.KV("Admin password", defaultString(flagWorktreeAdminPassword, defaultWorktreeAdminPassword)),
 			})
@@ -440,12 +440,12 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 	if regErr != nil {
 		// Reported rather than ignored: the worktree is gone but the registry
 		// still lists it, and only this message tells the user why.
-		ui.PrintWarning(fmt.Sprintf("Could not open the worktree registry: %v", regErr))
+		warnRegistryUpdateFailed()
 	} else if err := registry.Remove(target); err != nil {
-		ui.PrintWarning(fmt.Sprintf("Could not update the worktree registry: %v", err))
+		warnRegistryUpdateFailed()
 	}
 
-	ui.PrintSuccess("Removed worktree " + target)
+	ui.SuccessBox("Removed worktree "+ui.Path.Render(ui.ShortHome(target)), nil)
 
 	return nil
 }
@@ -474,23 +474,35 @@ func runWorktreePrune(cmd *cobra.Command, args []string) error {
 	}
 
 	if pruned == 0 {
-		ui.PrintInfo("No stale worktree entries found.")
+		ui.PrintEmpty("No stale worktree entries found")
 
 		return nil
 	}
 
-	ui.PrintSuccess(fmt.Sprintf("Pruned %d stale worktree %s.", pruned, plural(pruned, "entry", "entries")))
+	ui.PrintSuccess(fmt.Sprintf("Pruned %s", ui.Plural(pruned, "stale worktree entry", "stale worktree entries")))
 
 	return nil
 }
 
 // worktreeState reports whether a registered worktree still exists on disk.
+//
+// The value is unstyled so it can go straight into JSON; renderWorktreeState
+// colours it for the table.
 func worktreeState(worktreePath string) string {
 	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
 		return "missing"
 	}
 
 	return "ok"
+}
+
+// renderWorktreeState colours a worktree's state for display.
+func renderWorktreeState(state string) string {
+	if state == "missing" {
+		return ui.Warning.Render("Missing")
+	}
+
+	return ui.Success.Render("Ready")
 }
 
 // printWorktrees renders entries, reconciling them against the filesystem.
@@ -519,7 +531,7 @@ func printWorktrees(entries []worktree.Entry) error {
 	}
 
 	if len(entries) == 0 {
-		ui.PrintInfo("No worktrees found.")
+		ui.PrintEmpty("No worktrees found")
 
 		return nil
 	}
@@ -532,13 +544,22 @@ func printWorktrees(entries []worktree.Entry) error {
 			entry.Branch,
 			shortenPath(entry.WorktreePath),
 			entry.Instance,
-			worktreeState(entry.WorktreePath),
+			renderWorktreeState(worktreeState(entry.WorktreePath)),
 		})
 	}
 
+	ui.PrintInfo(ui.Plural(len(rows), "worktree", "worktrees"))
+	ui.Println()
 	ui.Println(ui.NewTable(headers, rows))
 
 	return nil
+}
+
+// warnRegistryUpdateFailed reports a registry write failure without printing
+// the underlying error: the operation it was recording already succeeded, so
+// this is advisory, not a failure report.
+func warnRegistryUpdateFailed() {
+	ui.PrintWarning("Could not update the worktree registry")
 }
 
 func recordWorktree(entry worktree.Entry) error {
@@ -585,14 +606,6 @@ func shortenPath(path string) string {
 	}
 
 	return path
-}
-
-func plural(n int, singular, pluralForm string) string {
-	if n == 1 {
-		return singular
-	}
-
-	return pluralForm
 }
 
 // defaultString returns value, or fallback when value is empty.
@@ -653,11 +666,11 @@ func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error 
 		return fmt.Errorf("failed to inspect the worktree environment: %w", err)
 	}
 
-	spinner := ui.NewSpinner("Removing containers and volumes...")
+	spinner := ui.NewSpinner("Removing containers and volumes")
 	spinner.Start()
 
 	if err := runner.Destroy(ctx); err != nil {
-		spinner.StopWithMessage("error", "Failed to remove containers")
+		spinner.Stop()
 
 		return fmt.Errorf("failed to remove the worktree environment: %w", err)
 	}

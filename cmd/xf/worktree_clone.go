@@ -25,6 +25,9 @@ var clonedDirectories = []string{"data", "internal_data"}
 //
 // The database is dumped and imported rather than copied, because each instance
 // has its own named volume that the target's containers already own.
+//
+// The whole operation narrates through a single spinner, so success or failure
+// is reported exactly once.
 func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) error {
 	sourceRunner, err := dockercompose.NewRunner(sourcePath)
 	if err != nil {
@@ -36,15 +39,37 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 		return fmt.Errorf("cannot clone into %s: %w", worktreePath, err)
 	}
 
-	if err := cloneDatabase(ctx, sourceRunner, targetRunner); err != nil {
+	spinner := ui.NewSpinner("Exporting database")
+	spinner.Start()
+
+	dbSize, err := cloneDatabase(ctx, spinner, sourceRunner, targetRunner)
+	if err != nil {
+		spinner.Stop()
+
 		return err
 	}
 
-	if err := cloneFiles(ctx, sourcePath, worktreePath); err != nil {
+	copiedDirs, err := cloneFiles(ctx, spinner, sourcePath, worktreePath)
+	if err != nil {
+		spinner.Stop()
+
 		return err
 	}
 
-	return retargetBoardIdentity(ctx, targetRunner, filepath.Base(worktreePath))
+	if err := retargetBoardIdentity(ctx, spinner, targetRunner, filepath.Base(worktreePath)); err != nil {
+		spinner.Stop()
+
+		return err
+	}
+
+	message := fmt.Sprintf("Environment cloned (database %s)", ui.FormatBytes(dbSize))
+	if len(copiedDirs) > 0 {
+		message = fmt.Sprintf("Environment cloned (database %s, %s)", ui.FormatBytes(dbSize), strings.Join(copiedDirs, ", "))
+	}
+
+	spinner.StopWithMessage("success", message)
+
+	return nil
 }
 
 // retargetBoardIdentity points the cloned board at its own address and marks
@@ -57,16 +82,16 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 // OptionRepository::updateOptions is used rather than a direct UPDATE because
 // it also rebuilds the option cache. Writing the row alone would leave the old
 // URL in service until something else happened to rebuild it.
-func retargetBoardIdentity(ctx context.Context, target *dockercompose.Runner, label string) error {
+func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *dockercompose.Runner, label string) error {
 	url, err := target.GetURL(ctx)
 	if err != nil || url == "" {
+		spinner.Stop()
 		ui.PrintWarning("Could not determine the worktree's URL; the board URL still points at the source")
 
 		return nil
 	}
 
-	spinner := ui.NewSpinner("Updating board URL and title...")
-	spinner.Start()
+	spinner.UpdateMessage("Updating board URL and title")
 
 	// Run through XenForo's own bootstrap so the repository and cache rebuild
 	// behave exactly as they do for xf:install.
@@ -94,8 +119,6 @@ func retargetBoardIdentity(ctx context.Context, target *dockercompose.Runner, la
 		return nil
 	}
 
-	spinner.StopWithMessage("success", "Board URL set to "+url)
-
 	return nil
 }
 
@@ -107,13 +130,11 @@ func phpQuote(value string) string {
 	return "'" + escaped + "'"
 }
 
-// cloneDatabase streams a dump from the source instance into the target's.
-func cloneDatabase(ctx context.Context, source, target *dockercompose.Runner) error {
+// cloneDatabase streams a dump from the source instance into the target's,
+// narrating progress through spinner. It returns the size of the dump.
+func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *dockercompose.Runner) (int64, error) {
 	user, password := source.DatabaseCredentials()
 	database := source.DatabaseName()
-
-	spinner := ui.NewSpinner("Exporting database from source...")
-	spinner.Start()
 
 	// CreateTemp generates an unpredictable name and creates the file mode
 	// 0600. A fixed path in the shared temp directory would leave the whole
@@ -121,9 +142,7 @@ func cloneDatabase(ctx context.Context, source, target *dockercompose.Runner) er
 	// the host, and would let them pre-create the path as a symlink.
 	dump, err := os.CreateTemp("", "xf-clone-"+target.Instance()+"-*.sql")
 	if err != nil {
-		spinner.StopWithMessage("error", "Failed to export database")
-
-		return fmt.Errorf("failed to create dump file: %w", err)
+		return 0, fmt.Errorf("failed to export the database: %w", err)
 	}
 
 	dumpPath := dump.Name()
@@ -148,34 +167,24 @@ func cloneDatabase(ctx context.Context, source, target *dockercompose.Runner) er
 
 	if err := source.ExecCaptureWithEnv(ctx, "mysql", dumpEnv, dump, dumpCmd...); err != nil {
 		_ = dump.Close()
-		spinner.StopWithMessage("error", "Failed to export database")
 
-		return fmt.Errorf("failed to export the source database: %w", err)
+		return 0, fmt.Errorf("failed to export the database: %w", err)
 	}
 
 	if err := dump.Close(); err != nil {
-		spinner.StopWithMessage("error", "Failed to export database")
-
-		return fmt.Errorf("failed to finish the dump: %w", err)
+		return 0, fmt.Errorf("failed to export the database: %w", err)
 	}
 
 	info, err := os.Stat(dumpPath)
 	if err != nil {
-		spinner.StopWithMessage("error", "Failed to export database")
-
-		return fmt.Errorf("failed to inspect the dump: %w", err)
+		return 0, fmt.Errorf("failed to export the database: %w", err)
 	}
 
-	spinner.StopWithMessage("success", "Database exported ("+ui.FormatBytes(info.Size())+")")
-
-	spinner = ui.NewSpinner("Importing database into worktree...")
-	spinner.Start()
+	spinner.UpdateMessage("Importing database")
 
 	restore, err := os.Open(dumpPath)
 	if err != nil {
-		spinner.StopWithMessage("error", "Failed to import database")
-
-		return fmt.Errorf("failed to read the dump: %w", err)
+		return 0, fmt.Errorf("failed to import the database: %w", err)
 	}
 
 	defer func() {
@@ -193,18 +202,17 @@ func cloneDatabase(ctx context.Context, source, target *dockercompose.Runner) er
 	}
 
 	if err := target.ExecInputWithEnv(ctx, "mysql", importEnv, restore, importCmd...); err != nil {
-		spinner.StopWithMessage("error", "Failed to import database")
-
-		return fmt.Errorf("failed to import the database: %w", err)
+		return 0, fmt.Errorf("failed to import the database: %w", err)
 	}
 
-	spinner.StopWithMessage("success", "Database imported")
-
-	return nil
+	return info.Size(), nil
 }
 
-// cloneFiles copies the source's user content into the worktree.
-func cloneFiles(ctx context.Context, sourcePath, worktreePath string) error {
+// cloneFiles copies the source's user content into the worktree, narrating
+// progress through spinner. It returns the directories that were copied.
+func cloneFiles(ctx context.Context, spinner *ui.Spinner, sourcePath, worktreePath string) ([]string, error) {
+	copied := make([]string, 0, len(clonedDirectories))
+
 	for _, dir := range clonedDirectories {
 		src := filepath.Join(sourcePath, dir)
 
@@ -212,30 +220,27 @@ func cloneFiles(ctx context.Context, sourcePath, worktreePath string) error {
 			continue
 		}
 
-		spinner := ui.NewSpinner("Copying " + dir + "...")
-		spinner.Start()
+		spinner.UpdateMessage(fmt.Sprintf("Copying %s", dir))
 
 		var lastReported int
 
-		err := worktree.CopyTree(ctx, src, filepath.Join(worktreePath, dir), func(copied, total int) {
+		err := worktree.CopyTree(ctx, src, filepath.Join(worktreePath, dir), func(done, total int) {
 			// Updating on every file would spend more time rendering than
 			// copying, since code_cache alone is thousands of small files.
-			if total > 0 && (copied == total || copied-lastReported >= progressUpdateInterval) {
-				lastReported = copied
+			if total > 0 && (done == total || done-lastReported >= progressUpdateInterval) {
+				lastReported = done
 
-				spinner.UpdateMessage(fmt.Sprintf("Copying %s... %d/%d files", dir, copied, total))
+				spinner.UpdateMessage(fmt.Sprintf("Copying %s (%d/%d files)", dir, done, total))
 			}
 		})
 		if err != nil {
-			spinner.StopWithMessage("error", "Failed to copy "+dir)
-
-			return fmt.Errorf("failed to copy %s: %w", dir, err)
+			return nil, fmt.Errorf("failed to copy %s: %w", dir, err)
 		}
 
-		spinner.StopWithMessage("success", "Copied "+dir)
+		copied = append(copied, dir)
 	}
 
-	return nil
+	return copied, nil
 }
 
 // progressUpdateInterval is how many files to copy between progress updates.
