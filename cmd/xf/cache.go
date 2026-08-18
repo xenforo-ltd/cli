@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -168,7 +168,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(entries) == 0 {
-		ui.PrintInfo("No cached downloads found.")
+		ui.PrintEmpty("No cached downloads found")
 		return nil
 	}
 
@@ -201,11 +201,15 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 	return runCacheListTable(entries, totalSize)
 }
 
+// printCacheHeader prints the shared summary line used by both the table and
+// verbose cache list views.
+func printCacheHeader(entries []*cache.Entry, totalSize int64) {
+	ui.PrintInfo(ui.Plural(len(entries), "cached download", "cached downloads") + " (" + ui.FormatBytes(totalSize) + ")")
+	ui.Println()
+}
+
 func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
-	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
-		ui.StatusIcon("info"),
-		ui.Bold.Render(strconv.Itoa(len(entries))),
-		ui.Bold.Render(ui.FormatBytes(totalSize)))
+	printCacheHeader(entries, totalSize)
 
 	headers := []string{"LICENSE", "PRODUCT", "VERSION", "SIZE", "DOWNLOADED"}
 	rows := make([][]string, 0, len(entries))
@@ -216,7 +220,7 @@ func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 			e.Metadata.DownloadID,
 			ui.Version.Render("v" + e.Metadata.Version),
 			ui.FormatBytes(e.Metadata.Size),
-			e.Metadata.DownloadedAt.Format("2006-01-02"),
+			ui.FormatDate(e.Metadata.DownloadedAt),
 		})
 	}
 
@@ -227,10 +231,7 @@ func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 }
 
 func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
-	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
-		ui.StatusIcon("info"),
-		ui.Bold.Render(strconv.Itoa(len(entries))),
-		ui.Bold.Render(ui.FormatBytes(totalSize)))
+	printCacheHeader(entries, totalSize)
 
 	currentLicense := ""
 	for _, e := range entries {
@@ -239,26 +240,22 @@ func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 				ui.Println()
 			}
 
-			ui.Printf("%s License %s\n", ui.StatusIcon("success"), ui.Bold.Render(e.LicenseKey))
+			ui.Printf("%s %s\n", ui.Dim.Render(ui.SymbolBullet), ui.Bold.Render("License "+e.LicenseKey))
 			currentLicense = e.LicenseKey
 		}
 
-		ui.Printf("\n%s%s %s\n", ui.Indent1, ui.Bold.Render(e.Metadata.DownloadID), ui.Version.Render("v"+e.Metadata.Version))
+		ui.Printf("%s%s %s\n", ui.Indent1, ui.Bold.Render(e.Metadata.DownloadID), ui.Version.Render("v"+e.Metadata.Version))
 
-		shortChecksum := e.Metadata.Checksum
-		shortChecksumLength := 12
-
-		if len(shortChecksum) > shortChecksumLength {
-			shortChecksum = shortChecksum[:shortChecksumLength] + "..."
+		checksum := ui.Dim.Render("—")
+		if e.Metadata.Checksum != "" {
+			checksum = ui.Dim.Render(e.Metadata.Checksum)
 		}
 
 		pairs := []ui.KVPair{
 			ui.KV("File", e.Metadata.Filename),
 			ui.KV("Size", ui.FormatBytes(e.Metadata.Size)),
-			ui.KV("Downloaded", e.Metadata.DownloadedAt.Format("2006-01-02 15:04:05")),
-		}
-		if shortChecksum != "" {
-			pairs = append(pairs, ui.KV("Checksum", shortChecksum))
+			ui.KV("Downloaded", ui.FormatDateTime(e.Metadata.DownloadedAt)),
+			ui.KV("Checksum", checksum),
 		}
 
 		ui.PrintKeyValuePaddedWithIndent(pairs, ui.Indent2)
@@ -280,7 +277,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 		}
 
 		if len(entries) == 0 {
-			ui.PrintInfo(fmt.Sprintf("No cached downloads found for license %s.", flagCacheLicenseKey))
+			ui.PrintEmpty("No cached downloads for license " + ui.Bold.Render(flagCacheLicenseKey))
 			return nil
 		}
 
@@ -293,15 +290,14 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to purge cached downloads for license %s: %w", flagCacheLicenseKey, err)
 		}
 
-		ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) for license %s (%s freed).",
-			len(entries), flagCacheLicenseKey, ui.FormatBytes(totalSize)))
+		ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
+			ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize)), nil)
 
 		return nil
 	}
 
 	if !flagCacheAll {
-		ui.PrintWarning("Use --all to confirm purging all cached downloads, or --license to purge a specific license.")
-		return nil
+		return newUsageError(errors.New("specify --all to purge everything, or --license <key> for one license"))
 	}
 
 	entries, err := manager.List()
@@ -310,7 +306,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(entries) == 0 {
-		ui.PrintInfo("No cached downloads to purge.")
+		ui.PrintEmpty("No cached downloads to purge")
 		return nil
 	}
 
@@ -323,7 +319,8 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to purge all cached downloads: %w", err)
 	}
 
-	ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) (%s freed).", len(entries), ui.FormatBytes(totalSize)))
+	ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
+		ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize)), nil)
 
 	return nil
 }
@@ -334,7 +331,8 @@ func runCachePath(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	ui.Println(ui.Path.Render(cfg.CachePath))
+	// Bare output: consumed by shell substitution, e.g. open $(xf cache path).
+	fmt.Println(cfg.CachePath)
 
 	return nil
 }
