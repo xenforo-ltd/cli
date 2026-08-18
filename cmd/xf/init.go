@@ -35,7 +35,8 @@ Fresh Install Mode (default):
   4. Sets up Docker configuration
   5. Configures the .env file
   6. Runs 'up' to start the containers
-  7. Runs 'xf:install' to complete the installation
+  7. Runs 'composer install' if composer.json is present
+  8. Runs 'xf:install' to complete the installation
 
 Existing Directory Mode (--existing flag):
   For core developers who already have XenForo source files checked out.
@@ -45,6 +46,10 @@ Existing Directory Mode (--existing flag):
   2. Extracts Docker configuration files
   3. Configures the .env file
   4. Optionally starts containers (with --up flag)
+
+  Repository checkouts track composer.json, so dependencies are installed
+  automatically once the containers are running. Release packages ship
+  vendor/ prebuilt and have no manifest, so they are skipped.
 
 Examples:
   # Fresh install (interactive)
@@ -86,6 +91,7 @@ type InitOptions struct {
 	InstanceName     string
 	SkipUp           bool
 	SkipInstall      bool
+	SkipComposer     bool
 	ExistingOnly     bool
 	Contexts         []string
 	StartContainers  bool
@@ -109,6 +115,7 @@ var (
 	flagInitInstance      string
 	flagInitSkipUp        bool
 	flagInitSkipInstall   bool
+	flagInitSkipComposer  bool
 	flagInitExisting      bool
 	flagInitContexts      []string
 	flagInitUp            bool
@@ -127,6 +134,7 @@ func init() {
 	initCmd.Flags().StringVar(&flagInitInstance, "instance", "", "Docker instance name")
 	initCmd.Flags().BoolVar(&flagInitSkipUp, "skip-up", false, "skip starting Docker containers")
 	initCmd.Flags().BoolVar(&flagInitSkipInstall, "skip-install", false, "skip running xf:install")
+	initCmd.Flags().BoolVar(&flagInitSkipComposer, "skip-composer", false, "skip running composer install")
 	initCmd.Flags().BoolVar(&flagInitExisting, "existing", false, "initialize Docker in an existing XenForo directory (skips download)")
 	initCmd.Flags().StringSliceVar(&flagInitContexts, "contexts", nil, "Docker contexts to enable (e.g., caddy,mysql,development,redis)")
 	initCmd.Flags().BoolVar(&flagInitUp, "up", false, "start containers after initialization (for --existing mode)")
@@ -162,6 +170,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		InstanceName:     flagInitInstance,
 		SkipUp:           flagInitSkipUp,
 		SkipInstall:      flagInitSkipInstall,
+		SkipComposer:     flagInitSkipComposer,
 		ExistingOnly:     flagInitExisting,
 		Contexts:         flagInitContexts,
 		StartContainers:  flagInitUp,
