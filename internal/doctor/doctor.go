@@ -153,7 +153,7 @@ func (d *Doctor) checkAuth() {
 	if err != nil {
 		result.Status = StatusWarning
 		result.Message = "Not authenticated"
-		result.Suggestion = "Run 'xf auth login' to authenticate"
+		result.Suggestion = "Run " + ui.Command.Render("xf auth login") + " to authenticate"
 		d.results = append(d.results, result)
 
 		return
@@ -172,7 +172,7 @@ func (d *Doctor) checkAuth() {
 	if token.BaseURL != cfg.OAuth.BaseURL {
 		result.Status = StatusWarning
 		result.Message = "Authenticated with different configuration"
-		result.Suggestion = "Run 'xf auth login' to re-authenticate"
+		result.Suggestion = "Run " + ui.Command.Render("xf auth login") + " to re-authenticate"
 		d.results = append(d.results, result)
 
 		return
@@ -182,11 +182,11 @@ func (d *Doctor) checkAuth() {
 	case token.IsExpired():
 		result.Status = StatusWarning
 		result.Message = "Authentication token has expired"
-		result.Suggestion = "Run 'xf auth login' to re-authenticate"
+		result.Suggestion = "Run " + ui.Command.Render("xf auth login") + " to re-authenticate"
 	case token.IsExpiringSoon(10 * time.Minute):
 		result.Status = StatusWarning
 		result.Message = fmt.Sprintf("Token expires in %s", token.TimeUntilExpiry().Round(time.Minute))
-		result.Suggestion = "Consider re-authenticating soon with 'xf auth login'"
+		result.Suggestion = "Consider re-authenticating soon with " + ui.Command.Render("xf auth login")
 	default:
 		result.Status = StatusOK
 		result.Message = "Authenticated"
