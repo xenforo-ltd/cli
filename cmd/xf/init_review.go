@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"charm.land/huh/v2"
 
 	"github.com/xenforo-ltd/cli/internal/customerapi"
+	"github.com/xenforo-ltd/cli/internal/docker"
 	"github.com/xenforo-ltd/cli/internal/downloads"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -17,7 +20,23 @@ import (
 const (
 	reviewDone   = "__done__"
 	versionCount = 10
+
+	manualVersionLabel = "Enter a specific version..."
 )
+
+// sentence upper-cases the first rune of s, leaving the rest untouched.
+// Validation sentinel errors are lower-case by Go convention; this makes
+// them read as sentence-case UI copy when surfaced via pendingWarning.
+func sentence(s string) string {
+	if s == "" {
+		return s
+	}
+
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+
+	return string(r)
+}
 
 type overrideMode int
 
@@ -47,7 +66,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 
 	const manual = -1
 
-	versionOptions = append(versionOptions, huh.NewOption(ui.Dim.Render("Enter a specific version..."), manual))
+	versionOptions = append(versionOptions, huh.NewOption(manualVersionLabel, manual))
 
 	selection := 0
 	if len(versionOptions) > 0 {
@@ -99,10 +118,18 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 }
 
 func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
+	var pendingWarning string
+
 	for {
 		ui.ClearScreen()
-		ui.Println()
-		ui.Println(ui.Bold.Render("Review configuration"))
+		ui.Println(ui.Header.Render("Review configuration"))
+
+		if pendingWarning != "" {
+			ui.PrintWarning(pendingWarning)
+			ui.Println()
+			pendingWarning = ""
+		}
+
 		printReviewSummary(ctx, client, opts)
 		ui.Println()
 
@@ -117,7 +144,6 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 			huh.NewOption("Cancel", "cancel"),
 		}
 		if err := huh.NewSelect[string]().
-			Title("Choose an action").
 			Options(options...).
 			Value(&choice).
 			Run(); err != nil {
@@ -127,7 +153,7 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 		switch choice {
 		case "continue":
 			if err := validateReviewInputs(opts); err != nil {
-				ui.PrintWarning(err.Error())
+				pendingWarning = sentence(err.Error())
 				continue
 			}
 
@@ -170,12 +196,16 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 		ui.KV("License", licenseDetails),
 		ui.KV("Core version", opts.VersionString),
 		ui.KV("Products", formatProductList(opts.Products, titleMap)),
-		ui.KV("Admin", fmt.Sprintf("%s / %s", opts.AdminUser, opts.AdminEmail)),
+		ui.KV("Admin user", opts.AdminUser),
+		ui.KV("Admin email", opts.AdminEmail),
 		ui.KV("Instance", opts.InstanceName),
 	})
 
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.VersionString, opts.ProductOverrides, nil)
-	if err == nil {
+	if err != nil {
+		ui.Println()
+		ui.PrintWarning("Could not resolve add-on versions; continuing may fail during initialization")
+	} else {
 		ui.Println()
 		ui.Println(ui.Bold.Render("Add-on versions"))
 
@@ -259,8 +289,10 @@ func editAdminSite(opts *InitOptions) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("Admin username").Value(&opts.AdminUser).Validate(func(s string) error {
-				if strings.TrimSpace(s) == "" {
-					return ErrAdminUserRequired
+				// Counted in runes: len would measure bytes, so a single
+				// multi-byte character would pass a three-character minimum.
+				if utf8.RuneCountInString(s) < minimumUsernameLength {
+					return ErrUsernameTooShort
 				}
 
 				return nil
@@ -274,7 +306,7 @@ func editAdminSite(opts *InitOptions) error {
 			}),
 			huh.NewInput().Title("Admin email").Value(&opts.AdminEmail).Validate(func(s string) error {
 				if !strings.Contains(strings.TrimSpace(s), "@") {
-					return ErrValidEmailRequired
+					return ErrInvalidEmail
 				}
 
 				return nil
@@ -379,6 +411,15 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 	for {
 		titleMap := getProductTitleMapCached(ctx, client, opts)
 
+		overrideVersions := map[string]string{}
+		if selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.VersionString, opts.ProductOverrides, nil); err == nil {
+			for _, s := range selections {
+				if strings.TrimSpace(s.VersionString) != "" {
+					overrideVersions[s.Product] = s.VersionString
+				}
+			}
+		}
+
 		addonOptions := make([]huh.Option[string], 0, len(addons)+1)
 		for _, p := range addons {
 			name := titleMap[p]
@@ -388,7 +429,11 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 
 			label := name
 			if id, ok := opts.ProductOverrides[p]; ok {
-				label = fmt.Sprintf("%s (override: %d)", name, id)
+				if v, ok := overrideVersions[p]; ok {
+					label = fmt.Sprintf("%s (override: %s)", name, v)
+				} else {
+					label = fmt.Sprintf("%s (override id %d)", name, id)
+				}
 			}
 
 			addonOptions = append(addonOptions, huh.NewOption(label, p))
@@ -414,20 +459,14 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 		}
 
 		currentVersion := "auto"
-
-		if selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.VersionString, opts.ProductOverrides, nil); err == nil {
-			for _, s := range selections {
-				if s.Product == product && strings.TrimSpace(s.VersionString) != "" {
-					currentVersion = s.VersionString
-					break
-				}
-			}
+		if v, ok := overrideVersions[product]; ok {
+			currentVersion = v
 		}
 
 		if err := huh.NewSelect[overrideMode]().
 			Title("Choose override mode").
 			Options(
-				huh.NewOption(fmt.Sprintf("Use current version [%s]", currentVersion), modeInferred),
+				huh.NewOption(fmt.Sprintf("Use current version (%s)", currentVersion), modeInferred),
 				huh.NewOption("Set specific version", modeOverride),
 			).
 			Value(&mode).Run(); err != nil {
@@ -458,7 +497,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 
 		const manual = -1
 
-		selectOptions = append(selectOptions, huh.NewOption(ui.Dim.Render("Enter a specific version..."), manual))
+		selectOptions = append(selectOptions, huh.NewOption(manualVersionLabel, manual))
 
 		choice := selectOptions[0].Value
 		if err := huh.NewSelect[int]().
@@ -474,6 +513,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 				var input string
 				if err := huh.NewInput().
 					Title("Enter version string or version ID").
+					Description("Examples: 2.3.9, v2.3.9, 2030900").
 					Value(&input).Run(); err != nil {
 					return markAs(ErrCancelled, "version input cancelled for %s", product)
 				}
@@ -509,13 +549,20 @@ func editEnvValues(opts *InitOptions) error {
 
 		sort.Strings(keys)
 
-		options := make([]huh.Option[string], 0, len(keys)+additionalEnvChoices)
+		keyWidth := 0
 		for _, k := range keys {
-			options = append(options, huh.NewOption(fmt.Sprintf("%s=%s", k, envVals[k]), k))
+			if len(k) > keyWidth {
+				keyWidth = len(k)
+			}
 		}
 
-		options = append(options, huh.NewOption("Add new variable", "__add__"))
-		options = append(options, huh.NewOption("Done", reviewDone))
+		options := make([]huh.Option[string], 0, len(keys)+additionalEnvChoices)
+		for _, k := range keys {
+			options = append(options, huh.NewOption(fmt.Sprintf("%-*s %s", keyWidth, k, envVals[k]), k))
+		}
+
+		options = append(options, huh.NewOption("── Add new variable", "__add__"))
+		options = append(options, huh.NewOption("── Done", reviewDone))
 
 		choice := reviewDone
 		if len(options) > 0 {
@@ -541,7 +588,7 @@ func editEnvValues(opts *InitOptions) error {
 
 			key = strings.TrimSpace(strings.ToUpper(key))
 			if err := initflow.ValidateEnvKey(key); err != nil {
-				ui.PrintWarning(err.Error())
+				ui.PrintWarning(sentence(err.Error()))
 				continue
 			}
 		}
@@ -564,11 +611,37 @@ func editEnvValues(opts *InitOptions) error {
 	}
 }
 
+// defaultPHPVersionFallback is used only if the embedded .env.default
+// template cannot be read or no longer documents a default PHP_VERSION;
+// this should not happen outside of a corrupted binary.
+const defaultPHPVersionFallback = "8.5"
+
+// defaultPHPVersion reads the default PHP_VERSION from the same embedded
+// .env.default template that docker.GetEnvDefault serves for `xf init`,
+// so this preview never drifts from the value shipped in the Docker files.
+// The line is commented out there (`#PHP_VERSION=8.5`) because Docker's
+// own default (compose.yaml's `${PHP_VERSION:-8.5}`) takes over when unset.
+func defaultPHPVersion() string {
+	data, err := docker.GetEnvDefault()
+	if err != nil {
+		return defaultPHPVersionFallback
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "#"))
+		if v, ok := strings.CutPrefix(line, "PHP_VERSION="); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+
+	return defaultPHPVersionFallback
+}
+
 func currentEnvPreview(opts *InitOptions) (map[string]string, map[string]string) {
 	base := map[string]string{
 		"XF_INSTANCE": opts.InstanceName,
 		"XF_EMAIL":    opts.AdminEmail,
-		"PHP_VERSION": "8.5",
+		"PHP_VERSION": defaultPHPVersion(),
 	}
 	if opts.SiteTitle != "" {
 		base["XF_TITLE"] = fmt.Sprintf("%s [%s]", opts.SiteTitle, opts.InstanceName)

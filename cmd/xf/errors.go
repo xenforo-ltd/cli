@@ -70,8 +70,12 @@ var (
 	// ErrInternal indicates an internal error.
 	ErrInternal = errors.New("internal error")
 
+	// minimumUsernameLength is the shortest admin username accepted across
+	// interactive prompts.
+	minimumUsernameLength = 3
+
 	// ErrUsernameTooShort is returned when username validation fails.
-	ErrUsernameTooShort = errors.New("username must be at least 3 characters")
+	ErrUsernameTooShort = fmt.Errorf("username must be at least %d characters", minimumUsernameLength)
 
 	// ErrPasswordRequired is returned when password is not provided.
 	ErrPasswordRequired = errors.New("password is required")
@@ -81,7 +85,4 @@ var (
 
 	// ErrAdminUserRequired is returned when admin username is not provided.
 	ErrAdminUserRequired = errors.New("admin username is required")
-
-	// ErrValidEmailRequired is returned when admin email is not provided.
-	ErrValidEmailRequired = errors.New("valid admin email is required")
 )

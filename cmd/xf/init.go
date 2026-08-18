@@ -605,7 +605,6 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			opts.SiteTitle = "XenForo"
 		}
 
-		minimumUsernameLength := 3
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().

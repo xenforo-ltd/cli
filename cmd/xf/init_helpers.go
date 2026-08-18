@@ -174,7 +174,7 @@ func validateReviewInputs(opts *InitOptions) error {
 	}
 
 	if !strings.Contains(strings.TrimSpace(opts.AdminEmail), "@") {
-		return ErrValidEmailRequired
+		return ErrInvalidEmail
 	}
 
 	if strings.TrimSpace(opts.AdminUser) == "" {
