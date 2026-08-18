@@ -96,6 +96,95 @@ func TestIsServiceRunning(t *testing.T) {
 	})
 }
 
+// TestProjectExists covers the Compose project discovery used to refuse a
+// second environment that would reuse another one's containers or volumes. The
+// probes must key on the Compose project label: any other filter could report a
+// taken name as free.
+func TestProjectExists(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("fake docker shim test is unix-only")
+	}
+
+	const instance = "demo"
+	const projectFilter = "com.docker.compose.project=" + instance
+
+	t.Run("matching container", func(t *testing.T) {
+		_, logFile := newRunnerWithFakeDocker(t)
+		t.Setenv("DOCKER_PROJECT_PS", "match")
+
+		exists, err := ProjectExists(t.Context(), instance)
+		if err != nil {
+			t.Fatalf("ProjectExists returned error: %v", err)
+		}
+
+		if !exists {
+			t.Fatal("expected a container with the project label to count as existing")
+		}
+
+		assertProjectProbe(t, logFile, "ps --all", projectFilter)
+	})
+
+	t.Run("volume without container", func(t *testing.T) {
+		_, logFile := newRunnerWithFakeDocker(t)
+		// A stopped environment keeps its volumes but has no containers, so
+		// the project must still be reported as existing.
+		t.Setenv("DOCKER_PROJECT_VOLUME", "match")
+
+		exists, err := ProjectExists(t.Context(), instance)
+		if err != nil {
+			t.Fatalf("ProjectExists returned error: %v", err)
+		}
+
+		if !exists {
+			t.Fatal("expected a volume with the project label to count as existing")
+		}
+
+		assertProjectProbe(t, logFile, "volume ls", projectFilter)
+	})
+
+	t.Run("neither resource", func(t *testing.T) {
+		_, logFile := newRunnerWithFakeDocker(t)
+
+		exists, err := ProjectExists(t.Context(), instance)
+		if err != nil {
+			t.Fatalf("ProjectExists returned error: %v", err)
+		}
+
+		if exists {
+			t.Fatal("expected no project to be reported")
+		}
+
+		// Both probes must run: a stopped project leaves no container, so
+		// stopping at the first empty result would miss its volumes.
+		log := readDockerLog(t, logFile)
+		if !strings.Contains(log, "ps --all") || !strings.Contains(log, "volume ls") {
+			t.Fatalf("expected both probes to run, log:\n%s", log)
+		}
+	})
+
+	t.Run("volume probe failure", func(t *testing.T) {
+		newRunnerWithFakeDocker(t)
+		t.Setenv("DOCKER_PROJECT_VOLUME", "error")
+
+		if _, err := ProjectExists(t.Context(), instance); err == nil {
+			t.Fatal("expected a failing probe to be returned as an error, not treated as absence")
+		}
+	})
+}
+
+// assertProjectProbe checks that a probe ran with the exact Compose project
+// filter, the key that links a container or volume to its project.
+func assertProjectProbe(t *testing.T, logPath, subcommand, filter string) {
+	t.Helper()
+
+	log := readDockerLog(t, logPath)
+
+	want := subcommand + " --filter label=" + filter
+	if !strings.Contains(log, want) {
+		t.Fatalf("probe %q did not use the filter %q, log:\n%s", subcommand, filter, log)
+	}
+}
+
 func TestExecOrRunBranching(t *testing.T) {
 	if runtime.GOOS == windowsOS {
 		t.Skip("fake docker shim test is unix-only")
@@ -169,11 +258,22 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		}
 
 		log := readDockerLog(t, logFile)
-		if !strings.Contains(log, " exec -e XDEBUG_SESSION=1 xf php -v") {
+
+		// The name alone goes in the arguments; the value is forwarded through
+		// the environment so it never appears in the host's process list.
+		if !strings.Contains(log, " exec -e XDEBUG_SESSION xf php -v") {
 			t.Fatalf("expected exec invocation with env, log:\n%s", log)
 		}
 
-		if strings.Contains(log, " run --rm --env XDEBUG_SESSION=1 xf php -v") {
+		if strings.Contains(log, "XDEBUG_SESSION=1 xf php -v") {
+			t.Fatalf("env value leaked into the docker arguments, log:\n%s", log)
+		}
+
+		if !strings.Contains(log, "env XDEBUG_SESSION=1") {
+			t.Fatalf("env value did not reach the docker process, log:\n%s", log)
+		}
+
+		if strings.Contains(log, " run --rm --env XDEBUG_SESSION xf php -v") {
 			t.Fatalf("did not expect run invocation, log:\n%s", log)
 		}
 	})
@@ -187,11 +287,19 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		}
 
 		log := readDockerLog(t, logFile)
-		if !strings.Contains(log, " run --rm --env XDEBUG_SESSION=1 xf php -v") {
+		if !strings.Contains(log, " run --rm --env XDEBUG_SESSION xf php -v") {
 			t.Fatalf("expected run invocation with env, log:\n%s", log)
 		}
 
-		if strings.Contains(log, " exec -e XDEBUG_SESSION=1 xf php -v") {
+		if strings.Contains(log, "XDEBUG_SESSION=1 xf php -v") {
+			t.Fatalf("env value leaked into the docker arguments, log:\n%s", log)
+		}
+
+		if !strings.Contains(log, "env XDEBUG_SESSION=1") {
+			t.Fatalf("env value did not reach the docker process, log:\n%s", log)
+		}
+
+		if strings.Contains(log, " exec -e XDEBUG_SESSION xf php -v") {
 			t.Fatalf("did not expect exec invocation, log:\n%s", log)
 		}
 	})
@@ -218,6 +326,9 @@ func newRunnerWithFakeDocker(t *testing.T) (*Runner, string) {
 set -euo pipefail
 if [[ -n "${DOCKER_LOG_FILE:-}" ]]; then
   printf '%s\n' "$*" >> "$DOCKER_LOG_FILE"
+  # Record the forwarded value so tests can prove it arrives through the
+  # environment rather than the argument list.
+  printf 'env XDEBUG_SESSION=%s\n' "${XDEBUG_SESSION:-<unset>}" >> "$DOCKER_LOG_FILE"
 fi
 args=" $* "
 if [[ "$args" == *" ps --status running --services "* ]]; then
@@ -231,6 +342,30 @@ if [[ "$args" == *" ps --status running --services "* ]]; then
   fi
   echo "ps failed" >&2
   exit 1
+fi
+if [[ "$args" == *" ps --all "* ]]; then
+  mode="${DOCKER_PROJECT_PS:-none}"
+  if [[ "$mode" == "match" ]]; then
+    echo "container-id"
+    exit 0
+  fi
+  if [[ "$mode" == "error" ]]; then
+    echo "ps --all failed" >&2
+    exit 1
+  fi
+  exit 0
+fi
+if [[ "$args" == *" volume ls "* ]]; then
+  mode="${DOCKER_PROJECT_VOLUME:-none}"
+  if [[ "$mode" == "match" ]]; then
+    echo "demo_data"
+    exit 0
+  fi
+  if [[ "$mode" == "error" ]]; then
+    echo "volume ls failed" >&2
+    exit 1
+  fi
+  exit 0
 fi
 if [[ "$args" == *" exec "* ]]; then
   mode="${DOCKER_EXEC_MODE:-ok}"

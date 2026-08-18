@@ -120,12 +120,120 @@ func (r *Runner) UpWithOutput(ctx context.Context, detach bool, stdout, stderr i
 	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
 }
 
-// Down stops and removes the Docker containers.
+// ExecCapture runs a command in a service, streaming its output to stdout.
+//
+// Output is streamed rather than buffered so that large results, such as a
+// database dump, do not have to fit in memory.
+func (r *Runner) ExecCapture(ctx context.Context, service string, stdout io.Writer, cmd ...string) error {
+	return r.ExecCaptureWithEnv(ctx, service, nil, stdout, cmd...)
+}
+
+// ExecCaptureWithEnv is ExecCapture with environment variables set inside the
+// container. Secrets belong here rather than in cmd: a value passed as an
+// argument is visible in the container's process list.
+func (r *Runner) ExecCaptureWithEnv(
+	ctx context.Context,
+	service string,
+	env map[string]string,
+	stdout io.Writer,
+	cmd ...string,
+) error {
+	args := r.buildComposeArgs()
+	args = append(args, "exec", "-T")
+	args = r.appendEnvVars(args, env, "-e")
+	args = append(args, service)
+	args = append(args, cmd...)
+
+	return r.runDockerCommandWithEnvAndIO(ctx, env, nil, stdout, os.Stderr, args...)
+}
+
+// ExecInput runs a command in a service, feeding it from stdin.
+func (r *Runner) ExecInput(ctx context.Context, service string, stdin io.Reader, cmd ...string) error {
+	return r.ExecInputWithEnv(ctx, service, nil, stdin, cmd...)
+}
+
+// ExecInputWithEnv is ExecInput with environment variables set inside the
+// container, so secrets stay out of the container's process list.
+func (r *Runner) ExecInputWithEnv(
+	ctx context.Context,
+	service string,
+	env map[string]string,
+	stdin io.Reader,
+	cmd ...string,
+) error {
+	args := r.buildComposeArgs()
+	args = append(args, "exec", "-T")
+	args = r.appendEnvVars(args, env, "-e")
+	args = append(args, service)
+	args = append(args, cmd...)
+
+	return r.runDockerCommandWithEnvAndIO(ctx, env, stdin, os.Stdout, os.Stderr, args...)
+}
+
+// runDockerCommandWithEnvAndIO executes a docker command with explicit streams,
+// passing env through this process's environment rather than the docker argv.
+func (r *Runner) runDockerCommandWithEnvAndIO(
+	ctx context.Context,
+	env map[string]string,
+	stdin io.Reader,
+	stdout, stderr io.Writer,
+	args ...string,
+) error {
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = r.xfDir
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
+	cmd.Env = append(cmd.Env, envPairs(env)...)
+
+	if err := cmd.Run(); err != nil {
+		return contextError(ctx, fmt.Errorf("docker command failed: %w", err))
+	}
+
+	return nil
+}
+
+// DatabaseCredentials returns the configured database user and password.
+func (r *Runner) DatabaseCredentials() (string, string) {
+	return r.getDatabaseCredentials()
+}
+
+// DatabaseName returns the configured database name.
+func (r *Runner) DatabaseName() string {
+	return r.resolveEnvValue("XF_DB_DATABASE", "xf")
+}
+
+// Down stops and removes the Docker containers, leaving volumes intact so the
+// environment can be started again with its data.
 func (r *Runner) Down(ctx context.Context) error {
 	args := r.buildComposeArgs()
-	args = append(args, "down")
+	args = append(args, downArgs(false)...)
 
 	return r.runDockerCommand(ctx, args...)
+}
+
+// Destroy stops the environment and removes its volumes.
+//
+// This is permanent: the database and any other volume data are deleted. It is
+// what removing a worktree needs, since otherwise each discarded feature branch
+// leaves a full volume set behind.
+func (r *Runner) Destroy(ctx context.Context) error {
+	args := r.buildComposeArgs()
+	args = append(args, downArgs(true)...)
+
+	return r.runDockerCommand(ctx, args...)
+}
+
+// downArgs builds the compose arguments for stopping an environment.
+func downArgs(removeVolumes bool) []string {
+	args := []string{"down"}
+
+	if removeVolumes {
+		args = append(args, "--volumes", "--remove-orphans")
+	}
+
+	return args
 }
 
 // PS lists running containers.
@@ -167,7 +275,7 @@ func (r *Runner) ExecWithEnv(ctx context.Context, service string, env map[string
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommand(ctx, args...)
+	return r.runDockerCommandWithEnv(ctx, env, args...)
 }
 
 // Run runs a one-off command in a new container.
@@ -220,7 +328,7 @@ func (r *Runner) ExecOrRunWithOutput(ctx context.Context, service string, rm boo
 		execArgs = append(execArgs, "exec", service)
 		execArgs = append(execArgs, cmd...)
 
-		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, stdout, execArgs...)
+		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, nil, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithOutput(ctx, service, rm, stdout, stderr, cmd...)
 		}
@@ -245,7 +353,7 @@ func (r *Runner) ExecOrRunWithEnv(ctx context.Context, service string, rm bool, 
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
-		stderr, err := r.runDockerCommandCaptureStderr(ctx, execArgs...)
+		stderr, err := r.runDockerCommandCaptureStderrWithEnv(ctx, env, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderr) {
 			return r.RunWithEnv(ctx, service, rm, env, cmd...)
 		}
@@ -270,7 +378,7 @@ func (r *Runner) ExecOrRunWithEnvAndOutput(ctx context.Context, service string, 
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
-		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, stdout, execArgs...)
+		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, env, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithEnvAndOutput(ctx, service, rm, env, stdout, stderr, cmd...)
 		}
@@ -294,7 +402,7 @@ func (r *Runner) RunWithEnvAndOutput(ctx context.Context, service string, rm boo
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
+	return r.runDockerCommandWithEnvAndOutput(ctx, env, stdout, stderr, args...)
 }
 
 // Compose runs a docker compose command directly.
@@ -380,7 +488,7 @@ func (r *Runner) RunWithEnv(ctx context.Context, service string, rm bool, env ma
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommand(ctx, args...)
+	return r.runDockerCommandWithEnv(ctx, env, args...)
 }
 
 // RunWithOutput runs a one-off command in a new container with custom output writers.
@@ -484,6 +592,43 @@ func (r *Runner) IsEnvironmentInitialized() bool {
 	return err == nil
 }
 
+// composeProjectLabel is the label Docker Compose stamps on every container and
+// volume it creates for a project.
+const composeProjectLabel = "com.docker.compose.project"
+
+// ProjectExists reports whether a Compose project already owns containers or
+// volumes under the given instance name.
+//
+// Compose derives container and volume names from the project name, so a second
+// environment reusing one would adopt the first's resources. Volumes are checked
+// as well as containers because `docker compose down` leaves volumes behind: an
+// environment can be stopped with no containers at all and still collide.
+//
+// A failed Docker command is returned as an error rather than reported as an
+// absent project. Treating an unreachable Docker as "free" would let creation
+// proceed onto a name that may already be in use.
+func ProjectExists(ctx context.Context, instance string) (bool, error) {
+	probes := [][]string{
+		{"ps", "--all", "--filter", "label=" + composeProjectLabel + "=" + instance, "--format", "{{.ID}}"},
+		{"volume", "ls", "--filter", "label=" + composeProjectLabel + "=" + instance, "--format", "{{.Name}}"},
+	}
+
+	for _, args := range probes {
+		cmd := exec.CommandContext(ctx, "docker", args...)
+
+		out, err := cmd.Output()
+		if err != nil {
+			return false, contextError(ctx, fmt.Errorf("failed to inspect Docker Compose project %q: %w", instance, err))
+		}
+
+		if strings.TrimSpace(string(out)) != "" {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // RunCapture runs a docker compose command and captures output.
 func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string, error) {
 	allArgs := r.buildComposeArgs()
@@ -509,29 +654,33 @@ func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string
 	return stdout, stderr, err
 }
 
+// getDatabaseCredentials resolves the database user and password.
+//
+// The names must match what the compose files read, since those are the keys
+// that end up in .env: XF_DB_USER and XF_DB_PASSWORD (compose.mysql.yaml,
+// compose.postgres.yaml). The defaults mirror the fallbacks declared there.
+//
+// Resolution order matches docker compose: process environment, then .env, then
+// the built-in default.
 func (r *Runner) getDatabaseCredentials() (string, string) {
-	user := "xf"
-	password := "password"
+	return r.resolveEnvValue("XF_DB_USER", "xf"),
+		r.resolveEnvValue("XF_DB_PASSWORD", "password")
+}
+
+// resolveEnvValue returns the value for key from the process environment, then
+// the project's .env file, falling back to def.
+func (r *Runner) resolveEnvValue(key, def string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
 
 	if envData, err := os.ReadFile(r.envPath); err == nil {
-		if value := parseEnvValue(string(envData), "MYSQL_USER"); value != "" {
-			user = value
-		}
-
-		if value := parseEnvValue(string(envData), "MYSQL_PASSWORD"); value != "" {
-			password = value
+		if value := parseEnvValue(string(envData), key); value != "" {
+			return value
 		}
 	}
 
-	if value := os.Getenv("MYSQL_USER"); value != "" {
-		user = value
-	}
-
-	if value := os.Getenv("MYSQL_PASSWORD"); value != "" {
-		password = value
-	}
-
-	return user, password
+	return def
 }
 
 // runDockerCommand executes a docker compose command.
@@ -539,8 +688,29 @@ func (r *Runner) runDockerCommand(ctx context.Context, args ...string) error {
 	return r.runDockerCommandWithOutput(ctx, os.Stdout, os.Stderr, args...)
 }
 
+// runDockerCommandWithEnv is runDockerCommand with variables supplied through
+// this process's environment.
+func (r *Runner) runDockerCommandWithEnv(ctx context.Context, env map[string]string, args ...string) error {
+	return r.runDockerCommandWithEnvAndOutput(ctx, env, os.Stdout, os.Stderr, args...)
+}
+
 // runDockerCommandWithOutput executes a docker compose command with custom output.
 func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	return r.runDockerCommandWithEnvAndOutput(ctx, nil, stdout, stderr, args...)
+}
+
+// runDockerCommandWithEnvAndOutput executes a docker compose command with custom
+// output, passing env through this process's environment.
+//
+// Values given here are never placed in the docker argv: appendEnvVars emits
+// only the variable names, and docker forwards the values from here. That keeps
+// secrets such as MYSQL_PWD off the host's process list.
+func (r *Runner) runDockerCommandWithEnvAndOutput(
+	ctx context.Context,
+	env map[string]string,
+	stdout, stderr io.Writer,
+	args ...string,
+) error {
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = r.xfDir
 	cmd.Stdout = stdout
@@ -548,6 +718,7 @@ func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr 
 	cmd.Stdin = os.Stdin
 
 	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
+	cmd.Env = append(cmd.Env, envPairs(env)...)
 
 	if err := cmd.Run(); err != nil {
 		return contextError(ctx, fmt.Errorf("docker command failed: %w", err))
@@ -557,17 +728,30 @@ func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr 
 }
 
 func (r *Runner) runDockerCommandCaptureStderr(ctx context.Context, args ...string) (string, error) {
+	return r.runDockerCommandCaptureStderrWithEnv(ctx, nil, args...)
+}
+
+func (r *Runner) runDockerCommandCaptureStderrWithEnv(
+	ctx context.Context,
+	env map[string]string,
+	args ...string,
+) (string, error) {
 	var stderr bytes.Buffer
 
-	err := r.runDockerCommandWithOutput(ctx, os.Stdout, &stderr, args...)
+	err := r.runDockerCommandWithEnvAndOutput(ctx, env, os.Stdout, &stderr, args...)
 
 	return stderr.String(), err
 }
 
-func (r *Runner) runDockerCommandCaptureStderrWithOutput(ctx context.Context, stdout io.Writer, args ...string) (string, error) {
+func (r *Runner) runDockerCommandCaptureStderrWithOutput(
+	ctx context.Context,
+	env map[string]string,
+	stdout io.Writer,
+	args ...string,
+) (string, error) {
 	var stderr bytes.Buffer
 
-	err := r.runDockerCommandWithOutput(ctx, stdout, &stderr, args...)
+	err := r.runDockerCommandWithEnvAndOutput(ctx, env, stdout, &stderr, args...)
 
 	return stderr.String(), err
 }
@@ -635,6 +819,20 @@ func (r *Runner) appendEnvVars(args []string, env map[string]string, flagFormat 
 		return args
 	}
 
+	for _, k := range sortedEnvKeys(env) {
+		// The name is passed without a value so docker forwards it from this
+		// process's own environment. Writing "NAME=value" here would put the
+		// value in the docker argv, where any user on the host can read it
+		// from the process list.
+		args = append(args, flagFormat, k)
+	}
+
+	return args
+}
+
+// sortedEnvKeys returns the keys of env in a stable order, so the arguments a
+// command is built with do not vary between runs.
+func sortedEnvKeys(env map[string]string) []string {
 	keys := make([]string, 0, len(env))
 	for k := range env {
 		keys = append(keys, k)
@@ -642,11 +840,17 @@ func (r *Runner) appendEnvVars(args []string, env map[string]string, flagFormat 
 
 	sort.Strings(keys)
 
-	for _, k := range keys {
-		args = append(args, flagFormat, fmt.Sprintf("%s=%s", k, env[k]))
+	return keys
+}
+
+// envPairs renders env as "NAME=value" strings for a command's own environment.
+func envPairs(env map[string]string) []string {
+	pairs := make([]string, 0, len(env))
+	for _, k := range sortedEnvKeys(env) {
+		pairs = append(pairs, fmt.Sprintf("%s=%s", k, env[k]))
 	}
 
-	return args
+	return pairs
 }
 
 // getServicePort gets the exposed port for a service.
