@@ -226,6 +226,10 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	result, err := cacheManager.DownloadWithAuth(ctx, opts, accessToken, progress)
 	if err != nil {
+		if dlSpinner != nil {
+			dlSpinner.Stop()
+		}
+
 		return fmt.Errorf("failed to download %s version %d: %w", downloadID, versionID, err)
 	}
 
