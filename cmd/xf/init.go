@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -433,8 +435,23 @@ func checkPrerequisites(ctx context.Context) error {
 	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 
 	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
+		// Cancellation must stay recognisable, or Ctrl-C during the check is
+		// reported as a Docker failure and exits 1 instead of 130.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		// A missing docker executable is not a stopped daemon, and telling the
+		// user to start Docker Desktop would not fix it.
+		if errors.Is(err, exec.ErrNotFound) {
+			return withHint(
+				markAs(err, "Docker is not installed or not in your PATH"),
+				"Install Docker and try again",
+			)
+		}
+
 		return withHint(
-			markAs(ErrInternal, "Docker does not appear to be running"),
+			markAs(err, "Docker does not appear to be running"),
 			"Start Docker Desktop and try again",
 		)
 	}

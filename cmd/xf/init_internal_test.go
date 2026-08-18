@@ -80,6 +80,63 @@ func TestPhaseTrackerWriterProcessLine(t *testing.T) {
 	}
 }
 
+// TestValidateTargetDirectory covers the silent precondition check hoisted
+// ahead of composer detection in executeInit: it must agree with
+// prepareTargetDirectory's own reject/allow decisions, since
+// prepareTargetDirectory re-checks the same condition when it later runs as
+// the printed step.
+func TestValidateTargetDirectory(t *testing.T) {
+	t.Run("missing dir is allowed", func(t *testing.T) {
+		target := filepath.Join(t.TempDir(), "new-dir")
+		if err := validateTargetDirectory(target); err != nil {
+			t.Fatalf("validateTargetDirectory failed: %v", err)
+		}
+
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("validateTargetDirectory must not create the directory, stat err=%v", err)
+		}
+	})
+
+	t.Run("rejects file path", func(t *testing.T) {
+		file := filepath.Join(t.TempDir(), "file")
+		if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+			t.Fatalf("seed file: %v", err)
+		}
+
+		if err := validateTargetDirectory(file); err == nil {
+			t.Fatal("expected error for non-directory target")
+		}
+	})
+
+	t.Run("rejects non-empty non-xenforo dir", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "something.txt"), []byte("x"), 0o600); err != nil {
+			t.Fatalf("seed file: %v", err)
+		}
+
+		if err := validateTargetDirectory(dir); err == nil {
+			t.Fatal("expected error for non-empty non-XenForo directory")
+		}
+	})
+
+	t.Run("allows non-empty xenforo dir", func(t *testing.T) {
+		dir := t.TempDir()
+
+		xfPath := filepath.Join(dir, "src", "XF.php")
+		if err := os.MkdirAll(filepath.Dir(xfPath), 0o750); err != nil {
+			t.Fatalf("create XF src dir: %v", err)
+		}
+
+		if err := os.WriteFile(xfPath, []byte("<?php // XF stub"), 0o600); err != nil {
+			t.Fatalf("seed XF.php: %v", err)
+		}
+
+		if err := validateTargetDirectory(dir); err != nil {
+			t.Fatalf("validateTargetDirectory should allow non-empty XenForo directory: %v", err)
+		}
+	})
+}
+
 func TestPrepareTargetDirectory(t *testing.T) {
 	t.Run("creates missing dir", func(t *testing.T) {
 		target := filepath.Join(t.TempDir(), "new-dir")

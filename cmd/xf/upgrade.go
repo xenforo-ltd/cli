@@ -310,7 +310,8 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	}
 
 	if err := xf.UpdateMetadataVersion(opts.TargetPath, targetVersion); err != nil {
-		ui.PrintWarning(fmt.Sprintf("Could not update metadata: %v", err))
+		ui.PrintWarning("Could not update metadata")
+		printCause(err)
 	}
 
 	if !opts.SkipUpgrade {

@@ -132,6 +132,22 @@ func IsTerminal(f *os.File) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
+// Enabled reports whether styled (ANSI) output should be produced for the
+// given destination stream: f must be an interactive terminal and NO_COLOR
+// must be unset, matching the informal https://no-color.org convention that
+// the rest of the codebase's lipgloss-writer-based printing already honours.
+//
+// Code that writes pre-rendered strings directly (bypassing lipgloss's own
+// writer-side profile detection, e.g. cobra template funcs or stderr writes
+// built with fmt.Fprintf) must gate on this before calling Style.Render, or
+// piped output will carry raw escape codes regardless of NO_COLOR.
+func Enabled(f *os.File) bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	return IsTerminal(f)
+}
+
 // ClearScreen clears the visible screen when stdout is a terminal.
 func ClearScreen() {
 	if IsTerminal(os.Stdout) {

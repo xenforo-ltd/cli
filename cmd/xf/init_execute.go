@@ -71,6 +71,16 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
+	// Reject a doomed target directory before paying for anything expensive:
+	// detectComposerBeforeDownload below can pull the full core package ZIP
+	// on a cold cache, and printing the step plan commits to a step count.
+	// Neither should happen if the run is going to fail this precondition
+	// anyway. prepareTargetDirectory (the printed step) re-checks this same
+	// condition immediately before acting on it.
+	if err := validateTargetDirectory(opts.TargetPath); err != nil {
+		return err
+	}
+
 	// The composer-dependencies step only exists for packages that ship a
 	// composer.json (repository checkouts; see shouldRunComposer). Whether
 	// that's true can only be known once the xenforo package itself is
@@ -165,9 +175,11 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
 	if opts.SkipUp {
+		// No further steps run in this branch, so step is not advanced.
 		printSkippedStep(step, totalSteps, "Starting Docker environment", "use --up to start containers")
 	} else {
 		ui.PrintStep(step, totalSteps, "Starting Docker environment")
+		step++
 
 		if cfg.Verbose {
 			ui.PrintSubstep("Running docker compose up...")
@@ -531,7 +543,67 @@ func formatProductNames(products []string, titleMap map[string]string) string {
 	return strings.Join(names, ", ")
 }
 
+// validateTargetDirectory checks the target-directory precondition without
+// printing anything: the target must not exist, or must be an empty
+// directory, or must be a non-empty directory that already looks like a
+// XenForo install. It is run silently, before composer detection and before
+// any step total is printed, so a doomed run is rejected before the (slow,
+// on a cold cache) full core package download that composer detection
+// triggers. prepareTargetDirectory calls this same check again immediately
+// before acting on it, since nothing prevents the directory changing between
+// the early precondition check and the printed step later in the run.
+func validateTargetDirectory(targetPath string) error {
+	info, err := os.Stat(targetPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to check target directory: %w", err)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("target path exists but is not a directory: %w", ErrInvalidInput)
+	}
+
+	entries, err := os.ReadDir(targetPath)
+	if err != nil {
+		return fmt.Errorf("failed to read target directory: %w", err)
+	}
+
+	nonHiddenCount := 0
+
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".") {
+			nonHiddenCount++
+		}
+	}
+
+	if nonHiddenCount == 0 {
+		return nil
+	}
+
+	hasXenForo, err := detectXenForo(targetPath)
+	if err != nil {
+		return err
+	}
+
+	if !hasXenForo {
+		return fmt.Errorf(
+			"target directory is not empty (%d visible items); use an empty directory or an existing XenForo directory: %w",
+			nonHiddenCount,
+			ErrInvalidInput,
+		)
+	}
+
+	return nil
+}
+
 func prepareTargetDirectory(targetPath string) error {
+	if err := validateTargetDirectory(targetPath); err != nil {
+		return err
+	}
+
 	info, err := os.Stat(targetPath)
 	if os.IsNotExist(err) {
 		if err := os.MkdirAll(targetPath, 0o750); err != nil {
@@ -565,21 +637,11 @@ func prepareTargetDirectory(targetPath string) error {
 	}
 
 	if nonHiddenCount > 0 {
-		hasXenForo, err := detectXenForo(targetPath)
-		if err != nil {
-			return err
-		}
-
-		if hasXenForo {
-			ui.PrintWarning("Directory already contains a XenForo installation")
-			ui.PrintDetail("Only Docker configuration files will be updated")
-		} else {
-			return fmt.Errorf(
-				"target directory is not empty (%d visible items); use an empty directory or an existing XenForo directory: %w",
-				nonHiddenCount,
-				ErrInvalidInput,
-			)
-		}
+		// validateTargetDirectory above already confirmed a non-empty,
+		// non-XenForo directory would have been rejected; a non-empty
+		// directory reaching here contains a XenForo installation.
+		ui.PrintWarning("Directory already contains a XenForo installation")
+		ui.PrintDetail("Only Docker configuration files will be updated")
 	} else {
 		ui.PrintSubstep("Directory is empty and ready")
 	}

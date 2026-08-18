@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -241,18 +242,26 @@ func handleError(err error) {
 	if !viper.GetBool("verbose") {
 		msg = firstErrorClause(msg)
 	}
-	// ui prints via lipgloss to stdout; errors belong on stderr, so render
-	// the styled string and write it ourselves.
-	fmt.Fprintf(os.Stderr, "%s %s\n",
-		ui.ErrorBold.Render(ui.SymbolError), ui.Error.Render(msg))
+
+	// Errors belong on stderr, not lipgloss's default stdout writer, so
+	// render through lipgloss.Fprintf: like ui's own Print* helpers, it
+	// downsamples any ANSI in the rendered text (including from hints built
+	// with ui.Command.Render elsewhere) based on stderr's own profile - a
+	// plain os.Stderr write would carry the raw escapes straight through
+	// regardless of NO_COLOR or piping.
+	lipgloss.Fprintf(os.Stderr, "%s %s\n", ui.ErrorBold.Render(ui.SymbolError), ui.Error.Render(msg))
+
 	if hint := hintOf(err); hint != "" {
-		fmt.Fprintf(os.Stderr, "%s%s %s\n",
-			ui.Indent1, ui.Dim.Render(ui.SymbolArrow), hint)
+		lipgloss.Fprintf(os.Stderr, "%s%s %s\n", ui.Indent1, ui.Dim.Render(ui.SymbolArrow), hint)
 	}
 }
 
 // firstErrorClause trims a wrapped chain to its most useful prefix: it keeps
 // clauses until one adds no information (pure plumbing like "exit status 1").
+//
+// If the very first clause is itself plumbing, there is no useful prefix to
+// cut to; instead, plumbing clauses are trimmed off the end so any leading
+// substantive text survives (and the sentinel tail never leaks through).
 func firstErrorClause(msg string) string {
 	parts := strings.Split(msg, ": ")
 	cut := len(parts)
@@ -262,10 +271,18 @@ func firstErrorClause(msg string) string {
 			break
 		}
 	}
-	if cut == 0 {
+	if cut > 0 {
+		return strings.Join(parts[:cut], ": ")
+	}
+
+	end := len(parts)
+	for end > 0 && plumbingClause(parts[end-1]) {
+		end--
+	}
+	if end == 0 {
 		return msg
 	}
-	return strings.Join(parts[:cut], ": ")
+	return strings.Join(parts[:end], ": ")
 }
 
 func plumbingClause(s string) bool {
@@ -390,8 +407,22 @@ func init() {
 	// command immediately, reading completionCommandGroupID at that point.
 	rootCmd.InitDefaultCompletionCmd()
 
-	cobra.AddTemplateFunc("styleHeading", func(s string) string { return ui.Bold.Render(s) })
-	cobra.AddTemplateFunc("styleCommand", func(s string) string { return ui.Command.Render(s) })
+	// Help is written to stdout via fmt, not lipgloss, so it bypasses
+	// lipgloss's writer-side profile detection: style only when stdout is an
+	// interactive terminal and NO_COLOR is unset, or piped/redirected help
+	// (e.g. `xf --help | cat`) would carry raw escape codes.
+	cobra.AddTemplateFunc("styleHeading", func(s string) string {
+		if !ui.Enabled(os.Stdout) {
+			return s
+		}
+		return ui.Bold.Render(s)
+	})
+	cobra.AddTemplateFunc("styleCommand", func(s string) string {
+		if !ui.Enabled(os.Stdout) {
+			return s
+		}
+		return ui.Command.Render(s)
+	})
 	rootCmd.SetUsageTemplate(usageTemplate)
 
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "path to config file")

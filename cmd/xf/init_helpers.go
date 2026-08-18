@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/viper"
+
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -24,9 +26,23 @@ func printSkippedStep(current, total int, label, reason string) {
 // same failure again.
 func printInstallFailure(err error) error {
 	ui.PrintError("xf:install failed")
+	printCause(err)
 	ui.PrintHint("Run " + ui.Command.Render("xf xf:install") + " to retry once the containers are up")
 
 	return passthroughError(err, "xf:install failed")
+}
+
+// printCause prints the underlying error beneath a status line, but only under
+// --verbose.
+//
+// Status lines stay readable by default, while the detail needed to diagnose a
+// failure is still one flag away rather than discarded.
+func printCause(err error) {
+	if err == nil || !viper.GetBool("verbose") {
+		return
+	}
+
+	ui.PrintDetail(err.Error())
 }
 
 // printStartHint prints the hint for starting an environment that was not

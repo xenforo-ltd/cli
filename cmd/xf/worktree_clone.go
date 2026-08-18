@@ -113,8 +113,8 @@ func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *doc
 
 	if err := target.PHP(ctx, "-r", script); err != nil {
 		spinner.Stop()
-		ui.PrintWarning(fmt.Sprintf("Could not update the board URL to %s: %v", url, err))
-		ui.Println("    Set it in the admin control panel under Options > Basic board information.")
+		ui.PrintWarning("Could not update the board URL to " + url)
+		ui.PrintHint("Set it in the admin control panel under Options > Basic board information")
 
 		return nil
 	}

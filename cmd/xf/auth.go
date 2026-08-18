@@ -167,7 +167,11 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	spinner.Start()
 
 	if err := auth.OpenBrowser(cmd.Context(), authURL); err != nil {
+		// Stop the spinner before printing so the warning lands on its own
+		// line instead of being overwritten by the next animation frame.
+		spinner.Stop()
 		ui.PrintWarning("Could not open the browser automatically — use the URL above")
+		spinner.Start()
 	}
 
 	spinner.UpdateMessage("Waiting for authentication in the browser")
@@ -448,7 +452,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	ui.PrintSuccess("Token refreshed")
 	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("New expiry", newToken.ExpiresAt.Format(time.RFC1123)),
+		ui.KV("New expiry", ui.FormatDateTime(newToken.ExpiresAt)),
 		ui.KV("Time until expiry", newToken.TimeUntilExpiry().Round(time.Minute).String()),
 	})
 

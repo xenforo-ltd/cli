@@ -441,8 +441,10 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 		// Reported rather than ignored: the worktree is gone but the registry
 		// still lists it, and only this message tells the user why.
 		warnRegistryUpdateFailed()
+		printCause(regErr)
 	} else if err := registry.Remove(target); err != nil {
 		warnRegistryUpdateFailed()
+		printCause(err)
 	}
 
 	ui.SuccessBox("Removed worktree "+ui.Path.Render(ui.ShortHome(target)), nil)

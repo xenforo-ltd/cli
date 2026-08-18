@@ -225,7 +225,8 @@ func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 	}
 
 	ui.Println(ui.NewTable(headers, rows))
-	ui.Printf("\nUse %s for detailed information.\n", ui.Command.Render("-v"))
+	ui.Println()
+	ui.PrintHint("Run " + ui.Command.Render("xf cache list -v") + " for detailed information")
 
 	return nil
 }
