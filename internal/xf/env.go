@@ -326,6 +326,12 @@ func GetXenForoDir(startDir string) (string, error) {
 	return "", fmt.Errorf("not in a XenForo directory and XF_DIR not set: %w", ErrInvalidInput)
 }
 
+// MaxInstanceNameLength bounds every generated Docker instance name.
+//
+// Instance names become Compose project names, container and volume name
+// prefixes and hostnames, so they are kept short enough to stay valid in each.
+const MaxInstanceNameLength = 32
+
 // GenerateInstanceName generates a Docker-safe instance name from a directory name.
 func GenerateInstanceName(dirName string) string {
 	name := strings.ToLower(dirName)
@@ -339,9 +345,8 @@ func GenerateInstanceName(dirName string) string {
 		name = "xf"
 	}
 
-	maxInstanceNameLength := 32
-	if len(name) > maxInstanceNameLength {
-		name = name[:maxInstanceNameLength]
+	if len(name) > MaxInstanceNameLength {
+		name = name[:MaxInstanceNameLength]
 	}
 
 	return name
