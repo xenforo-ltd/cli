@@ -32,8 +32,6 @@ const ansiClearLine = "\r\033[2K"
 // Predefined styles for consistent use across commands.
 var (
 	Bold      = lipgloss.NewStyle().Bold(true)
-	Italic    = lipgloss.NewStyle().Italic(true)
-	Underline = lipgloss.NewStyle().Underline(true)
 	Dim       = lipgloss.NewStyle().Faint(true)                        // Terminal's native faint/dim
 	Muted     = lipgloss.NewStyle().Foreground(ColorSubtle)            // Adaptive subtle color
 	Label     = lipgloss.NewStyle().Foreground(ColorSubtle)            // For labels in key-value pairs
@@ -49,8 +47,7 @@ var (
 	ErrorBold   = lipgloss.NewStyle().Foreground(ColorError).Bold(true)
 	InfoBold    = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
 
-	Header    = lipgloss.NewStyle().Bold(true).Underline(true)
-	Subheader = lipgloss.NewStyle().Bold(true)
+	Header = lipgloss.NewStyle().Bold(true).Underline(true)
 
 	Command = lipgloss.NewStyle().Foreground(ColorAccent)
 	Path    = lipgloss.NewStyle().Foreground(ColorSecondary)
@@ -112,6 +109,48 @@ func StatusIcon(status string) string {
 	}
 }
 
+// Plural returns the count with the correct singular/plural noun.
+func Plural(n int, singular, plural string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, singular)
+	}
+	return fmt.Sprintf("%d %s", n, plural)
+}
+
+// FormatDate renders a date for table cells.
+func FormatDate(t time.Time) string { return t.Format("2006-01-02") }
+
+// FormatDateTime renders a timestamp for key-value output.
+func FormatDateTime(t time.Time) string { return t.Format("2006-01-02 15:04") }
+
+// IsTerminal reports whether f is an interactive terminal.
+func IsTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+// ShortHome abbreviates the home directory prefix of a path to ~.
+var ShortHome = func(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if path == home {
+		return "~"
+	}
+	if strings.HasPrefix(path, home+string(os.PathSeparator)) {
+		return "~" + path[len(home):]
+	}
+	return path
+}
+
+// isTTY records whether stdout is an interactive terminal, gating spinner
+// and progress-bar animation.
+var isTTY = IsTerminal(os.Stdout)
+
 // Step returns a formatted progress step indicator.
 func Step(current, total int) string {
 	return Info.Render(fmt.Sprintf("[%d/%d]", current, total))
@@ -161,68 +200,9 @@ func Separator(width int) string {
 	return Dim.Render(strings.Repeat("─", width))
 }
 
-// DoubleSeparator returns a double-line horizontal separator.
-func DoubleSeparator(width int) string {
-	if width <= 0 {
-		width = 60
-	}
-
-	return Dim.Render(strings.Repeat("═", width))
-}
-
-// Box returns formatted text in a box border.
-func Box(title, content string) string {
-	var sb strings.Builder
-
-	lines := strings.Split(content, "\n")
-
-	maxWidth := len(title)
-	for _, line := range lines {
-		if len(line) > maxWidth {
-			maxWidth = len(line)
-		}
-	}
-
-	maxWidth += 4 // padding
-
-	sb.WriteString(Dim.Render("┌" + strings.Repeat("─", maxWidth) + "┐"))
-	sb.WriteString("\n")
-
-	if title != "" {
-		padding := maxWidth - len(title) - 1
-
-		sb.WriteString(Dim.Render("│ "))
-		sb.WriteString(Bold.Render(title))
-		sb.WriteString(strings.Repeat(" ", padding))
-		sb.WriteString(Dim.Render("│"))
-		sb.WriteString("\n")
-		sb.WriteString(Dim.Render("├" + strings.Repeat("─", maxWidth) + "┤"))
-		sb.WriteString("\n")
-	}
-
-	for _, line := range lines {
-		padding := maxWidth - len(line) - 1
-
-		sb.WriteString(Dim.Render("│ "))
-		sb.WriteString(line)
-		sb.WriteString(strings.Repeat(" ", padding))
-		sb.WriteString(Dim.Render("│"))
-		sb.WriteString("\n")
-	}
-
-	sb.WriteString(Dim.Render("└" + strings.Repeat("─", maxWidth) + "┘"))
-
-	return sb.String()
-}
-
 // KeyValue returns a formatted key-value pair.
 func KeyValue(key, value string) string {
 	return fmt.Sprintf("%s %s", Label.Render(key+":"), value)
-}
-
-// KeyValueBold returns a formatted key-value pair with a bold key.
-func KeyValueBold(key, value string) string {
-	return fmt.Sprintf("%s %s", Bold.Render(key+":"), value)
 }
 
 // KVPair represents a key-value pair for display.
@@ -243,21 +223,36 @@ func PrintKeyValuePadded(pairs []KVPair) {
 
 // PrintKeyValuePaddedWithIndent prints key-value pairs with custom indentation.
 func PrintKeyValuePaddedWithIndent(pairs []KVPair, indent string) {
-	if len(pairs) == 0 {
+	out := renderKeyValuePadded(pairs, indent)
+	if out == "" {
 		return
+	}
+
+	_, _ = lipgloss.Print(out)
+}
+
+// renderKeyValuePadded renders key-value pairs with values aligned to the
+// widest key, using display width so styled/multi-byte keys don't break
+// alignment.
+func renderKeyValuePadded(pairs []KVPair, indent string) string {
+	if len(pairs) == 0 {
+		return ""
 	}
 
 	maxKeyLen := 0
 	for _, p := range pairs {
-		if len(p.Key) > maxKeyLen {
-			maxKeyLen = len(p.Key)
+		if w := lipgloss.Width(p.Key); w > maxKeyLen {
+			maxKeyLen = w
 		}
 	}
 
+	var sb strings.Builder
 	for _, p := range pairs {
-		padding := strings.Repeat(" ", maxKeyLen-len(p.Key))
-		lipgloss.Printf("%s%s%s  %s\n", indent, Label.Render(p.Key+":"), padding, p.Value)
+		padding := strings.Repeat(" ", maxKeyLen-lipgloss.Width(p.Key))
+		fmt.Fprintf(&sb, "%s%s%s  %s\n", indent, Label.Render(p.Key+":"), padding, p.Value)
 	}
+
+	return sb.String()
 }
 
 // List formats a slice of strings as a bulleted list.
@@ -265,16 +260,6 @@ func List(items []string) string {
 	var sb strings.Builder
 	for _, item := range items {
 		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(SymbolBullet), item)
-	}
-
-	return strings.TrimSuffix(sb.String(), "\n")
-}
-
-// NumberedList formats a slice of strings as a numbered list.
-func NumberedList(items []string) string {
-	var sb strings.Builder
-	for i, item := range items {
-		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(fmt.Sprintf("%d.", i+1)), item)
 	}
 
 	return strings.TrimSuffix(sb.String(), "\n")
@@ -288,15 +273,14 @@ type Spinner struct {
 	message  string
 	writer   io.Writer
 	done     chan struct{}
+	stopped  chan struct{} // closed by the animation goroutine as it exits
 	running  bool
+	plain    bool // true when Start ran without a TTY: no animation, no Stop line
 	frameIdx int
 }
 
 // SpinnerFrames are the animation frames for the spinner.
 var SpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-
-// SpinnerFramesSimple are simpler ASCII frames for terminals without Unicode.
-var SpinnerFramesSimple = []string{"|", "/", "-", "\\"}
 
 // NewSpinner creates a new spinner with the given message.
 func NewSpinner(message string) *Spinner {
@@ -309,7 +293,8 @@ func NewSpinner(message string) *Spinner {
 	}
 }
 
-// Start begins the spinner animation.
+// Start begins the spinner animation. When stdout is not an interactive
+// terminal, it prints the message once and returns without animating.
 func (s *Spinner) Start() {
 	s.mu.Lock()
 	if s.running {
@@ -317,40 +302,75 @@ func (s *Spinner) Start() {
 		return
 	}
 
+	if !isTTY {
+		s.plain = true
+		s.running = true
+		msg := s.message
+		s.mu.Unlock()
+		lipgloss.Fprintf(s.writer, "%s\n", msg)
+		return
+	}
+
 	s.running = true
 	s.done = make(chan struct{})
+	s.stopped = make(chan struct{})
+	done, stopped := s.done, s.stopped
 	s.mu.Unlock()
 
 	go func() {
+		defer close(stopped)
+
+		ticker := time.NewTicker(s.interval)
+		defer ticker.Stop()
+
 		for {
+			s.mu.Lock()
+			msg := s.message
+			frame := Info.Render(s.frames[s.frameIdx%len(s.frames)])
+			lipgloss.Fprint(s.writer, ansiClearLine)
+			lipgloss.Fprintf(s.writer, "%s %s", frame, msg)
+			s.frameIdx++
+			s.mu.Unlock()
+
+			// Waiting on the ticker and done together keeps Stop responsive:
+			// a plain sleep would make it block for up to a full interval.
 			select {
-			case <-s.done:
+			case <-done:
 				return
-			default:
-				s.mu.Lock()
-				msg := s.message
-				frame := Info.Render(s.frames[s.frameIdx%len(s.frames)])
-				lipgloss.Fprint(s.writer, ansiClearLine)
-				lipgloss.Fprintf(s.writer, "%s %s", frame, msg)
-				s.frameIdx++
-				s.mu.Unlock()
-				time.Sleep(s.interval)
+			case <-ticker.C:
 			}
 		}
 	}()
 }
 
-// Stop stops the spinner and clears the line.
+// Stop stops the spinner and clears the line. It is a no-op if Start ran
+// without a TTY (the message was already printed once, plainly).
 func (s *Spinner) Stop() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if !s.running {
+		s.mu.Unlock()
 		return
 	}
 
-	close(s.done)
 	s.running = false
+
+	if s.plain {
+		s.mu.Unlock()
+		return
+	}
+
+	stopped := s.stopped
+	close(s.done)
+	s.mu.Unlock()
+
+	// Wait for the animation goroutine to exit before returning, so a
+	// subsequent Start — or any output printed after Stop — cannot be
+	// overwritten by a stale frame from the old goroutine.
+	<-stopped
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	lipgloss.Fprint(s.writer, ansiClearLine)
 }
@@ -396,7 +416,9 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 	w.spinner.mu.Lock()
 	defer w.spinner.mu.Unlock()
 
-	if w.spinner.running {
+	repaint := isTTY && w.spinner.running && !w.spinner.plain
+
+	if repaint {
 		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
 	}
 
@@ -405,13 +427,8 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 		return n, fmt.Errorf("failed to write spinner output: %w", err)
 	}
 
-	if w.spinner.running {
-		spacing := "\n\n"
-		if strings.HasSuffix(string(p), "\n") {
-			spacing = "\n"
-		}
-
-		lipgloss.Fprint(w.spinner.writer, spacing)
+	if repaint {
+		lipgloss.Fprint(w.spinner.writer, "\n")
 		frame := Info.Render(w.spinner.frames[w.spinner.frameIdx%len(w.spinner.frames)])
 		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
 		lipgloss.Fprintf(w.spinner.writer, "%s %s", frame, w.spinner.message)
@@ -470,11 +487,26 @@ func (p *ProgressBar) Finish() {
 
 	p.current = p.total
 	p.render()
-	lipgloss.Fprintln(p.writer)
+
+	if isTTY {
+		lipgloss.Fprintln(p.writer)
+	}
+}
+
+// Abandon ends an unfinished progress bar, clearing its line. Use this when the
+// operation failed: Finish would paint the bar at 100%, reporting a partial or
+// failed transfer as complete.
+func (p *ProgressBar) Abandon() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if isTTY {
+		lipgloss.Fprint(p.writer, ansiClearLine)
+	}
 }
 
 func (p *ProgressBar) render() {
-	if p.total <= 0 {
+	if p.total <= 0 || !isTTY {
 		return
 	}
 
@@ -488,7 +520,8 @@ func (p *ProgressBar) render() {
 	pctStr := fmt.Sprintf("%3.0f%%", percent*100)
 	sizeStr := fmt.Sprintf("%s / %s", FormatBytes(p.current), FormatBytes(p.total))
 
-	lipgloss.Fprintf(p.writer, "\r%s %s %s %s",
+	lipgloss.Fprintf(p.writer, "%s%s %s %s %s",
+		ansiClearLine,
 		p.message,
 		bar,
 		Info.Render(pctStr),
@@ -551,6 +584,17 @@ func PrintKeyValue(key, value string) {
 	lipgloss.Println(KeyValue(key, value))
 }
 
+// PrintHint prints an actionable next step: "  → Run xf auth login to ...".
+// Callers style embedded commands themselves.
+func PrintHint(text string) {
+	lipgloss.Printf("%s%s %s\n", Indent1, Dim.Render(SymbolArrow), text)
+}
+
+// PrintEmpty prints a standard empty-result line.
+func PrintEmpty(message string) {
+	lipgloss.Printf("%s %s\n", StatusIcon("info"), message)
+}
+
 // SuccessBox prints a success message with optional key-value details.
 // This replaces heavy double-line separators with a cleaner format.
 func SuccessBox(message string, details []KVPair) {
@@ -590,28 +634,4 @@ func ErrorBox(message string, details []KVPair) {
 		lipgloss.Println()
 		PrintKeyValuePadded(details)
 	}
-}
-
-// Confirm displays a confirmation prompt and returns the result.
-// Note: This is a simple blocking prompt. For TUI, use huh forms.
-func Confirm(prompt string, defaultYes bool) bool {
-	var response string
-
-	defaultStr := "y/N"
-	if defaultYes {
-		defaultStr = "Y/n"
-	}
-
-	Printf("%s [%s]: ", prompt, defaultStr)
-
-	if _, err := fmt.Scanln(&response); err != nil {
-		return defaultYes
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	if response == "" {
-		return defaultYes
-	}
-
-	return response == "y" || response == "yes"
 }
