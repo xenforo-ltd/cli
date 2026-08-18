@@ -54,10 +54,19 @@ func runDebug(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Running with Xdebug: " + args[0])
+	// Only the command name is echoed. Arguments routinely carry passwords and
+	// tokens, and this line ends up in terminal scrollback and CI logs.
+	ui.PrintInfo("Xdebug enabled: " + ui.Command.Render(args[0]))
 
 	if err := runner.XFCommandDebug(cmd.Context(), args...); err != nil {
-		return fmt.Errorf("failed to run XenForo command with Xdebug: %w", err)
+		// A cancelled command reports an exit status of -1, which is not a
+		// status any caller should receive. Report the cancellation itself so
+		// the interrupt exit code is used.
+		if ctxErr := cmd.Context().Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		return passthroughError(err, "failed to run the command with Xdebug")
 	}
 
 	return nil

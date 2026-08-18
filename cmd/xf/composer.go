@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
-	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var composerCmd = &cobra.Command{
@@ -53,10 +51,8 @@ func runComposer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Running: composer " + strings.Join(composerArgs, " "))
-
 	if err := runner.Composer(cmd.Context(), composerArgs...); err != nil {
-		return fmt.Errorf("composer command failed: %w", err)
+		return passthroughError(err, "failed to run Composer")
 	}
 
 	return nil

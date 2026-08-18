@@ -49,7 +49,7 @@ func runCompose(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := runner.Compose(cmd.Context(), composeArgs...); err != nil {
-		return fmt.Errorf("docker compose command failed: %w", err)
+		return passthroughError(err, "failed to run docker compose")
 	}
 
 	return nil
