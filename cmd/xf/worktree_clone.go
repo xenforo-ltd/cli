@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
@@ -43,10 +44,11 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 		return err
 	}
 
-	return retargetBoardURL(ctx, targetRunner)
+	return retargetBoardIdentity(ctx, targetRunner, filepath.Base(worktreePath))
 }
 
-// retargetBoardURL points the cloned board at its own address.
+// retargetBoardIdentity points the cloned board at its own address and marks
+// its title with the worktree name.
 //
 // boardUrl is stored in the database, so a clone inherits the source's URL and
 // generates links back to the forum it was copied from. XenForo has no config
@@ -55,7 +57,7 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 // OptionRepository::updateOptions is used rather than a direct UPDATE because
 // it also rebuilds the option cache. Writing the row alone would leave the old
 // URL in service until something else happened to rebuild it.
-func retargetBoardURL(ctx context.Context, target *dockercompose.Runner) error {
+func retargetBoardIdentity(ctx context.Context, target *dockercompose.Runner, label string) error {
 	url, err := target.GetURL(ctx)
 	if err != nil || url == "" {
 		ui.PrintWarning("Could not determine the worktree's URL; the board URL still points at the source")
@@ -63,19 +65,25 @@ func retargetBoardURL(ctx context.Context, target *dockercompose.Runner) error {
 		return nil
 	}
 
-	spinner := ui.NewSpinner("Updating board URL...")
+	spinner := ui.NewSpinner("Updating board URL and title...")
 	spinner.Start()
 
 	// Run through XenForo's own bootstrap so the repository and cache rebuild
 	// behave exactly as they do for xf:install.
 	// php -r takes bare statements, without an opening tag.
+	// Both options are set in one call so the option cache rebuilds once. The
+	// title is derived inside PHP because it depends on the current value,
+	// which is only known once XenForo has booted.
 	script := fmt.Sprintf(
 		`require __DIR__ . '/src/XF.php';`+
 			`XF::start(__DIR__);`+
 			`$app = XF::setupApp(XF\App::class);`+
+			`$title = rtrim(preg_replace('/\s*\[[^\[\]]*\]\s*$/', '', $app->options()->boardTitle));`+
+			`$title = $title === '' ? %[2]s : $title . ' ' . %[2]s;`+
 			`$app->repository(XF\Repository\OptionRepository::class)`+
-			`->updateOptions(['boardUrl' => %s]);`,
+			`->updateOptions(['boardUrl' => %[1]s, 'boardTitle' => $title]);`,
 		phpQuote(url),
+		phpQuote("["+label+"]"),
 	)
 
 	if err := target.PHP(ctx, "-r", script); err != nil {
@@ -104,34 +112,41 @@ func cloneDatabase(ctx context.Context, source, target *dockercompose.Runner) er
 	user, password := source.DatabaseCredentials()
 	database := source.DatabaseName()
 
-	dumpPath := filepath.Join(os.TempDir(), "xf-clone-"+target.Instance()+".sql")
-
-	defer func() {
-		_ = os.Remove(dumpPath)
-	}()
-
 	spinner := ui.NewSpinner("Exporting database from source...")
 	spinner.Start()
 
-	dump, err := os.Create(dumpPath)
+	// CreateTemp generates an unpredictable name and creates the file mode
+	// 0600. A fixed path in the shared temp directory would leave the whole
+	// forum database, including password hashes, readable by other users on
+	// the host, and would let them pre-create the path as a symlink.
+	dump, err := os.CreateTemp("", "xf-clone-"+target.Instance()+"-*.sql")
 	if err != nil {
 		spinner.StopWithMessage("error", "Failed to export database")
 
 		return fmt.Errorf("failed to create dump file: %w", err)
 	}
 
+	dumpPath := dump.Name()
+
+	defer func() {
+		_ = os.Remove(dumpPath)
+	}()
+
+	// The password goes in the environment: an argument would be visible to
+	// anything that can list processes in the container.
+	dumpEnv := map[string]string{"MYSQL_PWD": password}
+
 	// --single-transaction keeps the source usable during the dump.
 	dumpCmd := []string{
 		"mariadb-dump",
 		"--user=" + user,
-		"--password=" + password,
 		"--single-transaction",
 		"--routines",
 		"--events",
 		database,
 	}
 
-	if err := source.ExecCapture(ctx, "mysql", dump, dumpCmd...); err != nil {
+	if err := source.ExecCaptureWithEnv(ctx, "mysql", dumpEnv, dump, dumpCmd...); err != nil {
 		_ = dump.Close()
 		spinner.StopWithMessage("error", "Failed to export database")
 
@@ -169,14 +184,15 @@ func cloneDatabase(ctx context.Context, source, target *dockercompose.Runner) er
 
 	targetUser, targetPassword := target.DatabaseCredentials()
 
+	importEnv := map[string]string{"MYSQL_PWD": targetPassword}
+
 	importCmd := []string{
 		"mariadb",
 		"--user=" + targetUser,
-		"--password=" + targetPassword,
 		target.DatabaseName(),
 	}
 
-	if err := target.ExecInput(ctx, "mysql", restore, importCmd...); err != nil {
+	if err := target.ExecInputWithEnv(ctx, "mysql", importEnv, restore, importCmd...); err != nil {
 		spinner.StopWithMessage("error", "Failed to import database")
 
 		return fmt.Errorf("failed to import the database: %w", err)
@@ -224,3 +240,29 @@ func cloneFiles(ctx context.Context, sourcePath, worktreePath string) error {
 
 // progressUpdateInterval is how many files to copy between progress updates.
 const progressUpdateInterval = 100
+
+// retitleBoard appends a worktree label to a board title, replacing any label
+// already present.
+//
+// A clone inherits the source forum's title, so several worktrees would
+// otherwise be indistinguishable in a browser tab.
+//
+// This mirrors the expression used in retargetBoardIdentity, which has to run
+// inside PHP because it depends on the live option value. It exists separately
+// so the behaviour can be tested directly.
+func retitleBoard(title, label string) string {
+	trimmed := strings.TrimRight(trailingLabel.ReplaceAllString(title, ""), " \t")
+
+	suffix := "[" + label + "]"
+
+	if trimmed == "" {
+		return suffix
+	}
+
+	return trimmed + " " + suffix
+}
+
+// trailingLabel matches a bracketed label at the end of a board title. Nested
+// brackets are excluded so a title ending in "[a [b]]" is left alone rather
+// than partly consumed.
+var trailingLabel = regexp.MustCompile(`\s*\[[^\[\]]*\]\s*$`)

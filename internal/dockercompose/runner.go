@@ -125,8 +125,23 @@ func (r *Runner) UpWithOutput(ctx context.Context, detach bool, stdout, stderr i
 // Output is streamed rather than buffered so that large results, such as a
 // database dump, do not have to fit in memory.
 func (r *Runner) ExecCapture(ctx context.Context, service string, stdout io.Writer, cmd ...string) error {
+	return r.ExecCaptureWithEnv(ctx, service, nil, stdout, cmd...)
+}
+
+// ExecCaptureWithEnv is ExecCapture with environment variables set inside the
+// container. Secrets belong here rather than in cmd: a value passed as an
+// argument is visible in the container's process list.
+func (r *Runner) ExecCaptureWithEnv(
+	ctx context.Context,
+	service string,
+	env map[string]string,
+	stdout io.Writer,
+	cmd ...string,
+) error {
 	args := r.buildComposeArgs()
-	args = append(args, "exec", "-T", service)
+	args = append(args, "exec", "-T")
+	args = r.appendEnvVars(args, env, "-e")
+	args = append(args, service)
 	args = append(args, cmd...)
 
 	return r.runDockerCommandWithIO(ctx, nil, stdout, os.Stderr, args...)
@@ -134,8 +149,22 @@ func (r *Runner) ExecCapture(ctx context.Context, service string, stdout io.Writ
 
 // ExecInput runs a command in a service, feeding it from stdin.
 func (r *Runner) ExecInput(ctx context.Context, service string, stdin io.Reader, cmd ...string) error {
+	return r.ExecInputWithEnv(ctx, service, nil, stdin, cmd...)
+}
+
+// ExecInputWithEnv is ExecInput with environment variables set inside the
+// container, so secrets stay out of the container's process list.
+func (r *Runner) ExecInputWithEnv(
+	ctx context.Context,
+	service string,
+	env map[string]string,
+	stdin io.Reader,
+	cmd ...string,
+) error {
 	args := r.buildComposeArgs()
-	args = append(args, "exec", "-T", service)
+	args = append(args, "exec", "-T")
+	args = r.appendEnvVars(args, env, "-e")
+	args = append(args, service)
 	args = append(args, cmd...)
 
 	return r.runDockerCommandWithIO(ctx, stdin, os.Stdout, os.Stderr, args...)
