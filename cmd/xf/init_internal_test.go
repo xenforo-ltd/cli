@@ -13,6 +13,31 @@ import (
 
 var errTestBoom = errors.New("boom")
 
+func TestPlannedInitSteps(t *testing.T) {
+	tests := []struct {
+		name        string
+		opts        InitOptions
+		hasComposer bool
+		want        int
+	}{
+		{name: "full run with composer", opts: InitOptions{}, hasComposer: true, want: 8},
+		{name: "full run without composer", opts: InitOptions{}, hasComposer: false, want: 7},
+		{name: "skip install, with composer", opts: InitOptions{SkipInstall: true}, hasComposer: true, want: 8},
+		{name: "skip composer, composer present", opts: InitOptions{SkipComposer: true}, hasComposer: true, want: 8},
+		{name: "skip up", opts: InitOptions{SkipUp: true}, hasComposer: true, want: 6},
+		{name: "skip up, no composer", opts: InitOptions{SkipUp: true}, hasComposer: false, want: 6},
+		{name: "skip up and skip install", opts: InitOptions{SkipUp: true, SkipInstall: true}, hasComposer: true, want: 6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := plannedInitSteps(tt.opts, tt.hasComposer); got != tt.want {
+				t.Fatalf("plannedInitSteps(%+v, hasComposer=%v) = %d, want %d", tt.opts, tt.hasComposer, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseInstallImportMessage(t *testing.T) {
 	if got := parseInstallImportMessage("Importing master data (phrases: 35%)"); got != "importing phrases (35%)" {
 		t.Fatalf("unexpected message: %q", got)
@@ -121,7 +146,7 @@ func TestHelpersFormatting(t *testing.T) {
 	}
 
 	lic := customerapi.License{LicenseKey: "ABC", SiteTitle: "Site", SiteURL: "https://example.com"}
-	if got := licenseOptionLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
+	if got := licenseLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
 		t.Fatalf("unexpected license label: %q", got)
 	}
 

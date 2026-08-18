@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/xenforo-ltd/cli/internal/cache"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
@@ -20,6 +22,33 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 	"github.com/xenforo-ltd/cli/internal/xfcmd"
 )
+
+// plannedInitSteps returns the number of steps that will be printed for a
+// fresh install run with the given options. Every step that runs, or that is
+// reachable but skipped (and therefore printed via printSkippedStep), counts
+// toward the total; steps that are entirely unreachable (composer with no
+// composer.json, or anything gated behind a skipped "Starting Docker
+// environment" step) do not.
+func plannedInitSteps(opts InitOptions, hasComposer bool) int {
+	// Preparing target directory, Downloading XenForo files, Extracting
+	// XenForo files, Setting up Docker configuration, Configuring
+	// environment, Starting Docker environment.
+	total := 6
+
+	if opts.SkipUp {
+		return total
+	}
+
+	if hasComposer {
+		total++
+	}
+
+	// Installing XenForo always occupies a slot once containers can start,
+	// whether it runs or is printed as skipped.
+	total++
+
+	return total
+}
 
 func executeInit(ctx context.Context, opts *InitOptions) error {
 	cfg, err := config.Load()
@@ -42,25 +71,11 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
-	// A repository checkout is the only source that needs Composer: it tracks
-	// a composer.json, while release packages ship vendor/ prebuilt and have
-	// none. That is knowable before the files land, so the total is correct
-	// from the first step rather than changing halfway through.
-	//
-	// --existing installs run from an existing checkout, so the target's own
-	// composer.json is the answer there.
-	runComposer := !opts.SkipComposer && shouldRunComposer(opts.TargetPath)
-
-	totalSteps := 7
-	if runComposer {
-		totalSteps++
-	}
-
+	totalSteps := plannedInitSteps(*opts, shouldRunComposer(opts.TargetPath))
 	step := 1
 
-	ui.Println()
 	ui.PrintStep(step, totalSteps, "Preparing target directory")
-	ui.PrintDetail(opts.TargetPath)
+	ui.Printf("%s%s\n", ui.Indent2, ui.Path.Render(ui.ShortHome(opts.TargetPath)))
 
 	step++
 
@@ -108,7 +123,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	}
 	if err := xf.WriteMetadata(opts.TargetPath, meta); err != nil {
 		// Non-fatal - warn but continue
-		ui.PrintWarning(fmt.Sprintf("Could not write metadata: %v", err))
+		ui.PrintWarning("Could not write metadata")
 	}
 
 	ui.Println()
@@ -122,8 +137,6 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	ui.PrintSuccess("Environment configured")
 
 	ui.Println()
-	ui.PrintStep(step, totalSteps, "Starting Docker environment")
-	step++
 
 	runner, err := dockercompose.NewRunner(opts.TargetPath)
 	if err != nil {
@@ -132,7 +145,11 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
-	if !opts.SkipUp {
+	if opts.SkipUp {
+		printSkippedStep(step, totalSteps, "Starting Docker environment", "use --up to start containers")
+	} else {
+		ui.PrintStep(step, totalSteps, "Starting Docker environment")
+
 		if cfg.Verbose {
 			ui.PrintSubstep("Running docker compose up...")
 
@@ -140,7 +157,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				return fmt.Errorf("failed to start Docker environment: %w", err)
 			}
 		} else {
-			spinner := ui.NewSpinner("Starting Docker environment...")
+			spinner := ui.NewSpinner("Starting Docker environment")
 			spinner.Start()
 
 			tracker := newPhaseTrackerWriter(spinner, "Starting Docker environment", dockerStartPhaseRules())
@@ -159,29 +176,32 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		var detected bool
 
 		siteURL, detected = chooseBoardURL(opts.InstanceName, detectedURL, detectedErr)
-		if !detected && cfg.Verbose && detectedErr != nil {
-			ui.PrintWarning(fmt.Sprintf("Could not auto-detect site URL, using fallback %s: %v", siteURL, detectedErr))
+		if !detected && detectedErr != nil {
+			ui.PrintWarning("Could not detect the site URL; using " + ui.URL.Render(siteURL))
 		}
 
-		if runComposer {
+		if shouldRunComposer(opts.TargetPath) {
+			if opts.SkipComposer {
+				ui.Println()
+				printSkippedStep(step, totalSteps, "Installing Composer dependencies", "--skip-composer")
+				step++
+			} else {
+				ui.Println()
+				ui.PrintStep(step, totalSteps, "Installing Composer dependencies")
+				step++
+
+				if err := runComposerInstall(ctx, runner, cfg.Verbose); err != nil {
+					return err
+				}
+			}
+		}
+
+		if opts.SkipInstall {
 			ui.Println()
-			ui.PrintStep(step, totalSteps, "Installing Composer dependencies")
-			step++
-
-			if err := runComposerInstall(ctx, runner, cfg.Verbose); err != nil {
-				return err
-			}
-		}
-
-		ui.Println()
-		ui.PrintStep(step, totalSteps, "Installing XenForo")
-
-		if !opts.SkipInstall {
-			ui.PrintSubstep("Waiting for database to be ready...")
-
-			if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
-				return fmt.Errorf("failed waiting for database to become ready: %w", err)
-			}
+			printSkippedStep(step, totalSteps, "Installing XenForo", "--skip-install")
+		} else {
+			ui.Println()
+			ui.PrintStep(step, totalSteps, "Installing XenForo")
 
 			installArgs := make([]string, 0, 8)
 			installArgs = append(installArgs, "xf:install")
@@ -199,50 +219,57 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			shellInstallArgs := []string{"sh", "-c", installShellCommand(installArgs)}
 
 			if cfg.Verbose {
+				ui.PrintSubstep("Waiting for the database to be ready...")
+
+				if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
+					return fmt.Errorf("failed waiting for database to become ready: %w", err)
+				}
+
 				ui.PrintSubstep("Running XenForo installation...")
 
 				if err := runner.ExecOrRunWithEnv(ctx, "xf", true, installEnv, shellInstallArgs...); err != nil {
-					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
-					ui.Println("    You can run it manually:")
-					ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
+					return printInstallFailure(err)
 				}
 			} else {
-				spinner := ui.NewSpinner("Installing XenForo...")
+				spinner := ui.NewSpinner("Waiting for the database")
 				spinner.Start()
+
+				if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
+					spinner.Stop()
+
+					return fmt.Errorf("failed waiting for database to become ready: %w", err)
+				}
+
+				spinner.UpdateMessage("Installing XenForo")
 
 				tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
 				if err := runner.ExecOrRunWithEnvAndOutput(ctx, "xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
 					spinner.Stop()
 					printHiddenOutputTail("Installer output", tracker.TailLines())
-					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
-					ui.Println("    You can run it manually:")
-					ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
-				} else {
-					spinner.StopWithMessage("success", "XenForo installed")
+
+					return printInstallFailure(err)
 				}
+
+				spinner.StopWithMessage("success", "XenForo installed")
 			}
-		} else {
-			ui.PrintSubstep("Skipped (--skip-install flag set)")
 		}
-	} else {
-		ui.PrintSubstep("Skipped (--skip-up flag set)")
+	}
+
+	successDetails := []ui.KVPair{
+		ui.KV("Location", ui.Path.Render(ui.ShortHome(opts.TargetPath))),
+		ui.KV("Instance", opts.InstanceName),
+		ui.KV("Products", formatProductNames(opts.Products, titleMap)),
+	}
+	if !opts.SkipUp {
+		successDetails = append(successDetails, ui.KV("URL", ui.URL.Render(siteURL)))
 	}
 
 	ui.Println()
-	ui.SuccessBox("XenForo development environment initialized!", []ui.KVPair{
-		ui.KV("Location", ui.Path.Render(opts.TargetPath)),
-		ui.KV("Instance", opts.InstanceName),
-		ui.KV("Products", formatProductNames(opts.Products, titleMap)),
-	})
+	ui.SuccessBox("XenForo development environment initialized", successDetails)
 
-	if !opts.SkipUp {
+	if opts.SkipUp {
 		ui.Println()
-		ui.Printf("%s Access your site at: %s\n", ui.StatusIcon("success"), ui.URL.Render(siteURL))
-	} else {
-		ui.Println()
-		ui.Println("To start the environment:")
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("cd "+opts.TargetPath))
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
+		printStartHint(opts.TargetPath)
 	}
 
 	ui.Println()
@@ -398,6 +425,15 @@ func dockerStartPhaseRules() []phaseRule {
 	}
 }
 
+func composerPhaseRules() []phaseRule {
+	return []phaseRule{
+		{contains: []string{"loading composer repositories"}, message: "loading repositories"},
+		{contains: []string{"updating dependencies"}, message: "updating dependencies"},
+		{contains: []string{"installing dependencies"}, message: "installing dependencies"},
+		{contains: []string{"generating autoload"}, message: "finalizing"},
+	}
+}
+
 func installPhaseRules() []phaseRule {
 	return []phaseRule{
 		{contains: []string{"installing", "initializing"}, message: "initializing"},
@@ -412,7 +448,7 @@ func printHiddenOutputTail(title string, lines []string) {
 		return
 	}
 
-	ui.PrintSubstep(title + " (last lines):")
+	ui.Println(ui.Indent2 + ui.Dim.Render("── "+title+" (last "+ui.Plural(len(lines), "line", "lines")+") ──"))
 
 	for _, line := range lines {
 		ui.Printf("%s%s\n", ui.Indent2, ui.Dim.Render(line))
@@ -420,16 +456,38 @@ func printHiddenOutputTail(title string, lines []string) {
 }
 
 func printUsefulCommands() {
-	ui.Println(ui.Bold.Render("Useful commands:"))
-	ui.PrintKeyValuePadded([]ui.KVPair{
+	commands := []ui.KVPair{
 		ui.KV("xf up", "Start the environment"),
 		ui.KV("xf down", "Stop the environment"),
 		ui.KV("xf reboot", "Restart the environment"),
-		ui.KV("xf logs", "View container logs"),
-		ui.KV("xf ps", "List running services"),
+		ui.KV("xf ps", "Container status"),
+		ui.KV("xf logs", "Show logs"),
 		ui.KV("xf composer", "Run Composer"),
 		ui.KV("xf php", "Run PHP"),
-	})
+	}
+
+	width := 0
+	for _, c := range commands {
+		if w := lipgloss.Width(c.Key); w > width {
+			width = w
+		}
+	}
+
+	ui.Println(ui.Bold.Render("Useful commands:"))
+
+	for _, c := range commands {
+		ui.Printf("%s%s  %s\n", ui.Indent1, ui.Command.Render(padRight(c.Key, width)), ui.Muted.Render(c.Value))
+	}
+}
+
+// padRight pads s with trailing spaces to the given display width.
+func padRight(s string, width int) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+
+	return s + strings.Repeat(" ", width-w)
 }
 
 func formatProductNames(products []string, titleMap map[string]string) string {
@@ -517,7 +575,12 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 	cachedFiles := make(map[string]*cache.Entry)
 
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.VersionString, opts.ProductOverrides, func(product string) {
-		ui.PrintWarning(fmt.Sprintf("No versions available for %s, skipping", product))
+		name := titleMap[product]
+		if name == "" {
+			name = product
+		}
+
+		ui.PrintWarning("No versions available for " + name + ", skipping")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve product selections for license %s: %w", opts.LicenseKey, err)
@@ -529,13 +592,14 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 			productName = selection.Product
 		}
 
-		ui.PrintSubstep(fmt.Sprintf("Downloading %s...", productName))
-
 		var (
 			progressBar *ui.ProgressBar
 			spinner     *ui.Spinner
 			lastUpdate  int64
 		)
+
+		spinner = ui.NewSpinner(fmt.Sprintf("Downloading %s %s", productName, selection.VersionString))
+		spinner.Start()
 
 		progress := func(current, total int64) {
 			if total > 0 {
@@ -553,7 +617,7 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 			} else if current-lastUpdate >= 102400 || lastUpdate == 0 {
 				lastUpdate = current
 
-				msg := fmt.Sprintf("Downloading %s %s... %s", productName, selection.VersionString, ui.FormatBytes(current))
+				msg := fmt.Sprintf("Downloading %s %s (%s)", productName, selection.VersionString, ui.FormatBytes(current))
 				if spinner == nil {
 					spinner = ui.NewSpinner(msg)
 					spinner.Start()
@@ -569,19 +633,25 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 			progressBar.Finish()
 		}
 
-		if spinner != nil {
-			spinner.StopWithMessage("success", fmt.Sprintf("Downloaded %s %s", selection.Product, selection.VersionString))
+		if err != nil {
+			if spinner != nil {
+				spinner.Stop()
+			}
+
+			return nil, fmt.Errorf("failed to download %s: %w", selection.Product, err)
 		}
 
-		if err != nil {
-			return nil, fmt.Errorf("failed to download %s: %w", selection.Product, err)
+		successMsg := fmt.Sprintf("Downloaded %s %s (%s)", productName, selection.VersionString, ui.FormatBytes(entry.Metadata.Size))
+		if spinner != nil {
+			spinner.StopWithMessage("success", successMsg)
+		} else {
+			ui.PrintSuccess(successMsg)
 		}
 
 		if selection.Product == "xenforo" && opts.VersionString == "" {
 			opts.VersionString = versionStr
 		}
 
-		ui.PrintDetail(fmt.Sprintf("Downloaded: %s (%s)", entry.Metadata.Filename, ui.FormatBytes(entry.Metadata.Size)))
 		cachedFiles[selection.Product] = entry
 	}
 
@@ -594,18 +664,24 @@ func extractProducts(cachedFiles map[string]*cache.Entry, targetPath string, tit
 
 func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, titleMap map[string]string, verb string) error {
 	if entry, ok := cachedFiles["xenforo"]; ok {
-		ui.PrintSubstep("Extracting XenForo core...")
+		spinner := ui.NewSpinner("Extracting XenForo core")
+		spinner.Start()
 
 		fileCount := 0
 		progress := func(current, total int, filename string) {
 			fileCount = current
+			if total > 0 {
+				spinner.UpdateMessage(fmt.Sprintf("Extracting files (%d/%d)", current, total))
+			}
 		}
 
 		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
+			spinner.Stop()
+
 			return fmt.Errorf("failed to extract XenForo: %w", err)
 		}
 
-		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
+		spinner.StopWithMessage("success", fmt.Sprintf("%s XenForo core (%s)", verb, ui.Plural(fileCount, "file", "files")))
 	}
 
 	for product, entry := range cachedFiles {
@@ -620,18 +696,24 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 			}
 		}
 
-		ui.PrintSubstep(fmt.Sprintf("Extracting %s...", productName))
+		spinner := ui.NewSpinner("Extracting " + productName)
+		spinner.Start()
 
 		fileCount := 0
 		progress := func(current, total int, filename string) {
 			fileCount = current
+			if total > 0 {
+				spinner.UpdateMessage(fmt.Sprintf("Extracting %s (%d/%d)", productName, current, total))
+			}
 		}
 
 		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
+			spinner.Stop()
+
 			return fmt.Errorf("failed to extract %s: %w", product, err)
 		}
 
-		ui.PrintDetail(fmt.Sprintf("%s %d files", verb, fileCount))
+		spinner.StopWithMessage("success", fmt.Sprintf("%s %s (%s)", verb, productName, ui.Plural(fileCount, "file", "files")))
 	}
 
 	return nil
@@ -697,10 +779,10 @@ func runComposerInstall(ctx context.Context, runner *dockercompose.Runner, verbo
 		return nil
 	}
 
-	spinner := ui.NewSpinner("Installing Composer dependencies...")
+	spinner := ui.NewSpinner("Installing Composer dependencies")
 	spinner.Start()
 
-	tracker := newPhaseTrackerWriter(spinner, "Installing Composer dependencies", nil)
+	tracker := newPhaseTrackerWriter(spinner, "Installing Composer dependencies", composerPhaseRules())
 
 	composerArgs := append([]string{"composer"}, args...)
 	if err := runner.ExecOrRunWithOutput(ctx, "xf", true, tracker, tracker, composerArgs...); err != nil {

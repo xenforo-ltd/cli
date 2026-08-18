@@ -132,6 +132,13 @@ func IsTerminal(f *os.File) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
+// ClearScreen clears the visible screen when stdout is a terminal.
+func ClearScreen() {
+	if IsTerminal(os.Stdout) {
+		fmt.Fprint(os.Stdout, "\033[H\033[2J")
+	}
+}
+
 // ShortHome abbreviates the home directory prefix of a path to ~.
 var ShortHome = func(path string) string {
 	home, err := os.UserHomeDir()
