@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -38,7 +39,64 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 		return err
 	}
 
-	return cloneFiles(ctx, sourcePath, worktreePath)
+	if err := cloneFiles(ctx, sourcePath, worktreePath); err != nil {
+		return err
+	}
+
+	return retargetBoardURL(ctx, targetRunner)
+}
+
+// retargetBoardURL points the cloned board at its own address.
+//
+// boardUrl is stored in the database, so a clone inherits the source's URL and
+// generates links back to the forum it was copied from. XenForo has no config
+// override for options, so the value must be updated in the database.
+//
+// OptionRepository::updateOptions is used rather than a direct UPDATE because
+// it also rebuilds the option cache. Writing the row alone would leave the old
+// URL in service until something else happened to rebuild it.
+func retargetBoardURL(ctx context.Context, target *dockercompose.Runner) error {
+	url, err := target.GetURL(ctx)
+	if err != nil || url == "" {
+		ui.PrintWarning("Could not determine the worktree's URL; the board URL still points at the source")
+
+		return nil
+	}
+
+	spinner := ui.NewSpinner("Updating board URL...")
+	spinner.Start()
+
+	// Run through XenForo's own bootstrap so the repository and cache rebuild
+	// behave exactly as they do for xf:install.
+	// php -r takes bare statements, without an opening tag.
+	script := fmt.Sprintf(
+		`require __DIR__ . '/src/XF.php';`+
+			`XF::start(__DIR__);`+
+			`$app = XF::setupApp(XF\App::class);`+
+			`$app->repository(XF\Repository\OptionRepository::class)`+
+			`->updateOptions(['boardUrl' => %s]);`,
+		phpQuote(url),
+	)
+
+	if err := target.PHP(ctx, "-r", script); err != nil {
+		spinner.Stop()
+		ui.PrintWarning(fmt.Sprintf("Could not update the board URL to %s: %v", url, err))
+		ui.Println("    Set it in the admin control panel under Options > Basic board information.")
+
+		return nil
+	}
+
+	spinner.StopWithMessage("success", "Board URL set to "+url)
+
+	return nil
+}
+
+// phpQuote renders a string as a single-quoted PHP literal.
+func phpQuote(value string) string {
+	escaped := strings.ReplaceAll(value, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, "'", "\\'")
+
+	return "'" + escaped + "'"
 }
 
 // cloneDatabase streams a dump from the source instance into the target's.
