@@ -118,13 +118,24 @@ var worktreePruneCmd = &cobra.Command{
 	RunE:  runWorktreePrune,
 }
 
+// Defaults for the throwaway installation a worktree gets.
+const (
+	defaultWorktreeAdminUser     = "admin"
+	defaultWorktreeAdminPassword = "password"
+	defaultWorktreeAdminEmail    = "admin@example.com"
+)
+
 var (
-	flagWorktreeBase     string
-	flagWorktreeNoSetup  bool
-	flagWorktreeNoUp     bool
-	flagWorktreeInstance string
-	flagWorktreeJSON     bool
-	flagWorktreeForce    bool
+	flagWorktreeBase          string
+	flagWorktreeAdminUser     string
+	flagWorktreeAdminPassword string
+	flagWorktreeAdminEmail    string
+	flagWorktreeTitle         string
+	flagWorktreeNoSetup       bool
+	flagWorktreeNoUp          bool
+	flagWorktreeInstance      string
+	flagWorktreeJSON          bool
+	flagWorktreeForce         bool
 )
 
 func init() {
@@ -133,6 +144,10 @@ func init() {
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeNoUp, "no-up", false, "configure the environment but do not start containers")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeInstance, "instance", "", "Docker instance name")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
+	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminUser, "admin-user", "", "admin username (default \"admin\")")
+	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminPassword, "admin-password", "", "admin password (default \"password\")")
+	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminEmail, "admin-email", "", "admin email (default \"admin@example.com\")")
+	worktreeCreateCmd.Flags().StringVar(&flagWorktreeTitle, "title", "", "site title (defaults to the branch name)")
 
 	worktreeListCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
 	worktreeListAllCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
@@ -208,6 +223,14 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		if err := setUpWorktree(cmd.Context(), result); err != nil {
 			return err
 		}
+
+		if !flagWorktreeJSON && !flagWorktreeNoUp {
+			ui.Println()
+			ui.PrintKeyValuePadded([]ui.KVPair{
+				ui.KV("Admin user", defaultString(flagWorktreeAdminUser, defaultWorktreeAdminUser)),
+				ui.KV("Admin password", defaultString(flagWorktreeAdminPassword, defaultWorktreeAdminPassword)),
+			})
+		}
 	}
 
 	if flagWorktreeJSON {
@@ -227,12 +250,19 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 // setUpWorktree initialises the environment by delegating to init, which
 // already handles Docker configuration, containers, Composer and installation.
 func setUpWorktree(ctx context.Context, result *worktree.Result) error {
+	// A worktree is a disposable development environment, so it installs with
+	// fixed credentials rather than prompting. Knowing the login without being
+	// asked is the point: one command produces a usable forum.
 	opts := &InitOptions{
 		TargetPath:       result.Path,
 		InstanceName:     result.Instance,
 		ExistingOnly:     true,
 		SkipUp:           flagWorktreeNoUp,
 		StartContainers:  !flagWorktreeNoUp,
+		AdminUser:        defaultString(flagWorktreeAdminUser, defaultWorktreeAdminUser),
+		AdminPassword:    defaultString(flagWorktreeAdminPassword, defaultWorktreeAdminPassword),
+		AdminEmail:       defaultString(flagWorktreeAdminEmail, defaultWorktreeAdminEmail),
+		SiteTitle:        defaultString(flagWorktreeTitle, result.Branch),
 		EnvResolved:      map[string]string{},
 		EnvSources:       map[string]string{},
 		ProductOverrides: map[string]int{},
@@ -452,4 +482,13 @@ func plural(n int, singular, pluralForm string) string {
 	}
 
 	return pluralForm
+}
+
+// defaultString returns value, or fallback when value is empty.
+func defaultString(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+
+	return fallback
 }
