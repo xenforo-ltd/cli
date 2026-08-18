@@ -78,17 +78,18 @@ func TestPreflightRejectsExistingDirectory(t *testing.T) {
 }
 
 // TestPreflightRejectsCollidingName covers the lossy branch-to-directory
-// mapping: two different branches can want the same directory.
+// mapping: only the last segment names the directory, so branches that differ
+// earlier can still want the same one.
 func TestPreflightRejectsCollidingName(t *testing.T) {
 	repo := newXenForoRepo(t)
 
-	// dev/24x/feature and dev-24x-feature both flatten to dev-24x-feature.
+	// Both of these reduce to "feature".
 	target := ResolvePath(repo, "dev/24x/feature")
 	if err := os.MkdirAll(target, 0o750); err != nil {
 		t.Fatalf("mkdir target: %v", err)
 	}
 
-	err := Preflight(t.Context(), repo, "dev-24x-feature")
+	err := Preflight(t.Context(), repo, "dev/xfs/feature")
 	if !errors.Is(err, ErrWorktreeExists) {
 		t.Errorf("expected a collision to be caught, got %v", err)
 	}

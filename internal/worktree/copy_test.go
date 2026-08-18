@@ -4,8 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+const windowsOS = "windows"
 
 func TestCopyTreeCopiesFilesAndDirectories(t *testing.T) {
 	src := t.TempDir()
@@ -24,7 +27,19 @@ func TestCopyTreeCopiesFilesAndDirectories(t *testing.T) {
 
 // TestCopyTreePreservesModes matters because XenForo checks that data/ and
 // internal_data/ are writable.
+//
+// The umask is set strictly here because relying on the ambient umask made
+// this assertion pass only by luck: a permissive umask (022 or looser) never
+// exercises the case CopyTree exists to handle, where OpenFile's requested
+// mode gets bits cleared away by the umask at creation time.
 func TestCopyTreePreservesModes(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("file mode bits are not meaningful on Windows")
+	}
+
+	old := setUmask(0o077)
+	defer setUmask(old)
+
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "target")
 
@@ -123,5 +138,55 @@ func assertContent(t *testing.T, path, want string) {
 
 	if string(data) != want {
 		t.Errorf("%s = %q, want %q", path, data, want)
+	}
+}
+
+// A source directory without its owner-write bit must not stop the copy: the
+// mode is applied after the directory's contents are in place, not before.
+func TestCopyTreeCopiesIntoReadOnlyDirectories(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("file mode bits are not meaningful on Windows")
+	}
+
+	src := t.TempDir()
+	dst := filepath.Join(t.TempDir(), "target")
+
+	readOnly := filepath.Join(src, "locked")
+	if err := os.Mkdir(readOnly, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	mustWrite(t, filepath.Join(readOnly, "data.txt"), "payload")
+
+	if err := os.Chmod(readOnly, 0o555); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	t.Cleanup(func() {
+		// Restore write access so the temp directory can be removed.
+		_ = os.Chmod(readOnly, 0o755)
+		_ = os.Chmod(filepath.Join(dst, "locked"), 0o755)
+	})
+
+	if err := CopyTree(t.Context(), src, dst, nil); err != nil {
+		t.Fatalf("CopyTree: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(dst, "locked", "data.txt"))
+	if err != nil {
+		t.Fatalf("read copied file: %v", err)
+	}
+
+	if string(content) != "payload" {
+		t.Errorf("content = %q, want %q", content, "payload")
+	}
+
+	info, err := os.Stat(filepath.Join(dst, "locked"))
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+
+	if info.Mode().Perm() != 0o555 {
+		t.Errorf("directory mode = %o, want 555", info.Mode().Perm())
 	}
 }

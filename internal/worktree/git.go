@@ -89,3 +89,48 @@ func gitOutput(ctx context.Context, dir string, args ...string) (string, error) 
 
 	return strings.TrimSpace(string(out)), nil
 }
+
+// worktreeOwner returns the branch checked out at a worktree path, or an empty
+// string when no worktree is registered there.
+//
+// This makes a collision actionable: the user is told which branch already owns
+// the directory, rather than only that something does.
+func worktreeOwner(ctx context.Context, repoDir, worktreePath string) (string, error) {
+	out, err := gitOutput(ctx, repoDir, "worktree", "list", "--porcelain")
+	if err != nil {
+		return "", fmt.Errorf("failed to list worktrees: %w", err)
+	}
+
+	want, err := filepath.Abs(worktreePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve %s: %w", worktreePath, err)
+	}
+
+	want = resolveSymlinks(want)
+
+	var current string
+
+	for _, line := range strings.Split(out, "\n") {
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			current = resolveSymlinks(strings.TrimPrefix(line, "worktree "))
+
+		case strings.HasPrefix(line, "branch ") && current == want:
+			// Reported as a full ref, e.g. refs/heads/dev/xfs/feature.
+			return strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/"), nil
+		}
+	}
+
+	return "", nil
+}
+
+// resolveSymlinks resolves a path for comparison, falling back to the cleaned
+// path when it cannot be resolved. Temporary directories on macOS are symlinked
+// via /var, so comparing unresolved paths gives false mismatches.
+func resolveSymlinks(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return filepath.Clean(resolved)
+	}
+
+	return filepath.Clean(path)
+}

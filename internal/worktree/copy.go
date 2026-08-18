@@ -2,11 +2,17 @@ package worktree
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 )
+
+// ErrNotADirectory indicates a copy source exists but is not a directory.
+var ErrNotADirectory = errors.New("not a directory")
 
 // ProgressFunc reports copy progress as files are written.
 type ProgressFunc func(copied, total int)
@@ -31,13 +37,21 @@ func CopyTree(ctx context.Context, src, dst string, progress ProgressFunc) error
 	}
 
 	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory: %w", src, ErrInvalidBranch)
+		return fmt.Errorf("%s is not a directory: %w", src, ErrNotADirectory)
+	}
+
+	// filepath.Walk does not follow a symlink at the root of the walk, even
+	// though os.Stat above does. Without this, a symlinked src is walked as
+	// the link itself rather than the directory it points to.
+	root, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return fmt.Errorf("failed to resolve %s: %w", src, err)
 	}
 
 	total := 0
 
 	if progress != nil {
-		total, err = countFiles(ctx, src)
+		total, err = countFiles(ctx, root)
 		if err != nil {
 			return err
 		}
@@ -45,7 +59,17 @@ func CopyTree(ctx context.Context, src, dst string, progress ProgressFunc) error
 
 	copied := 0
 
-	return filepath.Walk(src, func(path string, entry os.FileInfo, walkErr error) error {
+	// Directory modes are applied after the walk, deepest first. Applying a
+	// source mode on arrival would make a read-only directory (0555, say)
+	// read-only before its own children were written, failing the copy.
+	type pendingMode struct {
+		path string
+		mode os.FileMode
+	}
+
+	var pending []pendingMode
+
+	walkErr := filepath.Walk(root, func(path string, entry os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -54,7 +78,7 @@ func CopyTree(ctx context.Context, src, dst string, progress ProgressFunc) error
 			return err
 		}
 
-		rel, err := filepath.Rel(src, path)
+		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return fmt.Errorf("failed to resolve %s: %w", path, err)
 		}
@@ -63,7 +87,15 @@ func CopyTree(ctx context.Context, src, dst string, progress ProgressFunc) error
 
 		switch {
 		case entry.IsDir():
-			return os.MkdirAll(target, entry.Mode().Perm())
+			// Created writable so the copy can proceed; the source mode is
+			// applied once the directory's contents are in place.
+			if err := os.MkdirAll(target, 0o750); err != nil {
+				return err
+			}
+
+			pending = append(pending, pendingMode{path: target, mode: entry.Mode().Perm()})
+
+			return nil
 
 		case entry.Mode()&os.ModeSymlink != 0:
 			return copySymlink(path, target)
@@ -85,6 +117,26 @@ func CopyTree(ctx context.Context, src, dst string, progress ProgressFunc) error
 
 		return nil
 	})
+	if walkErr != nil {
+		return walkErr
+	}
+
+	// Deepest first, so applying a restrictive mode to a parent cannot block
+	// the chmod of a directory inside it.
+	slices.SortFunc(pending, func(a, b pendingMode) int {
+		return strings.Count(b.path, string(os.PathSeparator)) - strings.Count(a.path, string(os.PathSeparator))
+	})
+
+	for _, dir := range pending {
+		// MkdirAll only applies a mode to directories it creates, and the
+		// umask can clear bits even then, so an existing destination (e.g.
+		// re-cloning over a worktree) can otherwise keep a stale mode.
+		if err := os.Chmod(dir.path, dir.mode); err != nil {
+			return fmt.Errorf("failed to set the mode of %s: %w", dir.path, err)
+		}
+	}
+
+	return nil
 }
 
 // countFiles counts regular files so progress can be reported as a fraction.
@@ -140,6 +192,13 @@ func copyFile(src, dst string, mode os.FileMode) error {
 
 	if err := out.Close(); err != nil {
 		return fmt.Errorf("failed to write %s: %w", dst, err)
+	}
+
+	// OpenFile only applies mode at creation, and the umask can clear bits
+	// even then, so an existing destination file keeps its old mode unless
+	// it is set explicitly.
+	if err := os.Chmod(dst, mode); err != nil {
+		return fmt.Errorf("failed to set mode on %s: %w", dst, err)
 	}
 
 	return nil

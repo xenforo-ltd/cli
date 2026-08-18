@@ -14,13 +14,13 @@ func TestBranchToDirName(t *testing.T) {
 		want   string
 	}{
 		{name: "simple", branch: "feature", want: "feature"},
-		{name: "slashes become dashes", branch: "dev/24x/feature", want: "dev-24x-feature"},
+		{name: "last segment used", branch: "dev/24x/feature", want: "feature"},
 		{name: "leading slash trimmed", branch: "/leading", want: "leading"},
 		{name: "trailing slash trimmed", branch: "trailing/", want: "trailing"},
-		{name: "consecutive slashes collapse", branch: "a//b", want: "a-b"},
+		{name: "consecutive slashes collapse", branch: "a//b", want: "b"},
 		{name: "spaces become dashes", branch: "my feature", want: "my-feature"},
-		{name: "uppercase preserved", branch: "dev/MyAddon/Fix", want: "dev-MyAddon-Fix"},
-		{name: "dots preserved", branch: "release/2.4.0", want: "release-2.4.0"},
+		{name: "uppercase preserved", branch: "dev/MyAddon/Fix", want: "Fix"},
+		{name: "dots preserved", branch: "release/2.4.0", want: "2.4.0"},
 		{name: "path traversal neutralised", branch: "../escape", want: "escape"},
 		{name: "unsafe characters stripped", branch: "feat:x*y?", want: "feat-x-y"},
 	}
@@ -81,7 +81,7 @@ func TestResolvePath(t *testing.T) {
 	t.Parallel()
 
 	got := ResolvePath("/Users/x/Sites/main", "dev/24x/feature")
-	want := filepath.Join("/Users/x/Sites", "main.worktrees", "dev-24x-feature")
+	want := filepath.Join("/Users/x/Sites", "main.worktrees", "feature")
 
 	if got != want {
 		t.Errorf("ResolvePath = %q, want %q", got, want)

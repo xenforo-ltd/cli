@@ -2,12 +2,30 @@ package worktree
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 )
+
+// lockRetryInterval and lockTimeout bound how long a mutating call waits for
+// another process to release the registry lock, so a crashed process cannot
+// wedge every other xf invocation forever.
+const (
+	lockRetryInterval = 25 * time.Millisecond
+	lockTimeout       = 5 * time.Second
+	lockStaleAfter    = 30 * time.Second
+)
+
+// ErrRegistryCorrupt indicates the registry file exists but cannot be parsed.
+//
+// Mutating calls tolerate this and rebuild from an empty registry, so a damaged
+// file never blocks cleanup. Read failures are not tolerated: they mean the
+// existing entries are unknown rather than absent.
+var ErrRegistryCorrupt = errors.New("worktree registry is corrupt")
 
 // Entry records a worktree created by xf.
 type Entry struct {
@@ -95,9 +113,20 @@ func (r *Registry) Add(entry Entry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	// A damaged registry must not block recording new work, so parse failures
-	// are treated as an empty registry and overwritten.
-	entries, _ := r.load()
+	// are treated as an empty registry and overwritten. A read failure is
+	// different: the entries are unreadable rather than absent, and saving
+	// over them would discard every other worktree's record.
+	entries, err := r.load()
+	if err != nil && !errors.Is(err, ErrRegistryCorrupt) {
+		return err
+	}
 
 	want := filepath.Clean(entry.WorktreePath)
 	replaced := false
@@ -124,8 +153,21 @@ func (r *Registry) Remove(worktreePath string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	entries, err := r.load()
+	unlock, err := r.lock()
 	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	// A damaged registry must not block cleanup: worktree removal and prune
+	// have to be able to proceed even when the file cannot be parsed, so a
+	// parse failure is treated the same as an empty registry, as in Add.
+	//
+	// Only a parse failure. A permission or I/O error means the existing
+	// entries could not be read at all, and saving over them would delete
+	// every other worktree's record.
+	entries, err := r.load()
+	if err != nil && !errors.Is(err, ErrRegistryCorrupt) {
 		return err
 	}
 
@@ -141,6 +183,97 @@ func (r *Registry) Remove(worktreePath string) error {
 	return r.save(kept)
 }
 
+// lockPath returns the path of the cross-process lockfile guarding r.path.
+func (r *Registry) lockPath() string {
+	return r.path + ".lock"
+}
+
+// lock acquires a cross-process lock covering a load/modify/save transaction
+// and returns a function that releases it.
+//
+// r.mu only guards one process's own goroutines; separate "xf worktree"
+// invocations are separate processes that would otherwise read, modify and
+// write the same JSON file with no coordination, silently losing whichever
+// write happened first. A plain O_CREATE|O_EXCL lockfile is used rather than
+// syscall.Flock so the same code works on Windows, where xf also builds.
+func (r *Registry) lock() (func(), error) {
+	dir := filepath.Dir(r.path)
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return nil, fmt.Errorf("failed to create registry directory: %w", err)
+	}
+
+	path := r.lockPath()
+	deadline := time.Now().Add(lockTimeout)
+
+	for {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err == nil {
+			token := fmt.Sprintf("%d.%d", os.Getpid(), time.Now().UnixNano())
+
+			_, _ = io.WriteString(f, token)
+			_ = f.Close()
+
+			return func() {
+				// Released by renaming to a private name and deleting that,
+				// rather than reading the token and then removing the path:
+				// between those two steps the lock could be taken over as
+				// stale and recreated by another process, and the remove would
+				// delete a lock that is now theirs.
+				//
+				// Rename is atomic, so at most one process moves this file. If
+				// the content is not ours, it was taken over and is put back
+				// untouched.
+				release := fmt.Sprintf("%s.release.%d", path, os.Getpid())
+				if err := os.Rename(path, release); err != nil {
+					return
+				}
+
+				held, readErr := os.ReadFile(release)
+				if readErr == nil && string(held) == token {
+					_ = os.Remove(release)
+
+					return
+				}
+
+				// Someone else's lock: restore it.
+				_ = os.Rename(release, path)
+			}, nil
+		}
+
+		if !os.IsExist(err) {
+			return nil, fmt.Errorf("failed to lock worktree registry: %w", err)
+		}
+
+		// A lockfile left behind by a process that crashed before releasing it
+		// would otherwise wedge every future call, so a lock older than
+		// lockStaleAfter is treated as abandoned and cleared.
+		//
+		// The takeover renames rather than removes: rename is atomic, so of
+		// several processes that all see the same stale lock, only the one
+		// whose rename succeeds clears it. Removing directly is a
+		// check-then-act race in which two processes can each delete the
+		// other's fresh lock and both believe they hold it.
+		//
+		// A failed takeover falls through to the deadline check and the sleep
+		// rather than retrying immediately: a lockfile that cannot be removed,
+		// on a read-only parent for instance, would otherwise spin forever.
+		if info, statErr := os.Stat(path); statErr == nil && time.Since(info.ModTime()) > lockStaleAfter {
+			stale := fmt.Sprintf("%s.stale.%d", path, os.Getpid())
+			if renameErr := os.Rename(path, stale); renameErr == nil {
+				_ = os.Remove(stale)
+
+				continue
+			}
+		}
+
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("timed out waiting for worktree registry lock at %s", path)
+		}
+
+		time.Sleep(lockRetryInterval)
+	}
+}
+
 func (r *Registry) load() ([]Entry, error) {
 	data, err := os.ReadFile(r.path)
 	if err != nil {
@@ -153,7 +286,7 @@ func (r *Registry) load() ([]Entry, error) {
 
 	var entries []Entry
 	if err := json.Unmarshal(data, &entries); err != nil {
-		return nil, fmt.Errorf("failed to parse worktree registry at %s: %w", r.path, err)
+		return nil, fmt.Errorf("%w at %s: %w", ErrRegistryCorrupt, r.path, err)
 	}
 
 	return entries, nil

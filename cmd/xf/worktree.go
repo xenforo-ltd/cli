@@ -97,7 +97,10 @@ var worktreePathCmd = &cobra.Command{
 The path is derived from the branch name, so this works whether or not the
 worktree exists. Useful for shell and agent use:
 
-  cd "$(xf worktree path dev/24x/feature)"`,
+  cd "$(xf worktree path dev/24x/feature)"
+
+Branch names that resolve to no directory of their own, such as "." or "..",
+are rejected rather than printing the directory that holds every worktree.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runWorktreePath,
 }

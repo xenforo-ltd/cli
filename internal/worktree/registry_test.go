@@ -1,8 +1,11 @@
 package worktree
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"testing"
 	"time"
 )
@@ -84,6 +87,23 @@ func TestRegistryCorruptFileIsNotFatal(t *testing.T) {
 	}
 }
 
+// TestRegistryRemoveOverCorruptFileIsNotFatal covers the same tolerance as
+// TestRegistryCorruptFileIsNotFatal, but for Remove: cleanup during
+// "xf worktree remove" or prune must not fail just because the registry is
+// unreadable.
+func TestRegistryRemoveOverCorruptFileIsNotFatal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "corrupt.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	reg := &Registry{path: path}
+
+	if err := reg.Remove("/tmp/anything"); err != nil {
+		t.Fatalf("Remove over a corrupt registry: %v", err)
+	}
+}
+
 func TestRegistryRemove(t *testing.T) {
 	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
 
@@ -137,6 +157,46 @@ func TestRegistryAddIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestRegistryAddSurvivesConcurrentProcesses exercises the cross-process lock:
+// separate Registry values sharing one file stand in for separate "xf
+// worktree" invocations, which previously could read-modify-write the same
+// JSON concurrently and lose each other's entries.
+func TestRegistryAddSurvivesConcurrentProcesses(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "worktrees.json")
+
+	const writers = 8
+
+	var wg sync.WaitGroup
+
+	for i := range writers {
+		wg.Add(1)
+
+		go func(i int) {
+			defer wg.Done()
+
+			reg := &Registry{path: path}
+			entry := Entry{WorktreePath: fmt.Sprintf("/tmp/wt-%d", i), Branch: fmt.Sprintf("b%d", i)}
+
+			if err := reg.Add(entry); err != nil {
+				t.Errorf("Add from writer %d: %v", i, err)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	reg := &Registry{path: path}
+
+	entries, err := reg.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+
+	if len(entries) != writers {
+		t.Errorf("got %d entries, want %d: entries were lost to a race", len(entries), writers)
+	}
+}
+
 func TestRegistryForSource(t *testing.T) {
 	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
 
@@ -163,5 +223,54 @@ func TestRegistryForSource(t *testing.T) {
 
 	if len(entries) != 2 {
 		t.Errorf("got %d entries for the source, want 2", len(entries))
+	}
+}
+
+// A registry that cannot be read is not an empty registry. Treating it as one
+// would let the following save discard every entry it failed to read.
+func TestRegistryDoesNotDiscardEntriesItCannotRead(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("unreadable-file permissions are not enforced the same way on Windows")
+	}
+
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses file permissions")
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "worktrees.json")
+
+	reg := &Registry{path: path}
+
+	if err := reg.Add(Entry{WorktreePath: "/src.worktrees/keep", Branch: "keep"}); err != nil {
+		t.Fatalf("seed Add: %v", err)
+	}
+
+	if err := os.Chmod(path, 0o000); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	if err := reg.Add(Entry{WorktreePath: "/src.worktrees/new", Branch: "new"}); err == nil {
+		t.Error("Add over an unreadable registry should fail rather than overwrite it")
+	}
+
+	if err := reg.Remove("/src.worktrees/keep"); err == nil {
+		t.Error("Remove over an unreadable registry should fail rather than overwrite it")
+	}
+
+	// The original entry must still be there once the file is readable again.
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatalf("chmod back: %v", err)
+	}
+
+	entries, err := reg.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+
+	if len(entries) != 1 || entries[0].Branch != "keep" {
+		t.Errorf("entries = %+v, want the seeded entry preserved", entries)
 	}
 }

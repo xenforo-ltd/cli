@@ -91,10 +91,21 @@ func Preflight(ctx context.Context, sourcePath, branch string) error {
 		return fmt.Errorf("%w: %s", ErrBranchExists, branch)
 	}
 
-	// The branch-to-directory mapping is lossy, so a different branch may
-	// already own this directory. Check the path, not just the branch.
+	// Only the last segment of a branch names the directory, so different
+	// branches can want the same one. Reject the collision rather than renaming
+	// around it: an auto-generated suffix would make the path depend on what
+	// existed at the time, and resolving a branch to its path would no longer
+	// be possible without consulting stored state.
 	target := filepath.Join(WorktreesDir(sourcePath), dirName)
 	if _, err := os.Stat(target); err == nil {
+		owner, ownerErr := worktreeOwner(ctx, sourcePath, target)
+		if ownerErr == nil && owner != "" && owner != branch {
+			return fmt.Errorf(
+				"%w: %q is already used by branch %q; choose a more specific final segment, such as %q",
+				ErrWorktreeExists, dirName, owner, suggestAlternative(branch),
+			)
+		}
+
 		return fmt.Errorf("%w: %s", ErrWorktreeExists, target)
 	}
 
@@ -158,4 +169,15 @@ func Create(ctx context.Context, opts Options) (*Result, error) {
 		Instance:     instance,
 		CreatedAt:    time.Now().UTC(),
 	}, nil
+}
+
+// suggestAlternative proposes a more specific name for a colliding branch, by
+// including the segment before the last one.
+func suggestAlternative(branch string) string {
+	segments := strings.Split(strings.Trim(branch, "/"), "/")
+	if len(segments) < 2 {
+		return branch + "-2"
+	}
+
+	return segments[len(segments)-2] + "-" + segments[len(segments)-1]
 }

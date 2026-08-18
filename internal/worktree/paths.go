@@ -2,6 +2,7 @@
 package worktree
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -18,15 +19,38 @@ var unsafeChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 // BranchToDirName converts a branch name into a single, safe path segment.
 //
-// Slashes become dashes, so dev/24x/feature becomes dev-24x-feature. The result
-// is always a single segment: it can never contain a separator or resolve to a
-// parent directory, whatever the branch name contains.
+// Only the last segment is used, so dev/xfs/slack-unfurl becomes slack-unfurl.
+// The prefix in a conventional branch name describes where the work belongs
+// rather than what it is, and repeating it in directory names, URLs and Docker
+// instance names makes all three harder to read.
 //
-// Note this is lossy. dev/24x/feature and dev-24x-feature both map to
-// dev-24x-feature, so callers must check for an existing directory rather than
-// assume the name is unique. See CheckCollision.
+// The result is always a single segment: it can never contain a separator or
+// resolve to a parent directory, whatever the branch name contains.
+//
+// This is deliberately lossy. dev/xfs/slack-unfurl and dev/xf/slack-unfurl both
+// yield slack-unfurl, so callers must check whether the directory is already
+// taken. Preflight rejects a collision rather than renaming around it, which
+// keeps the branch-to-path mapping computable without consulting any state.
 func BranchToDirName(branch string) string {
-	name := unsafeChars.ReplaceAllString(branch, "-")
+	// Take the last non-empty segment, so a trailing slash does not produce an
+	// empty name.
+	segments := strings.Split(branch, "/")
+
+	last := ""
+
+	for i := len(segments) - 1; i >= 0; i-- {
+		if strings.TrimSpace(segments[i]) != "" {
+			last = segments[i]
+
+			break
+		}
+	}
+
+	if last == "" {
+		last = branch
+	}
+
+	name := unsafeChars.ReplaceAllString(last, "-")
 
 	// Leading dots would create a hidden directory, and a name of only dots
 	// would resolve to "." or "..".
@@ -64,4 +88,18 @@ func WorktreesDir(sourcePath string) string {
 // consulting the registry or git.
 func ResolvePath(sourcePath, branch string) string {
 	return filepath.Join(WorktreesDir(sourcePath), BranchToDirName(branch))
+}
+
+// ResolveExistingPath is ResolvePath for branch names that came from the user.
+//
+// BranchToDirName yields an empty name for inputs such as "." or "..", which
+// would resolve to the directory holding every worktree for the checkout. A
+// command acting on that path would operate on all of them at once, so those
+// inputs are rejected rather than resolved.
+func ResolveExistingPath(sourcePath, branch string) (string, error) {
+	if BranchToDirName(branch) == "" {
+		return "", fmt.Errorf("%w: %q does not name a worktree", ErrInvalidBranch, branch)
+	}
+
+	return ResolvePath(sourcePath, branch), nil
 }
