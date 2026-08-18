@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/worktree"
 )
@@ -126,16 +128,17 @@ const (
 )
 
 var (
-	flagWorktreeBase          string
-	flagWorktreeAdminUser     string
-	flagWorktreeAdminPassword string
-	flagWorktreeAdminEmail    string
-	flagWorktreeTitle         string
-	flagWorktreeNoSetup       bool
-	flagWorktreeNoUp          bool
-	flagWorktreeInstance      string
-	flagWorktreeJSON          bool
-	flagWorktreeForce         bool
+	flagWorktreeBase           string
+	flagWorktreeAdminUser      string
+	flagWorktreeAdminPassword  string
+	flagWorktreeAdminEmail     string
+	flagWorktreeTitle          string
+	flagWorktreeNoSetup        bool
+	flagWorktreeNoUp           bool
+	flagWorktreeInstance       string
+	flagWorktreeJSON           bool
+	flagWorktreeForce          bool
+	flagWorktreeKeepContainers bool
 )
 
 func init() {
@@ -152,6 +155,7 @@ func init() {
 	worktreeListCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
 	worktreeListAllCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
 	worktreeRemoveCmd.Flags().BoolVar(&flagWorktreeForce, "force", false, "remove even if there are uncommitted changes or unpushed commits")
+	worktreeRemoveCmd.Flags().BoolVar(&flagWorktreeKeepContainers, "keep-containers", false, "leave the Docker containers and volumes in place")
 
 	worktreeCmd.AddCommand(worktreeCreateCmd)
 	worktreeCmd.AddCommand(worktreeListCmd)
@@ -344,6 +348,15 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 
 	target := worktree.ResolvePath(source, args[0])
 
+	// Containers must be torn down before the directory goes: compose reads
+	// compose.yaml from the worktree to know what it owns, so removing the
+	// files first would strand the containers and volumes.
+	if !flagWorktreeKeepContainers {
+		if err := destroyWorktreeEnvironment(cmd.Context(), target); err != nil {
+			return err
+		}
+	}
+
 	if err := worktree.Remove(cmd.Context(), source, target, flagWorktreeForce); err != nil {
 		return err
 	}
@@ -491,4 +504,36 @@ func defaultString(value, fallback string) string {
 	}
 
 	return fallback
+}
+
+// destroyWorktreeEnvironment removes a worktree's containers and volumes.
+//
+// A worktree that was never set up has no compose configuration, which is not
+// an error: there is simply nothing to tear down.
+func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error {
+	runner, err := dockercompose.NewRunner(worktreePath)
+	if err != nil {
+		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
+			return nil
+		}
+
+		// The directory may already be gone, or never have been a checkout.
+		// Removing the worktree is still worthwhile, so this is not fatal.
+		ui.PrintWarning(fmt.Sprintf("Could not inspect the environment to remove it: %v", err))
+
+		return nil
+	}
+
+	spinner := ui.NewSpinner("Removing containers and volumes...")
+	spinner.Start()
+
+	if err := runner.Destroy(ctx); err != nil {
+		spinner.StopWithMessage("error", "Failed to remove containers")
+
+		return fmt.Errorf("failed to remove the worktree environment: %w", err)
+	}
+
+	spinner.StopWithMessage("success", "Containers and volumes removed")
+
+	return nil
 }

@@ -120,12 +120,36 @@ func (r *Runner) UpWithOutput(ctx context.Context, detach bool, stdout, stderr i
 	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
 }
 
-// Down stops and removes the Docker containers.
+// Down stops and removes the Docker containers, leaving volumes intact so the
+// environment can be started again with its data.
 func (r *Runner) Down(ctx context.Context) error {
 	args := r.buildComposeArgs()
-	args = append(args, "down")
+	args = append(args, downArgs(false)...)
 
 	return r.runDockerCommand(ctx, args...)
+}
+
+// Destroy stops the environment and removes its volumes.
+//
+// This is permanent: the database and any other volume data are deleted. It is
+// what removing a worktree needs, since otherwise each discarded feature branch
+// leaves a full volume set behind.
+func (r *Runner) Destroy(ctx context.Context) error {
+	args := r.buildComposeArgs()
+	args = append(args, downArgs(true)...)
+
+	return r.runDockerCommand(ctx, args...)
+}
+
+// downArgs builds the compose arguments for stopping an environment.
+func downArgs(removeVolumes bool) []string {
+	args := []string{"down"}
+
+	if removeVolumes {
+		args = append(args, "--volumes", "--remove-orphans")
+	}
+
+	return args
 }
 
 // PS lists running containers.
