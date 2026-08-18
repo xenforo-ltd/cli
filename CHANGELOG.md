@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - *(ui)* Styled errors with contextual hints, grouped help output, and consistent formatting across every command
 - *(ps)* Render a native table of running containers
-- *(cli)* Quiet cancellation on Ctrl-C (exit 0) and passthrough of exit codes from wrapped commands
+- *(cli)* Quiet cancellation of prompts and menus (exit 0) and passthrough of exit codes from wrapped commands
 
 ### Bug fixes
 
@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
 - *(auth)* Surface a clean "not authenticated" message instead of a raw keychain error from `auth status` and `auth logout`
 - *(init)* Correct step counts shown during install and notify when `.default` files are written for user-modified configs
 - *(debug)* Fix argument handling for debug commands
-- *(upgrade)* Fix checksum verification panic
+- *(download)* Fix checksum verification panic
 - *(init)* Persist validation warnings on the review screen
 
 ### Build
