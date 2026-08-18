@@ -8,12 +8,24 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/testutils"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
+
+func TestFirstErrorClause(t *testing.T) {
+	in := "failed to start Docker environment: docker command failed: exit status 1"
+	if got := firstErrorClause(in); got != "failed to start Docker environment" {
+		t.Errorf("got %q", got)
+	}
+	if got := firstErrorClause("plain message"); got != "plain message" {
+		t.Errorf("got %q", got)
+	}
+}
 
 func TestFindXenForoDirFindsParent(t *testing.T) {
 	root := testutils.SetupXenForoDir(t)
@@ -228,4 +240,24 @@ func TestHelperProcess(t *testing.T) {
 	}
 
 	os.Exit(code)
+}
+
+func TestInterruptExitCodeFollowsTheSignal(t *testing.T) {
+	t.Cleanup(func() { interruptSignal = atomic.Value{} })
+
+	if got := interruptExitCode(); got != exitInterrupted {
+		t.Errorf("with no signal recorded, got %d, want %d", got, exitInterrupted)
+	}
+
+	recordInterruptSignal(syscall.SIGINT)
+
+	if got := interruptExitCode(); got != 130 {
+		t.Errorf("after SIGINT, got %d, want 130", got)
+	}
+
+	recordInterruptSignal(syscall.SIGTERM)
+
+	if got := interruptExitCode(); got != 143 {
+		t.Errorf("after SIGTERM, got %d, want 143", got)
+	}
 }

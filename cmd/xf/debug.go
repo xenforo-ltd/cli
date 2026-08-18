@@ -42,7 +42,7 @@ func init() {
 func runDebug(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return ErrGetCurrentDirectory
+		return fmt.Errorf("failed to determine the current directory: %w", err)
 	}
 
 	xfDir, err := xf.GetXenForoDir(cwd)
