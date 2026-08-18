@@ -509,29 +509,33 @@ func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string
 	return stdout, stderr, err
 }
 
+// getDatabaseCredentials resolves the database user and password.
+//
+// The names must match what the compose files read, since those are the keys
+// that end up in .env: XF_DB_USER and XF_DB_PASSWORD (compose.mysql.yaml,
+// compose.postgres.yaml). The defaults mirror the fallbacks declared there.
+//
+// Resolution order matches docker compose: process environment, then .env, then
+// the built-in default.
 func (r *Runner) getDatabaseCredentials() (string, string) {
-	user := "xf"
-	password := "password"
+	return r.resolveEnvValue("XF_DB_USER", "xf"),
+		r.resolveEnvValue("XF_DB_PASSWORD", "password")
+}
+
+// resolveEnvValue returns the value for key from the process environment, then
+// the project's .env file, falling back to def.
+func (r *Runner) resolveEnvValue(key, def string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
 
 	if envData, err := os.ReadFile(r.envPath); err == nil {
-		if value := parseEnvValue(string(envData), "MYSQL_USER"); value != "" {
-			user = value
-		}
-
-		if value := parseEnvValue(string(envData), "MYSQL_PASSWORD"); value != "" {
-			password = value
+		if value := parseEnvValue(string(envData), key); value != "" {
+			return value
 		}
 	}
 
-	if value := os.Getenv("MYSQL_USER"); value != "" {
-		user = value
-	}
-
-	if value := os.Getenv("MYSQL_PASSWORD"); value != "" {
-		password = value
-	}
-
-	return user, password
+	return def
 }
 
 // runDockerCommand executes a docker compose command.
