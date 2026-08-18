@@ -421,7 +421,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 		return withHint(errors.New("no refresh token available"), "Run "+ui.Command.Render("xf auth login")+" to authenticate")
 	}
 
-	ui.PrintInfo("Refreshing access token...")
+	ui.PrintInfo("Refreshing access token")
 
 	cfg, err := config.Load()
 	if err != nil {
