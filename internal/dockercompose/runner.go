@@ -120,6 +120,53 @@ func (r *Runner) UpWithOutput(ctx context.Context, detach bool, stdout, stderr i
 	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
 }
 
+// ExecCapture runs a command in a service, streaming its output to stdout.
+//
+// Output is streamed rather than buffered so that large results, such as a
+// database dump, do not have to fit in memory.
+func (r *Runner) ExecCapture(ctx context.Context, service string, stdout io.Writer, cmd ...string) error {
+	args := r.buildComposeArgs()
+	args = append(args, "exec", "-T", service)
+	args = append(args, cmd...)
+
+	return r.runDockerCommandWithIO(ctx, nil, stdout, os.Stderr, args...)
+}
+
+// ExecInput runs a command in a service, feeding it from stdin.
+func (r *Runner) ExecInput(ctx context.Context, service string, stdin io.Reader, cmd ...string) error {
+	args := r.buildComposeArgs()
+	args = append(args, "exec", "-T", service)
+	args = append(args, cmd...)
+
+	return r.runDockerCommandWithIO(ctx, stdin, os.Stdout, os.Stderr, args...)
+}
+
+// runDockerCommandWithIO executes a docker command with explicit streams.
+func (r *Runner) runDockerCommandWithIO(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args ...string) error {
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = r.xfDir
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
+
+	if err := cmd.Run(); err != nil {
+		return contextError(ctx, fmt.Errorf("docker command failed: %w", err))
+	}
+
+	return nil
+}
+
+// DatabaseCredentials returns the configured database user and password.
+func (r *Runner) DatabaseCredentials() (string, string) {
+	return r.getDatabaseCredentials()
+}
+
+// DatabaseName returns the configured database name.
+func (r *Runner) DatabaseName() string {
+	return r.resolveEnvValue("XF_DB_DATABASE", "xf")
+}
+
 // Down stops and removes the Docker containers, leaving volumes intact so the
 // environment can be started again with its data.
 func (r *Runner) Down(ctx context.Context) error {

@@ -139,12 +139,14 @@ var (
 	flagWorktreeJSON           bool
 	flagWorktreeForce          bool
 	flagWorktreeKeepContainers bool
+	flagWorktreeFresh          bool
 )
 
 func init() {
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeBase, "base", "", "ref to branch from (defaults to current HEAD)")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeNoSetup, "no-setup", false, "create the worktree only, without setting up the environment")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeNoUp, "no-up", false, "configure the environment but do not start containers")
+	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeFresh, "fresh", false, "install a clean forum instead of cloning the source environment")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeInstance, "instance", "", "Docker instance name")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminUser, "admin-user", "", "admin username (default \"admin\")")
@@ -223,9 +225,25 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		})
 	}
 
+	// Cloning imports a database that is already installed, so xf:install must
+	// not run over it: it would wipe the data that was just copied.
+	cloning := !flagWorktreeFresh && sourceIsInstalled(result.SourcePath)
+
 	if !flagWorktreeNoSetup {
-		if err := setUpWorktree(cmd.Context(), result); err != nil {
+		if err := setUpWorktree(cmd.Context(), result, worktreeInitOptions(result, cloning)); err != nil {
 			return err
+		}
+
+		if cloning && !flagWorktreeNoUp {
+			if err := cloneEnvironment(cmd.Context(), result.SourcePath, result.Path); err != nil {
+				return fmt.Errorf("worktree created at %s, but cloning the environment failed: %w", result.Path, err)
+			}
+
+			entry.Cloned = true
+
+			if err := recordWorktree(entry); err != nil {
+				ui.PrintWarning(fmt.Sprintf("Could not record worktree in the registry: %v", err))
+			}
 		}
 
 		if !flagWorktreeJSON && !flagWorktreeNoUp {
@@ -251,18 +269,23 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// setUpWorktree initialises the environment by delegating to init, which
-// already handles Docker configuration, containers, Composer and installation.
-func setUpWorktree(ctx context.Context, result *worktree.Result) error {
-	// A worktree is a disposable development environment, so it installs with
-	// fixed credentials rather than prompting. Knowing the login without being
-	// asked is the point: one command produces a usable forum.
-	opts := &InitOptions{
+// worktreeInitOptions builds the init options for a new worktree.
+//
+// cloning reports whether the source environment will be copied in, which
+// suppresses xf:install: the imported database is already installed, and
+// reinstalling would wipe the data that was just copied.
+func worktreeInitOptions(result *worktree.Result, cloning bool) *InitOptions {
+	// A worktree is a disposable development environment, so a fresh install
+	// uses fixed credentials rather than prompting. Knowing the login without
+	// being asked is the point: one command produces a usable forum. A cloned
+	// worktree keeps the source's own credentials.
+	return &InitOptions{
 		TargetPath:       result.Path,
 		InstanceName:     result.Instance,
 		ExistingOnly:     true,
 		SkipUp:           flagWorktreeNoUp,
 		StartContainers:  !flagWorktreeNoUp,
+		SkipInstall:      cloning,
 		AdminUser:        defaultString(flagWorktreeAdminUser, defaultWorktreeAdminUser),
 		AdminPassword:    defaultString(flagWorktreeAdminPassword, defaultWorktreeAdminPassword),
 		AdminEmail:       defaultString(flagWorktreeAdminEmail, defaultWorktreeAdminEmail),
@@ -272,7 +295,11 @@ func setUpWorktree(ctx context.Context, result *worktree.Result) error {
 		ProductOverrides: map[string]int{},
 		ProductTitleMap:  map[string]string{},
 	}
+}
 
+// setUpWorktree initialises the environment by delegating to init, which
+// already handles Docker configuration, containers, Composer and installation.
+func setUpWorktree(ctx context.Context, result *worktree.Result, opts *InitOptions) error {
 	if err := initExisting(ctx, opts); err != nil {
 		return fmt.Errorf("worktree created at %s, but setting up its environment failed: %w", result.Path, err)
 	}
@@ -536,4 +563,23 @@ func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error 
 	spinner.StopWithMessage("success", "Containers and volumes removed")
 
 	return nil
+}
+
+// sourceIsInstalled reports whether the source checkout holds a XenForo
+// installation that can be cloned.
+//
+// A checkout that has never been installed has no database or attachments to
+// copy, so a new worktree gets a fresh install instead.
+func sourceIsInstalled(sourcePath string) bool {
+	// XenForo writes this once installation completes.
+	if _, err := os.Stat(filepath.Join(sourcePath, "internal_data", "install-lock.php")); err != nil {
+		return false
+	}
+
+	// Without compose configuration there is no database to dump.
+	if _, err := os.Stat(filepath.Join(sourcePath, "compose.yaml")); err != nil {
+		return false
+	}
+
+	return true
 }
