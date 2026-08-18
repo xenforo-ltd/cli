@@ -148,7 +148,11 @@ func init() {
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeNoUp, "no-up", false, "configure the environment but do not start containers")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeFresh, "fresh", false, "install a clean forum instead of cloning the source environment")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeInstance, "instance", "", "Docker instance name")
-	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
+	// Known limitation: setup progress from init and cloning still goes to
+	// stdout, so the stream is only pure JSON when --no-setup is used. The
+	// output layer writes through package-level helpers with no injectable
+	// writer, so routing it to stderr is a wider change than this command.
+	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON (setup progress is still written to stdout)")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminUser, "admin-user", "", "admin username (default \"admin\")")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminPassword, "admin-password", "", "admin password (default \"password\")")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminEmail, "admin-email", "", "admin email (default \"admin@example.com\")")
@@ -227,14 +231,27 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 
 	// Cloning imports a database that is already installed, so xf:install must
 	// not run over it: it would wipe the data that was just copied.
-	cloning := !flagWorktreeFresh && sourceIsInstalled(result.SourcePath)
+	//
+	// Cloning needs running containers, so --no-up rules it out. Treating the
+	// worktree as cloning anyway would suppress xf:install as well, leaving it
+	// with neither an imported database nor an installed one.
+	cloning := false
+
+	if !flagWorktreeFresh && !flagWorktreeNoUp {
+		installed, err := sourceIsInstalled(result.SourcePath)
+		if err != nil {
+			return err
+		}
+
+		cloning = installed
+	}
 
 	if !flagWorktreeNoSetup {
 		if err := setUpWorktree(cmd.Context(), result, worktreeInitOptions(result, cloning)); err != nil {
 			return err
 		}
 
-		if cloning && !flagWorktreeNoUp {
+		if cloning {
 			if err := cloneEnvironment(cmd.Context(), result.SourcePath, result.Path); err != nil {
 				return fmt.Errorf("worktree created at %s, but cloning the environment failed: %w", result.Path, err)
 			}
@@ -246,7 +263,10 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		if !flagWorktreeJSON && !flagWorktreeNoUp {
+		// Only a fresh install has credentials worth reporting. A cloned
+		// worktree keeps the source's own logins, so printing the defaults
+		// would be wrong.
+		if !cloning && !flagWorktreeJSON && !flagWorktreeNoUp {
 			ui.Println()
 			ui.PrintKeyValuePadded([]ui.KVPair{
 				ui.KV("Admin user", defaultString(flagWorktreeAdminUser, defaultWorktreeAdminUser)),
@@ -262,6 +282,7 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 			SourcePath:   result.SourcePath,
 			SourceBranch: result.SourceBranch,
 			Instance:     result.Instance,
+			Cloned:       entry.Cloned,
 			CreatedAt:    result.CreatedAt,
 		})
 	}
@@ -318,8 +339,13 @@ func runWorktreePath(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	target, err := worktree.ResolveExistingPath(source, args[0])
+	if err != nil {
+		return err
+	}
+
 	// Printed bare, with no decoration, so it can be used directly in a shell.
-	fmt.Println(worktree.ResolvePath(source, args[0]))
+	fmt.Println(target)
 
 	return nil
 }
@@ -373,7 +399,27 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	target := worktree.ResolvePath(source, args[0])
+	target, err := worktree.ResolveExistingPath(source, args[0])
+	if err != nil {
+		return err
+	}
+
+	// The path is derived from the branch's last segment, so dev/a/foo and
+	// dev/b/foo resolve to the same directory. Removing without checking which
+	// branch is actually there would destroy the wrong worktree, its branch,
+	// and its volumes.
+	if err := verifyWorktreeBranch(cmd.Context(), target, args[0]); err != nil {
+		return err
+	}
+
+	// The safety check runs before anything is destroyed. Tearing down first
+	// and refusing afterwards would report that the worktree was kept while
+	// its database and volumes had already been deleted.
+	if !flagWorktreeForce {
+		if err := worktree.CheckRemovable(cmd.Context(), target); err != nil {
+			return err
+		}
+	}
 
 	// Containers must be torn down before the directory goes: compose reads
 	// compose.yaml from the worktree to know what it owns, so removing the
@@ -388,10 +434,13 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if registry, regErr := worktree.NewRegistry(); regErr == nil {
-		if err := registry.Remove(target); err != nil {
-			ui.PrintWarning(fmt.Sprintf("Could not update the worktree registry: %v", err))
-		}
+	registry, regErr := worktree.NewRegistry()
+	if regErr != nil {
+		// Reported rather than ignored: the worktree is gone but the registry
+		// still lists it, and only this message tells the user why.
+		ui.PrintWarning(fmt.Sprintf("Could not open the worktree registry: %v", regErr))
+	} else if err := registry.Remove(target); err != nil {
+		ui.PrintWarning(fmt.Sprintf("Could not update the worktree registry: %v", err))
 	}
 
 	ui.PrintSuccess("Removed worktree " + target)
@@ -433,13 +482,38 @@ func runWorktreePrune(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// worktreeState reports whether a registered worktree still exists on disk.
+func worktreeState(worktreePath string) string {
+	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+		return "missing"
+	}
+
+	return "ok"
+}
+
 // printWorktrees renders entries, reconciling them against the filesystem.
 //
 // The registry is a record, not the source of truth: worktrees get removed
 // outside xf, so entries are checked rather than trusted.
 func printWorktrees(entries []worktree.Entry) error {
 	if flagWorktreeJSON {
-		return printJSON(entries)
+		// The same reconciliation the table performs, so machine consumers
+		// are not told about worktrees that no longer exist on disk.
+		type worktreeListEntry struct {
+			worktree.Entry
+
+			State string `json:"state"`
+		}
+
+		listed := make([]worktreeListEntry, 0, len(entries))
+		for _, entry := range entries {
+			listed = append(listed, worktreeListEntry{
+				Entry: entry,
+				State: worktreeState(entry.WorktreePath),
+			})
+		}
+
+		return printJSON(listed)
 	}
 
 	if len(entries) == 0 {
@@ -452,16 +526,11 @@ func printWorktrees(entries []worktree.Entry) error {
 	rows := make([][]string, 0, len(entries))
 
 	for _, entry := range entries {
-		state := "ok"
-		if _, err := os.Stat(entry.WorktreePath); os.IsNotExist(err) {
-			state = "missing"
-		}
-
 		rows = append(rows, []string{
 			entry.Branch,
 			shortenPath(entry.WorktreePath),
 			entry.Instance,
-			state,
+			worktreeState(entry.WorktreePath),
 		})
 	}
 
@@ -533,6 +602,36 @@ func defaultString(value, fallback string) string {
 	return fallback
 }
 
+// verifyWorktreeBranch reports whether the worktree at path has branch checked
+// out.
+//
+// Worktree paths are derived from a branch's last segment, so dev/a/foo and
+// dev/b/foo share a directory. Without this check, removing one branch would
+// silently destroy the other's worktree, branch, containers and volumes.
+func verifyWorktreeBranch(ctx context.Context, worktreePath, branch string) error {
+	if _, err := os.Stat(worktreePath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("no worktree at %s: %w", worktreePath, err)
+		}
+
+		return fmt.Errorf("failed to inspect %s: %w", worktreePath, err)
+	}
+
+	current, err := worktree.CurrentBranch(ctx, worktreePath)
+	if err != nil {
+		return fmt.Errorf("failed to determine the branch checked out at %s: %w", worktreePath, err)
+	}
+
+	if current != branch {
+		return fmt.Errorf(
+			"%s has %s checked out, not %s: refusing to remove it%.0w",
+			worktreePath, current, branch, ErrInvalidInput,
+		)
+	}
+
+	return nil
+}
+
 // destroyWorktreeEnvironment removes a worktree's containers and volumes.
 //
 // A worktree that was never set up has no compose configuration, which is not
@@ -540,15 +639,16 @@ func defaultString(value, fallback string) string {
 func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error {
 	runner, err := dockercompose.NewRunner(worktreePath)
 	if err != nil {
-		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
+		// A worktree that was never set up has nothing to tear down, and a
+		// directory that is already gone cannot have running containers.
+		if errors.Is(err, dockercompose.ErrEnvNotInitialized) || errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 
-		// The directory may already be gone, or never have been a checkout.
-		// Removing the worktree is still worthwhile, so this is not fatal.
-		ui.PrintWarning(fmt.Sprintf("Could not inspect the environment to remove it: %v", err))
-
-		return nil
+		// Any other failure means the environment could not be inspected, not
+		// that it is absent. Continuing would delete the worktree and strand
+		// its containers and volumes, so stop instead.
+		return fmt.Errorf("failed to inspect the worktree environment: %w", err)
 	}
 
 	spinner := ui.NewSpinner("Removing containers and volumes...")
@@ -570,16 +670,26 @@ func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error 
 //
 // A checkout that has never been installed has no database or attachments to
 // copy, so a new worktree gets a fresh install instead.
-func sourceIsInstalled(sourcePath string) bool {
+func sourceIsInstalled(sourcePath string) (bool, error) {
 	// XenForo writes this once installation completes.
-	if _, err := os.Stat(filepath.Join(sourcePath, "internal_data", "install-lock.php")); err != nil {
-		return false
+	markers := []string{
+		filepath.Join(sourcePath, "internal_data", "install-lock.php"),
+		// Without compose configuration there is no database to dump.
+		filepath.Join(sourcePath, "compose.yaml"),
 	}
 
-	// Without compose configuration there is no database to dump.
-	if _, err := os.Stat(filepath.Join(sourcePath, "compose.yaml")); err != nil {
-		return false
+	for _, marker := range markers {
+		if _, err := os.Stat(marker); err != nil {
+			if os.IsNotExist(err) {
+				return false, nil
+			}
+
+			// A permission or I/O failure is not an absent marker. Treating it
+			// as one would quietly install a fresh forum where the user asked
+			// for a clone of an existing one.
+			return false, fmt.Errorf("failed to inspect %s: %w", marker, err)
+		}
 	}
 
-	return true
+	return true, nil
 }
