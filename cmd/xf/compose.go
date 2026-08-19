@@ -16,10 +16,8 @@ var composeCmd = &cobra.Command{
 If no path is provided, the current directory will be searched for a XenForo installation.
 
 Everything after 'compose' is passed to 'docker compose', including flags. Give
-xf's own flags before the command name, and use 'xf help compose' for this help.
-
-Examples:
-  # List services
+xf's own flags before the command name, and use 'xf help compose' for this help.`,
+	Example: `  # List services
   xf compose ps
 
   # Build services
@@ -31,6 +29,7 @@ Examples:
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(0),
+	GroupID:            "run",
 	RunE:               runCompose,
 }
 
@@ -50,7 +49,7 @@ func runCompose(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := runner.Compose(cmd.Context(), composeArgs...); err != nil {
-		return fmt.Errorf("docker compose command failed: %w", err)
+		return passthroughError(err, "failed to run docker compose")
 	}
 
 	return nil

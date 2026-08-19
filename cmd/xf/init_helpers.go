@@ -3,13 +3,53 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
+	"github.com/spf13/viper"
+
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/initflow"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
+
+// printSkippedStep prints a step line for a step that occupies its slot in
+// the plan but did not run, with its real label and a dim skip reason.
+func printSkippedStep(current, total int, label, reason string) {
+	ui.Printf("%s %s %s\n", ui.Step(current, total), ui.Bold.Render(label),
+		ui.Dim.Render("(skipped: "+reason+")"))
+}
+
+// printInstallFailure reports an xf:install failure with a single error line
+// and a remediation hint, then returns an error that carries the child's own
+// exit status, so callers propagate failure without handleError printing the
+// same failure again.
+func printInstallFailure(err error) error {
+	ui.PrintError("xf:install failed")
+	printCause(err)
+	ui.PrintHint("Run " + ui.Command.Render("xf xf:install") + " to retry once the containers are up")
+
+	return passthroughError(err, "xf:install failed")
+}
+
+// printCause prints the underlying error beneath a status line, but only under
+// --verbose.
+//
+// Status lines stay readable by default, while the detail needed to diagnose a
+// failure is still one flag away rather than discarded.
+func printCause(err error) {
+	if err == nil || !viper.GetBool("verbose") {
+		return
+	}
+
+	ui.PrintDetail(err.Error())
+}
+
+// printStartHint prints the hint for starting an environment that was not
+// brought up during init.
+func printStartHint(dir string) {
+	ui.PrintHint("Run " + ui.Command.Render("xf up") + " in " + ui.Path.Render(ui.ShortHome(dir)) + " to start the environment")
+}
 
 func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key string) string {
 	licenses, err := client.GetLicenses(ctx)
@@ -22,24 +62,7 @@ func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key s
 			continue
 		}
 
-		var parts []string
-		if lic.SiteTitle != "" {
-			parts = append(parts, lic.SiteTitle)
-		}
-
-		if lic.SiteURL != "" {
-			parts = append(parts, lic.SiteURL)
-		}
-
-		if len(parts) == 0 && lic.ProductTitle != "" {
-			parts = append(parts, lic.ProductTitle)
-		}
-
-		if len(parts) == 0 {
-			return key
-		}
-
-		return fmt.Sprintf("%s (%s)", key, strings.Join(parts, " - "))
+		return licenseLabel(lic)
 	}
 
 	return key
@@ -122,9 +145,10 @@ func normalizeContexts(contexts []string) []string {
 	return out
 }
 
-func licenseOptionLabel(lic customerapi.License) string {
-	label := lic.LicenseKey
-
+// licenseLabel formats a license for display: the key alone, or the key with
+// its site title/URL (falling back to the product title) in parentheses.
+// The result is intentionally unstyled — huh restyles select options itself.
+func licenseLabel(lic customerapi.License) string {
 	var parts []string
 	if lic.SiteTitle != "" {
 		parts = append(parts, lic.SiteTitle)
@@ -134,11 +158,15 @@ func licenseOptionLabel(lic customerapi.License) string {
 		parts = append(parts, lic.SiteURL)
 	}
 
-	if len(parts) > 0 {
-		label = fmt.Sprintf("%s (%s)", label, strings.Join(parts, " - "))
+	if len(parts) == 0 && lic.ProductTitle != "" {
+		parts = append(parts, lic.ProductTitle)
 	}
 
-	return label
+	if len(parts) == 0 {
+		return lic.LicenseKey
+	}
+
+	return fmt.Sprintf("%s (%s)", lic.LicenseKey, strings.Join(parts, " - "))
 }
 
 func inferSiteTitleFromEnv(opts *InitOptions) string {
@@ -156,17 +184,13 @@ func inferSiteTitleFromEnv(opts *InitOptions) string {
 	return strings.TrimSuffix(title, suffix)
 }
 
-func clearScreen() {
-	_, _ = fmt.Fprint(os.Stdout, "\033[H\033[2J")
-}
-
 func validateReviewInputs(opts *InitOptions) error {
 	if strings.TrimSpace(opts.AdminPassword) == "" {
 		return ErrPasswordRequired
 	}
 
 	if !strings.Contains(strings.TrimSpace(opts.AdminEmail), "@") {
-		return ErrValidEmailRequired
+		return ErrInvalidEmail
 	}
 
 	if strings.TrimSpace(opts.AdminUser) == "" {

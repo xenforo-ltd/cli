@@ -14,16 +14,15 @@ var downCmd = &cobra.Command{
 	Short: "Stop the Docker environment",
 	Long: `Stop and remove the Docker containers for a XenForo installation.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # Stop in current directory (auto-detect)
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # Stop in current directory (auto-detect)
   xf down
 
   # Stop specific directory
   xf down ./my-project`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runDown,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runDown,
 }
 
 func init() {
@@ -41,13 +40,14 @@ func runDown(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Stopping Docker environment...")
+	ui.PrintInfo("Stopping Docker environment " + ui.Bold.Render(runner.Instance()))
 
 	if err := runner.Down(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}
 
-	ui.PrintSuccess("Docker environment stopped")
+	ui.Println()
+	ui.SuccessBox("Docker environment stopped", nil)
 
 	return nil
 }

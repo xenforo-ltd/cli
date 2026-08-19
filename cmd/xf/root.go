@@ -8,12 +8,16 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"sync/atomic"
+	"syscall"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/version"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -30,22 +34,17 @@ var rootCmd = &cobra.Command{
 	// swallowed, leaving no way to set xf's own flags on those commands.
 	TraverseChildren: true,
 	Short:            "Provision and manage XenForo development environments",
-	Long: `The XenForo CLI is a command-line tool for provisioning and managing
-XenForo development environments using Docker.
+	Long: `Provision and manage Docker-based XenForo development environments:
+authentication, package downloads, caching, containers and worktrees.
 
-It handles OAuth authentication, downloads XenForo packages, manages
-caching, and orchestrates Docker-based development environments.
-
-Get started by authenticating:
+Inside a XenForo directory, unknown commands are forwarded to XenForo itself,
+so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
+	Example: `  # Authenticate, then create a project
   xf auth login
-
-Then initialize a new project:
   xf init ./my-project
 
-Run XenForo commands directly (from a XenForo directory):
-  xf list
-  xf xf-dev:import
-`,
+  # Run a XenForo command in the environment
+  xf xf-dev:import`,
 }
 
 // usageError marks an error as caused by incorrect invocation (bad arguments or
@@ -101,6 +100,40 @@ func configureErrorHandling(cmd *cobra.Command) {
 
 const usageConfiguredAnnotation = "xf.xenforo.com/usage-error-handling-configured"
 
+// usageTemplate is cobra's default usage template with the section headings
+// and command names styled via the styleHeading/styleCommand template funcs
+// registered in init(). It is not otherwise restructured.
+const usageTemplate = `{{styleHeading "Usage:"}}{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+
+{{styleHeading "Aliases:"}}
+  {{.NameAndAliases}}{{end}}{{if .HasExample}}
+
+{{styleHeading "Examples:"}}
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}{{$cmds := .Commands}}{{if eq (len .Groups) 0}}
+
+{{styleHeading "Available Commands:"}}{{range $cmds}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{styleCommand (rpad .Name .NamePadding) }} {{.Short}}{{end}}{{end}}{{else}}{{range $group := .Groups}}
+
+{{styleHeading .Title}}{{range $cmds}}{{if (and (eq .GroupID $group.ID) (or .IsAvailableCommand (eq .Name "help")))}}
+  {{styleCommand (rpad .Name .NamePadding) }} {{.Short}}{{end}}{{end}}{{end}}{{if not .AllChildCommandsHaveGroup}}
+
+{{styleHeading "Additional Commands:"}}{{range $cmds}}{{if (and (eq .GroupID "") (or .IsAvailableCommand (eq .Name "help")))}}
+  {{styleCommand (rpad .Name .NamePadding) }} {{.Short}}{{end}}{{end}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+{{styleHeading "Flags:"}}
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+{{styleHeading "Global Flags:"}}
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
+
+{{styleHeading "Additional help topics:"}}{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{styleCommand (rpad .CommandPath .CommandPathPadding)}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`
+
 // Execute runs the CLI application.
 func Execute(ctx context.Context) {
 	configureErrorHandling(rootCmd)
@@ -112,7 +145,15 @@ func Execute(ctx context.Context) {
 			if !isKnownCommand(firstArg) {
 				if err := runAsXenForoCommand(ctx, os.Args[1:], exec.CommandContext); err != nil {
 					if isInterrupted(err) {
-						os.Exit(exitInterrupted)
+						os.Exit(interruptExitCode())
+					}
+
+					if errors.Is(err, ErrCancelled) {
+						os.Exit(0)
+					}
+					var exitErr *exitCodeError
+					if errors.As(err, &exitErr) {
+						os.Exit(exitErr.code)
 					}
 
 					handleError(err)
@@ -129,7 +170,15 @@ func Execute(ctx context.Context) {
 		// Ctrl-C is a deliberate user action, not a failure. Exit quietly with
 		// the conventional signal status rather than reporting an error.
 		if isInterrupted(err) {
-			os.Exit(exitInterrupted)
+			os.Exit(interruptExitCode())
+		}
+
+		if errors.Is(err, ErrCancelled) {
+			os.Exit(0)
+		}
+		var exitErr *exitCodeError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.code)
 		}
 
 		handleError(err)
@@ -145,8 +194,28 @@ func Execute(ctx context.Context) {
 }
 
 // exitInterrupted is the conventional exit status for a process terminated by
-// SIGINT (128 + 2).
+// SIGINT (128 + 2). It is the default when no signal was recorded, because
+// Ctrl-C is the interruption users actually produce.
 const exitInterrupted = 130
+
+// interruptSignal records which signal ended the process, so the exit status
+// can follow the 128+signum convention rather than always reporting SIGINT.
+var interruptSignal atomic.Value
+
+// recordInterruptSignal stores the signal that terminated the process.
+func recordInterruptSignal(sig os.Signal) {
+	interruptSignal.Store(sig)
+}
+
+// interruptExitCode returns the conventional exit status for the signal that
+// ended the process: 143 for SIGTERM, 130 for SIGINT or an unrecorded signal.
+func interruptExitCode() int {
+	if sig, ok := interruptSignal.Load().(syscall.Signal); ok {
+		return 128 + int(sig)
+	}
+
+	return exitInterrupted
+}
 
 // isInterrupted reports whether an error is the result of the user cancelling
 // the command, typically with Ctrl-C.
@@ -169,7 +238,64 @@ func takesDirectXenForoRoute(firstArg string) bool {
 }
 
 func handleError(err error) {
-	fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+	msg := err.Error()
+	if !viper.GetBool("verbose") {
+		msg = firstErrorClause(msg)
+	}
+
+	// Errors belong on stderr, not lipgloss's default stdout writer, so
+	// render through lipgloss.Fprintf: like ui's own Print* helpers, it
+	// downsamples any ANSI in the rendered text (including from hints built
+	// with ui.Command.Render elsewhere) based on stderr's own profile - a
+	// plain os.Stderr write would carry the raw escapes straight through
+	// regardless of NO_COLOR or piping.
+	lipgloss.Fprintf(os.Stderr, "%s %s\n", ui.ErrorBold.Render(ui.SymbolError), ui.Error.Render(msg))
+
+	if hint := hintOf(err); hint != "" {
+		lipgloss.Fprintf(os.Stderr, "%s%s %s\n", ui.Indent1, ui.Dim.Render(ui.SymbolArrow), hint)
+	}
+}
+
+// firstErrorClause trims a wrapped chain to its most useful prefix: it keeps
+// clauses until one adds no information (pure plumbing like "exit status 1").
+//
+// If the very first clause is itself plumbing, there is no useful prefix to
+// cut to; instead, plumbing clauses are trimmed off the end so any leading
+// substantive text survives (and the sentinel tail never leaks through).
+func firstErrorClause(msg string) string {
+	parts := strings.Split(msg, ": ")
+	cut := len(parts)
+	for i, p := range parts {
+		if plumbingClause(p) {
+			cut = i
+			break
+		}
+	}
+	if cut > 0 {
+		return strings.Join(parts[:cut], ": ")
+	}
+
+	end := len(parts)
+	for end > 0 && plumbingClause(parts[end-1]) {
+		end--
+	}
+	if end == 0 {
+		return msg
+	}
+	return strings.Join(parts[:end], ": ")
+}
+
+func plumbingClause(s string) bool {
+	if strings.HasPrefix(s, "exit status ") {
+		return true
+	}
+	switch s {
+	case "docker command failed", "invalid input", "not found",
+		"forbidden", "internal error", "authentication failed",
+		"keychain unavailable", "context canceled":
+		return true
+	}
+	return false
 }
 
 func isKnownCommand(name string) bool {
@@ -197,12 +323,15 @@ type commandFunc func(ctx context.Context, name string, args ...string) *exec.Cm
 func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
+		return fmt.Errorf("failed to determine the current directory: %w", err)
 	}
 
 	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
-		return fmt.Errorf("unknown command: %s (not in a XenForo directory): %w", args[0], err)
+		return withHint(
+			markAs(err, "unknown command: %s (not in a XenForo directory)", args[0]),
+			"Run "+ui.Command.Render("xf --help")+" to see available commands",
+		)
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)
@@ -215,6 +344,11 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) 
 	}
 
 	if err := runner.XFCommand(ctx, args...); err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return newExitCodeError(ee.ExitCode())
+		}
+
 		return fmt.Errorf("failed to run XenForo command %q: %w", args[0], err)
 	}
 
@@ -237,7 +371,10 @@ func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, 
 		}
 
 		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf("local PHP executable not found in PATH: %w", err)
+			return withHint(
+				&kindError{err: errors.New("PHP is not installed or not in your PATH"), kind: err},
+				"Install PHP or run this inside a started environment ("+ui.Command.Render("xf up")+")",
+			)
 		}
 
 		return fmt.Errorf("local XenForo command failed: %w", err)
@@ -257,7 +394,36 @@ func init() {
 		}
 	})
 
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "start", Title: "Getting started:"},
+		&cobra.Group{ID: "env", Title: "Environment:"},
+		&cobra.Group{ID: "run", Title: "Run tools:"},
+		&cobra.Group{ID: "maint", Title: "Maintenance:"},
+	)
+	rootCmd.SetHelpCommandGroupID("maint")
+	rootCmd.SetCompletionCommandGroupID("maint")
+
+	// Must run after SetCompletionCommandGroupID: it creates the completion
+	// command immediately, reading completionCommandGroupID at that point.
 	rootCmd.InitDefaultCompletionCmd()
+
+	// Help is written to stdout via fmt, not lipgloss, so it bypasses
+	// lipgloss's writer-side profile detection: style only when stdout is an
+	// interactive terminal and NO_COLOR is unset, or piped/redirected help
+	// (e.g. `xf --help | cat`) would carry raw escape codes.
+	cobra.AddTemplateFunc("styleHeading", func(s string) string {
+		if !ui.Enabled(os.Stdout) {
+			return s
+		}
+		return ui.Bold.Render(s)
+	})
+	cobra.AddTemplateFunc("styleCommand", func(s string) string {
+		if !ui.Enabled(os.Stdout) {
+			return s
+		}
+		return ui.Command.Render(s)
+	})
+	rootCmd.SetUsageTemplate(usageTemplate)
 
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "path to config file")
 	rootCmd.PersistentFlags().BoolP("no-interaction", "n", false, "disable interactive prompts")

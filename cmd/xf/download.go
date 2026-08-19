@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -26,10 +25,8 @@ downloads of the same version will use the cached copy.
 The download command works in stages:
   1. Without --download: Lists available packages for the license
   2. With --download: Lists available versions for that package
-  3. With --download and --version: Downloads the specified version
-
-Examples:
-  # List available packages for a license
+  3. With --download and --version: Downloads the specified version`,
+	Example: `  # List available packages for a license
   xf download --license XF123-ABCD-1234
 
   # List available versions for XenForo
@@ -40,8 +37,9 @@ Examples:
 
   # Force re-download even if cached
   xf download --license XF123-ABCD-1234 --download xenforo --version 12345 --force`,
-	Args: cobra.NoArgs,
-	RunE: runDownload,
+	Args:    cobra.NoArgs,
+	GroupID: "start",
+	RunE:    runDownload,
 }
 
 var (
@@ -52,7 +50,7 @@ var (
 )
 
 func init() {
-	downloadCmd.Flags().StringVar(&flagDownloadLicenseKey, "license", "", "license key (required)")
+	downloadCmd.Flags().StringVar(&flagDownloadLicenseKey, "license", "", "license key")
 	downloadCmd.Flags().StringVar(&flagDownloadID, "download", "", "download ID (e.g., xenforo, xfmg)")
 	downloadCmd.Flags().IntVar(&flagDownloadVersionID, "version", 0, "version ID to download")
 	downloadCmd.Flags().BoolVar(&flagDownloadForce, "force", false, "force re-download even if cached")
@@ -85,73 +83,79 @@ func runDownload(cmd *cobra.Command, args []string) error {
 }
 
 func listDownloadables(ctx context.Context, client *customerapi.Client, licenseKey string) error {
-	ui.PrintInfo(fmt.Sprintf("Fetching available downloads for license %s...", ui.Bold.Render(licenseKey)))
-	ui.Println()
+	spinner := ui.NewSpinner("Fetching downloads for " + licenseKey)
+	spinner.Start()
 
 	downloadables, err := client.GetLicenseDownloadables(ctx, licenseKey)
+
+	spinner.Stop()
+
 	if err != nil {
 		return fmt.Errorf("failed to fetch available downloads for license %s: %w", licenseKey, err)
 	}
 
 	if len(downloadables.Downloadables) == 0 {
-		ui.PrintWarning("No downloadables available for this license.")
+		ui.PrintEmpty("No downloadables available for this license")
 		return nil
 	}
 
-	ui.Printf("%s Available downloads:\n\n", ui.StatusIcon("success"))
+	ui.Println(ui.Bold.Render("Available downloads"))
+	ui.Println()
 
 	for _, d := range downloadables.Downloadables {
-		ui.Printf("%s%s %s\n", ui.Indent1, ui.Bold.Render(d.DownloadID), ui.Dim.Render("- "+d.Title))
+		ui.PrintKeyValuePadded([]ui.KVPair{ui.KV(d.DownloadID, d.Title)})
 	}
 
-	ui.Printf("\nUse %s to specify which package to download.\n", ui.Command.Render("--download <id>"))
+	ui.PrintHint("Add " + ui.Command.Render("--download <id>") + " to choose a package")
 
 	return nil
 }
 
 func listVersions(ctx context.Context, client *customerapi.Client, licenseKey string, downloadID string) error {
-	ui.PrintInfo(fmt.Sprintf("Fetching available versions for %s...", ui.Bold.Render(downloadID)))
-	ui.Println()
+	spinner := ui.NewSpinner("Fetching versions for " + downloadID)
+	spinner.Start()
 
 	versions, err := client.GetLicenseVersions(ctx, licenseKey, downloadID)
+
+	spinner.Stop()
+
 	if err != nil {
 		return fmt.Errorf("failed to fetch versions for %s: %w", downloadID, err)
 	}
 
 	if len(versions.Versions) == 0 {
-		ui.PrintWarning("No versions available for this download.")
+		ui.PrintEmpty("No versions available for this download")
 		return nil
 	}
 
-	ui.Printf("%s Available versions:\n\n", ui.StatusIcon("success"))
+	ui.Println(ui.Bold.Render("Available versions"))
+	ui.Println()
 
 	for _, v := range versions.Versions {
 		stable := ""
 		if v.Stable {
-			stable = ui.Success.Render(" (stable)")
+			stable = ui.Dim.Render(" (stable)")
 		}
 
-		ui.Printf("%s%s %s%s\n", ui.Indent1, ui.Dim.Render(strconv.Itoa(v.VersionID)), ui.Version.Render(v.VersionStr), stable)
+		ui.Printf("%s%s %s\n", ui.Indent1, ui.Version.Render(v.VersionStr)+stable, ui.Muted.Render(fmt.Sprintf("(id %d)", v.VersionID)))
 	}
 
-	ui.Printf("\nUse %s to specify which version to download.\n", ui.Command.Render("--version <id>"))
+	ui.PrintHint("Add " + ui.Command.Render("--version <id>") + " to choose a version")
 
 	return nil
 }
 
 func performDownload(ctx context.Context, client *customerapi.Client, licenseKey string, downloadID string, versionID int, force bool) error {
-	ui.PrintInfo(fmt.Sprintf("Getting download info for %s version %d...", ui.Bold.Render(downloadID), versionID))
+	spinner := ui.NewSpinner("Fetching download info for " + downloadID)
+	spinner.Start()
 
 	info, err := client.GetDownloadInfo(ctx, licenseKey, downloadID, versionID)
+
+	spinner.Stop()
+
 	if err != nil {
 		return fmt.Errorf("failed to get download info for %s version %d: %w", downloadID, versionID, err)
 	}
-
-	ui.Println()
-	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("Filename", info.Filename),
-		ui.KV("Version", ui.Version.Render(info.VersionString)),
-	})
 
 	cacheManager, err := cache.NewManager()
 	if err != nil {
@@ -168,14 +172,12 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 			valid, err := cacheManager.Verify(entry)
 			if err == nil && valid {
 				if _, statErr := os.Stat(entry.FilePath); statErr == nil {
-					ui.Println()
-					ui.PrintSuccess("Already cached: " + ui.Path.Render(entry.FilePath))
-					ui.Println()
-					ui.PrintKeyValuePadded([]ui.KVPair{
+					ui.SuccessBox("Already cached", []ui.KVPair{
+						ui.KV("File", ui.Path.Render(ui.ShortHome(entry.FilePath))),
+						ui.KV("Version", ui.Version.Render(info.VersionString)),
 						ui.KV("Size", ui.FormatBytes(entry.Metadata.Size)),
-						ui.KV("Downloaded", entry.Metadata.DownloadedAt.Format("2006-01-02 15:04:05")),
 					})
-					ui.Printf("\nUse %s to re-download.\n", ui.Command.Render("--force"))
+					ui.PrintHint("Add " + ui.Command.Render("--force") + " to re-download")
 
 					return nil
 				}
@@ -190,10 +192,10 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	downloadURL := client.GetDownloadURL(licenseKey, downloadID, versionID)
 
-	ui.Println()
-	ui.PrintInfo("Downloading...")
-
-	var progressBar *ui.ProgressBar
+	var (
+		progressBar *ui.ProgressBar
+		dlSpinner   *ui.Spinner
+	)
 
 	opts := cache.DownloadOptions{
 		LicenseKey:     licenseKey,
@@ -206,16 +208,28 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	progress := func(current, total int64) {
 		if total > 0 {
+			if dlSpinner != nil {
+				dlSpinner.Stop()
+				dlSpinner = nil
+			}
+
 			if progressBar == nil {
-				progressBar = ui.NewProgressBar(total, "")
+				progressBar = ui.NewProgressBar(total, info.Filename)
 			}
 
 			progressBar.Update(current)
+		} else if dlSpinner == nil {
+			dlSpinner = ui.NewSpinner("Downloading " + info.Filename)
+			dlSpinner.Start()
 		}
 	}
 
 	result, err := cacheManager.DownloadWithAuth(ctx, opts, accessToken, progress)
 	if err != nil {
+		if dlSpinner != nil {
+			dlSpinner.Stop()
+		}
+
 		return fmt.Errorf("failed to download %s version %d: %w", downloadID, versionID, err)
 	}
 
@@ -223,16 +237,21 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 		progressBar.Finish()
 	}
 
-	ui.Println()
+	if dlSpinner != nil {
+		dlSpinner.Stop()
+	}
 
 	if result.WasCached {
-		ui.PrintSuccess("Used cached file: " + ui.Path.Render(result.Entry.FilePath))
-	} else {
-		ui.PrintSuccess("Downloaded: " + ui.Path.Render(result.Entry.FilePath))
-		ui.Println()
-		ui.PrintKeyValuePadded([]ui.KVPair{
+		ui.SuccessBox("Already cached", []ui.KVPair{
+			ui.KV("File", ui.Path.Render(ui.ShortHome(result.Entry.FilePath))),
+			ui.KV("Version", ui.Version.Render(info.VersionString)),
 			ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),
-			ui.KV("Checksum", ui.Dim.Render(result.Entry.Metadata.Checksum[:16]+"...")),
+		})
+	} else {
+		ui.SuccessBox("Download complete", []ui.KVPair{
+			ui.KV("File", ui.Path.Render(ui.ShortHome(result.Entry.FilePath))),
+			ui.KV("Version", ui.Version.Render(info.VersionString)),
+			ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),
 		})
 	}
 

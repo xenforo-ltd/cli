@@ -8,12 +8,54 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/testutils"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
+
+func TestCommandsAreGrouped(t *testing.T) {
+	for _, c := range rootCmd.Commands() {
+		if c.Name() == "help" || c.Name() == "completion" {
+			continue
+		}
+		if c.GroupID == "" {
+			t.Errorf("command %q has no GroupID", c.Name())
+		}
+	}
+}
+
+func TestFirstErrorClause(t *testing.T) {
+	in := "failed to start Docker environment: docker command failed: exit status 1"
+	if got := firstErrorClause(in); got != "failed to start Docker environment" {
+		t.Errorf("got %q", got)
+	}
+	if got := firstErrorClause("plain message"); got != "plain message" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// TestFirstErrorClauseLeadingPlumbing covers the case where the very first
+// clause is itself plumbing (cut == 0): trailing plumbing clauses must still
+// be stripped from the end rather than the whole chain, including its
+// sentinel tail, being returned verbatim.
+func TestFirstErrorClauseLeadingPlumbing(t *testing.T) {
+	// First clause is plumbing (cut == 0); a substantive clause follows,
+	// with a plumbing sentinel tail. The tail must be stripped even though
+	// the leading clause is also plumbing.
+	in := "docker command failed: container xf-web-1 is unhealthy: exit status 1"
+	if got := firstErrorClause(in); got != "docker command failed: container xf-web-1 is unhealthy" {
+		t.Errorf("got %q", got)
+	}
+
+	allPlumbing := "docker command failed: not found"
+	if got := firstErrorClause(allPlumbing); got == "" {
+		t.Errorf("firstErrorClause must never return empty, got %q", got)
+	}
+}
 
 func TestFindXenForoDirFindsParent(t *testing.T) {
 	root := testutils.SetupXenForoDir(t)
@@ -228,4 +270,24 @@ func TestHelperProcess(t *testing.T) {
 	}
 
 	os.Exit(code)
+}
+
+func TestInterruptExitCodeFollowsTheSignal(t *testing.T) {
+	t.Cleanup(func() { interruptSignal = atomic.Value{} })
+
+	if got := interruptExitCode(); got != exitInterrupted {
+		t.Errorf("with no signal recorded, got %d, want %d", got, exitInterrupted)
+	}
+
+	recordInterruptSignal(syscall.SIGINT)
+
+	if got := interruptExitCode(); got != 130 {
+		t.Errorf("after SIGINT, got %d, want 130", got)
+	}
+
+	recordInterruptSignal(syscall.SIGTERM)
+
+	if got := interruptExitCode(); got != 143 {
+		t.Errorf("after SIGTERM, got %d, want 143", got)
+	}
 }

@@ -14,16 +14,15 @@ var rebootCmd = &cobra.Command{
 	Short: "Restart the Docker environment",
 	Long: `Stop and restart the Docker containers for a XenForo installation.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # Reboot in current directory (auto-detect)
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # Reboot in current directory (auto-detect)
   xf reboot
 
   # Reboot specific directory
   xf reboot ./my-project`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runReboot,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runReboot,
 }
 
 func init() {
@@ -41,21 +40,28 @@ func runReboot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Stopping Docker environment...")
-
 	ctx := cmd.Context()
+
+	ui.PrintStep(1, 2, "Stopping "+runner.Instance())
 
 	if err := runner.Down(ctx); err != nil {
 		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}
 
-	ui.PrintInfo("Starting Docker environment...")
+	ui.PrintStep(2, 2, "Starting "+runner.Instance())
 
 	if err := runner.Up(ctx, true); err != nil {
 		return fmt.Errorf("failed to start Docker environment: %w", err)
 	}
 
-	ui.PrintSuccess("Docker environment restarted")
+	details := []ui.KVPair{}
+	if url, err := runner.GetURL(ctx); err == nil {
+		details = append(details, ui.KV("URL", ui.URL.Render(url)))
+	} else {
+		ui.PrintWarning("Could not determine the site URL")
+	}
+	ui.Println()
+	ui.SuccessBox("Docker environment restarted", details)
 
 	return nil
 }

@@ -177,6 +177,64 @@ func TestGetZipRootDirectory(t *testing.T) {
 	})
 }
 
+func TestContainsUploadFile(t *testing.T) {
+	t.Run("present", func(t *testing.T) {
+		zipPath := filepath.Join(t.TempDir(), "repo-checkout.zip")
+		if err := writeZip(zipPath, map[string]string{
+			"upload/src/XF.php":    "x",
+			"upload/composer.json": `{"name":"xenforo/xenforo"}`,
+		}); err != nil {
+			t.Fatalf("write zip: %v", err)
+		}
+
+		got, err := ContainsUploadFile(zipPath, "composer.json")
+		if err != nil {
+			t.Fatalf("ContainsUploadFile failed: %v", err)
+		}
+
+		if !got {
+			t.Fatal("expected composer.json to be detected under upload/")
+		}
+	})
+
+	t.Run("absent", func(t *testing.T) {
+		zipPath := filepath.Join(t.TempDir(), "release-package.zip")
+		if err := writeZip(zipPath, map[string]string{
+			"upload/src/XF.php": "x",
+			"README.txt":        "y",
+		}); err != nil {
+			t.Fatalf("write zip: %v", err)
+		}
+
+		got, err := ContainsUploadFile(zipPath, "composer.json")
+		if err != nil {
+			t.Fatalf("ContainsUploadFile failed: %v", err)
+		}
+
+		if got {
+			t.Fatal("did not expect composer.json to be detected")
+		}
+	})
+
+	t.Run("nested, not at upload root", func(t *testing.T) {
+		zipPath := filepath.Join(t.TempDir(), "nested.zip")
+		if err := writeZip(zipPath, map[string]string{
+			"upload/vendor/composer.json": "x",
+		}); err != nil {
+			t.Fatalf("write zip: %v", err)
+		}
+
+		got, err := ContainsUploadFile(zipPath, "composer.json")
+		if err != nil {
+			t.Fatalf("ContainsUploadFile failed: %v", err)
+		}
+
+		if got {
+			t.Fatal("did not expect a nested composer.json to match the root-level check")
+		}
+	})
+}
+
 func TestExtractXenForoZipUploadOnly(t *testing.T) {
 	tmpDir := t.TempDir()
 

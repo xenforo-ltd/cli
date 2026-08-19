@@ -1,13 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"strings"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
-	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
 var execCmd = &cobra.Command{
@@ -15,10 +15,8 @@ var execCmd = &cobra.Command{
 	Short: "Execute a command in a running container",
 	Long: `Execute a command in a running Docker container.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # Run a command in the xf container
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # Run a command in the xf container
   xf exec xf ls -la
 
   # Run a command in specific directory
@@ -30,6 +28,7 @@ Examples:
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(1),
+	GroupID:            "run",
 	RunE:               runExec,
 }
 
@@ -55,13 +54,31 @@ func runExec(cmd *cobra.Command, args []string) error {
 	service := execArgs[0]
 	cmdArgs := execArgs[1:]
 
-	ui.PrintInfo(fmt.Sprintf("Executing in %s: %s", service, strings.Join(cmdArgs, " ")))
-
 	if err := runner.Exec(cmd.Context(), service, cmdArgs...); err != nil {
-		return fmt.Errorf("failed to execute command in service %s: %w", service, err)
+		return passthroughError(err, "failed to execute command in service "+service)
 	}
 
 	return nil
+}
+
+// passthroughError converts a child process's non-zero exit into a bare
+// exit-code error (the child already printed its own failure); other errors
+// are wrapped with context.
+func passthroughError(err error, context string) error {
+	if err == nil {
+		return nil
+	}
+
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		// A process killed by a signal reports -1, which is not a status any
+		// caller can exit with. Those failures are reported normally instead.
+		if code := ee.ExitCode(); code >= 0 {
+			return newExitCodeError(code)
+		}
+	}
+
+	return fmt.Errorf("%s: %w", context, err)
 }
 
 func resolveXenForoDirAndArgs(args []string) (string, []string, error) {
