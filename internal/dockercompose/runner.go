@@ -120,12 +120,112 @@ func (r *Runner) UpWithOutput(ctx context.Context, detach bool, stdout, stderr i
 	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
 }
 
-// Down stops and removes the Docker containers.
+// ExecCapture runs a command in a service, streaming its output to stdout.
+//
+// Output is streamed rather than buffered so that large results, such as a
+// database dump, do not have to fit in memory.
+func (r *Runner) ExecCapture(ctx context.Context, service string, stdout io.Writer, cmd ...string) error {
+	return r.ExecCaptureWithEnv(ctx, service, nil, stdout, cmd...)
+}
+
+// ExecCaptureWithEnv is ExecCapture with environment variables set inside the
+// container. Secrets belong here rather than in cmd: a value passed as an
+// argument is visible in the container's process list.
+func (r *Runner) ExecCaptureWithEnv(
+	ctx context.Context,
+	service string,
+	env map[string]string,
+	stdout io.Writer,
+	cmd ...string,
+) error {
+	args := r.buildComposeArgs()
+	args = append(args, "exec", "-T")
+	args = r.appendEnvVars(args, env, "-e")
+	args = append(args, service)
+	args = append(args, cmd...)
+
+	return r.runDockerCommandWithIO(ctx, nil, stdout, os.Stderr, args...)
+}
+
+// ExecInput runs a command in a service, feeding it from stdin.
+func (r *Runner) ExecInput(ctx context.Context, service string, stdin io.Reader, cmd ...string) error {
+	return r.ExecInputWithEnv(ctx, service, nil, stdin, cmd...)
+}
+
+// ExecInputWithEnv is ExecInput with environment variables set inside the
+// container, so secrets stay out of the container's process list.
+func (r *Runner) ExecInputWithEnv(
+	ctx context.Context,
+	service string,
+	env map[string]string,
+	stdin io.Reader,
+	cmd ...string,
+) error {
+	args := r.buildComposeArgs()
+	args = append(args, "exec", "-T")
+	args = r.appendEnvVars(args, env, "-e")
+	args = append(args, service)
+	args = append(args, cmd...)
+
+	return r.runDockerCommandWithIO(ctx, stdin, os.Stdout, os.Stderr, args...)
+}
+
+// runDockerCommandWithIO executes a docker command with explicit streams.
+func (r *Runner) runDockerCommandWithIO(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args ...string) error {
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = r.xfDir
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
+
+	if err := cmd.Run(); err != nil {
+		return contextError(ctx, fmt.Errorf("docker command failed: %w", err))
+	}
+
+	return nil
+}
+
+// DatabaseCredentials returns the configured database user and password.
+func (r *Runner) DatabaseCredentials() (string, string) {
+	return r.getDatabaseCredentials()
+}
+
+// DatabaseName returns the configured database name.
+func (r *Runner) DatabaseName() string {
+	return r.resolveEnvValue("XF_DB_DATABASE", "xf")
+}
+
+// Down stops and removes the Docker containers, leaving volumes intact so the
+// environment can be started again with its data.
 func (r *Runner) Down(ctx context.Context) error {
 	args := r.buildComposeArgs()
-	args = append(args, "down")
+	args = append(args, downArgs(false)...)
 
 	return r.runDockerCommand(ctx, args...)
+}
+
+// Destroy stops the environment and removes its volumes.
+//
+// This is permanent: the database and any other volume data are deleted. It is
+// what removing a worktree needs, since otherwise each discarded feature branch
+// leaves a full volume set behind.
+func (r *Runner) Destroy(ctx context.Context) error {
+	args := r.buildComposeArgs()
+	args = append(args, downArgs(true)...)
+
+	return r.runDockerCommand(ctx, args...)
+}
+
+// downArgs builds the compose arguments for stopping an environment.
+func downArgs(removeVolumes bool) []string {
+	args := []string{"down"}
+
+	if removeVolumes {
+		args = append(args, "--volumes", "--remove-orphans")
+	}
+
+	return args
 }
 
 // PS lists running containers.
@@ -509,29 +609,33 @@ func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string
 	return stdout, stderr, err
 }
 
+// getDatabaseCredentials resolves the database user and password.
+//
+// The names must match what the compose files read, since those are the keys
+// that end up in .env: XF_DB_USER and XF_DB_PASSWORD (compose.mysql.yaml,
+// compose.postgres.yaml). The defaults mirror the fallbacks declared there.
+//
+// Resolution order matches docker compose: process environment, then .env, then
+// the built-in default.
 func (r *Runner) getDatabaseCredentials() (string, string) {
-	user := "xf"
-	password := "password"
+	return r.resolveEnvValue("XF_DB_USER", "xf"),
+		r.resolveEnvValue("XF_DB_PASSWORD", "password")
+}
+
+// resolveEnvValue returns the value for key from the process environment, then
+// the project's .env file, falling back to def.
+func (r *Runner) resolveEnvValue(key, def string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
 
 	if envData, err := os.ReadFile(r.envPath); err == nil {
-		if value := parseEnvValue(string(envData), "MYSQL_USER"); value != "" {
-			user = value
-		}
-
-		if value := parseEnvValue(string(envData), "MYSQL_PASSWORD"); value != "" {
-			password = value
+		if value := parseEnvValue(string(envData), key); value != "" {
+			return value
 		}
 	}
 
-	if value := os.Getenv("MYSQL_USER"); value != "" {
-		user = value
-	}
-
-	if value := os.Getenv("MYSQL_PASSWORD"); value != "" {
-		password = value
-	}
-
-	return user, password
+	return def
 }
 
 // runDockerCommand executes a docker compose command.
