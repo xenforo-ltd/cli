@@ -1,0 +1,32 @@
+# Codecov defaults to a patch target of "auto", which requires every pull
+# request to match the project's overall coverage. That is the wrong bar for
+# this repository: the CLI's command layer (cmd/xf) is thin wiring around
+# Docker, git and the customer API, so most of it can only be exercised by
+# integration tests we do not run in CI. Pull requests that touch that layer
+# fail the patch check no matter how well their testable logic is covered.
+#
+# The thresholds below keep coverage honest without blocking output and
+# wiring changes: the project total may not regress, and patches are informed
+# by a realistic target rather than an unreachable one.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        # Allow small, genuine dips rather than failing on rounding.
+        threshold: 1%
+    patch:
+      default:
+        target: 30%
+        # Report the number, but do not block the pull request on it: the
+        # project check is the gate that protects overall coverage.
+        informational: true
+
+comment:
+  layout: "condensed_header, diff, flags, components"
+  require_changes: true
+
+# Generated, vendored, and test-only files are not meaningful coverage targets.
+ignore:
+  - "**/*_test.go"
+  - "internal/testutils/**"
