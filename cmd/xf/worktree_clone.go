@@ -111,7 +111,7 @@ func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *doc
 		phpQuote("["+label+"]"),
 	)
 
-	if err := target.PHP(ctx, "-r", script); err != nil {
+	if err := target.ExecOrRun(ctx, "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "-r", script); err != nil {
 		spinner.Stop()
 		ui.PrintWarning("Could not update the board URL to " + url)
 		ui.PrintHint("Set it in the admin control panel under Options > Basic board information")
@@ -165,7 +165,7 @@ func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *doc
 		database,
 	}
 
-	if err := source.ExecCaptureWithEnv(ctx, "mysql", dumpEnv, dump, dumpCmd...); err != nil {
+	if err := source.ExecOutput(ctx, "mysql", dumpEnv, dump, dumpCmd...); err != nil {
 		_ = dump.Close()
 
 		return 0, fmt.Errorf("failed to export the database: %w", err)
@@ -201,7 +201,7 @@ func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *doc
 		target.DatabaseName(),
 	}
 
-	if err := target.ExecInputWithEnv(ctx, "mysql", importEnv, restore, importCmd...); err != nil {
+	if err := target.ExecInput(ctx, "mysql", importEnv, restore, importCmd...); err != nil {
 		return 0, fmt.Errorf("failed to import the database: %w", err)
 	}
 

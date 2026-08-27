@@ -95,7 +95,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	ui.PrintStep(step, totalSteps, "Extracting XenForo files")
 	step++
 
-	if err := extractProducts(cachedFiles, opts.TargetPath, titleMap); err != nil {
+	if err := extractCachedFiles(cachedFiles, opts.TargetPath, titleMap, "Extracted"); err != nil {
 		return err
 	}
 
@@ -163,7 +163,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		if cfg.Verbose {
 			ui.PrintSubstep("Running docker compose up...")
 
-			if err := runner.Up(ctx, true); err != nil {
+			if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "up", "--detach"); err != nil {
 				return fmt.Errorf("failed to start Docker environment: %w", err)
 			}
 		} else {
@@ -171,7 +171,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			spinner.Start()
 
 			tracker := newPhaseTrackerWriter(spinner, "Starting Docker environment", dockerStartPhaseRules())
-			if err := runner.UpWithOutput(ctx, true, tracker, tracker); err != nil {
+			if err := runner.Compose(ctx, os.Stdin, tracker, tracker, "up", "--detach"); err != nil {
 				spinner.StopWithMessage("error", "Failed to start containers")
 				printHiddenOutputTail("Docker output", tracker.TailLines())
 
@@ -243,7 +243,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 				ui.PrintSubstep("Running XenForo installation...")
 
-				if err := runner.ExecOrRunWithEnv(ctx, "xf", true, installEnv, shellInstallArgs...); err != nil {
+				if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, os.Stdout, os.Stderr, shellInstallArgs...); err != nil {
 					return printInstallFailure(ctx, err)
 				}
 			} else {
@@ -259,7 +259,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				spinner.UpdateMessage("Installing XenForo")
 
 				tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
-				if err := runner.ExecOrRunWithEnvAndOutput(ctx, "xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
+				if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, tracker, tracker, shellInstallArgs...); err != nil {
 					spinner.Stop()
 
 					if ctxErr := ctx.Err(); ctxErr != nil {
@@ -692,10 +692,6 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 	return cachedFiles, nil
 }
 
-func extractProducts(cachedFiles map[string]*cache.Entry, targetPath string, titleMap map[string]string) error {
-	return extractCachedFiles(cachedFiles, targetPath, titleMap, "Extracted")
-}
-
 func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, titleMap map[string]string, verb string) error {
 	if entry, ok := cachedFiles["xenforo"]; ok {
 		spinner := ui.NewSpinner("Extracting XenForo core")
@@ -800,7 +796,7 @@ func normalizeRuntimeTree(root string) error {
 }
 
 func configureEnvironment(opts *InitOptions) error {
-	envPath := xf.GetEnvPath(opts.TargetPath)
+	envPath := filepath.Join(opts.TargetPath, ".env")
 
 	if _, err := xf.ReadEnvFile(envPath); err != nil {
 		return fmt.Errorf(".env file not found after xf init: %w", err)
@@ -852,7 +848,7 @@ func runComposerInstall(ctx context.Context, runner *dockercompose.Runner, verbo
 	if verbose {
 		ui.PrintSubstep("Running composer install...")
 
-		if err := runner.Composer(ctx, args...); err != nil {
+		if err := runner.ExecOrRun(ctx, "xf", nil, os.Stdin, os.Stdout, os.Stderr, append([]string{"composer"}, args...)...); err != nil {
 			return fmt.Errorf("failed to install Composer dependencies: %w", err)
 		}
 
@@ -865,7 +861,7 @@ func runComposerInstall(ctx context.Context, runner *dockercompose.Runner, verbo
 	tracker := newPhaseTrackerWriter(spinner, "Installing Composer dependencies", composerPhaseRules())
 
 	composerArgs := append([]string{"composer"}, args...)
-	if err := runner.ExecOrRunWithOutput(ctx, "xf", true, tracker, tracker, composerArgs...); err != nil {
+	if err := runner.ExecOrRun(ctx, "xf", nil, os.Stdin, tracker, tracker, composerArgs...); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			spinner.Stop()
 

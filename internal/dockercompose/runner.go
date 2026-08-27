@@ -84,63 +84,18 @@ func NewRunner(xfDir string) (*Runner, error) {
 	}, nil
 }
 
-// XFDir returns the XenForo directory path.
-func (r *Runner) XFDir() string {
-	return r.xfDir
-}
-
 // Instance returns the Docker instance name.
 func (r *Runner) Instance() string {
 	return r.instance
 }
 
-// Contexts returns the configured contexts.
-func (r *Runner) Contexts() []string {
-	return r.contexts
-}
-
-// Up starts the Docker containers.
-func (r *Runner) Up(ctx context.Context, detach bool) error {
-	args := r.buildComposeArgs()
-
-	args = append(args, "up")
-	if detach {
-		args = append(args, "--detach")
-	}
-
-	return r.runDockerCommand(ctx, args...)
-}
-
-// UpWithOutput starts the Docker containers with custom output writers.
-func (r *Runner) UpWithOutput(ctx context.Context, detach bool, stdout, stderr io.Writer) error {
-	args := r.buildComposeArgs()
-
-	args = append(args, "up")
-	if detach {
-		args = append(args, "--detach")
-	}
-
-	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
-}
-
-// ExecCapture runs a command in a service, streaming its output to stdout.
+// ExecOutput runs a command in a service, streaming its output to stdout.
 //
 // Output is streamed rather than buffered so that large results, such as a
-// database dump, do not have to fit in memory.
-func (r *Runner) ExecCapture(ctx context.Context, service string, stdout io.Writer, cmd ...string) error {
-	return r.ExecCaptureWithEnv(ctx, service, nil, stdout, cmd...)
-}
-
-// ExecCaptureWithEnv is ExecCapture with environment variables set inside the
-// container. Secrets belong here rather than in cmd: a value passed as an
-// argument is visible in the container's process list.
-func (r *Runner) ExecCaptureWithEnv(
-	ctx context.Context,
-	service string,
-	env map[string]string,
-	stdout io.Writer,
-	cmd ...string,
-) error {
+// database dump, do not have to fit in memory. Secrets belong in env rather
+// than cmd: a value passed as a command argument is visible in the container's
+// process list.
+func (r *Runner) ExecOutput(ctx context.Context, service string, env map[string]string, stdout io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "exec", "-T")
 	args = r.appendEnvVars(args, env, "-e")
@@ -151,19 +106,7 @@ func (r *Runner) ExecCaptureWithEnv(
 }
 
 // ExecInput runs a command in a service, feeding it from stdin.
-func (r *Runner) ExecInput(ctx context.Context, service string, stdin io.Reader, cmd ...string) error {
-	return r.ExecInputWithEnv(ctx, service, nil, stdin, cmd...)
-}
-
-// ExecInputWithEnv is ExecInput with environment variables set inside the
-// container, so secrets stay out of the container's process list.
-func (r *Runner) ExecInputWithEnv(
-	ctx context.Context,
-	service string,
-	env map[string]string,
-	stdin io.Reader,
-	cmd ...string,
-) error {
+func (r *Runner) ExecInput(ctx context.Context, service string, env map[string]string, stdin io.Reader, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "exec", "-T")
 	args = r.appendEnvVars(args, env, "-e")
@@ -173,47 +116,22 @@ func (r *Runner) ExecInputWithEnv(
 	return r.runDockerCommandWithEnvAndIO(ctx, env, stdin, os.Stdout, os.Stderr, args...)
 }
 
-// runDockerCommandWithEnvAndIO executes a docker command with explicit streams,
-// passing env through this process's environment rather than the docker argv.
-func (r *Runner) runDockerCommandWithEnvAndIO(
-	ctx context.Context,
-	env map[string]string,
-	stdin io.Reader,
-	stdout, stderr io.Writer,
-	args ...string,
-) error {
-	cmd := exec.CommandContext(ctx, "docker", args...)
-	cmd.Dir = r.xfDir
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
-	cmd.Env = append(cmd.Env, envPairs(env)...)
-
-	if err := cmd.Run(); err != nil {
-		return contextError(ctx, fmt.Errorf("docker command failed: %w", err))
-	}
-
-	return nil
-}
-
 // DatabaseCredentials returns the configured database user and password.
+//
+// The names must match what the compose files read, since those are the keys
+// that end up in .env: XF_DB_USER and XF_DB_PASSWORD (compose.mysql.yaml,
+// compose.postgres.yaml). The defaults mirror the fallbacks declared there.
+//
+// Resolution order matches docker compose: process environment, then .env, then
+// the built-in default.
 func (r *Runner) DatabaseCredentials() (string, string) {
-	return r.getDatabaseCredentials()
+	return r.resolveEnvValue("XF_DB_USER", "xf"),
+		r.resolveEnvValue("XF_DB_PASSWORD", "password")
 }
 
 // DatabaseName returns the configured database name.
 func (r *Runner) DatabaseName() string {
 	return r.resolveEnvValue("XF_DB_DATABASE", "xf")
-}
-
-// Down stops and removes the Docker containers, leaving volumes intact so the
-// environment can be started again with its data.
-func (r *Runner) Down(ctx context.Context) error {
-	args := r.buildComposeArgs()
-	args = append(args, downArgs(false)...)
-
-	return r.runDockerCommand(ctx, args...)
 }
 
 // Destroy stops the environment and removes its volumes.
@@ -223,20 +141,9 @@ func (r *Runner) Down(ctx context.Context) error {
 // leaves a full volume set behind.
 func (r *Runner) Destroy(ctx context.Context) error {
 	args := r.buildComposeArgs()
-	args = append(args, downArgs(true)...)
+	args = append(args, "down", "--volumes", "--remove-orphans")
 
-	return r.runDockerCommand(ctx, args...)
-}
-
-// downArgs builds the compose arguments for stopping an environment.
-func downArgs(removeVolumes bool) []string {
-	args := []string{"down"}
-
-	if removeVolumes {
-		args = append(args, "--volumes", "--remove-orphans")
-	}
-
-	return args
+	return r.runDockerCommandWithEnvAndIO(ctx, nil, os.Stdin, os.Stdout, os.Stderr, args...)
 }
 
 // ContainerInfo describes a single container as rendered by `xf ps`.
@@ -395,57 +302,12 @@ func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
 	return containers, nil
 }
 
-// Logs shows container logs.
-func (r *Runner) Logs(ctx context.Context, follow bool, services ...string) error {
-	args := r.buildComposeArgs()
-
-	args = append(args, "logs")
-	if follow {
-		args = append(args, "--follow")
-	}
-
-	args = append(args, services...)
-
-	return r.runDockerCommand(ctx, args...)
-}
-
-// Exec runs a command in a running container.
-func (r *Runner) Exec(ctx context.Context, service string, cmd ...string) error {
-	args := r.buildComposeArgs()
-	args = append(args, "exec", service)
-	args = append(args, cmd...)
-
-	return r.runDockerCommand(ctx, args...)
-}
-
-// ExecWithEnv runs a command in a running container with additional environment variables.
-func (r *Runner) ExecWithEnv(ctx context.Context, service string, env map[string]string, cmd ...string) error {
-	args := r.buildComposeArgs()
-	args = append(args, "exec")
-	args = r.appendEnvVars(args, env, "-e")
-	args = append(args, service)
-	args = append(args, cmd...)
-
-	return r.runDockerCommandWithEnv(ctx, env, args...)
-}
-
-// Run runs a one-off command in a new container.
-func (r *Runner) Run(ctx context.Context, service string, rm bool, cmd ...string) error {
-	args := r.buildComposeArgs()
-
-	args = append(args, "run")
-	if rm {
-		args = append(args, "--rm")
-	}
-
-	args = append(args, service)
-	args = append(args, cmd...)
-
-	return r.runDockerCommand(ctx, args...)
-}
-
 // ExecOrRun uses exec for running services and falls back to run for stopped services.
-func (r *Runner) ExecOrRun(ctx context.Context, service string, rm bool, cmd ...string) error {
+//
+// env is passed as container environment variables so secrets stay out of the
+// process list. The streams are explicit so interactive commands and progress
+// writers behave the same whether the service is running or stopped.
+func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	running, err := r.isServiceRunning(ctx, service)
 	if err != nil {
 		return err
@@ -453,53 +315,19 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, rm bool, cmd ...
 
 	if running {
 		execArgs := r.buildComposeArgs()
-		execArgs = append(execArgs, "exec", service)
+		execArgs = append(execArgs, "exec")
+		execArgs = r.appendEnvVars(execArgs, env, "-e")
+		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
-		stderr, err := r.runDockerCommandCaptureStderr(ctx, execArgs...)
-		if err != nil && isNotRunningExecError(err, stderr) {
-			return r.Run(ctx, service, rm, cmd...)
+		stderrOutput, err := r.runDockerCommandCaptureStderrWithEnv(ctx, env, stdin, stdout, execArgs...)
+		if err != nil && isNotRunningExecError(err, stderrOutput) {
+			return r.run(ctx, service, env, stdin, stdout, stderr, cmd...)
 		}
 
 		// stderr is captured only to detect the not-running case above. For any
 		// other failure it is the command's own error message, so replay it
 		// rather than let the caller exit silently.
-		replayStderr(err, stderr)
-
-		return err
-	}
-
-	return r.Run(ctx, service, rm, cmd...)
-}
-
-// replayStderr writes a failed command's captured stderr to the process's own
-// stderr. Callers that capture stderr for the not-running probe would otherwise
-// swallow the command's real error message.
-func replayStderr(err error, stderr string) {
-	if err == nil || stderr == "" {
-		return
-	}
-
-	_, _ = io.WriteString(os.Stderr, stderr)
-}
-
-// ExecOrRunWithOutput uses exec for running services and falls back to run for stopped services.
-func (r *Runner) ExecOrRunWithOutput(ctx context.Context, service string, rm bool, stdout, stderr io.Writer, cmd ...string) error {
-	running, err := r.isServiceRunning(ctx, service)
-	if err != nil {
-		return err
-	}
-
-	if running {
-		execArgs := r.buildComposeArgs()
-		execArgs = append(execArgs, "exec", service)
-		execArgs = append(execArgs, cmd...)
-
-		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, nil, stdout, execArgs...)
-		if err != nil && isNotRunningExecError(err, stderrOutput) {
-			return r.RunWithOutput(ctx, service, rm, stdout, stderr, cmd...)
-		}
-
 		if err != nil && stderrOutput != "" {
 			_, _ = io.WriteString(stderr, stderrOutput)
 		}
@@ -507,180 +335,25 @@ func (r *Runner) ExecOrRunWithOutput(ctx context.Context, service string, rm boo
 		return err
 	}
 
-	return r.RunWithOutput(ctx, service, rm, stdout, stderr, cmd...)
+	return r.run(ctx, service, env, stdin, stdout, stderr, cmd...)
 }
 
-// ExecOrRunWithEnv uses exec for running services and falls back to run for stopped services.
-func (r *Runner) ExecOrRunWithEnv(ctx context.Context, service string, rm bool, env map[string]string, cmd ...string) error {
-	running, err := r.isServiceRunning(ctx, service)
-	if err != nil {
-		return err
-	}
-
-	if running {
-		execArgs := r.buildComposeArgs()
-		execArgs = append(execArgs, "exec")
-		execArgs = r.appendEnvVars(execArgs, env, "-e")
-		execArgs = append(execArgs, service)
-		execArgs = append(execArgs, cmd...)
-
-		stderr, err := r.runDockerCommandCaptureStderrWithEnv(ctx, env, execArgs...)
-		if err != nil && isNotRunningExecError(err, stderr) {
-			return r.RunWithEnv(ctx, service, rm, env, cmd...)
-		}
-
-		replayStderr(err, stderr)
-
-		return err
-	}
-
-	return r.RunWithEnv(ctx, service, rm, env, cmd...)
-}
-
-// ExecOrRunWithEnvAndOutput runs a docker-compose exec or run command with output.
-func (r *Runner) ExecOrRunWithEnvAndOutput(ctx context.Context, service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
-	running, err := r.isServiceRunning(ctx, service)
-	if err != nil {
-		return err
-	}
-
-	if running {
-		execArgs := r.buildComposeArgs()
-		execArgs = append(execArgs, "exec")
-		execArgs = r.appendEnvVars(execArgs, env, "-e")
-		execArgs = append(execArgs, service)
-		execArgs = append(execArgs, cmd...)
-
-		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, env, stdout, execArgs...)
-		if err != nil && isNotRunningExecError(err, stderrOutput) {
-			return r.RunWithEnvAndOutput(ctx, service, rm, env, stdout, stderr, cmd...)
-		}
-
-		if err != nil && stderrOutput != "" {
-			_, _ = io.WriteString(stderr, stderrOutput)
-		}
-
-		return err
-	}
-
-	return r.RunWithEnvAndOutput(ctx, service, rm, env, stdout, stderr, cmd...)
-}
-
-// RunWithEnvAndOutput runs a docker-compose run command with custom output.
-func (r *Runner) RunWithEnvAndOutput(ctx context.Context, service string, rm bool, env map[string]string, stdout, stderr io.Writer, cmd ...string) error {
+func (r *Runner) run(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
-
-	args = append(args, "run")
-	if rm {
-		args = append(args, "--rm")
-	}
-
+	args = append(args, "run", "--rm")
 	args = r.appendEnvVars(args, env, "--env")
 	args = append(args, service)
 	args = append(args, cmd...)
 
-	return r.runDockerCommandWithEnvAndOutput(ctx, env, stdout, stderr, args...)
+	return r.runDockerCommandWithEnvAndIO(ctx, env, stdin, stdout, stderr, args...)
 }
 
-// Compose runs a docker compose command directly.
-func (r *Runner) Compose(ctx context.Context, args ...string) error {
+// Compose runs a docker compose command directly with explicit stdio.
+func (r *Runner) Compose(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, args ...string) error {
 	composeArgs := r.buildComposeArgs()
 	composeArgs = append(composeArgs, args...)
 
-	return r.runDockerCommand(ctx, composeArgs...)
-}
-
-// Build builds or rebuilds services.
-func (r *Runner) Build(ctx context.Context, pull bool, services ...string) error {
-	args := r.buildComposeArgs()
-
-	args = append(args, "build")
-	if pull {
-		args = append(args, "--pull")
-	}
-
-	args = append(args, services...)
-
-	return r.runDockerCommand(ctx, args...)
-}
-
-// Pull pulls the latest images.
-func (r *Runner) Pull(ctx context.Context, services ...string) error {
-	args := r.buildComposeArgs()
-	args = append(args, "pull")
-	args = append(args, services...)
-
-	return r.runDockerCommand(ctx, args...)
-}
-
-// Restart restarts containers.
-func (r *Runner) Restart(ctx context.Context, services ...string) error {
-	args := r.buildComposeArgs()
-	args = append(args, "restart")
-	args = append(args, services...)
-
-	return r.runDockerCommand(ctx, args...)
-}
-
-// Composer runs composer in the xf container.
-func (r *Runner) Composer(ctx context.Context, args ...string) error {
-	return r.ExecOrRun(ctx, "xf", true, append([]string{"composer"}, args...)...)
-}
-
-// PHP runs PHP in the xf container.
-func (r *Runner) PHP(ctx context.Context, args ...string) error {
-	return r.ExecOrRun(ctx, "xf", true, append([]string{"php"}, args...)...)
-}
-
-// PHPDebug runs PHP with Xdebug enabled.
-func (r *Runner) PHPDebug(ctx context.Context, args ...string) error {
-	return r.ExecOrRunWithEnv(ctx, "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php"}, args...)...)
-}
-
-// XFCommand runs a XenForo CLI command.
-func (r *Runner) XFCommand(ctx context.Context, args ...string) error {
-	return r.ExecOrRun(ctx, "xf", true, append([]string{"php", "cmd.php"}, args...)...)
-}
-
-// XFCommandWithOutput runs a XenForo CLI command with custom output writers.
-func (r *Runner) XFCommandWithOutput(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
-	return r.ExecOrRunWithOutput(ctx, "xf", true, stdout, stderr, append([]string{"php", "cmd.php"}, args...)...)
-}
-
-// XFCommandDebug runs a XenForo CLI command with Xdebug.
-func (r *Runner) XFCommandDebug(ctx context.Context, args ...string) error {
-	return r.ExecOrRunWithEnv(ctx, "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, append([]string{"php", "cmd.php"}, args...)...)
-}
-
-// RunWithEnv runs a command with additional environment variables.
-func (r *Runner) RunWithEnv(ctx context.Context, service string, rm bool, env map[string]string, cmd ...string) error {
-	args := r.buildComposeArgs()
-
-	args = append(args, "run")
-	if rm {
-		args = append(args, "--rm")
-	}
-
-	args = r.appendEnvVars(args, env, "--env")
-	args = append(args, service)
-	args = append(args, cmd...)
-
-	return r.runDockerCommandWithEnv(ctx, env, args...)
-}
-
-// RunWithOutput runs a one-off command in a new container with custom output writers.
-func (r *Runner) RunWithOutput(ctx context.Context, service string, rm bool, stdout, stderr io.Writer, cmd ...string) error {
-	args := r.buildComposeArgs()
-
-	args = append(args, "run")
-	if rm {
-		args = append(args, "--rm")
-	}
-
-	args = append(args, service)
-	args = append(args, cmd...)
-
-	return r.runDockerCommandWithOutput(ctx, stdout, stderr, args...)
+	return r.runDockerCommandWithEnvAndIO(ctx, nil, stdin, stdout, stderr, composeArgs...)
 }
 
 // GetURL returns the URL for accessing the XenForo site.
@@ -725,7 +398,7 @@ func (r *Runner) WaitForReady(ctx context.Context, checkInterval time.Duration) 
 
 // WaitForDatabase waits for the database to be ready.
 func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duration) error {
-	user, password := r.getDatabaseCredentials()
+	user, password := r.DatabaseCredentials()
 	testScript := fmt.Sprintf(
 		"try { new PDO('mysql:host=mysql', '%s', '%s'); echo 'OK'; } catch (Exception $e) { exit(1); }",
 		escapePHPString(user),
@@ -759,14 +432,6 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 func escapePHPString(value string) string {
 	value = strings.ReplaceAll(value, "\\", "\\\\")
 	return strings.ReplaceAll(value, "'", "\\'")
-}
-
-// IsEnvironmentInitialized checks if the Docker environment is set up.
-func (r *Runner) IsEnvironmentInitialized() bool {
-	composePath := filepath.Join(r.xfDir, "compose.yaml")
-	_, err := os.Stat(composePath)
-
-	return err == nil
 }
 
 // composeProjectLabel is the label Docker Compose stamps on every container and
@@ -806,44 +471,6 @@ func ProjectExists(ctx context.Context, instance string) (bool, error) {
 	return false, nil
 }
 
-// RunCapture runs a docker compose command and captures output.
-func (r *Runner) RunCapture(ctx context.Context, args ...string) (string, string, error) {
-	allArgs := r.buildComposeArgs()
-	allArgs = append(allArgs, args...)
-
-	cmd := exec.CommandContext(ctx, "docker", allArgs...)
-	cmd.Dir = r.xfDir
-	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
-
-	err := cmd.Run()
-	stdout := stdoutBuf.String()
-	stderr := stderrBuf.String()
-
-	if err != nil {
-		err = contextError(ctx, fmt.Errorf("docker command failed: %w", err))
-	}
-
-	return stdout, stderr, err
-}
-
-// getDatabaseCredentials resolves the database user and password.
-//
-// The names must match what the compose files read, since those are the keys
-// that end up in .env: XF_DB_USER and XF_DB_PASSWORD (compose.mysql.yaml,
-// compose.postgres.yaml). The defaults mirror the fallbacks declared there.
-//
-// Resolution order matches docker compose: process environment, then .env, then
-// the built-in default.
-func (r *Runner) getDatabaseCredentials() (string, string) {
-	return r.resolveEnvValue("XF_DB_USER", "xf"),
-		r.resolveEnvValue("XF_DB_PASSWORD", "password")
-}
-
 // resolveEnvValue returns the value for key from the process environment, then
 // the project's .env file, falling back to def.
 func (r *Runner) resolveEnvValue(key, def string) string {
@@ -860,40 +487,21 @@ func (r *Runner) resolveEnvValue(key, def string) string {
 	return def
 }
 
-// runDockerCommand executes a docker compose command.
-func (r *Runner) runDockerCommand(ctx context.Context, args ...string) error {
-	return r.runDockerCommandWithOutput(ctx, os.Stdout, os.Stderr, args...)
-}
-
-// runDockerCommandWithEnv is runDockerCommand with variables supplied through
-// this process's environment.
-func (r *Runner) runDockerCommandWithEnv(ctx context.Context, env map[string]string, args ...string) error {
-	return r.runDockerCommandWithEnvAndOutput(ctx, env, os.Stdout, os.Stderr, args...)
-}
-
-// runDockerCommandWithOutput executes a docker compose command with custom output.
-func (r *Runner) runDockerCommandWithOutput(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
-	return r.runDockerCommandWithEnvAndOutput(ctx, nil, stdout, stderr, args...)
-}
-
-// runDockerCommandWithEnvAndOutput executes a docker compose command with custom
-// output, passing env through this process's environment.
-//
-// Values given here are never placed in the docker argv: appendEnvVars emits
-// only the variable names, and docker forwards the values from here. That keeps
-// secrets such as MYSQL_PWD off the host's process list.
-func (r *Runner) runDockerCommandWithEnvAndOutput(
+// runDockerCommandWithEnvAndIO executes a docker command with explicit streams,
+// passing env through this process's environment rather than the docker argv, so
+// secret values never appear in the host's process list.
+func (r *Runner) runDockerCommandWithEnvAndIO(
 	ctx context.Context,
 	env map[string]string,
+	stdin io.Reader,
 	stdout, stderr io.Writer,
 	args ...string,
 ) error {
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = r.xfDir
+	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	cmd.Stdin = os.Stdin
-
 	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
 	cmd.Env = append(cmd.Env, envPairs(env)...)
 
@@ -904,31 +512,19 @@ func (r *Runner) runDockerCommandWithEnvAndOutput(
 	return nil
 }
 
-func (r *Runner) runDockerCommandCaptureStderr(ctx context.Context, args ...string) (string, error) {
-	return r.runDockerCommandCaptureStderrWithEnv(ctx, nil, args...)
-}
-
+// runDockerCommandCaptureStderrWithEnv runs a docker command and captures its
+// stderr so callers can inspect a failure, forwarding env through this
+// process's environment.
 func (r *Runner) runDockerCommandCaptureStderrWithEnv(
 	ctx context.Context,
 	env map[string]string,
-	args ...string,
-) (string, error) {
-	var stderr bytes.Buffer
-
-	err := r.runDockerCommandWithEnvAndOutput(ctx, env, os.Stdout, &stderr, args...)
-
-	return stderr.String(), err
-}
-
-func (r *Runner) runDockerCommandCaptureStderrWithOutput(
-	ctx context.Context,
-	env map[string]string,
+	stdin io.Reader,
 	stdout io.Writer,
 	args ...string,
 ) (string, error) {
 	var stderr bytes.Buffer
 
-	err := r.runDockerCommandWithEnvAndOutput(ctx, env, stdout, &stderr, args...)
+	err := r.runDockerCommandWithEnvAndIO(ctx, env, stdin, stdout, &stderr, args...)
 
 	return stderr.String(), err
 }
@@ -989,18 +585,11 @@ func (r *Runner) buildComposeArgs() []string {
 	return args
 }
 
-// appendEnvVars appends environment variables to docker arguments.
-// flagFormat should be either "-e" for exec or "--env" for run.
+// appendEnvVars appends environment variables to docker arguments, passing the
+// nearby name only so docker forwards the value from this process's own
+// environment. flagFormat should be either "-e" for exec or "--env" for run.
 func (r *Runner) appendEnvVars(args []string, env map[string]string, flagFormat string) []string {
-	if len(env) == 0 {
-		return args
-	}
-
 	for _, k := range sortedEnvKeys(env) {
-		// The name is passed without a value so docker forwards it from this
-		// process's own environment. Writing "NAME=value" here would put the
-		// value in the docker argv, where any user on the host can read it
-		// from the process list.
 		args = append(args, flagFormat, k)
 	}
 

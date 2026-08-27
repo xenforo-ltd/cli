@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -51,7 +52,7 @@ func runComposer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	if err := runner.Composer(cmd.Context(), composerArgs...); err != nil {
+	if err := runner.ExecOrRun(cmd.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, append([]string{"composer"}, composerArgs...)...); err != nil {
 		return passthroughError(err, "failed to run Composer")
 	}
 

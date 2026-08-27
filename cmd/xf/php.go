@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -35,7 +36,9 @@ before the command name, and use 'xf help php' for this help text.`,
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(0),
 	GroupID:            "run",
-	RunE:               runPHP,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runPHP(cmd.Context(), args, false)
+	},
 }
 
 var phpDebugCmd = &cobra.Command{
@@ -52,7 +55,9 @@ All arguments are passed to PHP.`,
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(0),
 	GroupID:            "run",
-	RunE:               runPHPDebug,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runPHP(cmd.Context(), args, true)
+	},
 }
 
 func init() {
@@ -60,15 +65,7 @@ func init() {
 	rootCmd.AddCommand(phpDebugCmd)
 }
 
-func runPHP(cmd *cobra.Command, args []string) error {
-	return runPHPWithMode(cmd.Context(), args, false)
-}
-
-func runPHPDebug(cmd *cobra.Command, args []string) error {
-	return runPHPWithMode(cmd.Context(), args, true)
-}
-
-func runPHPWithMode(ctx context.Context, args []string, debug bool) error {
+func runPHP(ctx context.Context, args []string, debug bool) error {
 	xfDir, phpArgs, err := resolveXenForoDirAndArgs(args)
 	if err != nil {
 		return err
@@ -90,14 +87,14 @@ func runPHPWithMode(ctx context.Context, args []string, debug bool) error {
 
 		ui.PrintInfo(label)
 
-		if err := runner.PHPDebug(ctx, phpArgs...); err != nil {
+		if err := runner.ExecOrRun(ctx, "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, append([]string{"php"}, phpArgs...)...); err != nil {
 			return passthroughError(err, "failed to run PHP")
 		}
 
 		return nil
 	}
 
-	if err := runner.PHP(ctx, phpArgs...); err != nil {
+	if err := runner.ExecOrRun(ctx, "xf", nil, os.Stdin, os.Stdout, os.Stderr, append([]string{"php"}, phpArgs...)...); err != nil {
 		return passthroughError(err, "failed to run PHP")
 	}
 

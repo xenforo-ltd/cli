@@ -78,7 +78,7 @@ func TestDatabaseCredentialsUseComposeVariables(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := newRunnerWithEnv(t, tt.env)
 
-			user, password := runner.getDatabaseCredentials()
+			user, password := runner.DatabaseCredentials()
 			if user != tt.wantUser {
 				t.Errorf("user = %q, want %q", user, tt.wantUser)
 			}
@@ -98,7 +98,7 @@ func TestDatabaseCredentialsEnvironmentOverride(t *testing.T) {
 	t.Setenv("XF_DB_USER", "fromenv")
 	t.Setenv("XF_DB_PASSWORD", "envsecret")
 
-	user, password := runner.getDatabaseCredentials()
+	user, password := runner.DatabaseCredentials()
 	if user != "fromenv" {
 		t.Errorf("user = %q, want the environment to take precedence", user)
 	}

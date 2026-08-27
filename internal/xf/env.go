@@ -294,11 +294,6 @@ func (c *EnvConfig) ConfigureEnv(envPath string) error {
 	return WriteEnvFile(envPath, values)
 }
 
-// GetEnvPath returns the path to the .env file in a XenForo directory.
-func GetEnvPath(xfDir string) string {
-	return filepath.Join(xfDir, ".env")
-}
-
 // GetXenForoDir finds the XenForo root directory by traversing up from startDir.
 // It also checks the XF_DIR environment variable as a fallback.
 func GetXenForoDir(startDir string) (string, error) {

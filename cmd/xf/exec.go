@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
@@ -54,7 +55,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 	service := execArgs[0]
 	cmdArgs := execArgs[1:]
 
-	if err := runner.Exec(cmd.Context(), service, cmdArgs...); err != nil {
+	if err := runner.Compose(cmd.Context(), os.Stdin, os.Stdout, os.Stderr, append([]string{"exec", service}, cmdArgs...)...); err != nil {
 		return passthroughError(err, "failed to execute command in service "+service)
 	}
 

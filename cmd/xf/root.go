@@ -372,7 +372,7 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) 
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	if err := runner.XFCommand(ctx, args...); err != nil {
+	if err := runner.ExecOrRun(ctx, "xf", nil, os.Stdin, os.Stdout, os.Stderr, append([]string{"php", "cmd.php"}, args...)...); err != nil {
 		return passthroughError(err, fmt.Sprintf("failed to run XenForo command %q", args[0]))
 	}
 

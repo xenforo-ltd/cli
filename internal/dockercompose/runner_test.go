@@ -195,7 +195,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "ok")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", true, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -213,7 +213,7 @@ func TestExecOrRunBranching(t *testing.T) {
 		runner, logFile := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", true, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -232,7 +232,39 @@ func TestExecOrRunBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "not_running")
 
-		if err := runner.ExecOrRun(t.Context(), "xf", true, "php", "-v"); err != nil {
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+			t.Fatalf("ExecOrRun returned error: %v", err)
+		}
+
+		log := readDockerLog(t, logFile)
+		if !strings.Contains(log, " exec xf php -v") || !strings.Contains(log, " run --rm xf php -v") {
+			t.Fatalf("expected exec then run fallback, log:\n%s", log)
+		}
+	})
+
+	t.Run("running uses exec with output writers", func(t *testing.T) {
+		runner, logFile := newRunnerWithFakeDocker(t)
+		t.Setenv("DOCKER_PS_MODE", "running")
+		t.Setenv("DOCKER_EXEC_MODE", "ok")
+
+		var stdout, stderr strings.Builder
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, &stdout, &stderr, "php", "-v"); err != nil {
+			t.Fatalf("ExecOrRun returned error: %v", err)
+		}
+
+		log := readDockerLog(t, logFile)
+		if !strings.Contains(log, " exec xf php -v") {
+			t.Fatalf("expected exec invocation, log:\n%s", log)
+		}
+	})
+
+	t.Run("not-running error with output falls back to run", func(t *testing.T) {
+		runner, logFile := newRunnerWithFakeDocker(t)
+		t.Setenv("DOCKER_PS_MODE", "running")
+		t.Setenv("DOCKER_EXEC_MODE", "not_running")
+
+		var stdout, stderr strings.Builder
+		if err := runner.ExecOrRun(t.Context(), "xf", nil, os.Stdin, &stdout, &stderr, "php", "-v"); err != nil {
 			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
@@ -243,7 +275,7 @@ func TestExecOrRunBranching(t *testing.T) {
 	})
 }
 
-func TestExecOrRunWithEnvBranching(t *testing.T) {
+func TestExecOrRunEnvBranching(t *testing.T) {
 	if runtime.GOOS == windowsOS {
 		t.Skip("fake docker shim test is unix-only")
 	}
@@ -253,8 +285,8 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		t.Setenv("DOCKER_PS_MODE", "running")
 		t.Setenv("DOCKER_EXEC_MODE", "ok")
 
-		if err := runner.ExecOrRunWithEnv(t.Context(), "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, "php", "-v"); err != nil {
-			t.Fatalf("ExecOrRunWithEnv returned error: %v", err)
+		if err := runner.ExecOrRun(t.Context(), "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
 		log := readDockerLog(t, logFile)
@@ -282,8 +314,8 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 		runner, logFile := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		if err := runner.ExecOrRunWithEnv(t.Context(), "xf", true, map[string]string{"XDEBUG_SESSION": "1"}, "php", "-v"); err != nil {
-			t.Fatalf("ExecOrRunWithEnv returned error: %v", err)
+		if err := runner.ExecOrRun(t.Context(), "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, "php", "-v"); err != nil {
+			t.Fatalf("ExecOrRun returned error: %v", err)
 		}
 
 		log := readDockerLog(t, logFile)
@@ -303,6 +335,102 @@ func TestExecOrRunWithEnvBranching(t *testing.T) {
 			t.Fatalf("did not expect exec invocation, log:\n%s", log)
 		}
 	})
+}
+
+func TestExecOutputUsesExecTAndEnv(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("fake docker shim test is unix-only")
+	}
+
+	runner, logFile := newRunnerWithFakeDocker(t)
+	t.Setenv("DOCKER_PS_MODE", "running")
+
+	var out strings.Builder
+	env := map[string]string{"MYSQL_PWD": "s3cret"}
+	if err := runner.ExecOutput(t.Context(), "mysql", env, &out, "mariadb-dump", "--user=xf"); err != nil {
+		t.Fatalf("ExecOutput returned error: %v", err)
+	}
+
+	log := readDockerLog(t, logFile)
+
+	// The name alone goes in the arguments; the value is forwarded through
+	// the environment so it never appears in the process list.
+	if !strings.Contains(log, " exec -T -e MYSQL_PWD mysql mariadb-dump --user=xf") {
+		t.Fatalf("expected exec -T with env name only, log:\n%s", log)
+	}
+
+	if strings.Contains(log, "MYSQL_PWD=s3cret mysql") {
+		t.Fatalf("env value leaked into the docker arguments, log:\n%s", log)
+	}
+
+	if !strings.Contains(log, "env MYSQL_PWD=s3cret") {
+		t.Fatalf("env value did not reach the docker process, log:\n%s", log)
+	}
+}
+
+func TestExecInputUsesExecTAndEnv(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("fake docker shim test is unix-only")
+	}
+
+	runner, logFile := newRunnerWithFakeDocker(t)
+	t.Setenv("DOCKER_PS_MODE", "running")
+
+	env := map[string]string{"MYSQL_PWD": "s3cret"}
+	in := strings.NewReader("dump")
+	if err := runner.ExecInput(t.Context(), "mysql", env, in, "mariadb", "--user=xf"); err != nil {
+		t.Fatalf("ExecInput returned error: %v", err)
+	}
+
+	log := readDockerLog(t, logFile)
+
+	// The name alone goes in the arguments; the value is forwarded through
+	// the environment so it never appears in the process list.
+	if !strings.Contains(log, " exec -T -e MYSQL_PWD mysql mariadb --user=xf") {
+		t.Fatalf("expected exec -T with env name only, log:\n%s", log)
+	}
+
+	if strings.Contains(log, "MYSQL_PWD=s3cret mysql") {
+		t.Fatalf("env value leaked into the docker arguments, log:\n%s", log)
+	}
+
+	if !strings.Contains(log, "env MYSQL_PWD=s3cret") {
+		t.Fatalf("env value did not reach the docker process, log:\n%s", log)
+	}
+}
+
+func TestComposeExplicitStdio(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("fake docker shim test is unix-only")
+	}
+
+	runner, logFile := newRunnerWithFakeDocker(t)
+
+	var stdout, stderr strings.Builder
+	if err := runner.Compose(t.Context(), strings.NewReader("in"), &stdout, &stderr, "ps"); err != nil {
+		t.Fatalf("Compose returned error: %v", err)
+	}
+
+	log := readDockerLog(t, logFile)
+	if !strings.Contains(log, " ps") {
+		t.Fatalf("expected ps invocation, log:\n%s", log)
+	}
+}
+
+func TestDestroyEnforcesVolumes(t *testing.T) {
+	if runtime.GOOS == windowsOS {
+		t.Skip("fake docker shim test is unix-only")
+	}
+
+	runner, logFile := newRunnerWithFakeDocker(t)
+	if err := runner.Destroy(t.Context()); err != nil {
+		t.Fatalf("Destroy returned error: %v", err)
+	}
+
+	log := readDockerLog(t, logFile)
+	if !strings.Contains(log, " down --volumes --remove-orphans") {
+		t.Fatalf("Destroy must remove volumes and orphans, log:\n%s", log)
+	}
 }
 
 func newRunnerWithFakeDocker(t *testing.T) (*Runner, string) {
@@ -329,6 +457,7 @@ if [[ -n "${DOCKER_LOG_FILE:-}" ]]; then
   # Record the forwarded value so tests can prove it arrives through the
   # environment rather than the argument list.
   printf 'env XDEBUG_SESSION=%s\n' "${XDEBUG_SESSION:-<unset>}" >> "$DOCKER_LOG_FILE"
+  printf 'env MYSQL_PWD=%s\n' "${MYSQL_PWD:-<unset>}" >> "$DOCKER_LOG_FILE"
 fi
 args=" $* "
 if [[ "$args" == *" ps --status running --services "* ]]; then

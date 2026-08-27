@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -44,13 +45,13 @@ func runReboot(cmd *cobra.Command, args []string) error {
 
 	ui.PrintStep(1, 2, "Stopping "+runner.Instance())
 
-	if err := runner.Down(ctx); err != nil {
+	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "down"); err != nil {
 		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}
 
 	ui.PrintStep(2, 2, "Starting "+runner.Instance())
 
-	if err := runner.Up(ctx, true); err != nil {
+	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "up", "--detach"); err != nil {
 		return fmt.Errorf("failed to start Docker environment: %w", err)
 	}
 

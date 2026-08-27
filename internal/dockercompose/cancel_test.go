@@ -63,7 +63,7 @@ func TestCancelledCommandReportsContextError(t *testing.T) {
 		cancel()
 	}()
 
-	err := runner.Logs(ctx, true)
+	err := runner.Compose(ctx, nil, nil, nil, "logs", "--follow")
 	if err == nil {
 		t.Fatal("expected an error when the context is cancelled")
 	}
@@ -81,7 +81,7 @@ func TestDeadlineExceededIsReported(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := runner.Logs(ctx, true)
+	err := runner.Compose(ctx, nil, nil, nil, "logs", "--follow")
 	if err == nil {
 		t.Fatal("expected an error when the deadline is exceeded")
 	}

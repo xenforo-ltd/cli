@@ -58,7 +58,7 @@ func runDebug(cmd *cobra.Command, args []string) error {
 	// tokens, and this line ends up in terminal scrollback and CI logs.
 	ui.PrintInfo("Xdebug enabled: " + ui.Command.Render(args[0]))
 
-	if err := runner.XFCommandDebug(cmd.Context(), args...); err != nil {
+	if err := runner.ExecOrRun(cmd.Context(), "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, append([]string{"php", "cmd.php"}, args...)...); err != nil {
 		// A cancelled command reports an exit status of -1, which is not a
 		// status any caller should receive. Report the cancellation itself so
 		// the interrupt exit code is used.

@@ -68,7 +68,12 @@ func runUp(cmd *cobra.Command, args []string) error {
 		detach = false
 	}
 
-	if err := runner.Up(ctx, detach); err != nil {
+	composeArgs := []string{"up"}
+	if detach {
+		composeArgs = append(composeArgs, "--detach")
+	}
+
+	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, composeArgs...); err != nil {
 		return fmt.Errorf("failed to start Docker environment: %w", err)
 	}
 

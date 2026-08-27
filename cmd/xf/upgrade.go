@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -300,7 +301,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	ui.PrintStep(step, totalSteps, "Upgrading files")
 	step++
 
-	if err := overlayUpgradeFiles(cachedFiles, opts.TargetPath); err != nil {
+	if err := extractCachedFiles(cachedFiles, opts.TargetPath, nil, "Updated"); err != nil {
 		return err
 	}
 
@@ -323,7 +324,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}
 
-		if err := runner.XFCommand(ctx, "xf:upgrade"); err != nil {
+		if err := runner.ExecOrRun(ctx, "xf", nil, os.Stdin, os.Stdout, os.Stderr, "php", "cmd.php", "xf:upgrade"); err != nil {
 			return reportUpgradeFailure(ctx, err)
 		}
 	}
@@ -422,8 +423,4 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 	}
 
 	return cachedFiles, nil
-}
-
-func overlayUpgradeFiles(cachedFiles map[string]*cache.Entry, targetPath string) error {
-	return extractCachedFiles(cachedFiles, targetPath, nil, "Updated")
 }

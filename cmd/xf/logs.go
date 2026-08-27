@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -60,7 +61,13 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		ui.PrintInfo("Showing logs for " + ui.Bold.Render(target))
 	}
 
-	if err := runner.Logs(cmd.Context(), flagLogsFollow, services...); err != nil {
+	composeArgs := []string{"logs"}
+	if flagLogsFollow {
+		composeArgs = append(composeArgs, "--follow")
+	}
+	composeArgs = append(composeArgs, services...)
+
+	if err := runner.Compose(cmd.Context(), os.Stdin, os.Stdout, os.Stderr, composeArgs...); err != nil {
 		return fmt.Errorf("failed to show container logs: %w", err)
 	}
 

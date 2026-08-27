@@ -336,7 +336,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}
 
-		if err := runner.Up(ctx, true); err != nil {
+		if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "up", "--detach"); err != nil {
 			return fmt.Errorf("failed to start Docker environment: %w", err)
 		}
 
@@ -705,7 +705,7 @@ func installExistingXenForo(
 	if verbose {
 		ui.PrintSubstep("Running XenForo installation...")
 
-		if err := runner.ExecOrRunWithEnv(ctx, "xf", true, installEnv, shellInstallArgs...); err != nil {
+		if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, os.Stdout, os.Stderr, shellInstallArgs...); err != nil {
 			return fmt.Errorf("failed to install XenForo: %w", err)
 		}
 
@@ -717,7 +717,7 @@ func installExistingXenForo(
 
 	tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
 
-	if err := runner.ExecOrRunWithEnvAndOutput(ctx, "xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
+	if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, tracker, tracker, shellInstallArgs...); err != nil {
 		spinner.Stop()
 
 		if ctxErr := ctx.Err(); ctxErr != nil {
