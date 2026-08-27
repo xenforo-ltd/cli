@@ -8,50 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 )
-
-// EnvConfig represents the configuration values in a .env file.
-type EnvConfig struct {
-	// Instance name (used for Docker project name)
-	Instance string
-
-	// Contexts determines which compose files to use (e.g., "nginx:mysql:development")
-	Contexts string
-
-	// Site title
-	Title string
-
-	// Admin email
-	Email string
-
-	// Contact email (defaults to Email if not set)
-	ContactEmail string
-
-	// Cookie prefix
-	CookiePrefix string
-
-	// Debug mode
-	Debug bool
-
-	// Development mode
-	Development bool
-
-	// Admin hue shift (for visual differentiation in dev)
-	AdminHueShift int
-
-	// PHP version (optional)
-	PHPVersion string
-
-	// Cache settings
-	CacheSessions bool
-	CachePages    bool
-
-	// Add-on settings
-	ImageMagickEnable bool
-	FFMPEGEnable      bool
-}
 
 // ReadEnvFile reads environment variables from an .env file.
 func ReadEnvFile(path string) (map[string]string, error) {
@@ -221,77 +179,6 @@ func needsQuoting(value string) bool {
 	}
 
 	return strings.ContainsAny(value, " \t\n\"'`$\\")
-}
-
-// ConfigureEnv writes environment configuration to the .env file.
-func (c *EnvConfig) ConfigureEnv(envPath string) error {
-	values := make(map[string]string)
-
-	if c.Instance != "" {
-		values["XF_INSTANCE"] = c.Instance
-	}
-
-	if c.Contexts != "" {
-		values["XF_CONTEXTS"] = c.Contexts
-	}
-
-	if c.Title != "" {
-		values["XF_TITLE"] = c.Title
-	}
-
-	if c.Email != "" {
-		values["XF_EMAIL"] = c.Email
-	}
-
-	if c.ContactEmail != "" {
-		values["XF_CONTACT_EMAIL"] = c.ContactEmail
-	}
-
-	if c.CookiePrefix != "" {
-		values["XF_COOKIE_PREFIX"] = c.CookiePrefix
-	}
-
-	if c.Debug {
-		values["XF_DEBUG"] = "1"
-	} else {
-		values["XF_DEBUG"] = "0"
-	}
-
-	if c.Development {
-		values["XF_DEVELOPMENT"] = "1"
-	} else {
-		values["XF_DEVELOPMENT"] = "0"
-	}
-
-	if c.CacheSessions {
-		values["XF_CACHE_SESSIONS"] = "1"
-	} else {
-		values["XF_CACHE_SESSIONS"] = "0"
-	}
-
-	if c.CachePages {
-		values["XF_CACHE_PAGES"] = "1"
-	} else {
-		values["XF_CACHE_PAGES"] = "0"
-	}
-
-	if c.ImageMagickEnable {
-		values["XF_IMAGICK_ENABLE"] = "1"
-	}
-
-	if c.FFMPEGEnable {
-		values["XF_XFMG_FFMPEG_ENABLE"] = "1"
-	}
-
-	if c.AdminHueShift != 0 {
-		values["XF_ADMIN_HUE_SHIFT"] = strconv.Itoa(c.AdminHueShift)
-	}
-
-	if c.PHPVersion != "" {
-		values["PHP_VERSION"] = c.PHPVersion
-	}
-
-	return WriteEnvFile(envPath, values)
 }
 
 // GetXenForoDir finds the XenForo root directory by traversing up from startDir.
