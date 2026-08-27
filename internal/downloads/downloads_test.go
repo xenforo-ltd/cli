@@ -178,7 +178,7 @@ func (f *fakeCache) Verify(_ *cache.Entry) (bool, error) {
 	return f.verifyOK, f.verifyErr
 }
 
-func (f *fakeCache) DownloadWithAuth(_ context.Context, opts cache.DownloadOptions, authToken string, _ cache.ProgressCallback) (*cache.DownloadResult, error) {
+func (f *fakeCache) Download(_ context.Context, opts cache.DownloadOptions, authToken string, _ cache.ProgressCallback) (*cache.DownloadResult, error) {
 	f.downloadCalled = true
 	f.lastDownloadOpts = opts
 

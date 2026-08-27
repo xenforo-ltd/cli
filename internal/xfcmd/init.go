@@ -38,7 +38,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 
 	envPath := filepath.Join(xfDir, ".env")
 	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
-		envDefault, err := docker.GetEnvDefault()
+		envDefault, err := docker.GetDockerFile(".env.default")
 		if err != nil {
 			return nil, fmt.Errorf("failed to read default env: %w", err)
 		}
@@ -64,7 +64,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 
 	dockerignorePath := filepath.Join(xfDir, ".dockerignore")
 	if _, statErr := os.Stat(dockerignorePath); os.IsNotExist(statErr) {
-		ignoreDefault, err := docker.GetDockerIgnoreDefault()
+		ignoreDefault, err := docker.GetDockerFile(".dockerignore.default")
 		if err != nil {
 			return nil, fmt.Errorf("failed to read default dockerignore: %w", err)
 		}
@@ -75,21 +75,4 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 	}
 
 	return written, nil
-}
-
-// InitExisting initializes Docker environment in an existing XenForo directory.
-// It returns the paths of any ".default" files written.
-func InitExisting(xfDir string, opts InitOptions) ([]string, error) {
-	return Init(xfDir, opts)
-}
-
-// Update updates the Docker environment by re-initializing with latest
-// embedded files. It returns the paths of any ".default" files written.
-func Update(xfDir string) ([]string, error) {
-	return Init(xfDir, InitOptions{OverwriteExisting: true})
-}
-
-// Prune removes unused Docker resources.
-func Prune() error {
-	return nil
 }

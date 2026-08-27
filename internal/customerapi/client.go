@@ -92,24 +92,9 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	return c.doWithRetry(ctx, method, path, bodyBytes, true)
 }
 
-// Get sends a GET request.
-func (c *Client) Get(ctx context.Context, path string) (*http.Response, error) {
-	return c.Do(ctx, http.MethodGet, path, nil)
-}
-
-// Post sends a POST request.
-func (c *Client) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
-	return c.Do(ctx, http.MethodPost, path, body)
-}
-
-// PostJSON sends a POST request with JSON body.
-func (c *Client) PostJSON(ctx context.Context, path string, body []byte) (*http.Response, error) {
-	return c.doWithRetry(ctx, http.MethodPost, path, body, true)
-}
-
 // GetJSON performs a GET request and decodes the JSON response into result.
 func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
-	resp, err := c.Get(ctx, path)
+	resp, err := c.Do(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return err
 	}

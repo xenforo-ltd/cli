@@ -45,24 +45,6 @@ func TestParseVersionStringStabilityVariants(t *testing.T) {
 	}
 }
 
-func TestVersionComparisons(t *testing.T) {
-	a := ParseVersionID(2030871)
-	b := ParseVersionID(2030971)
-	c := ParseVersionID(2030871)
-
-	if !b.IsNewerThan(a) {
-		t.Fatal("expected b newer than a")
-	}
-
-	if !a.IsOlderThan(b) {
-		t.Fatal("expected a older than b")
-	}
-
-	if a.Compare(c) != 0 {
-		t.Fatal("expected equal comparison")
-	}
-}
-
 func TestDetectVersion(t *testing.T) {
 	dir := t.TempDir()
 

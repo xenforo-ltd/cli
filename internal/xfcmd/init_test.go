@@ -76,8 +76,8 @@ func TestInitDoesNotOverwriteXenForoCoreFiles(t *testing.T) {
 		t.Fatalf("write core file: %v", err)
 	}
 
-	if _, err := InitExisting(dir, InitOptions{OverwriteExisting: true}); err != nil {
-		t.Fatalf("InitExisting failed: %v", err)
+	if _, err := Init(dir, InitOptions{OverwriteExisting: true}); err != nil {
+		t.Fatalf("Init failed: %v", err)
 	}
 
 	gotXF, err := os.ReadFile(xfPath)

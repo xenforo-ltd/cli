@@ -91,11 +91,6 @@ func RegistryPath() (string, error) {
 	return filepath.Join(dir, "xf", "worktrees.json"), nil
 }
 
-// Path returns the registry file location.
-func (r *Registry) Path() string {
-	return r.path
-}
-
 // All returns every recorded entry.
 //
 // A missing registry returns no entries and no error.

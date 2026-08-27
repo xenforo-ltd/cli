@@ -172,16 +172,6 @@ func GetDockerFile(name string) ([]byte, error) {
 	return data, nil
 }
 
-// GetEnvDefault returns the default .env file content.
-func GetEnvDefault() ([]byte, error) {
-	return GetDockerFile(".env.default")
-}
-
-// GetDockerIgnoreDefault returns the default .dockerignore file content.
-func GetDockerIgnoreDefault() ([]byte, error) {
-	return GetDockerFile(".dockerignore.default")
-}
-
 // ListEmbeddedFiles returns the repository-relative paths that extraction
 // writes into a XenForo directory, in no particular order.
 //

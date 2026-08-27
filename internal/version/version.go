@@ -39,8 +39,3 @@ func (i Info) String() string {
 	return fmt.Sprintf("xf %s (%s) built on %s\n%s %s/%s",
 		i.Version, i.Commit, i.Date, i.GoVersion, i.OS, i.Arch)
 }
-
-// Short returns the version string.
-func (i Info) Short() string {
-	return i.Version
-}

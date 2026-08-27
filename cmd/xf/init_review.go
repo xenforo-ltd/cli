@@ -608,12 +608,12 @@ func editEnvValues(opts *InitOptions) error {
 const defaultPHPVersionFallback = "8.5"
 
 // defaultPHPVersion reads the default PHP_VERSION from the same embedded
-// .env.default template that docker.GetEnvDefault serves for `xf init`,
-// so this preview never drifts from the value shipped in the Docker files.
+// .env.default template that `xf init` writes, so this preview never drifts
+// from the value shipped in the Docker files.
 // The line is commented out there (`#PHP_VERSION=8.5`) because Docker's
 // own default (compose.yaml's `${PHP_VERSION:-8.5}`) takes over when unset.
 func defaultPHPVersion() string {
-	data, err := docker.GetEnvDefault()
+	data, err := docker.GetDockerFile(".env.default")
 	if err != nil {
 		return defaultPHPVersionFallback
 	}

@@ -37,7 +37,7 @@ type downloadClient interface {
 type cacheDownloader interface {
 	GetEntry(licenseKey string, downloadID, version string) (*cache.Entry, error)
 	Verify(entry *cache.Entry) (bool, error)
-	DownloadWithAuth(ctx context.Context, opts cache.DownloadOptions, authToken string, progress cache.ProgressCallback) (*cache.DownloadResult, error)
+	Download(ctx context.Context, opts cache.DownloadOptions, authToken string, progress cache.ProgressCallback) (*cache.DownloadResult, error)
 }
 
 // Selection represents a product/version selection to download.
@@ -311,7 +311,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 		SkipCacheCheck: skipCache,
 	}
 
-	result, err := cacheManager.DownloadWithAuth(ctx, downloadOpts, accessToken, progress)
+	result, err := cacheManager.Download(ctx, downloadOpts, accessToken, progress)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to download %s: %w", selection.Product, err)
 	}

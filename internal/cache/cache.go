@@ -50,11 +50,6 @@ func NewManager() (*Manager, error) {
 	return &Manager{basePath: cfg.CachePath}, nil
 }
 
-// BasePath returns the cache manager's base directory.
-func (m *Manager) BasePath() string {
-	return m.basePath
-}
-
 // EntryPath returns the directory path for a cache entry.
 func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (string, error) {
 	p := filepath.Clean(filepath.Join(m.basePath, licenseKey, downloadID, version))

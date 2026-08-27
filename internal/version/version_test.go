@@ -62,13 +62,3 @@ func TestInfo_String(t *testing.T) {
 		}
 	}
 }
-
-func TestInfo_Short(t *testing.T) {
-	info := Info{
-		Version: "2.3.4",
-	}
-
-	if short := info.Short(); short != "2.3.4" {
-		t.Errorf("Short() = %q, want %q", short, "2.3.4")
-	}
-}

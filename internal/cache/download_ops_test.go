@@ -35,7 +35,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 
 	var calls int
 
-	res, err := m.Download(t.Context(), opts, func(_, _ int64) { calls++ })
+	res, err := m.Download(t.Context(), opts, "", func(_, _ int64) { calls++ })
 	if err != nil {
 		t.Fatalf("Download failed: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestDownloadAndUseCache(t *testing.T) {
 		t.Fatalf("expected downloaded file: %v", err)
 	}
 
-	res2, err := m.Download(t.Context(), opts, nil)
+	res2, err := m.Download(t.Context(), opts, "", nil)
 	if err != nil {
 		t.Fatalf("Download second call failed: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 		Version:          "2.3.8",
 		URL:              server.URL,
 		ExpectedChecksum: "deadbeef",
-	}, nil)
+	}, "", nil)
 	if err == nil {
 		t.Fatal("expected checksum mismatch")
 	}
@@ -88,7 +88,7 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 	}
 }
 
-func TestDownloadWithAuthUnauthorized(t *testing.T) {
+func TestDownloadUnauthorized(t *testing.T) {
 	m := &Manager{basePath: t.TempDir()}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -96,7 +96,7 @@ func TestDownloadWithAuthUnauthorized(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
+	_, err := m.Download(t.Context(), DownloadOptions{
 		LicenseKey: "LIC1",
 		DownloadID: "xenforo",
 		Version:    "2.3.8",
@@ -114,7 +114,7 @@ func TestDownloadWithAuthUnauthorized(t *testing.T) {
 	}
 }
 
-func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
+func TestDownloadAuthenticatedSuccessAndBodyErrorMessage(t *testing.T) {
 	m := &Manager{basePath: t.TempDir()}
 	payload := []byte("authed-download")
 
@@ -137,7 +137,7 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
+	_, err := m.Download(t.Context(), DownloadOptions{
 		LicenseKey: "LIC1",
 		DownloadID: "xenforo",
 		Version:    "2.3.8",
@@ -154,7 +154,7 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	sum := sha256.Sum256(payload)
 	expected := hex.EncodeToString(sum[:])
 
-	res, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
+	res, err := m.Download(t.Context(), DownloadOptions{
 		LicenseKey:       "LIC1",
 		DownloadID:       "xenforo",
 		Version:          "2.3.9",
@@ -163,7 +163,7 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 		ExpectedSize:     int64(len(payload)),
 	}, "good", nil)
 	if err != nil {
-		t.Fatalf("DownloadWithAuth success failed: %v", err)
+		t.Fatalf("authenticated Download failed: %v", err)
 	}
 
 	if res.WasCached {
@@ -175,7 +175,7 @@ func TestDownloadWithAuthSuccessAndBodyErrorMessage(t *testing.T) {
 	}
 }
 
-func TestDownloadWithAuthUsesCache(t *testing.T) {
+func TestAuthenticatedDownloadUsesCache(t *testing.T) {
 	m := &Manager{basePath: t.TempDir()}
 	meta := &EntryMetadata{
 		DownloadID:   "xenforo",
@@ -210,14 +210,14 @@ func TestDownloadWithAuthUsesCache(t *testing.T) {
 		t.Fatalf("SaveMetadata failed: %v", err)
 	}
 
-	res, err := m.DownloadWithAuth(t.Context(), DownloadOptions{
+	res, err := m.Download(t.Context(), DownloadOptions{
 		LicenseKey: "LIC1",
 		DownloadID: "xenforo",
 		Version:    "2.3.8",
 		URL:        "https://example.com/unused",
 	}, "token", nil)
 	if err != nil {
-		t.Fatalf("DownloadWithAuth failed: %v", err)
+		t.Fatalf("authenticated Download failed: %v", err)
 	}
 
 	if !res.WasCached {

@@ -103,11 +103,6 @@ func (d *Doctor) RunAll(ctx context.Context) []*CheckResult {
 	return d.results
 }
 
-// Results returns the check results.
-func (d *Doctor) Results() []*CheckResult {
-	return d.results
-}
-
 // HasErrors returns whether any checks failed.
 func (d *Doctor) HasErrors() bool {
 	for _, r := range d.results {

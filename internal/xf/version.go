@@ -178,29 +178,6 @@ func ParseVersionID(versionID int) *Version {
 	return v
 }
 
-// Compare returns -1 if v < other, 0 if v == other, 1 if v > other.
-func (v *Version) Compare(other *Version) int {
-	if v.ID < other.ID {
-		return -1
-	}
-
-	if v.ID > other.ID {
-		return 1
-	}
-
-	return 0
-}
-
-// IsNewerThan checks if this version is newer than another.
-func (v *Version) IsNewerThan(other *Version) bool {
-	return v.Compare(other) > 0
-}
-
-// IsOlderThan checks if this version is older than another.
-func (v *Version) IsOlderThan(other *Version) bool {
-	return v.Compare(other) < 0
-}
-
 // DetectVersion parses src/XF.php for the version string and ID.
 func DetectVersion(xfDir string) (*Version, error) {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")

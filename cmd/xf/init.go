@@ -298,7 +298,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		Contexts:          opts.Contexts,
 	}
 
-	writtenDefaults, err := xfcmd.InitExisting(xfDir, xfcmdOpts)
+	writtenDefaults, err := xfcmd.Init(xfDir, xfcmdOpts)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker files in existing XenForo directory: %w", err)
 	}

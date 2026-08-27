@@ -121,7 +121,7 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 	if isNewerVersion(latestVersion, currentVersion) {
 		info.HasUpdate = true
 
-		assetName := getArchiveAssetName(release.TagName)
+		assetName := getArchiveAssetNameForPlatform(release.TagName, runtime.GOOS, runtime.GOARCH)
 		for _, asset := range release.Assets {
 			if asset.Name == assetName {
 				info.AssetURL = asset.BrowserDownloadURL
@@ -617,10 +617,6 @@ func (u *Updater) verifyChecksum(ctx context.Context, filePath string, info *Upd
 	}
 
 	return nil
-}
-
-func getArchiveAssetName(versionTag string) string {
-	return getArchiveAssetNameForPlatform(versionTag, runtime.GOOS, runtime.GOARCH)
 }
 
 func getArchiveAssetNameForPlatform(versionTag, goos, goarch string) string {
