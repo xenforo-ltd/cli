@@ -34,6 +34,17 @@ var rootCmd = &cobra.Command{
 	// swallowed, leaving no way to set xf's own flags on those commands.
 	TraverseChildren: true,
 	Short:            "Provision and manage XenForo development environments",
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		if err := config.Init(configFile); err != nil {
+			if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+				return nil
+			}
+
+			return err
+		}
+
+		return nil
+	},
 	Long: `Provision and manage Docker-based XenForo development environments:
 authentication, package downloads, caching, containers and worktrees.
 
@@ -397,18 +408,6 @@ func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, 
 }
 
 func init() {
-	rootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
-		if err := config.Init(configFile); err != nil {
-			if errors.As(err, &viper.ConfigFileNotFoundError{}) {
-				return nil
-			}
-
-			return err
-		}
-
-		return nil
-	}
-
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "start", Title: "Getting started:"},
 		&cobra.Group{ID: "env", Title: "Environment:"},
