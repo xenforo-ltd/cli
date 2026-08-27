@@ -35,13 +35,13 @@ func TestSanitizePathWindowsTraversal(t *testing.T) {
 	}
 }
 
-func TestZipFileRejectsSymlink(t *testing.T) {
+func TestXenForoZipRejectsSymlink(t *testing.T) {
 	tmpDir := t.TempDir()
 	zipPath := filepath.Join(tmpDir, "test.zip")
 
 	buf := &bytes.Buffer{}
 	zw := zip.NewWriter(buf)
-	header := &zip.FileHeader{Name: "link"}
+	header := &zip.FileHeader{Name: "upload/link"}
 	header.SetMode(os.ModeSymlink | 0o750)
 
 	file, err := zw.CreateHeader(header)
@@ -65,7 +65,7 @@ func TestZipFileRejectsSymlink(t *testing.T) {
 		t.Fatalf("write zip: %v", err)
 	}
 
-	err = ZipFile(zipPath, filepath.Join(tmpDir, "out"), DefaultOptions())
+	err = XenForoZip(zipPath, filepath.Join(tmpDir, "out"), nil)
 	if err == nil {
 		t.Fatal("expected symlink entry to be rejected")
 	}
@@ -75,7 +75,7 @@ func TestZipFileRejectsSymlink(t *testing.T) {
 	}
 }
 
-func TestExtractFileOverwriteBehavior(t *testing.T) {
+func TestXenForoZipOverwritesExistingFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	zipPath := filepath.Join(tmpDir, "file.zip")
 
@@ -100,19 +100,18 @@ func TestExtractFileOverwriteBehavior(t *testing.T) {
 		t.Fatalf("write zip: %v", err)
 	}
 
-	reader, err := zip.OpenReader(zipPath)
-	if err != nil {
-		t.Fatalf("open zip: %v", err)
+	outDir := filepath.Join(tmpDir, "out")
+	dest := filepath.Join(outDir, "src", "XF.php")
+	if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
+		t.Fatalf("create destination: %v", err)
 	}
-	defer reader.Close()
 
-	dest := filepath.Join(tmpDir, "XF.php")
 	if err := os.WriteFile(dest, []byte("old"), 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
 
-	if err := extractFile(reader.File[0], dest, &Options{OverwriteExisting: false, PreservePermissions: true}); err != nil {
-		t.Fatalf("extractFile overwrite=false failed: %v", err)
+	if err := XenForoZip(zipPath, outDir, nil); err != nil {
+		t.Fatalf("XenForoZip failed: %v", err)
 	}
 
 	data, err := os.ReadFile(dest)
@@ -120,62 +119,9 @@ func TestExtractFileOverwriteBehavior(t *testing.T) {
 		t.Fatalf("read dest: %v", err)
 	}
 
-	if string(data) != "old" {
-		t.Fatalf("expected old content, got %q", string(data))
-	}
-
-	if err := extractFile(reader.File[0], dest, &Options{OverwriteExisting: true, PreservePermissions: true}); err != nil {
-		t.Fatalf("extractFile overwrite=true failed: %v", err)
-	}
-
-	data, err = os.ReadFile(dest)
-	if err != nil {
-		t.Fatalf("read dest: %v", err)
-	}
-
 	if string(data) != "new" {
 		t.Fatalf("expected new content, got %q", string(data))
 	}
-}
-
-func TestGetZipRootDirectory(t *testing.T) {
-	t.Run("single root", func(t *testing.T) {
-		zipPath := filepath.Join(t.TempDir(), "single.zip")
-		if err := writeZip(zipPath, map[string]string{
-			"upload/src/XF.php": "x",
-			"upload/js/app.js":  "y",
-		}); err != nil {
-			t.Fatalf("write zip: %v", err)
-		}
-
-		root, err := GetZipRootDirectory(zipPath)
-		if err != nil {
-			t.Fatalf("GetZipRootDirectory failed: %v", err)
-		}
-
-		if root != "upload" {
-			t.Fatalf("root = %q, want upload", root)
-		}
-	})
-
-	t.Run("mixed roots", func(t *testing.T) {
-		zipPath := filepath.Join(t.TempDir(), "mixed.zip")
-		if err := writeZip(zipPath, map[string]string{
-			"upload/src/XF.php": "x",
-			"docs/readme.txt":   "y",
-		}); err != nil {
-			t.Fatalf("write zip: %v", err)
-		}
-
-		root, err := GetZipRootDirectory(zipPath)
-		if err != nil {
-			t.Fatalf("GetZipRootDirectory failed: %v", err)
-		}
-
-		if root != "" {
-			t.Fatalf("root = %q, want empty", root)
-		}
-	})
 }
 
 func TestExtractXenForoZipUploadOnly(t *testing.T) {

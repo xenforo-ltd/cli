@@ -16,104 +16,13 @@ var ErrInvalidArchive = errors.New("invalid archive")
 
 const maxFileSize = 32 * 1024 * 1024 // 32 MB
 
-// Options configures the extraction behavior.
-type Options struct {
-	// StripComponents removes this many leading path components from extracted files.
-	// For example, if StripComponents=1 and the archive contains "upload/src/XF.php",
-	// it will be extracted as "src/XF.php".
-	StripComponents int
-
-	// OverwriteExisting allows overwriting existing files.
-	OverwriteExisting bool
-
-	// PreservePermissions preserves file permissions from the archive.
-	PreservePermissions bool
-
-	// OnProgress is called for each file extracted (if set).
-	OnProgress func(current, total int, filename string)
-}
-
-// DefaultOptions returns the default extraction options.
-func DefaultOptions() *Options {
-	return &Options{
-		StripComponents:     0,
-		OverwriteExisting:   true,
-		PreservePermissions: true,
-	}
-}
-
-// ZipFile extracts a zip archive to a destination directory with optional processing.
-func ZipFile(zipPath, destDir string, opts *Options) error {
-	if opts == nil {
-		opts = DefaultOptions()
-	}
-
-	reader, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return fmt.Errorf("failed to open zip file: %w", err)
-	}
-	defer reader.Close()
-
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	total := len(reader.File)
-	current := 0
-
-	for _, file := range reader.File {
-		current++
-
-		if isSymlink(file) {
-			return fmt.Errorf("symlink entries are not allowed in archive: %s: %w", file.Name, ErrInvalidArchive)
-		}
-
-		name := file.Name
-		if opts.StripComponents > 0 {
-			name = stripPathComponents(name, opts.StripComponents)
-			if name == "" {
-				continue
-			}
-		}
-
-		destPath, err := sanitizePath(destDir, name)
-		if err != nil {
-			return err
-		}
-
-		if opts.OnProgress != nil {
-			opts.OnProgress(current, total, name)
-		}
-
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, 0o755); err != nil {
-				return fmt.Errorf("failed to create directory: %s: %w", name, err)
-			}
-
-			continue
-		}
-
-		if err := extractFile(file, destPath, opts); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func extractFile(file *zip.File, destPath string, opts *Options) error {
+func extractFile(file *zip.File, destPath string) error {
 	if file.UncompressedSize64 > maxFileSize {
 		return fmt.Errorf("file %s is too large to extract: %w", file.Name, ErrInvalidArchive)
 	}
 
 	if isSymlink(file) {
 		return fmt.Errorf("symlink entries are not allowed in archive: %s: %w", file.Name, ErrInvalidArchive)
-	}
-
-	if !opts.OverwriteExisting {
-		if _, err := os.Stat(destPath); err == nil {
-			return nil
-		}
 	}
 
 	parentDir := filepath.Dir(destPath)
@@ -127,14 +36,9 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 	}
 	defer srcFile.Close()
 
-	mode := file.Mode()
-	if !opts.PreservePermissions {
-		mode = 0o600
-	}
-
 	limitedReader := io.LimitReader(srcFile, maxFileSize)
 
-	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 	if err != nil {
 		return fmt.Errorf("failed to create file: %s: %w", destPath, err)
 	}
@@ -154,18 +58,6 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 	}
 
 	return nil
-}
-
-// For example, stripPathComponents("upload/src/XF.php", 1) returns "src/XF.php".
-func stripPathComponents(path string, n int) string {
-	path = filepath.ToSlash(path)
-
-	parts := strings.Split(path, "/")
-	if n >= len(parts) {
-		return ""
-	}
-
-	return strings.Join(parts[n:], "/")
 }
 
 // sanitizePath ensures the path is safe and within the destination directory.
@@ -215,40 +107,6 @@ func sanitizePath(destDir, name string) (string, error) {
 
 func isSymlink(file *zip.File) bool {
 	return file.Mode()&os.ModeSymlink != 0
-}
-
-// GetZipRootDirectory returns the common root directory of all files in the ZIP.
-// XenForo ZIPs typically have all files under an "upload/" directory.
-func GetZipRootDirectory(zipPath string) (string, error) {
-	reader, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to open zip file: %w", err)
-	}
-	defer reader.Close()
-
-	if len(reader.File) == 0 {
-		return "", fmt.Errorf("zip file is empty: %w", ErrInvalidArchive)
-	}
-
-	firstFile := reader.File[0].Name
-
-	archiveRootParts := 2
-
-	parts := strings.SplitN(filepath.ToSlash(firstFile), "/", archiveRootParts)
-	if len(parts) == 0 {
-		return "", nil
-	}
-
-	root := parts[0]
-
-	for _, file := range reader.File {
-		fileParts := strings.SplitN(filepath.ToSlash(file.Name), "/", archiveRootParts)
-		if len(fileParts) == 0 || fileParts[0] != root {
-			return "", nil
-		}
-	}
-
-	return root, nil
 }
 
 // XenForoZip extracts a XenForo ZIP file to the destination.
@@ -307,23 +165,10 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 			continue
 		}
 
-		opts := &Options{
-			OverwriteExisting:   true,
-			PreservePermissions: true,
-		}
-		if err := extractFile(file, destPath, opts); err != nil {
+		if err := extractFile(file, destPath); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-// ZipInfo contains information about a ZIP archive.
-type ZipInfo struct {
-	Path          string
-	FileCount     int
-	DirCount      int
-	TotalSize     uint64
-	RootDirectory string
 }
