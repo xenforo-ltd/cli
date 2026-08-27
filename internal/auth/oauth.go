@@ -146,14 +146,11 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 
 // IntrospectResponse represents the token introspection response.
 type IntrospectResponse struct {
-	Active    bool   `json:"active"`
-	Scope     string `json:"scope,omitempty"`
-	ClientID  string `json:"client_id,omitempty"`
-	Username  string `json:"username,omitempty"`
-	TokenType string `json:"token_type,omitempty"`
-	Exp       int64  `json:"exp,omitempty"`
-	Iat       int64  `json:"iat,omitempty"`
-	Sub       string `json:"sub,omitempty"`
+	Active   bool   `json:"active"`
+	Username string `json:"username,omitempty"`
+	Scope    string `json:"scope,omitempty"`
+	Exp      int64  `json:"exp,omitempty"`
+	Iat      int64  `json:"iat,omitempty"`
 }
 
 // IntrospectToken checks the validity and metadata of a token.

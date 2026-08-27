@@ -45,15 +45,13 @@ func (t *UnixTime) UnmarshalJSON(data []byte) error {
 
 // LicenseExtra represents an extra (add-on product) associated with a license.
 type LicenseExtra struct {
-	ExtraID        string   `json:"extra_id"`
-	Name           string   `json:"name"`
-	StartDate      UnixTime `json:"start_date"`
-	IsDownloadable bool     `json:"is_downloadable"`
+	ExtraID        string `json:"extra_id"`
+	Name           string `json:"name"`
+	IsDownloadable bool   `json:"is_downloadable"`
 }
 
 // License represents a XenForo customer license.
 type License struct {
-	LicenseID      int            `json:"license_id"`
 	LicenseKey     string         `json:"license_key"`
 	ProductID      string         `json:"product_id"`
 	ProductTitle   string         `json:"product_title"`
@@ -98,15 +96,12 @@ type Version struct {
 
 // LicenseDownloadables represents the downloadables available for a license.
 type LicenseDownloadables struct {
-	LicenseKey    string         `json:"license_key"`
 	Downloadables []Downloadable `json:"downloadables"`
 }
 
 // LicenseVersions represents the versions available for a license/download.
 type LicenseVersions struct {
-	LicenseKey string    `json:"license_key"`
-	DownloadID string    `json:"download_id"`
-	Versions   []Version `json:"versions"`
+	Versions []Version `json:"versions"`
 }
 
 // GetLicenseDownloadables retrieves the downloadable products for a license.
@@ -140,12 +135,8 @@ func (c *Client) GetLicenseVersions(ctx context.Context, licenseKey string, down
 
 // DownloadInfo represents information about a downloadable file.
 type DownloadInfo struct {
-	LicenseKey    string `json:"license_key"`
-	DownloadID    string `json:"download_id"`
-	VersionID     int    `json:"version_id"`
 	VersionString string `json:"version_string"`
 	Filename      string `json:"filename"`
-	DownloadURL   string `json:"download_url"`
 }
 
 // DownloadInfoResponse is the API response for download information.

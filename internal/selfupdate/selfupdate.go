@@ -52,22 +52,15 @@ const (
 
 // Release represents a GitHub release.
 type Release struct {
-	TagName     string    `json:"tag_name"`
-	Name        string    `json:"name"`
-	Prerelease  bool      `json:"prerelease"`
-	Draft       bool      `json:"draft"`
-	PublishedAt time.Time `json:"published_at"`
-	Body        string    `json:"body"`
-	Assets      []Asset   `json:"assets"`
-	HTMLURL     string    `json:"html_url"`
+	TagName string  `json:"tag_name"`
+	Assets  []Asset `json:"assets"`
+	HTMLURL string  `json:"html_url"`
 }
 
 // Asset represents a release asset (downloadable file).
 type Asset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
-	Size               int64  `json:"size"`
-	ContentType        string `json:"content_type"`
 }
 
 // UpdateInfo contains information about an available update.
@@ -75,7 +68,6 @@ type UpdateInfo struct {
 	CurrentVersion string
 	LatestVersion  string
 	ReleaseURL     string
-	ReleaseNotes   string
 	AssetURL       string
 	AssetName      string
 	ChecksumURL    string
@@ -114,7 +106,6 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 		CurrentVersion: currentVersion,
 		LatestVersion:  latestVersion,
 		ReleaseURL:     release.HTMLURL,
-		ReleaseNotes:   release.Body,
 		HasUpdate:      false,
 	}
 

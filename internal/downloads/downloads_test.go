@@ -131,7 +131,7 @@ func (f *fakeClient) GetLicenseVersions(_ context.Context, _ string, downloadID 
 		return nil, err
 	}
 
-	return &customerapi.LicenseVersions{DownloadID: downloadID, Versions: append([]customerapi.Version(nil), f.versionsByProduct[downloadID]...)}, nil
+	return &customerapi.LicenseVersions{Versions: append([]customerapi.Version(nil), f.versionsByProduct[downloadID]...)}, nil
 }
 
 func (f *fakeClient) GetDownloadInfo(_ context.Context, _ string, downloadID string, versionID int) (*customerapi.DownloadInfo, error) {
@@ -144,7 +144,7 @@ func (f *fakeClient) GetDownloadInfo(_ context.Context, _ string, downloadID str
 		return info, nil
 	}
 
-	return &customerapi.DownloadInfo{DownloadID: downloadID, VersionID: versionID, VersionString: "2.3.8", Filename: "x.zip"}, nil
+	return &customerapi.DownloadInfo{VersionString: "2.3.8", Filename: "x.zip"}, nil
 }
 
 func (f *fakeClient) GetAccessToken() (string, error) {
@@ -211,7 +211,7 @@ func TestResolveSelections_UsesOverrideAndSkipCallback(t *testing.T) {
 			"xfes":    {},
 		},
 		downloadInfo: map[string]*customerapi.DownloadInfo{
-			"xfmg:99": {DownloadID: "xfmg", VersionID: 99, VersionString: "custom"},
+			"xfmg:99": {VersionString: "custom"},
 		},
 	}
 
@@ -249,7 +249,7 @@ func TestDownloadSelection_Branches(t *testing.T) {
 	client := &fakeClient{
 		accessToken: "token",
 		downloadInfo: map[string]*customerapi.DownloadInfo{
-			"xenforo:10": {DownloadID: "xenforo", VersionID: 10, VersionString: "2.3.10", Filename: "xf.zip"},
+			"xenforo:10": {VersionString: "2.3.10", Filename: "xf.zip"},
 		},
 	}
 

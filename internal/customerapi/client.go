@@ -199,9 +199,7 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 
 // Error represents an error response from the API.
 type Error struct {
-	Code    string         `json:"code"`
-	Message string         `json:"message"`
-	Params  map[string]any `json:"params,omitempty"`
+	Message string `json:"message"`
 }
 
 // ErrorResponse represents the error response structure from XenForo API.
