@@ -9,30 +9,6 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
-func TestCheckStatusStringAndSymbol(t *testing.T) {
-	cases := []struct {
-		status CheckStatus
-		str    string
-		sym    string
-	}{
-		{StatusOK, "OK", "+"},
-		{StatusWarning, "WARNING", "!"},
-		{StatusError, "ERROR", "x"},
-		{StatusSkipped, "SKIPPED", "-"},
-		{CheckStatus(999), "UNKNOWN", "?"},
-	}
-
-	for _, tc := range cases {
-		if got := tc.status.String(); got != tc.str {
-			t.Fatalf("String() = %q, want %q", got, tc.str)
-		}
-
-		if got := tc.status.Symbol(); got != tc.sym {
-			t.Fatalf("Symbol() = %q, want %q", got, tc.sym)
-		}
-	}
-}
-
 func TestDoctorHasErrorsAndWarnings(t *testing.T) {
 	d := &Doctor{results: []*CheckResult{{Status: StatusOK}}}
 	if d.HasErrors() || d.HasWarnings() {

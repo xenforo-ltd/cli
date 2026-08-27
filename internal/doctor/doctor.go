@@ -40,37 +40,6 @@ const (
 	StatusSkipped
 )
 
-func (s CheckStatus) String() string {
-	switch s {
-	case StatusOK:
-		return "OK"
-	case StatusWarning:
-		return "WARNING"
-	case StatusError:
-		return "ERROR"
-	case StatusSkipped:
-		return "SKIPPED"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-// Symbol returns the symbol representation of the status.
-func (s CheckStatus) Symbol() string {
-	switch s {
-	case StatusOK:
-		return "+"
-	case StatusWarning:
-		return "!"
-	case StatusError:
-		return "x"
-	case StatusSkipped:
-		return "-"
-	default:
-		return "?"
-	}
-}
-
 // Doctor performs health checks on the system.
 type Doctor struct {
 	results []*CheckResult

@@ -27,11 +27,6 @@ type WorktreeStatus struct {
 	UnmergedCommits []string
 }
 
-// Clean reports whether the worktree holds no work that removal would lose.
-func (s WorktreeStatus) Clean() bool {
-	return len(s.Modified) == 0 && len(s.UnmergedCommits) == 0
-}
-
 // Status inspects a worktree for work that would be lost by removing it.
 func Status(ctx context.Context, worktreePath string) (WorktreeStatus, error) {
 	b, err := detectBackend(ctx, worktreePath)

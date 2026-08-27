@@ -107,7 +107,7 @@ func TestRemoveUnknownPath(t *testing.T) {
 	}
 }
 
-func TestStatusReportsCleanliness(t *testing.T) {
+func TestStatusReportsModifiedFiles(t *testing.T) {
 	_, wt := createdWorktree(t, "feature")
 
 	status, err := Status(t.Context(), wt)
@@ -115,7 +115,7 @@ func TestStatusReportsCleanliness(t *testing.T) {
 		t.Fatalf("Status: %v", err)
 	}
 
-	if !status.Clean() {
+	if len(status.Modified) != 0 || len(status.UnmergedCommits) != 0 {
 		t.Errorf("a fresh worktree should be clean, got %+v", status)
 	}
 
@@ -128,7 +128,7 @@ func TestStatusReportsCleanliness(t *testing.T) {
 		t.Fatalf("Status: %v", err)
 	}
 
-	if status.Clean() {
+	if len(status.Modified) == 0 {
 		t.Error("an untracked file should make the worktree dirty")
 	}
 }
@@ -177,7 +177,7 @@ func TestStatusIgnoresGeneratedEnvironmentFiles(t *testing.T) {
 		t.Fatalf("Status: %v", err)
 	}
 
-	if !status.Clean() {
+	if len(status.Modified) != 0 || len(status.UnmergedCommits) != 0 {
 		t.Errorf("generated environment files were reported as changes: %v", status.Modified)
 	}
 }
@@ -196,7 +196,7 @@ func TestStatusReportsRealUntrackedWork(t *testing.T) {
 		t.Fatalf("Status: %v", err)
 	}
 
-	if status.Clean() {
+	if len(status.Modified) == 0 {
 		t.Error("an untracked file the user created was not reported")
 	}
 }
@@ -224,7 +224,7 @@ func TestStatusReportsModifiedTrackedGeneratedFile(t *testing.T) {
 		t.Fatalf("Status: %v", err)
 	}
 
-	if status.Clean() {
+	if len(status.Modified) == 0 {
 		t.Error("an edit to a tracked compose.yaml was filtered out")
 	}
 }

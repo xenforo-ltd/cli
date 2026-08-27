@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/xenforo-ltd/cli/internal/xf"
@@ -144,23 +143,6 @@ func TestEnsureCoreFirstUnique(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("index %d = %q, want %q", i, got[i], want[i])
 		}
-	}
-}
-
-func TestEffectiveContextsDefaultsAndNormalization(t *testing.T) {
-	defaulted := effectiveContexts(&InitOptions{})
-	if len(defaulted) == 0 {
-		t.Fatal("expected default contexts")
-	}
-
-	expected := "caddy,mysql,development,caddy-development,redis,mailpit"
-	if strings.Join(defaulted, ",") != expected {
-		t.Fatalf("default contexts = %q, want %q", strings.Join(defaulted, ","), expected)
-	}
-
-	normalized := effectiveContexts(&InitOptions{Contexts: []string{"caddy", "mysql", "caddy", "  "}})
-	if strings.Join(normalized, ",") != "caddy,caddy-development,mysql" {
-		t.Fatalf("normalized contexts = %q", strings.Join(normalized, ","))
 	}
 }
 

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -116,42 +115,6 @@ func formatProductList(products []string, titleMap map[string]string) string {
 	return strings.Join(names, ", ")
 }
 
-func effectiveContexts(opts *InitOptions) []string {
-	if len(opts.Contexts) > 0 {
-		return normalizeContexts(opts.Contexts)
-	}
-
-	return []string{"caddy", "mysql", "development", "caddy-development", "redis", "mailpit"}
-}
-
-func normalizeContexts(contexts []string) []string {
-	set := map[string]bool{}
-
-	for _, c := range contexts {
-		c = strings.TrimSpace(c)
-		if c != "" {
-			set[c] = true
-		}
-	}
-
-	if set["caddy"] && !set["caddy-development"] {
-		set["caddy-development"] = true
-	}
-
-	if set["caddy-development"] && !set["caddy"] {
-		set["caddy"] = true
-	}
-
-	out := make([]string, 0, len(set))
-	for k := range set {
-		out = append(out, k)
-	}
-
-	sort.Strings(out)
-
-	return out
-}
-
 // licenseLabel formats a license for display: the key alone, or the key with
 // its site title/URL (falling back to the product title) in parentheses.
 // The result is intentionally unstyled — huh restyles select options itself.
@@ -219,20 +182,6 @@ func validateReviewInputs(opts *InitOptions) error {
 	}
 
 	return nil
-}
-
-func splitCSV(s string) []string {
-	parts := strings.Split(s, ",")
-
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-
-	return out
 }
 
 func ensureCoreFirstUnique(products []string) []string {

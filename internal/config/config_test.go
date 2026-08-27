@@ -282,37 +282,6 @@ func TestLoad_CachesResult(t *testing.T) {
 	}
 }
 
-func TestSave_WritesConfigFile(t *testing.T) {
-	resetGlobals(t)
-
-	dir := t.TempDir()
-	cfgFile := filepath.Join(dir, "config.json")
-
-	if err := os.WriteFile(cfgFile, []byte(`{}`), 0o600); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	if err := Init(cfgFile); err != nil {
-		t.Fatalf("Init() error = %v", err)
-	}
-
-	viper.Set("verbose", true)
-
-	if err := Save(); err != nil {
-		t.Fatalf("Save() error = %v", err)
-	}
-
-	data, err := os.ReadFile(cfgFile)
-	if err != nil {
-		t.Fatalf("failed to read saved config: %v", err)
-	}
-
-	content := string(data)
-	if len(content) == 0 {
-		t.Error("expected saved config file to have content")
-	}
-}
-
 func TestInit_EnvOverride(t *testing.T) {
 	resetGlobals(t)
 

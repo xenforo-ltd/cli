@@ -150,10 +150,6 @@ func TestHelpersFormatting(t *testing.T) {
 		t.Fatalf("unexpected product names: %q", got)
 	}
 
-	if got := splitCSV("a, b,,c"); len(got) != 3 || got[0] != "a" || got[2] != "c" {
-		t.Fatalf("unexpected splitCSV: %#v", got)
-	}
-
 	lic := customerapi.License{LicenseKey: "ABC", SiteTitle: "Site", SiteURL: "https://example.com"}
 	if got := licenseLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
 		t.Fatalf("unexpected license label: %q", got)

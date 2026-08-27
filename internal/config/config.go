@@ -153,12 +153,3 @@ func Load() (Config, error) {
 
 	return cache, errCache
 }
-
-// Save writes the current configuration to the config file.
-func Save() error {
-	if err := viper.WriteConfig(); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-
-	return nil
-}

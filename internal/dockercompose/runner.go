@@ -379,23 +379,6 @@ func (r *Runner) GetURL(ctx context.Context) (string, error) {
 	return "http://localhost:" + port, nil
 }
 
-// WaitForReady waits for the xf container to be ready to accept commands.
-func (r *Runner) WaitForReady(ctx context.Context, checkInterval time.Duration) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting for containers to be ready: %w", ctx.Err())
-		default:
-			cmd := r.buildDockerCommand(ctx, "run", "--rm", "xf", "php", "-v")
-			if err := cmd.Run(); err == nil {
-				return nil
-			}
-
-			time.Sleep(checkInterval)
-		}
-	}
-}
-
 // WaitForDatabase waits for the database to be ready.
 func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duration) error {
 	user, password := r.DatabaseCredentials()
