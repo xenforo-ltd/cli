@@ -34,10 +34,9 @@ type EntryMetadata struct {
 
 // Entry represents a cached download file.
 type Entry struct {
-	LicenseKey   string
-	Metadata     EntryMetadata
-	FilePath     string
-	MetadataPath string
+	LicenseKey string
+	Metadata   EntryMetadata
+	FilePath   string
 }
 
 // NewManager creates a new cache manager.
@@ -89,10 +88,9 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 	filePath := filepath.Join(entryPath, metadata.Filename)
 
 	return &Entry{
-		LicenseKey:   licenseKey,
-		Metadata:     metadata,
-		FilePath:     filePath,
-		MetadataPath: metadataPath,
+		LicenseKey: licenseKey,
+		Metadata:   metadata,
+		FilePath:   filePath,
 	}, nil
 }
 
@@ -133,22 +131,6 @@ func (m *Manager) Verify(entry *Entry) (bool, error) {
 	}
 
 	return checksum == entry.Metadata.Checksum, nil
-}
-
-// Delete removes a cache entry.
-func (m *Manager) Delete(licenseKey string, downloadID, version string) error {
-	entryPath, err := m.EntryPath(licenseKey, downloadID, version)
-	if err != nil {
-		return err
-	}
-
-	if err := os.RemoveAll(entryPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to delete cache entry: %w", err)
-	}
-
-	m.cleanEmptyParents(entryPath)
-
-	return nil
 }
 
 // PurgeAll removes all cached files.
@@ -245,36 +227,6 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 	return entries, nil
 }
 
-// TotalSize returns the total size of all cached files in bytes.
-func (m *Manager) TotalSize() (int64, error) {
-	entries, err := m.List()
-	if err != nil {
-		return 0, err
-	}
-
-	var total int64
-	for _, entry := range entries {
-		total += entry.Metadata.Size
-	}
-
-	return total, nil
-}
-
-func (m *Manager) cleanEmptyParents(path string) {
-	for {
-		parent := filepath.Dir(path)
-		if parent == m.basePath || parent == path {
-			break
-		}
-
-		if err := os.Remove(parent); err != nil {
-			break
-		}
-
-		path = parent
-	}
-}
-
 func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -317,10 +269,9 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	filePath := filepath.Join(entryDir, safeFilename)
 
 	return &Entry{
-		LicenseKey:   licenseKey,
-		Metadata:     metadata,
-		FilePath:     filePath,
-		MetadataPath: metadataPath,
+		LicenseKey: licenseKey,
+		Metadata:   metadata,
+		FilePath:   filePath,
 	}, nil
 }
 

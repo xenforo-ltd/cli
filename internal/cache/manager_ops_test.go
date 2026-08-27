@@ -13,7 +13,7 @@ func newTestManager(t *testing.T) *Manager {
 	return &Manager{basePath: t.TempDir()}
 }
 
-func TestManagerSaveGetVerifyDelete(t *testing.T) {
+func TestManagerSaveGetVerify(t *testing.T) {
 	m := newTestManager(t)
 	license := "ABC123"
 	meta := &EntryMetadata{
@@ -67,21 +67,9 @@ func TestManagerSaveGetVerifyDelete(t *testing.T) {
 		t.Fatal("expected checksum verification to pass")
 	}
 
-	if err := m.Delete(license, meta.DownloadID, meta.Version); err != nil {
-		t.Fatalf("Delete failed: %v", err)
-	}
-
-	entry, err = m.GetEntry(license, meta.DownloadID, meta.Version)
-	if err != nil && !errors.Is(err, ErrCacheMiss) {
-		t.Fatalf("GetEntry after delete failed: %v", err)
-	}
-
-	if entry != nil {
-		t.Fatal("expected deleted entry to be nil")
-	}
 }
 
-func TestManagerListAndTotalSize(t *testing.T) {
+func TestManagerList(t *testing.T) {
 	m := newTestManager(t)
 	entries := []EntryMetadata{
 		{DownloadID: "xenforo", Version: "1", Filename: "a.zip", Size: 10, DownloadedAt: time.Now()},
@@ -130,14 +118,6 @@ func TestManagerListAndTotalSize(t *testing.T) {
 		t.Fatalf("len(lic1) = %d, want 1", len(lic1))
 	}
 
-	total, err := m.TotalSize()
-	if err != nil {
-		t.Fatalf("TotalSize failed: %v", err)
-	}
-
-	if total != 30 {
-		t.Fatalf("total size = %d, want 30", total)
-	}
 }
 
 func TestManagerPurge(t *testing.T) {

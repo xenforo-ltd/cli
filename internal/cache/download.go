@@ -30,9 +30,8 @@ type DownloadOptions struct {
 
 // DownloadResult contains information about a completed download.
 type DownloadResult struct {
-	Entry           *Entry
-	WasCached       bool
-	BytesDownloaded int64
+	Entry     *Entry
+	WasCached bool
 }
 
 // ProgressCallback reports download progress; total is -1 if unknown.
@@ -79,21 +78,17 @@ func (m *Manager) Download(ctx context.Context, opts DownloadOptions, authToken 
 
 	filePath := filepath.Join(entryPath, filename)
 
-	downloaded, err := downloadToFile(filePath, resp.Body, totalSize, opts.ExpectedChecksum, progress)
-	if err != nil {
+	if err := downloadToFile(filePath, resp.Body, totalSize, opts.ExpectedChecksum, progress); err != nil {
 		return nil, err
 	}
 
-	entry, err := m.finalizeEntry(opts, filePath, entryPath)
+	entry, err := m.finalizeEntry(opts, filePath)
 	if err != nil {
 		rmErr := os.Remove(filePath)
 		return nil, errors.Join(err, rmErr)
 	}
 
-	return &DownloadResult{
-		Entry:           entry,
-		BytesDownloaded: downloaded,
-	}, nil
+	return &DownloadResult{Entry: entry}, nil
 }
 
 func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
@@ -178,32 +173,25 @@ func resolveFilename(override string, resp *http.Response, url string) string {
 	return "download.zip"
 }
 
-func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChecksum string, progress ProgressCallback) (int64, error) {
+func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChecksum string, progress ProgressCallback) error {
 	tmpPath := destPath + ".tmp"
 
 	f, err := os.Create(tmpPath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create download file: %w", err)
+		return fmt.Errorf("failed to create download file: %w", err)
 	}
 
-	fail := func(err error) (int64, error) {
+	fail := func(err error) error {
 		_ = f.Close()
 		rmErr := os.Remove(tmpPath)
 
-		return 0, errors.Join(err, rmErr)
+		return errors.Join(err, rmErr)
 	}
 
-	var downloaded int64
-
 	reader := &stream.ProgressReader{
-		Reader: src,
-		Total:  totalSize,
-		OnProgress: func(current, total int64) {
-			downloaded = current
-			if progress != nil {
-				progress(current, total)
-			}
-		},
+		Reader:     src,
+		Total:      totalSize,
+		OnProgress: progress,
 	}
 
 	if _, err := io.Copy(f, reader); err != nil {
@@ -229,10 +217,10 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 		return fail(fmt.Errorf("failed to finalize download: %w", err))
 	}
 
-	return downloaded, nil
+	return nil
 }
 
-func (m *Manager) finalizeEntry(opts DownloadOptions, filePath, entryPath string) (*Entry, error) {
+func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, error) {
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat downloaded file: %w", err)
@@ -258,10 +246,9 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath, entryPath string
 	}
 
 	return &Entry{
-		LicenseKey:   opts.LicenseKey,
-		Metadata:     *metadata,
-		FilePath:     filePath,
-		MetadataPath: filepath.Join(entryPath, MetadataFilename),
+		LicenseKey: opts.LicenseKey,
+		Metadata:   *metadata,
+		FilePath:   filePath,
 	}, nil
 }
 
