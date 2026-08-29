@@ -59,19 +59,6 @@ func NewTableWithStyles(headers []string, rows [][]string, styleFunc func(row, c
 	return t.String()
 }
 
-// StatusTableStyle returns a style function for status-based table coloring.
-func StatusTableStyle(_ int, _ map[string]lipgloss.Style) func(row, col int) lipgloss.Style {
-	defaultStyle := DefaultTableStyle()
-
-	return func(row, _ int) lipgloss.Style {
-		if row == table.HeaderRow {
-			return defaultStyle.Header
-		}
-
-		return defaultStyle.Cell
-	}
-}
-
 // PrintTable prints a formatted table to stdout.
 func PrintTable(headers []string, rows [][]string) {
 	if len(rows) == 0 {

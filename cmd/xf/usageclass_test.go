@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -112,16 +111,16 @@ func TestNonInvocationErrorsAreNotUsageErrors(t *testing.T) {
 // TestCancellationIsNotAUsageError guards the case that most clearly must not
 // print usage: the user deliberately cancelled an interactive flow.
 //
-// The cancellation error is constructed inline in runInteractiveReview's "cancel"
-// branch, which needs a terminal to reach. This asserts the property that branch
-// relies on: an ErrInvalidInput error is not a usage error unless explicitly
-// classified as one, so cancelling never triggers a usage dump.
+// runInteractiveReview's "cancel" branch (and the various huh selection
+// cancels throughout init) build this error with markAs(ErrCancelled, ...);
+// Execute checks errors.Is(err, ErrCancelled) and exits 0 silently, so it
+// must never be classified as a usage error.
 func TestCancellationIsNotAUsageError(t *testing.T) {
 	t.Parallel()
 
-	err := fmt.Errorf("initialization cancelled: %w", ErrInvalidInput)
+	err := markAs(ErrCancelled, "initialization cancelled")
 
-	if !errors.Is(err, ErrInvalidInput) {
+	if !errors.Is(err, ErrCancelled) {
 		t.Fatal("expected the sentinel to be wrapped")
 	}
 

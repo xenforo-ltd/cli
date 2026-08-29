@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -51,8 +53,9 @@ Existing Directory Mode (--existing flag):
   automatically once the containers are running. Release packages ship
   vendor/ prebuilt and have no manifest, so they are skipped.
 
-Examples:
-  # Fresh install (interactive)
+Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
+You can override either value via --env-file/--env.`,
+	Example: `  # Fresh install (interactive)
   xf init ./my-project
 
   # Fresh install (non-interactive)
@@ -69,12 +72,10 @@ Examples:
   xf init ./existing-xf-project --existing --up
 
   # Provide .env overrides
-  xf init ./my-project --env-file ./my.env --env XF_TITLE="My Site"
-
-Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
-You can override either value via --env-file/--env.`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runInit,
+  xf init ./my-project --env-file ./my.env --env XF_TITLE="My Site"`,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "start",
+	RunE:    runInit,
 }
 
 // InitOptions contains options for initialization.
@@ -272,23 +273,14 @@ func validateAdminDetails(opts *InitOptions) error {
 }
 
 func initExisting(ctx context.Context, opts *InitOptions) error {
-	ui.Println(ui.Bold.Render("Initializing Docker environment in existing XenForo directory..."))
+	ui.Println(ui.Header.Render("Initializing Docker environment"))
 	ui.Println()
 
 	xfDir := opts.TargetPath
 
-	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker is running: %w", err)
+	if err := checkPrerequisites(ctx); err != nil {
+		return err
 	}
-
-	ui.PrintSuccess("Docker is running")
-
-	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
-	}
-
-	ui.PrintSuccess("Docker Compose is available")
-	ui.Println()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -306,12 +298,18 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		Contexts:          opts.Contexts,
 	}
 
-	if err := xfcmd.InitExisting(xfDir, xfcmdOpts); err != nil {
+	writtenDefaults, err := xfcmd.InitExisting(xfDir, xfcmdOpts)
+	if err != nil {
 		return fmt.Errorf("failed to initialize Docker files in existing XenForo directory: %w", err)
 	}
 
 	ui.PrintSuccess("Docker configuration files extracted")
 
+	for _, p := range writtenDefaults {
+		ui.PrintInfo("Updated defaults written to " + ui.Path.Render(p))
+	}
+
+	ui.Println()
 	ui.PrintStep(step, totalSteps, "Configuring environment")
 	step++
 
@@ -319,9 +317,9 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		return err
 	}
 
-	ui.PrintSuccess("Configured instance: " + opts.InstanceName)
+	ui.PrintSubstep("Configured instance: " + ui.Bold.Render(opts.InstanceName))
 
-	ui.PrintStep(step, totalSteps, "Starting environment")
+	ui.Println()
 
 	// Detection can fail or return nothing, and installing --url= empty would
 	// leave the board with no address at all, so the predictable instance URL
@@ -329,6 +327,8 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
 	if opts.StartContainers {
+		ui.PrintStep(step, totalSteps, "Starting environment")
+
 		runner, err := dockercompose.NewRunner(xfDir)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
@@ -341,8 +341,6 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		url, err := runner.GetURL(ctx)
 		if err == nil && url != "" {
 			siteURL = url
-
-			ui.PrintDetail("Site: " + url)
 		}
 
 		// Composer and the installer both run inside the container, so they can
@@ -378,20 +376,23 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 			}
 		}
 	} else {
-		ui.PrintDetail("Skipped (use --up flag to start containers)")
+		printSkippedStep(step, totalSteps, "Starting environment", "use --up to start containers")
+	}
+
+	details := []ui.KVPair{
+		ui.KV("Location", ui.Path.Render(ui.ShortHome(xfDir))),
+		ui.KV("Instance", opts.InstanceName),
+	}
+	if siteURL != "" {
+		details = append(details, ui.KV("URL", ui.URL.Render(siteURL)))
 	}
 
 	ui.Println()
-	ui.SuccessBox("Docker environment initialized!", []ui.KVPair{
-		ui.KV("Location", ui.Path.Render(xfDir)),
-		ui.KV("Instance", opts.InstanceName),
-	})
+	ui.SuccessBox("Docker environment initialized", details)
 
 	if !opts.StartContainers {
 		ui.Println()
-		ui.Println("To start the environment:")
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("cd "+xfDir))
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
+		printStartHint(xfDir)
 	}
 
 	ui.Println()
@@ -434,7 +435,25 @@ func checkPrerequisites(ctx context.Context) error {
 	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 
 	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker is running: %w", err)
+		// Cancellation must stay recognisable, or Ctrl-C during the check is
+		// reported as a Docker failure and exits 1 instead of 130.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		// A missing docker executable is not a stopped daemon, and telling the
+		// user to start Docker Desktop would not fix it.
+		if errors.Is(err, exec.ErrNotFound) {
+			return withHint(
+				markAs(err, "Docker is not installed or not in your PATH"),
+				"Install Docker and try again",
+			)
+		}
+
+		return withHint(
+			markAs(err, "Docker does not appear to be running"),
+			"Start Docker Desktop and try again",
+		)
 	}
 
 	ui.PrintSuccess("Docker is running")
@@ -503,20 +522,20 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		if len(licenses) == 0 {
-			return fmt.Errorf("no licenses found for your account: %w", ErrNotFound)
+			return markAs(ErrNotFound, "no licenses found for your account")
 		}
 
 		var licenseOptions []huh.Option[string]
 
 		for _, lic := range licenses {
 			if lic.CanDownload {
-				label := licenseOptionLabel(lic)
+				label := licenseLabel(lic)
 				licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
 			}
 		}
 
 		if len(licenseOptions) == 0 {
-			return fmt.Errorf("no licenses with download access found: %w", ErrForbidden)
+			return markAs(ErrForbidden, "no licenses with download access found")
 		}
 
 		err = huh.NewSelect[string]().
@@ -525,7 +544,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&opts.LicenseKey).
 			Run()
 		if err != nil {
-			return fmt.Errorf("license selection cancelled: %w", err)
+			return markAs(ErrCancelled, "license selection cancelled")
 		}
 	}
 
@@ -554,7 +573,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&selectedProducts).
 			Run()
 		if err != nil {
-			return fmt.Errorf("product selection cancelled: %w", err)
+			return markAs(ErrCancelled, "product selection cancelled")
 		}
 
 		opts.Products = ensureCoreFirstUnique(append([]string{"xenforo"}, selectedProducts...))
@@ -570,7 +589,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if len(versions.Versions) == 0 {
-		return fmt.Errorf("no versions available: %w", ErrNotFound)
+		return markAs(ErrNotFound, "no versions available")
 	}
 
 	initflow.SortVersionsDesc(versions.Versions)
@@ -592,7 +611,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.VersionID == 0 {
-		return fmt.Errorf("core version is required: %w", ErrInvalidInput)
+		return markAs(ErrInvalidInput, "core version is required")
 	}
 
 	if opts.AdminUser == "" || opts.AdminPassword == "" || opts.AdminEmail == "" {
@@ -608,7 +627,6 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			opts.SiteTitle = "XenForo"
 		}
 
-		minimumUsernameLength := 3
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
@@ -646,7 +664,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return fmt.Errorf("credential input cancelled: %w", err)
+			return markAs(ErrCancelled, "credential input cancelled")
 		}
 	}
 

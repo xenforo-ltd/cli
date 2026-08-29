@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -19,10 +19,8 @@ var cacheCmd = &cobra.Command{
 	Long: `Manage cached XenForo package downloads.
 
 Downloaded packages are cached locally to avoid re-downloading. Use these
-commands to view, manage, and clear the cache.
-
-Examples:
-  # List all cached downloads
+commands to view, manage, and clear the cache.`,
+	Example: `  # List all cached downloads
   xf cache list
 
   # List cached downloads for a specific license
@@ -34,7 +32,8 @@ Examples:
   # Clear all cached downloads
   xf cache purge --all`,
 	// See the note on authCmd: NoArgs only takes effect when RunE is also set.
-	Args: cobra.NoArgs,
+	Args:    cobra.NoArgs,
+	GroupID: "maint",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Help()
 	},
@@ -46,10 +45,8 @@ var cacheListCmd = &cobra.Command{
 	Long: `Display all cached downloads with their metadata.
 
 Shows download information including version, file size, checksum,
-and download date. Results can be filtered by license key.
-
-Examples:
-  # List all cached downloads (compact table)
+and download date. Results can be filtered by license key.`,
+	Example: `  # List all cached downloads (compact table)
   xf cache list
 
   # List with full details
@@ -70,10 +67,8 @@ var cachePurgeCmd = &cobra.Command{
 	Long: `Remove cached downloads to free up disk space.
 
 By default, requires explicit confirmation with --all flag. Use --license
-to selectively remove downloads for a specific license.
-
-Examples:
-  # Remove all cached downloads
+to selectively remove downloads for a specific license.`,
+	Example: `  # Remove all cached downloads
   xf cache purge --all
 
   # Remove downloads for a specific license only
@@ -87,10 +82,8 @@ var cachePathCmd = &cobra.Command{
 	Short: "Show cache directory location",
 	Long: `Display the path to the cache directory.
 
-Useful for scripting or manually inspecting cached files.
-
-Examples:
-  # Show cache path
+Useful for scripting or manually inspecting cached files.`,
+	Example: `  # Show cache path
   xf cache path
 
   # Open cache directory in file manager (macOS)
@@ -175,7 +168,7 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(entries) == 0 {
-		ui.PrintInfo("No cached downloads found.")
+		ui.PrintEmpty("No cached downloads found")
 		return nil
 	}
 
@@ -208,11 +201,15 @@ func runCacheList(cmd *cobra.Command, args []string) error {
 	return runCacheListTable(entries, totalSize)
 }
 
+// printCacheHeader prints the shared summary line used by both the table and
+// verbose cache list views.
+func printCacheHeader(entries []*cache.Entry, totalSize int64) {
+	ui.PrintInfo(ui.Plural(len(entries), "cached download", "cached downloads") + " (" + ui.FormatBytes(totalSize) + ")")
+	ui.Println()
+}
+
 func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
-	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
-		ui.StatusIcon("info"),
-		ui.Bold.Render(strconv.Itoa(len(entries))),
-		ui.Bold.Render(ui.FormatBytes(totalSize)))
+	printCacheHeader(entries, totalSize)
 
 	headers := []string{"LICENSE", "PRODUCT", "VERSION", "SIZE", "DOWNLOADED"}
 	rows := make([][]string, 0, len(entries))
@@ -223,21 +220,19 @@ func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 			e.Metadata.DownloadID,
 			ui.Version.Render("v" + e.Metadata.Version),
 			ui.FormatBytes(e.Metadata.Size),
-			e.Metadata.DownloadedAt.Format("2006-01-02"),
+			ui.FormatDate(e.Metadata.DownloadedAt),
 		})
 	}
 
 	ui.Println(ui.NewTable(headers, rows))
-	ui.Printf("\nUse %s for detailed information.\n", ui.Command.Render("-v"))
+	ui.Println()
+	ui.PrintHint("Run " + ui.Command.Render("xf cache list -v") + " for detailed information")
 
 	return nil
 }
 
 func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
-	ui.Printf("%s Cached downloads: %s entries, %s total\n\n",
-		ui.StatusIcon("info"),
-		ui.Bold.Render(strconv.Itoa(len(entries))),
-		ui.Bold.Render(ui.FormatBytes(totalSize)))
+	printCacheHeader(entries, totalSize)
 
 	currentLicense := ""
 	for _, e := range entries {
@@ -246,26 +241,22 @@ func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 				ui.Println()
 			}
 
-			ui.Printf("%s License %s\n", ui.StatusIcon("success"), ui.Bold.Render(e.LicenseKey))
+			ui.Printf("%s %s\n", ui.Dim.Render(ui.SymbolBullet), ui.Bold.Render("License "+e.LicenseKey))
 			currentLicense = e.LicenseKey
 		}
 
-		ui.Printf("\n%s%s %s\n", ui.Indent1, ui.Bold.Render(e.Metadata.DownloadID), ui.Version.Render("v"+e.Metadata.Version))
+		ui.Printf("%s%s %s\n", ui.Indent1, ui.Bold.Render(e.Metadata.DownloadID), ui.Version.Render("v"+e.Metadata.Version))
 
-		shortChecksum := e.Metadata.Checksum
-		shortChecksumLength := 12
-
-		if len(shortChecksum) > shortChecksumLength {
-			shortChecksum = shortChecksum[:shortChecksumLength] + "..."
+		checksum := ui.Dim.Render("—")
+		if e.Metadata.Checksum != "" {
+			checksum = ui.Dim.Render(e.Metadata.Checksum)
 		}
 
 		pairs := []ui.KVPair{
 			ui.KV("File", e.Metadata.Filename),
 			ui.KV("Size", ui.FormatBytes(e.Metadata.Size)),
-			ui.KV("Downloaded", e.Metadata.DownloadedAt.Format("2006-01-02 15:04:05")),
-		}
-		if shortChecksum != "" {
-			pairs = append(pairs, ui.KV("Checksum", shortChecksum))
+			ui.KV("Downloaded", ui.FormatDateTime(e.Metadata.DownloadedAt)),
+			ui.KV("Checksum", checksum),
 		}
 
 		ui.PrintKeyValuePaddedWithIndent(pairs, ui.Indent2)
@@ -287,7 +278,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 		}
 
 		if len(entries) == 0 {
-			ui.PrintInfo(fmt.Sprintf("No cached downloads found for license %s.", flagCacheLicenseKey))
+			ui.PrintEmpty("No cached downloads for license " + ui.Bold.Render(flagCacheLicenseKey))
 			return nil
 		}
 
@@ -300,15 +291,14 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to purge cached downloads for license %s: %w", flagCacheLicenseKey, err)
 		}
 
-		ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) for license %s (%s freed).",
-			len(entries), flagCacheLicenseKey, ui.FormatBytes(totalSize)))
+		ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
+			ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize)), nil)
 
 		return nil
 	}
 
 	if !flagCacheAll {
-		ui.PrintWarning("Use --all to confirm purging all cached downloads, or --license to purge a specific license.")
-		return nil
+		return newUsageError(errors.New("specify --all to purge everything, or --license <key> for one license"))
 	}
 
 	entries, err := manager.List()
@@ -317,7 +307,7 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(entries) == 0 {
-		ui.PrintInfo("No cached downloads to purge.")
+		ui.PrintEmpty("No cached downloads to purge")
 		return nil
 	}
 
@@ -330,7 +320,8 @@ func runCachePurge(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to purge all cached downloads: %w", err)
 	}
 
-	ui.PrintSuccess(fmt.Sprintf("Purged %d cached download(s) (%s freed).", len(entries), ui.FormatBytes(totalSize)))
+	ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
+		ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize)), nil)
 
 	return nil
 }
@@ -341,7 +332,8 @@ func runCachePath(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	ui.Println(ui.Path.Render(cfg.CachePath))
+	// Bare output: consumed by shell substitution, e.g. open $(xf cache path).
+	fmt.Println(cfg.CachePath)
 
 	return nil
 }

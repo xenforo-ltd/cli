@@ -17,16 +17,15 @@ var selfUpdateCmd = &cobra.Command{
 	Long: `Check for and install updates to the xf tool.
 
 By default, this command will check for updates and install them automatically.
-Use --check-only to just check if an update is available without installing.
-
-Examples:
-  # Check for and install updates
+Use --check-only to just check if an update is available without installing.`,
+	Example: `  # Check for and install updates
   xf self-update
 
   # Just check for updates without installing
   xf self-update --check-only`,
-	Args: cobra.NoArgs,
-	RunE: runSelfUpdate,
+	Args:    cobra.NoArgs,
+	GroupID: "maint",
+	RunE:    runSelfUpdate,
 }
 
 func init() {
@@ -49,48 +48,57 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 
-	spinner.Stop()
-
-	ui.Println()
-	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("Current version", ui.Version.Render(info.CurrentVersion)),
-		ui.KV("Latest version", ui.Version.Render(info.LatestVersion)),
-	})
-	ui.Println()
+	spinner.StopWithMessage("info", "Current version "+ui.Version.Render(info.CurrentVersion)+", latest "+ui.Version.Render(info.LatestVersion))
 
 	if !info.HasUpdate {
-		ui.PrintSuccess("You are already running the latest version.")
+		ui.PrintSuccess("Already on the latest version")
 		return nil
 	}
 
-	ui.PrintInfo("A new version is available!")
+	ui.PrintInfo("Update available: " + ui.Version.Render(info.LatestVersion))
 
 	if info.ReleaseURL != "" {
-		ui.Printf("Release notes: %s\n", ui.URL.Render(info.ReleaseURL))
+		ui.PrintKeyValuePadded([]ui.KVPair{ui.KV("Release notes", ui.URL.Render(info.ReleaseURL))})
 	}
 
-	ui.Println()
-
 	if selfUpdateCheckOnly {
-		ui.PrintWarning(fmt.Sprintf("Run '%s' to install the update.", ui.Command.Render("xf self-update")))
+		ui.PrintHint("Run " + ui.Command.Render("xf self-update") + " to install")
 		return nil
 	}
 
-	ui.Printf("Downloading %s...\n", info.AssetName)
+	ui.PrintSubstep("Downloading " + info.AssetName)
 
-	var progressBar *ui.ProgressBar
+	var (
+		progressBar *ui.ProgressBar
+		dlSpinner   *ui.Spinner
+	)
 
 	err = updater.Update(ctx, info, func(downloaded, total int64) {
 		if total > 0 {
+			if dlSpinner != nil {
+				dlSpinner.Stop()
+				dlSpinner = nil
+			}
+
 			if progressBar == nil {
-				progressBar = ui.NewProgressBar(total, "")
+				progressBar = ui.NewProgressBar(total, info.AssetName)
 			}
 
 			progressBar.Update(downloaded)
+		} else if dlSpinner == nil {
+			dlSpinner = ui.NewSpinner("Downloading " + info.AssetName)
+			dlSpinner.Start()
 		}
 	})
 	if err != nil {
-		ui.Println()
+		if progressBar != nil {
+			progressBar.Abandon()
+		}
+
+		if dlSpinner != nil {
+			dlSpinner.Stop()
+		}
+
 		return fmt.Errorf("failed to install self-update: %w", err)
 	}
 
@@ -98,15 +106,15 @@ func runSelfUpdate(cmd *cobra.Command, args []string) error {
 		progressBar.Finish()
 	}
 
+	if dlSpinner != nil {
+		dlSpinner.Stop()
+	}
+
 	ui.Println()
-	ui.PrintSuccess("Update successful!")
-	ui.Println()
-	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("Previous", ui.Version.Render(info.CurrentVersion)),
-		ui.KV("Current", ui.Version.Render(info.LatestVersion)),
+	ui.SuccessBox("Updated to "+ui.Version.Render(info.LatestVersion), []ui.KVPair{
+		ui.KV("Previous version", info.CurrentVersion),
+		ui.KV("Current version", info.LatestVersion),
 	})
-	ui.Println()
-	ui.Printf("Run '%s' to verify the update.\n", ui.Command.Render("xf version"))
 
 	return nil
 }

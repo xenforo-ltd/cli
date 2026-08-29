@@ -20,10 +20,8 @@ var authCmd = &cobra.Command{
 	Long: `Manage OAuth authentication with XenForo customer area.
 
 Authentication is required to download XenForo packages and access your licenses.
-Tokens are stored securely in your system keychain.
-
-Examples:
-  # Log in to your XenForo account
+Tokens are stored securely in your system keychain.`,
+	Example: `  # Log in to your XenForo account
   xf auth login
 
   # Check current authentication status
@@ -34,7 +32,8 @@ Examples:
 	// NoArgs rejects an unknown subcommand with cobra's own error. RunE is
 	// required alongside it: without a RunE, cobra skips a parent's Args
 	// validator entirely and silently prints help instead.
-	Args: cobra.NoArgs,
+	Args:    cobra.NoArgs,
+	GroupID: "start",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		return cmd.Help()
 	},
@@ -47,14 +46,12 @@ var authLoginCmd = &cobra.Command{
 
 This will open your browser to complete authentication. The CLI will automatically
 receive the authorization when you complete the login. Tokens are stored securely
-in your system keychain.
+in your system keychain.`,
+	Example: `  # Standard login (opens browser)
+  xf auth login
 
-	Examples:
-	  # Standard login (opens browser)
-	  xf auth login
-
-	  # Login with custom timeout
-	  xf auth login --timeout 600`,
+  # Login with custom timeout
+  xf auth login --timeout 600`,
 	Args: cobra.NoArgs,
 	RunE: runAuthLogin,
 }
@@ -65,10 +62,8 @@ var authStatusCmd = &cobra.Command{
 	Long: `Display the current authentication status, including token validity.
 
 This command shows whether you're authenticated, token expiration time,
-and performs server-side validation to ensure the token is still active.
-
-Examples:
-  # Show authentication status
+and performs server-side validation to ensure the token is still active.`,
+	Example: `  # Show authentication status
   xf auth status
 
   # Output as JSON (useful for scripts)
@@ -80,15 +75,8 @@ Examples:
 var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Log out and revoke tokens",
-	Long: `Revoke the current OAuth tokens and remove them from the keychain.
-
-This command will:
-  1. Revoke the access token on the server
-  2. Revoke the refresh token on the server (if present)
-  3. Remove tokens from your system keychain
-
-Examples:
-  # Log out
+	Long:  `Log out by revoking the access and refresh tokens and removing them from the system keychain.`,
+	Example: `  # Log out
   xf auth logout`,
 	Args: cobra.NoArgs,
 	RunE: runAuthLogout,
@@ -100,10 +88,8 @@ var authRefreshCmd = &cobra.Command{
 	Long: `Manually refresh the access token using the stored refresh token.
 
 Normally, tokens are refreshed automatically when needed. Use this command
-to manually refresh before the token expires.
-
-Examples:
-  # Manually refresh token
+to manually refresh before the token expires.`,
+	Example: `  # Manually refresh token
   xf auth refresh`,
 	Args: cobra.NoArgs,
 	RunE: runAuthRefresh,
@@ -128,11 +114,20 @@ func init() {
 	rootCmd.AddCommand(authCmd)
 }
 
+// errKeychainUnavailable is the shared error for every auth subcommand that
+// requires the system keychain but finds it unavailable.
+func errKeychainUnavailable() error {
+	return withHint(
+		markAs(ErrKeychainUnavailable, "the system keychain is not available"),
+		"Tokens are stored in the keychain; unlock or enable it and try again",
+	)
+}
+
 func runAuthLogin(cmd *cobra.Command, args []string) error {
 	kc := auth.NewKeychain()
 
 	if !kc.IsAvailable() {
-		return fmt.Errorf("system keychain is not available - this is required for secure token storage: %w", ErrKeychainUnavailable)
+		return errKeychainUnavailable()
 	}
 
 	pkce, err := auth.GeneratePKCE()
@@ -164,43 +159,90 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	redirectURI := callbackServer.RedirectURI()
 	authURL := client.AuthorizationURL(pkce, redirectURI)
 
-	ui.PrintInfo("Opening browser for authentication...")
-	ui.PrintInfo(fmt.Sprintf("If the browser doesn't open, visit this URL:\n%s\n\n", ui.URL.Render(authURL)))
+	ui.PrintInfo("If the browser does not open, visit:")
+	ui.Printf("%s%s\n", ui.Indent1, ui.URL.Render(authURL))
+	ui.Println()
+
+	spinner := ui.NewSpinner("Opening browser for authentication")
+	spinner.Start()
 
 	if err := auth.OpenBrowser(cmd.Context(), authURL); err != nil {
-		ui.PrintWarning(fmt.Sprintf("Could not open browser automatically: %v", err))
+		// Stop the spinner before printing so the warning lands on its own
+		// line instead of being overwritten by the next animation frame.
+		spinner.Stop()
+		ui.PrintWarning("Could not open the browser automatically — use the URL above")
+		spinner.Start()
 	}
 
-	ui.PrintInfo("Waiting for authentication...")
+	spinner.UpdateMessage("Waiting for authentication in the browser")
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), time.Duration(flagAuthTimeout)*time.Second)
 	defer cancel()
 
 	result, err := callbackServer.WaitForCallback(ctx)
 	if err != nil {
+		spinner.Stop()
 		return fmt.Errorf("failed to wait for authentication callback: %w", err)
 	}
 
 	if result.Error != "" {
+		spinner.Stop()
 		return fmt.Errorf("authentication failed: %s: %w", result.Error, ErrAuthFailed)
 	}
 
 	if result.State != pkce.State {
+		spinner.Stop()
 		return fmt.Errorf("authentication failed: state mismatch (possible CSRF attack): %w", ErrAuthFailed)
 	}
 
-	ui.PrintInfo("Exchanging authorization code for tokens...")
+	spinner.UpdateMessage("Completing authentication")
 
 	token, err := client.ExchangeCode(ctx, result.Code, pkce, redirectURI)
 	if err != nil {
+		spinner.Stop()
 		return fmt.Errorf("failed to exchange authorization code for token: %w", err)
 	}
 
 	if err := kc.SaveToken(token); err != nil {
+		spinner.Stop()
 		return fmt.Errorf("failed to save authentication token: %w", err)
 	}
 
-	ui.PrintSuccess("Authentication successful!")
+	message := "Authentication complete"
+
+	ctx2, cancel2 := context.WithTimeout(cmd.Context(), 10*time.Second)
+	defer cancel2()
+
+	if introspect, err := client.IntrospectToken(ctx2, token.AccessToken); err == nil && introspect.Username != "" {
+		message = "Authenticated as " + ui.Bold.Render(introspect.Username)
+	}
+
+	spinner.StopWithMessage("success", message)
+
+	return nil
+}
+
+// authStatusJSON is the single stable shape for `xf auth status --json`,
+// regardless of whether the keychain is unavailable, no token is stored, or
+// a token is present (valid or expired).
+type authStatusJSON struct {
+	Authenticated bool   `json:"authenticated"`
+	Expired       bool   `json:"expired"`
+	Scope         string `json:"scope,omitempty"`
+	IssuedAt      string `json:"issued_at,omitempty"`  // RFC3339
+	ExpiresAt     string `json:"expires_at,omitempty"` // RFC3339
+	ServerValid   *bool  `json:"server_valid,omitempty"`
+	Username      string `json:"username,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+func printAuthStatusJSON(output authStatusJSON) error {
+	data, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal auth status: %w", err)
+	}
+
+	fmt.Println(string(data))
 
 	return nil
 }
@@ -210,17 +252,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 
 	if !kc.IsAvailable() {
 		if flagAuthStatusJSON {
-			data, err := json.Marshal(map[string]any{
-				"authenticated": false,
-				"error":         "keychain unavailable",
-			})
-			if err != nil {
-				return fmt.Errorf("failed to marshal auth status: %w", err)
-			}
-
-			ui.Println(string(data))
-
-			return nil
+			return printAuthStatusJSON(authStatusJSON{Error: "keychain unavailable"})
 		}
 
 		ui.PrintWarning("Not authenticated (keychain unavailable)")
@@ -232,20 +264,11 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if errors.Is(err, auth.ErrAuthRequired) {
 			if flagAuthStatusJSON {
-				data, err := json.Marshal(map[string]any{
-					"authenticated": false,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to marshal auth status: %w", err)
-				}
-
-				ui.Println(string(data))
-
-				return nil
+				return printAuthStatusJSON(authStatusJSON{})
 			}
 
-			ui.PrintWarning("Not authenticated")
-			ui.Printf("Run %s to authenticate.\n", ui.Command.Render("xf auth login"))
+			ui.PrintInfo("Not authenticated")
+			ui.PrintHint("Run " + ui.Command.Render("xf auth login") + " to authenticate")
 
 			return nil
 		}
@@ -253,12 +276,15 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load authentication token: %w", err)
 	}
 
+	expired := token.IsExpired()
+	refreshable := token.RefreshToken != ""
+
 	var (
 		serverValid *bool
 		username    string
 	)
 
-	if !token.IsExpired() {
+	if !expired {
 		client := auth.NewOAuthClient(&config.OAuthConfig{
 			BaseURL: token.BaseURL,
 		})
@@ -274,64 +300,59 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagAuthStatusJSON {
-		output := map[string]any{
-			"authenticated": true,
-			"scope":         token.Scope,
-			"expires_at":    token.ExpiresAt.Format(time.RFC3339),
-			"issued_at":     token.IssuedAt.Format(time.RFC3339),
-			"expired":       token.IsExpired(),
-		}
-		if serverValid != nil {
-			output["server_valid"] = *serverValid
-		}
-
-		if username != "" {
-			output["username"] = username
-		}
-
-		data, err := json.MarshalIndent(output, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal auth status: %w", err)
-		}
-
-		ui.Println(string(data))
-
-		return nil
+		return printAuthStatusJSON(authStatusJSON{
+			Authenticated: true,
+			Expired:       expired,
+			Scope:         token.Scope,
+			IssuedAt:      token.IssuedAt.Format(time.RFC3339),
+			ExpiresAt:     token.ExpiresAt.Format(time.RFC3339),
+			ServerValid:   serverValid,
+			Username:      username,
+		})
 	}
 
-	ui.PrintSuccess("Authenticated")
-	ui.Println()
+	switch {
+	case expired && refreshable:
+		ui.PrintWarning("Authenticated — token expired (will refresh automatically)")
+	case expired:
+		ui.PrintError("Authenticated — token expired")
+		ui.PrintHint("Run " + ui.Command.Render("xf auth login") + " to re-authenticate")
+	default:
+		ui.PrintSuccess("Authenticated")
+	}
 
-	var pairs []ui.KVPair
+	var expiresValue string
+
+	if expired {
+		expiresValue = ui.Warning.Render(ui.FormatDateTime(token.ExpiresAt) + " (expired)")
+	} else {
+		remaining := time.Until(token.ExpiresAt).Round(time.Minute)
+		expiresValue = fmt.Sprintf("%s (in %s)", ui.FormatDateTime(token.ExpiresAt), remaining)
+	}
+
+	pairs := make([]ui.KVPair, 0, 5)
+
 	if username != "" {
 		pairs = append(pairs, ui.KV("User", username))
 	}
 
-	pairs = append(pairs, ui.KV("Scope", token.Scope))
-	pairs = append(pairs, ui.KV("Issued", token.IssuedAt.Format(time.RFC1123)))
-	pairs = append(pairs, ui.KV("Expires", token.ExpiresAt.Format(time.RFC1123)))
-	ui.PrintKeyValuePadded(pairs)
-
-	ui.Println()
-
-	if token.IsExpired() {
-		ui.Printf("%s %s\n", ui.StatusIcon("error"), ui.Error.Render("Token EXPIRED"))
-
-		if token.RefreshToken != "" {
-			ui.PrintDetail("Token can be refreshed automatically")
-		}
-	} else {
-		remaining := token.TimeUntilExpiry().Round(time.Minute)
-		ui.Printf("%s Token valid (%s remaining)\n", ui.StatusIcon("success"), ui.Success.Render(remaining.String()))
-	}
+	pairs = append(pairs,
+		ui.KV("Scope", token.Scope),
+		ui.KV("Issued", ui.FormatDateTime(token.IssuedAt)),
+		ui.KV("Expires", expiresValue),
+	)
 
 	if serverValid != nil {
-		if *serverValid {
-			ui.Printf("%s Server validation: %s\n", ui.StatusIcon("success"), ui.Success.Render("Active"))
-		} else {
-			ui.Printf("%s Server validation: %s\n", ui.StatusIcon("error"), ui.Error.Render("Revoked or Invalid"))
+		serverValue := ui.Success.Render("Active")
+		if !*serverValid {
+			serverValue = ui.Error.Render("Revoked or invalid")
 		}
+
+		pairs = append(pairs, ui.KV("Server validation", serverValue))
 	}
+
+	ui.Println()
+	ui.PrintKeyValuePadded(pairs)
 
 	return nil
 }
@@ -340,13 +361,13 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 	kc := auth.NewKeychain()
 
 	if !kc.IsAvailable() {
-		return fmt.Errorf("system keychain is not available: %w", ErrKeychainUnavailable)
+		return errKeychainUnavailable()
 	}
 
 	token, err := kc.LoadToken()
 	if err != nil {
 		if errors.Is(err, auth.ErrAuthRequired) {
-			ui.PrintInfo("Already logged out.")
+			ui.PrintInfo("Already logged out")
 			return nil
 		}
 
@@ -383,7 +404,7 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to delete authentication token: %w", err)
 	}
 
-	ui.PrintSuccess("Logged out successfully.")
+	ui.SuccessBox("Logged out", nil)
 
 	return nil
 }
@@ -392,7 +413,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	kc := auth.NewKeychain()
 
 	if !kc.IsAvailable() {
-		return fmt.Errorf("system keychain is not available: %w", ErrKeychainUnavailable)
+		return errKeychainUnavailable()
 	}
 
 	token, err := kc.LoadToken()
@@ -401,10 +422,10 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	}
 
 	if token.RefreshToken == "" {
-		return fmt.Errorf("no refresh token available - run 'xf auth login': %w", ErrAuthFailed)
+		return withHint(errors.New("no refresh token available"), "Run "+ui.Command.Render("xf auth login")+" to authenticate")
 	}
 
-	ui.PrintInfo("Refreshing access token...")
+	ui.PrintInfo("Refreshing access token")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -428,10 +449,10 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save refreshed authentication token: %w", err)
 	}
 
-	ui.PrintSuccess("Token refreshed successfully!")
+	ui.PrintSuccess("Token refreshed")
 	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("New expiry", newToken.ExpiresAt.Format(time.RFC1123)),
+		ui.KV("New expiry", ui.FormatDateTime(newToken.ExpiresAt)),
 		ui.KV("Time until expiry", newToken.TimeUntilExpiry().Round(time.Minute).String()),
 	})
 

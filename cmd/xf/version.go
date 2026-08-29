@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -21,10 +22,8 @@ var versionCmd = &cobra.Command{
 	Long: `Display the version, build commit, build date, and runtime information.
 
 Shows detailed build information including the exact Git commit and
-build timestamp when available.
-
-Examples:
-  # Show full version info
+build timestamp when available.`,
+	Example: `  # Show full version info
   xf version
 
   # Show only version number
@@ -32,8 +31,9 @@ Examples:
 
   # Output as JSON (useful for scripting)
   xf version --json`,
-	Args: cobra.NoArgs,
-	RunE: runVersion,
+	Args:    cobra.NoArgs,
+	GroupID: "maint",
+	RunE:    runVersion,
 }
 
 func init() {
@@ -46,7 +46,7 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	info := version.Get()
 
 	if flagVersionShort {
-		ui.Println(ui.Version.Render(info.Short()))
+		fmt.Println(info.Version)
 		return nil
 	}
 
@@ -61,15 +61,21 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	ui.Printf("%s %s\n\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
+	ui.Printf("%s %s\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
+	ui.Println()
 
 	var pairs []ui.KVPair
 	if info.Commit != "" && info.Commit != "unknown" {
-		pairs = append(pairs, ui.KV("Commit", ui.Dim.Render(info.Commit)))
+		pairs = append(pairs, ui.KV("Commit", info.Commit))
 	}
 
 	if info.Date != "" && info.Date != "unknown" {
-		pairs = append(pairs, ui.KV("Built", info.Date))
+		built := info.Date
+		if t, err := time.Parse(time.RFC3339, info.Date); err == nil {
+			built = ui.FormatDateTime(t)
+		}
+
+		pairs = append(pairs, ui.KV("Built", built))
 	}
 
 	pairs = append(pairs, ui.KV("Go version", info.GoVersion))

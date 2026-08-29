@@ -16,8 +16,13 @@ func TestExtractDockerFilesWithOptions_NoOverwriteBaseFiles(t *testing.T) {
 		t.Fatalf("write custom compose: %v", err)
 	}
 
-	if err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false}); err != nil {
+	written, err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false})
+	if err != nil {
 		t.Fatalf("extract docker files: %v", err)
+	}
+
+	if len(written) != 0 {
+		t.Fatalf("expected no .default files written, got %v", written)
 	}
 
 	got, err := os.ReadFile(composePath)
@@ -42,7 +47,7 @@ func TestExtractDockerFilesWithOptions_OverwriteBaseFiles(t *testing.T) {
 		t.Fatalf("write custom compose: %v", err)
 	}
 
-	if err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: true}); err != nil {
+	if _, err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: true}); err != nil {
 		t.Fatalf("extract docker files: %v", err)
 	}
 
@@ -70,7 +75,8 @@ func TestExtractDockerFilesWithOptions_DefaultFileBehaviorUnchanged(t *testing.T
 		t.Fatalf("write custom env: %v", err)
 	}
 
-	if err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false}); err != nil {
+	written, err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false})
+	if err != nil {
 		t.Fatalf("extract docker files: %v", err)
 	}
 
@@ -86,5 +92,9 @@ func TestExtractDockerFilesWithOptions_DefaultFileBehaviorUnchanged(t *testing.T
 	defaultPath := filepath.Join(tmp, ".env.default")
 	if _, err := os.Stat(defaultPath); err != nil {
 		t.Fatalf("expected .env.default to be generated: %v", err)
+	}
+
+	if len(written) != 1 || written[0] != defaultPath {
+		t.Fatalf("expected written to be [%s], got %v", defaultPath, written)
 	}
 }

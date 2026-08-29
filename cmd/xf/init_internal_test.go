@@ -13,6 +13,31 @@ import (
 
 var errTestBoom = errors.New("boom")
 
+func TestPlannedInitSteps(t *testing.T) {
+	tests := []struct {
+		name        string
+		opts        InitOptions
+		hasComposer bool
+		want        int
+	}{
+		{name: "full run with composer", opts: InitOptions{}, hasComposer: true, want: 8},
+		{name: "full run without composer", opts: InitOptions{}, hasComposer: false, want: 7},
+		{name: "skip install, with composer", opts: InitOptions{SkipInstall: true}, hasComposer: true, want: 8},
+		{name: "skip composer, composer present", opts: InitOptions{SkipComposer: true}, hasComposer: true, want: 8},
+		{name: "skip up", opts: InitOptions{SkipUp: true}, hasComposer: true, want: 6},
+		{name: "skip up, no composer", opts: InitOptions{SkipUp: true}, hasComposer: false, want: 6},
+		{name: "skip up and skip install", opts: InitOptions{SkipUp: true, SkipInstall: true}, hasComposer: true, want: 6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := plannedInitSteps(tt.opts, tt.hasComposer); got != tt.want {
+				t.Fatalf("plannedInitSteps(%+v, hasComposer=%v) = %d, want %d", tt.opts, tt.hasComposer, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseInstallImportMessage(t *testing.T) {
 	if got := parseInstallImportMessage("Importing master data (phrases: 35%)"); got != "importing phrases (35%)" {
 		t.Fatalf("unexpected message: %q", got)
@@ -53,6 +78,63 @@ func TestPhaseTrackerWriterProcessLine(t *testing.T) {
 	if len(tail) == 0 {
 		t.Fatal("expected tail lines")
 	}
+}
+
+// TestValidateTargetDirectory covers the silent precondition check hoisted
+// ahead of composer detection in executeInit: it must agree with
+// prepareTargetDirectory's own reject/allow decisions, since
+// prepareTargetDirectory re-checks the same condition when it later runs as
+// the printed step.
+func TestValidateTargetDirectory(t *testing.T) {
+	t.Run("missing dir is allowed", func(t *testing.T) {
+		target := filepath.Join(t.TempDir(), "new-dir")
+		if err := validateTargetDirectory(target); err != nil {
+			t.Fatalf("validateTargetDirectory failed: %v", err)
+		}
+
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("validateTargetDirectory must not create the directory, stat err=%v", err)
+		}
+	})
+
+	t.Run("rejects file path", func(t *testing.T) {
+		file := filepath.Join(t.TempDir(), "file")
+		if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+			t.Fatalf("seed file: %v", err)
+		}
+
+		if err := validateTargetDirectory(file); err == nil {
+			t.Fatal("expected error for non-directory target")
+		}
+	})
+
+	t.Run("rejects non-empty non-xenforo dir", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "something.txt"), []byte("x"), 0o600); err != nil {
+			t.Fatalf("seed file: %v", err)
+		}
+
+		if err := validateTargetDirectory(dir); err == nil {
+			t.Fatal("expected error for non-empty non-XenForo directory")
+		}
+	})
+
+	t.Run("allows non-empty xenforo dir", func(t *testing.T) {
+		dir := t.TempDir()
+
+		xfPath := filepath.Join(dir, "src", "XF.php")
+		if err := os.MkdirAll(filepath.Dir(xfPath), 0o750); err != nil {
+			t.Fatalf("create XF src dir: %v", err)
+		}
+
+		if err := os.WriteFile(xfPath, []byte("<?php // XF stub"), 0o600); err != nil {
+			t.Fatalf("seed XF.php: %v", err)
+		}
+
+		if err := validateTargetDirectory(dir); err != nil {
+			t.Fatalf("validateTargetDirectory should allow non-empty XenForo directory: %v", err)
+		}
+	})
 }
 
 func TestPrepareTargetDirectory(t *testing.T) {
@@ -121,7 +203,7 @@ func TestHelpersFormatting(t *testing.T) {
 	}
 
 	lic := customerapi.License{LicenseKey: "ABC", SiteTitle: "Site", SiteURL: "https://example.com"}
-	if got := licenseOptionLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
+	if got := licenseLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
 		t.Fatalf("unexpected license label: %q", got)
 	}
 

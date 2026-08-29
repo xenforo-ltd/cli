@@ -94,7 +94,7 @@ func (k *Keychain) LoadToken() (*Token, error) {
 	data, err := keyring.Get(KeyringService, KeyringUser)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
-			return nil, fmt.Errorf("not authenticated - run 'xf auth login': %w", err)
+			return nil, fmt.Errorf("not authenticated - run 'xf auth login': %w", ErrAuthRequired)
 		}
 
 		return nil, fmt.Errorf("failed to read token from keychain: %w", err)

@@ -251,6 +251,28 @@ func GetZipRootDirectory(zipPath string) (string, error) {
 	return root, nil
 }
 
+// ContainsUploadFile reports whether a XenForo-shaped ZIP (see XenForoZip)
+// contains the named file directly under its "upload/" directory, without
+// extracting anything. It is used to decide whether a package will need a
+// post-extraction step (e.g. a Composer install) before extraction has run.
+func ContainsUploadFile(zipPath, name string) (bool, error) {
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer reader.Close()
+
+	want := "upload/" + name
+
+	for _, file := range reader.File {
+		if filepath.ToSlash(file.Name) == want {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // XenForoZip extracts a XenForo ZIP file to the destination.
 // It extracts only files from within the "upload/" directory, stripping that prefix.
 // This handles XenForo's ZIP structure where files are under upload/ but there may

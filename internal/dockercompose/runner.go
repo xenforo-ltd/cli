@@ -4,6 +4,7 @@ package dockercompose
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -236,6 +237,93 @@ func (r *Runner) PS(ctx context.Context) error {
 	return r.runDockerCommand(ctx, args...)
 }
 
+// ContainerInfo describes a single container's status, as reported by
+// `docker compose ps --format json`.
+type ContainerInfo struct {
+	Service string `json:"Service"`
+	Name    string `json:"Name"`
+	State   string `json:"State"`
+	Status  string `json:"Status"`
+	Ports   string `json:"Ports"`
+}
+
+// PSInfo returns container status parsed from `docker compose ps --format json`.
+func (r *Runner) PSInfo(ctx context.Context) ([]ContainerInfo, error) {
+	args := r.buildComposeArgs()
+	args = append(args, "ps", "--format", "json")
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = r.xfDir
+	cmd.Env = append(os.Environ(), "XF_DIR="+r.xfDir)
+
+	var stdout, stderr bytes.Buffer
+
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		// stderr carries the useful diagnosis (bad compose file, daemon not
+		// running); without it the caller only sees "exit status N".
+		if detail := bytes.TrimSpace(stderr.Bytes()); len(detail) > 0 {
+			return nil, contextError(ctx, fmt.Errorf("docker command failed: %w: %s", err, detail))
+		}
+
+		return nil, contextError(ctx, fmt.Errorf("docker command failed: %w", err))
+	}
+
+	return parseContainerInfo(stdout.Bytes())
+}
+
+// parseContainerInfo decodes `docker compose ps --format json` output.
+//
+// Compose versions disagree on the shape: newer releases (v2.21+) emit
+// NDJSON, one container object per line, while some emit a single JSON
+// array. Both are decoded by streaming with json.Decoder, which handles a
+// top-level array transparently and also handles consecutive top-level
+// objects (NDJSON) since Decode can be called repeatedly on the same stream.
+func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return []ContainerInfo{}, nil
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+
+	containers := []ContainerInfo{}
+
+	for decoder.More() {
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
+			return nil, fmt.Errorf("failed to parse container status: %w", err)
+		}
+
+		trimmedRaw := bytes.TrimSpace(raw)
+		if len(trimmedRaw) == 0 {
+			continue
+		}
+
+		if trimmedRaw[0] == '[' {
+			var arr []ContainerInfo
+			if err := json.Unmarshal(trimmedRaw, &arr); err != nil {
+				return nil, fmt.Errorf("failed to parse container status: %w", err)
+			}
+
+			containers = append(containers, arr...)
+
+			continue
+		}
+
+		var info ContainerInfo
+		if err := json.Unmarshal(trimmedRaw, &info); err != nil {
+			return nil, fmt.Errorf("failed to parse container status: %w", err)
+		}
+
+		containers = append(containers, info)
+	}
+
+	return containers, nil
+}
+
 // Logs shows container logs.
 func (r *Runner) Logs(ctx context.Context, follow bool, services ...string) error {
 	args := r.buildComposeArgs()
@@ -302,10 +390,26 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, rm bool, cmd ...
 			return r.Run(ctx, service, rm, cmd...)
 		}
 
+		// stderr is captured only to detect the not-running case above. For any
+		// other failure it is the command's own error message, so replay it
+		// rather than let the caller exit silently.
+		replayStderr(err, stderr)
+
 		return err
 	}
 
 	return r.Run(ctx, service, rm, cmd...)
+}
+
+// replayStderr writes a failed command's captured stderr to the process's own
+// stderr. Callers that capture stderr for the not-running probe would otherwise
+// swallow the command's real error message.
+func replayStderr(err error, stderr string) {
+	if err == nil || stderr == "" {
+		return
+	}
+
+	_, _ = io.WriteString(os.Stderr, stderr)
 }
 
 // ExecOrRunWithOutput uses exec for running services and falls back to run for stopped services.
@@ -323,6 +427,10 @@ func (r *Runner) ExecOrRunWithOutput(ctx context.Context, service string, rm boo
 		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithOutput(ctx, service, rm, stdout, stderr, cmd...)
+		}
+
+		if err != nil && stderrOutput != "" {
+			_, _ = io.WriteString(stderr, stderrOutput)
 		}
 
 		return err
@@ -350,6 +458,8 @@ func (r *Runner) ExecOrRunWithEnv(ctx context.Context, service string, rm bool, 
 			return r.RunWithEnv(ctx, service, rm, env, cmd...)
 		}
 
+		replayStderr(err, stderr)
+
 		return err
 	}
 
@@ -373,6 +483,10 @@ func (r *Runner) ExecOrRunWithEnvAndOutput(ctx context.Context, service string, 
 		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithEnvAndOutput(ctx, service, rm, env, stdout, stderr, cmd...)
+		}
+
+		if err != nil && stderrOutput != "" {
+			_, _ = io.WriteString(stderr, stderrOutput)
 		}
 
 		return err

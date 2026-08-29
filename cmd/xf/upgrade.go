@@ -34,10 +34,8 @@ This command:
 
 The target directory must contain an existing XenForo installation.
 If the installation was created with 'xf init', the license
-key will be detected automatically. Otherwise, use --license to specify it.
-
-Examples:
-  # Interactive upgrade (prompts for version)
+key will be detected automatically. Otherwise, use --license to specify it.`,
+	Example: `  # Interactive upgrade (prompts for version)
   xf upgrade ./my-project
 
   # Upgrade to a specific version
@@ -45,8 +43,9 @@ Examples:
 
   # Non-interactive upgrade
   xf upgrade ./my-project --version 2030971 --non-interactive`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runUpgrade,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runUpgrade,
 }
 
 // UpgradeOptions specifies upgrade parameters.
@@ -95,7 +94,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		SkipUpgrade:     flagUpgradeSkipCmd,
 	}
 
-	ui.Println(ui.Bold.Render("Checking installation..."))
+	ui.Println(ui.Header.Render("Checking installation"))
+	ui.Println()
 
 	currentVersion, err := xf.DetectVersion(absPath)
 	if err != nil {
@@ -104,33 +104,28 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	opts.CurrentVersion = currentVersion
 
-	ui.Println()
-	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("Current version", fmt.Sprintf("%s (ID: %d)", currentVersion.String, currentVersion.ID)),
-	})
-
 	meta, err := xf.ReadMetadata(absPath)
 	if err != nil && !errors.Is(err, xf.ErrMetadataNotFound) {
 		return fmt.Errorf("failed to read installation metadata: %w", err)
 	}
 
-	if meta != nil {
-		var pairs []ui.KVPair
+	pairs := []ui.KVPair{
+		ui.KV("Current version", ui.Version.Render(currentVersion.String)+ui.Dim.Render(fmt.Sprintf(" (id %d)", currentVersion.ID))),
+	}
 
+	if meta != nil {
 		if opts.LicenseKey == "" {
 			opts.LicenseKey = meta.LicenseKey
-			pairs = append(pairs, ui.KV("License key", opts.LicenseKey+" (from metadata)"))
+			pairs = append(pairs, ui.KV("License key", opts.LicenseKey+ui.Dim.Render(" (from metadata)")))
 		}
 
 		opts.Products = meta.InstalledProducts
 		if len(opts.Products) > 0 {
 			pairs = append(pairs, ui.KV("Products", strings.Join(opts.Products, ", ")))
 		}
-
-		if len(pairs) > 0 {
-			ui.PrintKeyValuePadded(pairs)
-		}
 	}
+
+	ui.PrintKeyValuePadded(pairs)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -248,7 +243,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 
 		if len(versionOptions) == 0 {
 			ui.Println()
-			ui.PrintSuccess("No newer versions available. Your installation is up to date!")
+			ui.PrintSuccess("Already on the latest version")
 
 			return nil
 		}
@@ -286,7 +281,11 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	}
 
 	step := 1
+
 	totalSteps := 3
+	if opts.SkipUpgrade {
+		totalSteps = 2
+	}
 
 	ui.Println()
 	ui.PrintStep(step, totalSteps, "Downloading upgrade files")
@@ -311,12 +310,12 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	}
 
 	if err := xf.UpdateMetadataVersion(opts.TargetPath, targetVersion); err != nil {
-		ui.PrintWarning(fmt.Sprintf("Could not update metadata: %v", err))
+		ui.PrintWarning("Could not update metadata")
+		printCause(err)
 	}
 
-	ui.Println()
-
 	if !opts.SkipUpgrade {
+		ui.Println()
 		ui.PrintStep(step, totalSteps, "Running XenForo upgrade")
 
 		runner, err := dockercompose.NewRunner(opts.TargetPath)
@@ -325,31 +324,29 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 		}
 
 		if err := runner.XFCommand(ctx, "xf:upgrade"); err != nil {
-			ui.PrintWarning(fmt.Sprintf("xf:upgrade failed: %v", err))
-			ui.Println("    You may need to start the containers first with 'up',")
-			ui.Println("    then run the upgrade manually:")
-			ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:upgrade", opts.TargetPath)))
+			ui.PrintError("xf:upgrade failed")
+			ui.PrintHint("Start the environment with " + ui.Command.Render("xf up") + " and run " + ui.Command.Render("xf xf:upgrade") + " to finish")
+
+			// passthroughError preserves the child's own exit status, and
+			// reports non-exit failures (such as cancellation) as themselves
+			// rather than flattening everything to 1.
+			return passthroughError(err, "xf:upgrade failed")
 		}
-	} else {
-		ui.PrintStep(step, totalSteps, "Skipped (--skip-upgrade flag set)")
+	}
+
+	successDetails := []ui.KVPair{
+		ui.KV("Path", ui.Path.Render(ui.ShortHome(opts.TargetPath))),
+	}
+	if opts.TargetVersionString != "" {
+		successDetails = append(successDetails, ui.KV("New version", ui.Version.Render(opts.TargetVersionString)))
 	}
 
 	ui.Println()
-	ui.SuccessBox("XenForo upgrade completed!", []ui.KVPair{
-		ui.KV("Location", ui.Path.Render(opts.TargetPath)),
-		ui.KV("Previous version", opts.CurrentVersion.String),
-		ui.KV("New version", ui.Version.Render(opts.TargetVersionString)),
-	})
+	ui.SuccessBox("XenForo upgrade complete", successDetails)
 
-	if !opts.SkipUpgrade {
+	if opts.SkipUpgrade {
 		ui.Println()
-		ui.PrintSuccess("Your XenForo installation has been upgraded.")
-	} else {
-		ui.Println()
-		ui.Println("Files have been upgraded. Run the following to complete:")
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("cd "+opts.TargetPath))
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf xf:upgrade"))
+		ui.PrintHint("Complete the upgrade: " + ui.Command.Render("cd "+ui.ShortHome(opts.TargetPath)) + " && " + ui.Command.Render("xf xf:upgrade"))
 	}
 
 	return nil
@@ -361,20 +358,47 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 		return nil, fmt.Errorf("failed to initialize cache manager: %w", err)
 	}
 
+	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
+
 	cachedFiles := make(map[string]*cache.Entry)
 
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.TargetVersionID, opts.TargetVersionString, nil, func(product string) {
-		ui.PrintWarning(fmt.Sprintf("No versions available for %s, skipping", product))
+		name := titleMap[product]
+		if name == "" {
+			name = product
+		}
+
+		ui.PrintWarning("No versions available for " + name + "; skipping")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve upgrade selections for license %s: %w", opts.LicenseKey, err)
 	}
 
 	for _, selection := range selections {
-		ui.PrintSubstep(fmt.Sprintf("Downloading %s...", selection.Product))
+		productName := titleMap[selection.Product]
+		if productName == "" {
+			productName = selection.Product
+		}
 
-		entry, versionStr, err := downloads.DownloadSelection(ctx, client, cacheManager, opts.LicenseKey, selection, false, nil)
+		var lastUpdate int64
+
+		spinner := ui.NewSpinner(fmt.Sprintf("Downloading %s %s", productName, selection.VersionString))
+		spinner.Start()
+
+		progress := func(current, total int64) {
+			if current-lastUpdate < 102400 && lastUpdate != 0 {
+				return
+			}
+
+			lastUpdate = current
+
+			spinner.UpdateMessage(fmt.Sprintf("Downloading %s %s (%s)", productName, selection.VersionString, ui.FormatBytes(current)))
+		}
+
+		entry, versionStr, err := downloads.DownloadSelection(ctx, client, cacheManager, opts.LicenseKey, selection, false, progress)
 		if err != nil {
+			spinner.Stop()
+
 			return nil, fmt.Errorf("failed to download %s for upgrade: %w", selection.Product, err)
 		}
 
@@ -382,7 +406,7 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 			opts.TargetVersionString = versionStr
 		}
 
-		ui.PrintDetail(fmt.Sprintf("Downloaded: %s (%s)", entry.Metadata.Filename, ui.FormatBytes(entry.Metadata.Size)))
+		spinner.StopWithMessage("success", fmt.Sprintf("Downloaded %s %s (%s)", productName, selection.VersionString, ui.FormatBytes(entry.Metadata.Size)))
 		cachedFiles[selection.Product] = entry
 	}
 

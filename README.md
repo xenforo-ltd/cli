@@ -296,8 +296,9 @@ xf completion zsh
 Available on all built-in commands:
 
 ```bash
---non-interactive      # Disable prompts (for CI/automation)
+-n, --no-interaction   # Disable prompts (for CI/automation)
 -v, --verbose          # Enable verbose output
+-c, --config <path>    # Use an alternative config file
 ```
 
 ## Data and Paths
