@@ -15,6 +15,11 @@ var (
 	cacheOnce sync.Once
 	cache     Config
 	errCache  error
+
+	// initMu guards Init, which configures viper's package-level singleton.
+	// Concurrent callers — notably parallel tests that each run the CLI —
+	// would otherwise race on that shared state.
+	initMu sync.Mutex
 )
 
 // Config holds all CLI configuration values.
@@ -69,6 +74,9 @@ func (cfg *OAuthConfig) Endpoints() *OAuthEndpoints {
 
 // Init sets up the configuration system and reads the config file if it exists.
 func Init(configFile string) error {
+	initMu.Lock()
+	defer initMu.Unlock()
+
 	if configFile != "" {
 		viper.SetConfigFile(configFile)
 	} else {
@@ -111,6 +119,12 @@ func Init(configFile string) error {
 // Load reads the configuration from the config file.
 func Load() (Config, error) {
 	cacheOnce.Do(func() {
+		// Unmarshal reads the same package-level viper instance that Init
+		// writes, so it takes the same lock: without it, a caller loading
+		// config while another initializes it races on that shared state.
+		initMu.Lock()
+		defer initMu.Unlock()
+
 		if err := viper.Unmarshal(&cache); err != nil {
 			errCache = fmt.Errorf("failed to unmarshal config: %w", err)
 		}

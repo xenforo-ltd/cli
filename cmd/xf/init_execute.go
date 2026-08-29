@@ -42,7 +42,20 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
+	// A repository checkout is the only source that needs Composer: it tracks
+	// a composer.json, while release packages ship vendor/ prebuilt and have
+	// none. That is knowable before the files land, so the total is correct
+	// from the first step rather than changing halfway through.
+	//
+	// --existing installs run from an existing checkout, so the target's own
+	// composer.json is the answer there.
+	runComposer := !opts.SkipComposer && shouldRunComposer(opts.TargetPath)
+
 	totalSteps := 7
+	if runComposer {
+		totalSteps++
+	}
+
 	step := 1
 
 	ui.Println()
@@ -150,6 +163,16 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintWarning(fmt.Sprintf("Could not auto-detect site URL, using fallback %s: %v", siteURL, detectedErr))
 		}
 
+		if runComposer {
+			ui.Println()
+			ui.PrintStep(step, totalSteps, "Installing Composer dependencies")
+			step++
+
+			if err := runComposerInstall(ctx, runner, cfg.Verbose); err != nil {
+				return err
+			}
+		}
+
 		ui.Println()
 		ui.PrintStep(step, totalSteps, "Installing XenForo")
 
@@ -173,9 +196,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 				"XF_INSTALL_PASSWORD": opts.AdminPassword,
 			}
 
-			installArgs = append(installArgs, "--password=$(printenv XF_INSTALL_PASSWORD)")
-			shellCmd := shellJoinArgs(append([]string{"php", "cmd.php"}, installArgs...))
-			shellInstallArgs := []string{"sh", "-c", shellCmd}
+			shellInstallArgs := []string{"sh", "-c", installShellCommand(installArgs)}
 
 			if cfg.Verbose {
 				ui.PrintSubstep("Running XenForo installation...")
@@ -647,6 +668,49 @@ func configureEnvironment(opts *InitOptions) error {
 
 	ui.PrintSubstep("Configured instance: " + opts.InstanceName)
 	ui.PrintDetail("Admin email: " + opts.AdminEmail)
+
+	return nil
+}
+
+// shouldRunComposer reports whether a directory is a Composer project.
+//
+// Repository checkouts track composer.json, so a fresh worktree has one and its
+// dependencies must be installed. Release packages ship vendor/ prebuilt and
+// have no manifest, so they are skipped automatically.
+func shouldRunComposer(targetPath string) bool {
+	info, err := os.Stat(filepath.Join(targetPath, "composer.json"))
+
+	return err == nil && !info.IsDir()
+}
+
+// runComposerInstall installs Composer dependencies inside the container.
+func runComposerInstall(ctx context.Context, runner *dockercompose.Runner, verbose bool) error {
+	args := []string{"install", "--no-interaction"}
+
+	if verbose {
+		ui.PrintSubstep("Running composer install...")
+
+		if err := runner.Composer(ctx, args...); err != nil {
+			return fmt.Errorf("failed to install Composer dependencies: %w", err)
+		}
+
+		return nil
+	}
+
+	spinner := ui.NewSpinner("Installing Composer dependencies...")
+	spinner.Start()
+
+	tracker := newPhaseTrackerWriter(spinner, "Installing Composer dependencies", nil)
+
+	composerArgs := append([]string{"composer"}, args...)
+	if err := runner.ExecOrRunWithOutput(ctx, "xf", true, tracker, tracker, composerArgs...); err != nil {
+		spinner.StopWithMessage("error", "Failed to install Composer dependencies")
+		printHiddenOutputTail("Composer output", tracker.TailLines())
+
+		return fmt.Errorf("failed to install Composer dependencies: %w", err)
+	}
+
+	spinner.StopWithMessage("success", "Composer dependencies installed")
 
 	return nil
 }

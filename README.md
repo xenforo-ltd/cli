@@ -145,6 +145,10 @@ xf init ./my-project \
 xf init ./existing-xf-project --existing
 xf init ./existing-xf-project --existing --up
 
+# Composer dependencies are installed automatically when the target
+# tracks a composer.json (repository checkouts). Release packages ship
+# vendor/ prebuilt and are skipped.
+
 # .env overrides (file + inline; inline wins)
 xf init ./my-project \
   --env-file ./my.env \
@@ -213,6 +217,41 @@ xf compose exec xf mysql -u root
 
 # Exec into a service
 xf exec xf ls -la
+```
+
+### Worktrees
+
+A worktree is a second checkout of the same repository on its own branch, with
+its own Docker containers and database. Worktrees are created alongside the
+source checkout: `~/Sites/main` gains `~/Sites/main.worktrees/<branch>`, named
+after the branch's last segment.
+
+By default `create` clones the source environment — database, `data/` and
+`internal_data/` — and points the cloned board at its own URL, labelling its
+title with the worktree name.
+
+```bash
+# Create a worktree and set up its environment
+xf worktree create dev/24x/feature
+
+# Branch from somewhere other than the current HEAD
+xf worktree create dev/24x/feature --base main
+
+# Create the worktree without setting anything up
+xf worktree create dev/24x/feature --no-setup
+
+# List worktrees (this project / all known projects)
+xf worktree list
+xf worktree list-all
+
+# Print the path of a worktree (bare output, shell-substitution safe)
+cd "$(xf worktree path dev/24x/feature)"
+
+# Remove a worktree and its containers and volumes
+xf worktree remove dev/24x/feature
+
+# Drop registry entries for worktrees that no longer exist
+xf worktree prune
 ```
 
 ### PHP / Composer / Debug
