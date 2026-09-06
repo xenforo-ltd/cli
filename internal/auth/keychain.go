@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xenforo-ltd/cli/internal/config"
-
 	"github.com/zalando/go-keyring"
 )
 
@@ -21,6 +19,8 @@ const (
 
 // Token represents an OAuth token with expiry information.
 type Token struct {
+	// External tokens have no local expiry or refresh metadata.
+	External     bool      `json:"-"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
 	TokenType    string    `json:"token_type"`
@@ -73,8 +73,8 @@ func (k *Keychain) IsAvailable() bool {
 
 // SaveToken stores a token in the keychain.
 func (k *Keychain) SaveToken(token *Token) error {
-	if token == nil {
-		return fmt.Errorf("token cannot be nil: %w", ErrInvalidInput)
+	if token == nil || token.External {
+		return fmt.Errorf("invalid token for keychain storage: %w", ErrInvalidInput)
 	}
 
 	data, err := json.Marshal(token)
@@ -94,10 +94,10 @@ func (k *Keychain) LoadToken() (*Token, error) {
 	data, err := keyring.Get(KeyringService, KeyringUser)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
-			return nil, fmt.Errorf("not authenticated - run 'xf auth login': %w", err)
+			return nil, fmt.Errorf("not authenticated - run 'xf auth login': %w", ErrAuthRequired)
 		}
 
-		return nil, fmt.Errorf("failed to read token from keychain: %w", err)
+		return nil, keychainUnavailable(err)
 	}
 
 	var token Token
@@ -122,28 +122,20 @@ func (k *Keychain) DeleteToken() error {
 	return nil
 }
 
-// RequireAuth should be called at the start of commands that require authentication.
-func RequireAuth() (*Token, error) {
-	kc := NewKeychain()
+func (k *Keychain) Source() string { return "keychain" }
 
-	if !kc.IsAvailable() {
-		return nil, fmt.Errorf("system keychain is not available - this is required for secure token storage: %w", ErrAuthRequired)
+func keychainUnavailable(cause error) error {
+	if cause != nil {
+		return fmt.Errorf("system keychain is unavailable (%v); Linux requires a running, unlocked Secret Service; select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", cause, ErrStoreUnavailable)
 	}
-
-	token, err := kc.LoadToken()
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if token matches current configuration
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load authentication configuration: %w", err)
-	}
-
-	if token.BaseURL != cfg.OAuth.BaseURL {
-		return nil, fmt.Errorf("authenticated for a different configuration - run 'xf auth login': %w", ErrAuthRequired)
-	}
-
-	return token, nil
+	return fmt.Errorf("system keychain is unavailable (Linux requires a running, unlocked Secret Service); select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", ErrStoreUnavailable)
 }
+
+func (k *Keychain) PrepareLogin() error {
+	if !k.IsAvailable() {
+		return keychainUnavailable(nil)
+	}
+	return nil
+}
+
+func (k *Keychain) LoadTokenForLogout() (*Token, error) { return k.LoadToken() }

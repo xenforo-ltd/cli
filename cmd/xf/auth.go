@@ -20,7 +20,7 @@ var authCmd = &cobra.Command{
 	Long: `Manage OAuth authentication with XenForo customer area.
 
 Authentication is required to download XenForo packages and access your licenses.
-Tokens are stored securely in your system keychain.
+Tokens use your configured keychain or file store. XF_TOKEN overrides stored credentials.
 
 Examples:
   # Log in to your XenForo account
@@ -46,8 +46,8 @@ var authLoginCmd = &cobra.Command{
 	Long: `Start the OAuth authentication flow to log in to your XenForo customer account.
 
 This will open your browser to complete authentication. The CLI will automatically
-receive the authorization when you complete the login. Tokens are stored securely
-in your system keychain.
+receive the authorization when you complete the login. Keychain tokens are stored
+securely. File-store tokens are plaintext, protected only by filesystem permissions.
 
 	Examples:
 	  # Standard login (opens browser)
@@ -80,12 +80,12 @@ Examples:
 var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Log out and revoke tokens",
-	Long: `Revoke the current OAuth tokens and remove them from the keychain.
+	Long: `Revoke the current OAuth tokens and remove them from the configured credential store.
 
 This command will:
   1. Revoke the access token on the server
   2. Revoke the refresh token on the server (if present)
-  3. Remove tokens from your system keychain
+  3. Remove tokens from your configured credential store
 
 Examples:
   # Log out
@@ -129,10 +129,16 @@ func init() {
 }
 
 func runAuthLogin(cmd *cobra.Command, args []string) error {
-	kc := auth.NewKeychain()
+	store, err := auth.NewWritableStore()
+	if err != nil {
+		return err
+	}
 
-	if !kc.IsAvailable() {
-		return fmt.Errorf("system keychain is not available - this is required for secure token storage: %w", ErrKeychainUnavailable)
+	if err := store.PrepareLogin(); err != nil {
+		return err
+	}
+	if file, ok := store.(*auth.FileStore); ok {
+		ui.PrintInfo("Credential file: " + file.Path() + " (plaintext; keep out of version control)")
 	}
 
 	pkce, err := auth.GeneratePKCE()
@@ -196,7 +202,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to exchange authorization code for token: %w", err)
 	}
 
-	if err := kc.SaveToken(token); err != nil {
+	if err := store.SaveToken(token); err != nil {
 		return fmt.Errorf("failed to save authentication token: %w", err)
 	}
 
@@ -206,51 +212,16 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 }
 
 func runAuthStatus(cmd *cobra.Command, args []string) error {
-	kc := auth.NewKeychain()
-
-	if !kc.IsAvailable() {
-		if flagAuthStatusJSON {
-			data, err := json.Marshal(map[string]any{
-				"authenticated": false,
-				"error":         "keychain unavailable",
-			})
-			if err != nil {
-				return fmt.Errorf("failed to marshal auth status: %w", err)
-			}
-
-			ui.Println(string(data))
-
-			return nil
-		}
-
-		ui.PrintWarning("Not authenticated (keychain unavailable)")
-
-		return nil
-	}
-
-	token, err := kc.LoadToken()
+	store, err := auth.NewStore()
 	if err != nil {
-		if errors.Is(err, auth.ErrAuthRequired) {
-			if flagAuthStatusJSON {
-				data, err := json.Marshal(map[string]any{
-					"authenticated": false,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to marshal auth status: %w", err)
-				}
-
-				ui.Println(string(data))
-
-				return nil
-			}
-
-			ui.PrintWarning("Not authenticated")
-			ui.Printf("Run %s to authenticate.\n", ui.Command.Render("xf auth login"))
-
-			return nil
-		}
-
-		return fmt.Errorf("failed to load authentication token: %w", err)
+		return reportAuthUnavailable(store, err)
+	}
+	token, err := auth.RequireAuthFrom(store)
+	if err != nil {
+		return reportAuthUnavailable(store, err)
+	}
+	if token.External {
+		return runEnvironmentAuthStatus(cmd, token)
 	}
 
 	var (
@@ -259,14 +230,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	)
 
 	if !token.IsExpired() {
-		client := auth.NewOAuthClient(&config.OAuthConfig{
-			BaseURL: token.BaseURL,
-		})
-
-		ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
-		defer cancel()
-
-		introspect, err := client.IntrospectToken(ctx, token.AccessToken)
+		introspect, err := introspectAuthToken(cmd.Context(), token)
 		if err == nil {
 			serverValid = &introspect.Active
 			username = introspect.Username
@@ -276,10 +240,14 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	if flagAuthStatusJSON {
 		output := map[string]any{
 			"authenticated": true,
+			"source":        store.Source(),
 			"scope":         token.Scope,
 			"expires_at":    token.ExpiresAt.Format(time.RFC3339),
 			"issued_at":     token.IssuedAt.Format(time.RFC3339),
 			"expired":       token.IsExpired(),
+		}
+		if file, ok := store.(*auth.FileStore); ok {
+			output["storage_path"] = file.Path()
 		}
 		if serverValid != nil {
 			output["server_valid"] = *serverValid
@@ -302,7 +270,10 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	ui.PrintSuccess("Authenticated")
 	ui.Println()
 
-	var pairs []ui.KVPair
+	pairs := []ui.KVPair{ui.KV("Source", store.Source())}
+	if file, ok := store.(*auth.FileStore); ok {
+		pairs = append(pairs, ui.KV("File", file.Path()))
+	}
 	if username != "" {
 		pairs = append(pairs, ui.KV("User", username))
 	}
@@ -337,13 +308,12 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 }
 
 func runAuthLogout(cmd *cobra.Command, args []string) error {
-	kc := auth.NewKeychain()
-
-	if !kc.IsAvailable() {
-		return fmt.Errorf("system keychain is not available: %w", ErrKeychainUnavailable)
+	store, err := auth.NewWritableStore()
+	if err != nil {
+		return err
 	}
 
-	token, err := kc.LoadToken()
+	token, err := store.LoadTokenForLogout()
 	if err != nil {
 		if errors.Is(err, auth.ErrAuthRequired) {
 			ui.PrintInfo("Already logged out.")
@@ -379,8 +349,8 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if err := kc.DeleteToken(); err != nil {
-		return fmt.Errorf("failed to delete authentication token: %w", err)
+	if err := store.DeleteToken(); err != nil {
+		return fmt.Errorf("failed to delete stored authentication token: %w", err)
 	}
 
 	ui.PrintSuccess("Logged out successfully.")
@@ -389,13 +359,12 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 }
 
 func runAuthRefresh(cmd *cobra.Command, args []string) error {
-	kc := auth.NewKeychain()
-
-	if !kc.IsAvailable() {
-		return fmt.Errorf("system keychain is not available: %w", ErrKeychainUnavailable)
+	store, err := auth.NewWritableStore()
+	if err != nil {
+		return err
 	}
 
-	token, err := kc.LoadToken()
+	token, err := auth.RequireAuthFrom(store)
 	if err != nil {
 		return fmt.Errorf("failed to load authentication token: %w", err)
 	}
@@ -424,7 +393,7 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to refresh token: %w", err)
 	}
 
-	if err := kc.SaveToken(newToken); err != nil {
+	if err := store.SaveToken(newToken); err != nil {
 		return fmt.Errorf("failed to save refreshed authentication token: %w", err)
 	}
 
@@ -436,4 +405,93 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	})
 
 	return nil
+}
+
+func reportAuthUnavailable(store auth.Store, err error) error {
+	reason := "storage_error"
+	switch {
+	case errors.Is(err, auth.ErrAuthRequired):
+		reason = "not_authenticated"
+	case errors.Is(err, auth.ErrStoreUnavailable):
+		reason = "store_unavailable"
+	case errors.Is(err, auth.ErrConfigMismatch):
+		reason = "configuration_mismatch"
+	case errors.Is(err, auth.ErrInvalidInput):
+		reason = "invalid_credentials"
+	}
+	if flagAuthStatusJSON {
+		output := map[string]any{"authenticated": false, "reason": reason}
+		if store != nil {
+			output["source"] = store.Source()
+		}
+		if reason != "not_authenticated" {
+			output["error"] = auth.ErrorMessage(err)
+		}
+		data, marshalErr := json.Marshal(output)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		ui.Println(string(data))
+		return nil
+	}
+	if errors.Is(err, auth.ErrAuthRequired) || errors.Is(err, auth.ErrConfigMismatch) {
+		ui.PrintWarning(auth.ErrorMessage(err))
+		return nil
+	}
+	return err
+}
+
+func runEnvironmentAuthStatus(cmd *cobra.Command, token *auth.Token) error {
+	result, validationErr := introspectAuthToken(cmd.Context(), token)
+	output := map[string]any{"source": "environment", "authenticated": nil, "server_valid": nil, "expires_at": nil, "issued_at": nil, "expired": nil}
+	if validationErr == nil {
+		output["authenticated"] = result.Active
+		output["server_valid"] = result.Active
+		output["scope"] = result.Scope
+		output["username"] = result.Username
+		if result.Exp > 0 {
+			expiry := time.Unix(result.Exp, 0)
+			output["expires_at"] = expiry.Format(time.RFC3339)
+			output["expired"] = !time.Now().Before(expiry)
+		}
+		if result.Iat > 0 {
+			output["issued_at"] = time.Unix(result.Iat, 0).Format(time.RFC3339)
+		}
+	} else {
+		output["error"] = "Unable to validate XF_TOKEN with the server"
+	}
+	if flagAuthStatusJSON {
+		data, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return err
+		}
+		ui.Println(string(data))
+		return nil
+	}
+	ui.PrintInfo("Credential source: environment (XF_TOKEN)")
+	if validationErr != nil {
+		ui.PrintWarning("Token is present; server validity and expiry are unknown")
+		return nil
+	}
+	if !result.Active {
+		ui.PrintWarning("XF_TOKEN is inactive; replace it with a valid access token")
+		return nil
+	}
+	ui.PrintSuccess("Authenticated (server validated)")
+	if result.Exp > 0 {
+		ui.PrintInfo("Expires: " + time.Unix(result.Exp, 0).Format(time.RFC1123))
+	} else {
+		ui.PrintInfo("Expiry: unknown")
+	}
+	return nil
+}
+
+func introspectAuthToken(ctx context.Context, token *auth.Token) (*auth.IntrospectResponse, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	return auth.NewOAuthClient(&cfg.OAuth).IntrospectToken(ctx, token.AccessToken)
 }

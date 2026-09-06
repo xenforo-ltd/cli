@@ -7,7 +7,7 @@ A command-line tool for provisioning and managing XenForo development environmen
 - Go
 - Docker with Docker Compose plugin
 - Git
-- System keychain
+- System keychain (optional when using file storage or `XF_TOKEN`)
   - macOS Keychain
   - Windows Credential Manager
   - Linux Secret Service
@@ -101,6 +101,43 @@ Use a wrapped command if you need this, for example `xf --verbose debug xf-dev:i
 ## CLI Usage
 
 ### Authentication
+
+Choose the credential source that suits your environment:
+
+- **Keychain** (default): browser login stores tokens in the system keychain.
+- **File**: set `auth.storage` to `file` in `config.json`, or set `XF_AUTH_STORAGE=file` for each invocation. Login, refresh, and logout then use this store.
+- **Environment**: a non-empty `XF_TOKEN` overrides either store. Supply a raw OAuth access token, without a `Bearer ` prefix. The token is kept in memory and sent to the configured OAuth base URL (`oauth.base_url` / `XF_OAUTH_BASE_URL`).
+
+To select file storage permanently, merge this setting into your configuration:
+
+```json
+{
+  "auth": {
+    "storage": "file"
+  }
+}
+```
+
+Or select it through the environment:
+
+```bash
+export XF_AUTH_STORAGE=file
+xf auth login
+xf auth status
+```
+
+Credentials are stored in `auth.json` beside `config.json` (also when using `--config`). Without a custom configuration path, this is the OS user configuration directory under `xf`. The file includes access and refresh tokens, expiry, and the OAuth base URL. Unix files are created with mode `0600`; overly broad permissions and symlinks are rejected for normal use. Login checks storage before opening the browser. Logout can read and delete a regular file with overly broad permissions so its tokens can be revoked, but it never follows a credential-file symlink. Refresh replaces the file atomically on Unix. Windows replacement uses the OS rename operation and does not offer the same atomicity guarantee. Keep this file private and out of version control. Login and status display the resolved credential-file path. Changing stores does not copy or remove credentials in the previous store; log in to populate the selected store.
+
+For CI, inject `XF_TOKEN` using your CI secret settings, then run commands normally:
+
+```bash
+xf --no-interaction download --license … --download xenforo --version …
+```
+
+`XF_TOKEN` must contain an existing OAuth access token; this option does not issue tokens or provide unattended login. Unset or empty values use the selected persistent store. Whitespace or control characters are rejected. Environment tokens cannot be refreshed by the CLI: replace the CI secret when it expires. While `XF_TOKEN` is active, `auth login`, `auth refresh`, and `auth logout` explain how to manage it externally; unset it to manage stored credentials. Unsetting a token does not revoke it on the server. An invalid environment token never falls back to stored credentials.
+
+`auth status` reports the credential source without exposing the token. For environment tokens it validates with the server; JSON validity and expiry fields are `null` when unknown. `auth status --json` also returns JSON for credential errors, with a stable `reason` such as `not_authenticated`, `store_unavailable`, `configuration_mismatch`, `invalid_credentials`, or `storage_error`. A normal logged-out state has no `error` field. `doctor` checks the selected credential source once, reports storage failures separately from being logged out, and reports environment-token presence without claiming server validity.
+
 
 ```bash
 # Log in
@@ -266,7 +303,7 @@ Available on all built-in commands:
 - Config: `~/.config/xf/config.json`
 - Cache: `~/.config/xf/cache`
 - Project metadata file: `.xf.json`
-- OAuth token storage: system keychain service `xf`
+- OAuth token storage: system keychain service `xf` by default, or `auth.json` beside the configuration file when file storage is selected.
 
 ## Development Commands
 
@@ -332,9 +369,9 @@ xf/
 
 ## Security
 
-- OAuth tokens are stored only in the system keychain (no plaintext file fallback).
+- OAuth tokens use the system keychain by default. File storage is an explicit opt-in and stores credentials as plaintext with owner-only file permissions on Unix. On Windows, access is controlled by the containing directory’s ACL; use a private user directory. There is no automatic plaintext fallback.
 - PKCE is used for OAuth authorization flow security.
-- Tokens are refreshed automatically when needed.
+- Stored tokens are refreshed automatically when needed. Environment tokens must be replaced externally when expired or revoked.
 
 ## Building for Release
 

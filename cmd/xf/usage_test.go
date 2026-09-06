@@ -10,12 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Tests executing Cobra must run serially: its global OnInitialize hook updates Viper.
+
 // TestRuntimeErrorsDoNotPrintUsage guards against the confusing behaviour where
 // a runtime failure (for example Docker not being available) caused cobra to
 // print the command's usage block, implying the user's syntax was wrong.
 func TestRuntimeErrorsDoNotPrintUsage(t *testing.T) {
-	t.Parallel()
-
 	cmd := &cobra.Command{
 		Use:  "php [path] -- [args...]",
 		Args: cobra.MinimumNArgs(0),
@@ -44,8 +44,6 @@ func TestRuntimeErrorsDoNotPrintUsage(t *testing.T) {
 // TestUsageErrorsStillPrintUsage ensures silencing runtime usage output does not
 // also hide usage for genuine misuse, where it is the helpful response.
 func TestUsageErrorsStillPrintUsage(t *testing.T) {
-	t.Parallel()
-
 	cmd := &cobra.Command{
 		Use:  "exec [path] <service> <command> [args...]",
 		Args: cobra.MinimumNArgs(2),
@@ -75,8 +73,6 @@ func TestUsageErrorsStillPrintUsage(t *testing.T) {
 // TestRuntimeErrorsAreNotUsageErrors ensures runtime failures are not marked as
 // usage errors, so no usage block is printed for them.
 func TestRuntimeErrorsAreNotUsageErrors(t *testing.T) {
-	t.Parallel()
-
 	cmd := &cobra.Command{
 		Use:  "php",
 		Args: cobra.MinimumNArgs(0),
@@ -106,8 +102,6 @@ func TestRuntimeErrorsAreNotUsageErrors(t *testing.T) {
 // TestErrorsArePrintedOnlyOnce guards against cobra printing a returned error
 // and Execute's own handler printing the same error again.
 func TestErrorsArePrintedOnlyOnce(t *testing.T) {
-	t.Parallel()
-
 	cmd := &cobra.Command{
 		Use: "php",
 		RunE: func(_ *cobra.Command, _ []string) error {
