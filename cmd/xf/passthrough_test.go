@@ -15,6 +15,9 @@ import (
 // the named command's RunE. It returns those arguments and any execution error.
 func runRoot(t *testing.T, target *cobra.Command, args ...string) ([]string, error) {
 	t.Helper()
+	// Other Cobra tests also run the global configuration hook. Start clean as
+	// well as cleaning up, so their inferred config format cannot leak here.
+	resetGlobalFlags(t)
 
 	original := target.RunE
 

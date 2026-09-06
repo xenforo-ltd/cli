@@ -30,7 +30,7 @@ var (
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
-	keychain   tokenStore
+	store      tokenStore
 	oauthCfg   *config.OAuthConfig
 	refreshFn  func(ctx context.Context, staleToken string) error
 
@@ -44,7 +44,11 @@ type tokenStore interface {
 
 // NewClient creates a new API client with authentication.
 func NewClient() (*Client, error) {
-	token, err := auth.RequireAuth()
+	store, err := auth.NewStore()
+	if err != nil {
+		return nil, err
+	}
+	token, err := auth.RequireAuthFrom(store)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load authentication token: %w", err)
 	}
@@ -59,7 +63,7 @@ func NewClient() (*Client, error) {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		keychain: auth.NewKeychain(),
+		store: store,
 		oauthCfg: &config.OAuthConfig{
 			BaseURL:  token.BaseURL,
 			ClientID: cfg.OAuth.ClientID,
@@ -123,9 +127,9 @@ func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
 }
 
 func (c *Client) doWithRetry(ctx context.Context, method, path string, body []byte, allowRetry bool) (*http.Response, error) {
-	token, err := c.keychain.LoadToken()
+	token, err := c.store.LoadToken()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load authentication token from keychain: %w", err)
+		return nil, fmt.Errorf("failed to load authentication token from store: %w", err)
 	}
 
 	url := c.baseURL + path
@@ -155,6 +159,9 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 
 	if resp.StatusCode == http.StatusUnauthorized && allowRetry {
 		resp.Body.Close()
+		if token.External {
+			return nil, fmt.Errorf("XF_TOKEN was rejected; replace it with a valid access token: %w", ErrAuthExpired)
+		}
 
 		refresh := c.refreshFn
 		if refresh == nil {
@@ -175,15 +182,18 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	token, err := c.keychain.LoadToken()
+	token, err := c.store.LoadToken()
 	if err != nil {
-		return fmt.Errorf("failed to load authentication token from keychain: %w", err)
+		return fmt.Errorf("failed to load authentication token from store: %w", err)
 	}
 
 	if token.AccessToken != staleToken {
 		return nil
 	}
 
+	if token.External {
+		return fmt.Errorf("replace XF_TOKEN with a valid access token: %w", ErrAuthExpired)
+	}
 	if token.RefreshToken == "" {
 		return fmt.Errorf("no refresh token available: %w", ErrAuthExpired)
 	}
@@ -195,7 +205,7 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 		return fmt.Errorf("failed to refresh authentication token: %w", err)
 	}
 
-	if err := c.keychain.SaveToken(newToken); err != nil {
+	if err := c.store.SaveToken(newToken); err != nil {
 		return fmt.Errorf("failed to save refreshed authentication token: %w", err)
 	}
 

@@ -28,8 +28,28 @@ type Config struct {
 	// CachePath is the directory for cached downloads.
 	CachePath string `json:"cache_path" mapstructure:"cache_path"`
 
+	// Auth selects the persistent credential store.
+	Auth AuthConfig `json:"auth" mapstructure:"auth"`
+
 	// OAuth holds OAuth-related settings.
 	OAuth OAuthConfig `json:"oauth" mapstructure:"oauth"`
+}
+
+// AuthConfig holds persistent credential storage settings.
+type AuthConfig struct {
+	Storage string `json:"storage" mapstructure:"storage"`
+}
+
+// AuthFilePath returns the credential file beside the configuration file.
+func AuthFilePath() (string, error) {
+	if path := viper.ConfigFileUsed(); path != "" {
+		return filepath.Abs(filepath.Join(filepath.Dir(path), "auth.json"))
+	}
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "xf", "auth.json"), nil
 }
 
 // OAuthConfig holds OAuth endpoint and client configuration.
@@ -92,6 +112,7 @@ func Init(configFile string) error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
+	viper.SetDefault("auth.storage", "keychain")
 	viper.SetDefault("verbose", false)
 	viper.SetDefault("no_interaction", false)
 	viper.SetDefault("cache_path", filepath.Join(cacheDir, "xf"))

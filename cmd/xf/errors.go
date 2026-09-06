@@ -9,9 +9,6 @@ var (
 	// ErrAuthFailed indicates an authentication operation failed.
 	ErrAuthFailed = errors.New("authentication failed")
 
-	// ErrKeychainUnavailable indicates the system keychain is not available.
-	ErrKeychainUnavailable = errors.New("keychain unavailable")
-
 	// ErrNotFound indicates a requested resource was not found.
 	ErrNotFound = errors.New("not found")
 

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -107,6 +108,9 @@ func TestDownloadWithAuthUnauthorized(t *testing.T) {
 
 	if !errors.Is(err, ErrAuthExpired) {
 		t.Fatalf("expected auth expired error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "replace XF_TOKEN") {
+		t.Fatalf("missing environment-token recovery advice: %v", err)
 	}
 }
 
