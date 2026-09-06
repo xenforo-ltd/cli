@@ -46,8 +46,8 @@ var authLoginCmd = &cobra.Command{
 	Long: `Start the OAuth authentication flow to log in to your XenForo customer account.
 
 This will open your browser to complete authentication. The CLI will automatically
-receive the authorization when you complete the login. Tokens are stored securely
-in your configured keychain or file store.
+receive the authorization when you complete the login. Keychain tokens are stored
+securely. File-store tokens are plaintext, protected only by filesystem permissions.
 
 	Examples:
 	  # Standard login (opens browser)

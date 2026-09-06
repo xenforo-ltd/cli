@@ -97,7 +97,7 @@ func (k *Keychain) LoadToken() (*Token, error) {
 			return nil, fmt.Errorf("not authenticated - run 'xf auth login': %w", ErrAuthRequired)
 		}
 
-		return nil, keychainUnavailable()
+		return nil, keychainUnavailable(err)
 	}
 
 	var token Token
@@ -124,13 +124,16 @@ func (k *Keychain) DeleteToken() error {
 
 func (k *Keychain) Source() string { return "keychain" }
 
-func keychainUnavailable() error {
+func keychainUnavailable(cause error) error {
+	if cause != nil {
+		return fmt.Errorf("system keychain is unavailable (%v); Linux requires a running, unlocked Secret Service; select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", cause, ErrStoreUnavailable)
+	}
 	return fmt.Errorf("system keychain is unavailable (Linux requires a running, unlocked Secret Service); select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", ErrStoreUnavailable)
 }
 
 func (k *Keychain) PrepareLogin() error {
 	if !k.IsAvailable() {
-		return keychainUnavailable()
+		return keychainUnavailable(nil)
 	}
 	return nil
 }

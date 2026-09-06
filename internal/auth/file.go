@@ -96,7 +96,7 @@ func (s *FileStore) SaveToken(token *Token) error {
 	if err != nil {
 		return fmt.Errorf("failed to create authentication file: %w", err)
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	defer file.Close()
 	if _, err := file.Write(data); err != nil {
 		return fmt.Errorf("failed to write authentication file: %w", err)
@@ -139,7 +139,7 @@ func (s *FileStore) PrepareLogin() error {
 	if err != nil {
 		return fmt.Errorf("authentication directory is not writable: %w", err)
 	}
-	defer os.Remove(probe.Name())
+	defer func() { _ = os.Remove(probe.Name()) }()
 	if err := probe.Close(); err != nil {
 		return fmt.Errorf("failed to close authentication storage probe: %w", err)
 	}

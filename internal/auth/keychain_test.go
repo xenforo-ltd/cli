@@ -2,9 +2,11 @@ package auth
 
 import (
 	"errors"
-	"github.com/zalando/go-keyring"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalando/go-keyring"
 )
 
 func TestToken_IsExpired(t *testing.T) {
@@ -117,8 +119,18 @@ func TestKeychainDistinguishesMissingCredentialsFromUnavailableStorage(t *testin
 	if _, err := store.LoadToken(); !errors.Is(err, ErrAuthRequired) {
 		t.Fatalf("missing credentials: %v", err)
 	}
-	keyring.MockInitWithError(errors.New("Secret Service unavailable"))
+	cause := errors.New("org.freedesktop.secrets: service unavailable")
+	keyring.MockInitWithError(cause)
 	_, loadErr := store.LoadToken()
+	if loadErr == nil || !strings.Contains(ErrorMessage(loadErr), cause.Error()) {
+		t.Fatalf("keyring cause missing from user-facing diagnostic: %v", loadErr)
+	}
+	if strings.HasSuffix(ErrorMessage(loadErr), ": "+ErrStoreUnavailable.Error()) {
+		t.Fatalf("classification sentinel leaked into diagnostic: %v", loadErr)
+	}
+	if got := store.PrepareLogin(); got == nil || got.Error() != keychainUnavailable(nil).Error() {
+		t.Fatalf("login availability message changed: %v", got)
+	}
 	for _, err := range []error{loadErr, store.PrepareLogin()} {
 		if !errors.Is(err, ErrStoreUnavailable) || errors.Is(err, ErrAuthRequired) {
 			t.Fatalf("storage failure misclassified: %v", err)

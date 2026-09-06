@@ -231,7 +231,11 @@ func TestFileLoginFailsBeforeBrowserForUnsafeStorage(t *testing.T) {
 				if err := os.Chmod(filepath.Dir(path), 0o500); err != nil {
 					t.Fatal(err)
 				}
-				defer os.Chmod(filepath.Dir(path), 0o700)
+				t.Cleanup(func() {
+					if err := os.Chmod(filepath.Dir(path), 0o700); err != nil {
+						t.Errorf("restore directory permissions: %v", err)
+					}
+				})
 			}
 			output, err := authCommand(t, path, "", "auth", "login", "--timeout", "1")
 			if err == nil || strings.Contains(output, "Opening browser") || strings.Contains(output, "Waiting for authentication") {
