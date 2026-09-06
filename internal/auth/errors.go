@@ -1,8 +1,14 @@
 package auth
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 var (
+	ErrStoreUnavailable = errors.New("credential storage unavailable")
+	ErrConfigMismatch   = errors.New("authentication configuration mismatch")
+
 	// ErrAuthRequired indicates that authentication is required.
 	ErrAuthRequired = errors.New("authentication required")
 
@@ -18,3 +24,14 @@ var (
 	// ErrUnsupported indicates an unsupported operation or platform.
 	ErrUnsupported = errors.New("unsupported")
 )
+
+// ErrorMessage removes classification sentinels from user-facing diagnostics.
+func ErrorMessage(err error) string {
+	message := err.Error()
+	for _, kind := range []error{ErrAuthRequired, ErrStoreUnavailable, ErrConfigMismatch, ErrInvalidInput, ErrUnsupported, ErrAuthFailed, ErrAuthExpired} {
+		if errors.Is(err, kind) {
+			return strings.TrimSuffix(message, ": "+kind.Error())
+		}
+	}
+	return message
+}

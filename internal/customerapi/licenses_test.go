@@ -30,7 +30,7 @@ func TestGetLicenseDownloadablesEncodesQuery(t *testing.T) {
 	client := &Client{
 		baseURL:    server.URL,
 		httpClient: &http.Client{},
-		keychain:   store,
+		store:      store,
 		oauthCfg:   &config.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 

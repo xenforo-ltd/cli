@@ -333,3 +333,38 @@ func TestInit_EnvOverride(t *testing.T) {
 		t.Error("expected verbose to be true from env var XF_VERBOSE")
 	}
 }
+
+func TestAuthStorageConfiguration(t *testing.T) {
+	for _, tc := range []struct{ name, data, env, want string }{
+		{"default", `{}`, "", "keychain"},
+		{"file", `{"auth":{"storage":"file"}}`, "", "file"},
+		{"environment override", `{"auth":{"storage":"keychain"}}`, "file", "file"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetGlobals(t)
+			t.Cleanup(func() { resetGlobals(t) })
+			t.Setenv("XF_AUTH_STORAGE", tc.env)
+			// Empty values are meaningful to Viper, so remove the override for defaults.
+			if tc.env == "" {
+				if err := os.Unsetenv("XF_AUTH_STORAGE"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			path := filepath.Join(t.TempDir(), "config.json")
+			if err := os.WriteFile(path, []byte(tc.data), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := Init(path); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := Load()
+			if err != nil || cfg.Auth.Storage != tc.want {
+				t.Fatalf("storage=%s, err=%v", cfg.Auth.Storage, err)
+			}
+			got, err := AuthFilePath()
+			if err != nil || got != filepath.Join(filepath.Dir(path), "auth.json") {
+				t.Fatalf("credential path=%s, err=%v", got, err)
+			}
+		})
+	}
+}

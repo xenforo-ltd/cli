@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+	"github.com/zalando/go-keyring"
 	"testing"
 	"time"
 )
@@ -102,5 +104,38 @@ func TestKeychain_NewKeychain(t *testing.T) {
 	kc := NewKeychain()
 	if kc == nil {
 		t.Error("NewKeychain() returned nil")
+	}
+}
+
+func TestKeychainDistinguishesMissingCredentialsFromUnavailableStorage(t *testing.T) {
+	keyring.MockInit()
+	t.Cleanup(keyring.MockInit)
+	store := NewKeychain()
+	if err := store.PrepareLogin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.LoadToken(); !errors.Is(err, ErrAuthRequired) {
+		t.Fatalf("missing credentials: %v", err)
+	}
+	keyring.MockInitWithError(errors.New("Secret Service unavailable"))
+	_, loadErr := store.LoadToken()
+	for _, err := range []error{loadErr, store.PrepareLogin()} {
+		if !errors.Is(err, ErrStoreUnavailable) || errors.Is(err, ErrAuthRequired) {
+			t.Fatalf("storage failure misclassified: %v", err)
+		}
+	}
+}
+
+func TestKeychainRejectsExternallyManagedTokens(t *testing.T) {
+	keyring.MockInit()
+	t.Cleanup(keyring.MockInit)
+	store := NewKeychain()
+	token := fileToken()
+	token.External = true
+	if err := store.SaveToken(token); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("external token persisted: %v", err)
+	}
+	if _, err := store.LoadToken(); !errors.Is(err, ErrAuthRequired) {
+		t.Fatalf("keychain was modified: %v", err)
 	}
 }

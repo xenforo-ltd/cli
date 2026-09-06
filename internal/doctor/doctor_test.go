@@ -1,6 +1,8 @@
 package doctor
 
 import (
+	"fmt"
+	"github.com/xenforo-ltd/cli/internal/auth"
 	"testing"
 
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -62,5 +64,32 @@ func TestFormatBytes(t *testing.T) {
 
 	if got := ui.FormatBytes(2 * 1024 * 1024); got != "2.0 MB" {
 		t.Fatalf("FormatBytes(2MB) = %q", got)
+	}
+}
+
+func TestEnvironmentAuthenticationSkipsKeychain(t *testing.T) {
+	d := NewDoctor()
+	d.checkAuthentication("environment", &auth.Token{External: true}, nil)
+	if len(d.results) != 2 || d.results[0].Status != StatusOK {
+		t.Fatal("environment credentials require keychain")
+	}
+	result := d.results[1]
+	if result.Status != StatusOK || result.Message != "XF_TOKEN is present (validity and expiry not checked)" {
+		t.Fatalf("unexpected auth diagnosis: %v", result)
+	}
+}
+
+func TestCredentialFailuresAreNotReportedAsLoggedOut(t *testing.T) {
+	for _, err := range []error{auth.ErrStoreUnavailable, fmt.Errorf("insecure credential file: %w", auth.ErrInvalidInput)} {
+		d := NewDoctor()
+		d.checkAuthentication("file", nil, err)
+		if d.results[0].Name != "Credential Storage" || d.results[0].Status != StatusError || d.results[1].Status != StatusSkipped {
+			t.Fatalf("misleading diagnosis: %+v / %+v", d.results[0], d.results[1])
+		}
+	}
+	d := NewDoctor()
+	d.checkAuthentication("file", nil, auth.ErrAuthRequired)
+	if d.HasErrors() || d.results[1].Message != "Not authenticated" {
+		t.Fatal("missing credentials reported as broken storage")
 	}
 }

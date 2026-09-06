@@ -181,9 +181,9 @@ func (c *Client) GetDownloadURL(licenseKey string, downloadID string, versionID 
 
 // GetAccessToken retrieves the current access token.
 func (c *Client) GetAccessToken() (string, error) {
-	token, err := c.keychain.LoadToken()
+	token, err := c.store.LoadToken()
 	if err != nil {
-		return "", fmt.Errorf("failed to load authentication token from keychain: %w", err)
+		return "", fmt.Errorf("failed to load authentication token from store: %w", err)
 	}
 
 	return token.AccessToken, nil

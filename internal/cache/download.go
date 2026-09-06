@@ -156,7 +156,7 @@ func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) 
 
 func checkResponseStatus(resp *http.Response, authToken string) error {
 	if authToken != "" && resp.StatusCode == http.StatusUnauthorized {
-		return fmt.Errorf("authentication expired - run 'xf auth login': %w", ErrAuthExpired)
+		return fmt.Errorf("authentication expired - replace XF_TOKEN if set, otherwise run 'xf auth login': %w", ErrAuthExpired)
 	}
 
 	if resp.StatusCode != http.StatusOK {
