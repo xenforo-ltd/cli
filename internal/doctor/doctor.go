@@ -3,6 +3,7 @@ package doctor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -86,8 +87,13 @@ func NewDoctor() *Doctor {
 func (d *Doctor) RunAll(ctx context.Context) []*CheckResult {
 	d.results = make([]*CheckResult, 0)
 
-	d.checkKeychain()
-	d.checkAuth()
+	store, err := auth.NewStore()
+	var token *auth.Token
+	var source string
+	if err == nil {
+		source, token, err = resolveAuthentication(store, auth.RequireAuthFrom)
+	}
+	d.checkAuthentication(source, token, err)
 	d.checkGit(ctx)
 	d.checkDocker(ctx)
 	d.checkCacheDirectory()
@@ -124,60 +130,51 @@ func (d *Doctor) HasWarnings() bool {
 	return false
 }
 
-func (d *Doctor) checkKeychain() {
-	result := &CheckResult{
-		Name: "System Keychain",
+// resolveAuthentication records the credential source, preflights writable
+// persistent stores, and only then loads credentials. Environment-backed stores
+// are read-only and are not probed.
+func resolveAuthentication(store auth.Store, load func(auth.Store) (*auth.Token, error)) (source string, token *auth.Token, err error) {
+	source = store.Source()
+	if writable, ok := store.(auth.WritableStore); ok {
+		if preflightErr := writable.PrepareLogin(); preflightErr != nil {
+			return source, nil, preflightErr
+		}
 	}
+	token, err = load(store)
 
-	kc := auth.NewKeychain()
-	if kc.IsAvailable() {
-		result.Status = StatusOK
-		result.Message = "Keychain is accessible"
-	} else {
-		result.Status = StatusError
-		result.Message = "Keychain is not accessible"
-		result.Suggestion = "Ensure your system keychain service is running. On Linux, this may require gnome-keyring or similar."
-	}
-
-	d.results = append(d.results, result)
+	return source, token, err
 }
 
-func (d *Doctor) checkAuth() {
-	result := &CheckResult{
-		Name: "Authentication",
-	}
-
-	kc := auth.NewKeychain()
-
-	token, err := kc.LoadToken()
+// checkAuthentication renders one credential resolution shared by both checks.
+func (d *Doctor) checkAuthentication(source string, token *auth.Token, err error) {
+	storage := &CheckResult{Name: "Credential Storage", Status: StatusOK, Message: "Credential source: " + source}
+	result := &CheckResult{Name: "Authentication"}
+	d.results = append(d.results, storage, result)
 	if err != nil {
-		result.Status = StatusWarning
-		result.Message = "Not authenticated"
-		result.Suggestion = "Run 'xf auth login' to authenticate"
-		d.results = append(d.results, result)
-
+		switch {
+		case errors.Is(err, auth.ErrAuthRequired):
+			result.Status = StatusWarning
+			result.Message = "Not authenticated"
+			result.Suggestion = "Run 'xf auth login' to authenticate"
+		case errors.Is(err, auth.ErrConfigMismatch):
+			result.Status = StatusWarning
+			result.Message = "Authenticated with different configuration"
+			result.Suggestion = "Run 'xf auth login' to re-authenticate"
+		default:
+			storage.Status = StatusError
+			storage.Message = "Unable to use credential storage"
+			storage.Details = auth.ErrorMessage(err)
+			result.Status = StatusSkipped
+			result.Message = "Credential storage must be fixed before authentication can be checked"
+		}
 		return
 	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		result.Status = StatusError
-		result.Message = "Failed to load configuration"
-		result.Details = err.Error()
-		d.results = append(d.results, result)
-
+	if token.External {
+		result.Status = StatusOK
+		result.Message = "XF_TOKEN is present (validity and expiry not checked)"
+		result.Suggestion = "Run 'xf auth status' for server validation"
 		return
 	}
-
-	if token.BaseURL != cfg.OAuth.BaseURL {
-		result.Status = StatusWarning
-		result.Message = "Authenticated with different configuration"
-		result.Suggestion = "Run 'xf auth login' to re-authenticate"
-		d.results = append(d.results, result)
-
-		return
-	}
-
 	switch {
 	case token.IsExpired():
 		result.Status = StatusWarning
@@ -189,11 +186,9 @@ func (d *Doctor) checkAuth() {
 		result.Suggestion = "Consider re-authenticating soon with 'xf auth login'"
 	default:
 		result.Status = StatusOK
-		result.Message = "Authenticated"
+		result.Message = "Authenticated; credential source: " + source
 		result.Details = fmt.Sprintf("Expires in %s", token.TimeUntilExpiry().Round(time.Hour))
 	}
-
-	d.results = append(d.results, result)
 }
 
 func (d *Doctor) checkGit(ctx context.Context) {
