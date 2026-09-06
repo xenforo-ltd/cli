@@ -190,7 +190,8 @@ RUN set -eux; \
 
 RUN set -eux; \
     echo "post_max_size=128M" >> "${PHP_INI_DIR}/conf.d/xenforo.ini"; \
-    echo "upload_max_filesize=128M" >> "${PHP_INI_DIR}/conf.d/xenforo.ini";
+    echo "upload_max_filesize=128M" >> "${PHP_INI_DIR}/conf.d/xenforo.ini"; \
+    echo "opcache.revalidate_freq=0" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
 VOLUME /var/www/html
 
