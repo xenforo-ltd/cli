@@ -17,7 +17,7 @@ var doctorCmd = &cobra.Command{
 for XenForo CLI.
 
 This command checks:
-  - System keychain availability
+  - Credential storage availability
   - Authentication status
   - Git installation
   - Docker installation and daemon status
