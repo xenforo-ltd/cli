@@ -69,7 +69,7 @@ func TestDoRetriesWithBody(t *testing.T) {
 		httpClient: &http.Client{
 			Timeout: 2 * time.Second,
 		},
-		keychain: store,
+		store:    store,
 		oauthCfg: &config.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 
@@ -121,7 +121,7 @@ func TestRefreshTokenSingleFlight(t *testing.T) {
 	client := &Client{
 		baseURL:    server.URL,
 		httpClient: &http.Client{Timeout: time.Second},
-		keychain:   store,
+		store:      store,
 		oauthCfg:   &config.OAuthConfig{BaseURL: server.URL, ClientID: "test"},
 	}
 
