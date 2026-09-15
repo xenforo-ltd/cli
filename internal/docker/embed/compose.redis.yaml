@@ -12,7 +12,7 @@ services:
       - redis
 
   redis:
-    image: redis:${REDIS_VERSION:-8.8}-alpine
+    image: redis:${REDIS_VERSION:-8.10}-alpine
     networks:
       - redis
     volumes:
