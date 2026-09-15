@@ -247,15 +247,17 @@ func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, 
 }
 
 func init() {
-	cobra.OnInitialize(func() {
+	rootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
 		if err := config.Init(configFile); err != nil {
 			if errors.As(err, &viper.ConfigFileNotFoundError{}) {
-				return
+				return nil
 			}
 
-			cobra.CheckErr(err)
+			return err
 		}
-	})
+
+		return nil
+	}
 
 	rootCmd.InitDefaultCompletionCmd()
 
