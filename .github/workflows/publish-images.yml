@@ -11,12 +11,14 @@ on:
       - "main"
     paths:
       - "internal/docker/embed/Dockerfile"
+      - ".github/workflows/publish-images.yml"
 
   pull_request:
     branches:
       - "main"
     paths:
       - "internal/docker/embed/Dockerfile"
+      - ".github/workflows/publish-images.yml"
 
 concurrency:
   group: "${{ github.workflow }}@${{ github.head_ref || github.ref_name }}"
@@ -42,8 +44,9 @@ jobs:
       contents: read
       packages: write # required to publish images
     strategy:
+      fail-fast: false
       matrix:
-        php-version: [ "7.2", "8.0", "8.4", "8.5" ]
+        php-version: [ "7.2", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5" ]
 
     steps:
       - name: Checkout repository
