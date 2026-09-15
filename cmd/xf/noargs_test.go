@@ -108,8 +108,7 @@ func TestParentCommandsRejectUnknownSubcommands(t *testing.T) {
 				t.Errorf("error %q does not mention the unknown subcommand", err)
 			}
 
-			var usageErr *usageError
-			if !errors.As(err, &usageErr) {
+			if _, ok := errors.AsType[*usageError](err); !ok {
 				t.Errorf("expected a usageError so usage is printed, got %T", err)
 			}
 		})

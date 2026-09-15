@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -294,9 +295,9 @@ func parseFilenameFromResponse(resp *http.Response, url string) string {
 	}
 
 	parts := strings.Split(url, "/")
-	for i := len(parts) - 1; i >= 0; i-- {
-		if parts[i] != "" {
-			name := strings.Split(parts[i], "?")[0]
+	for _, part := range slices.Backward(parts) {
+		if part != "" {
+			name, _, _ := strings.Cut(part, "?")
 			if name != "" {
 				if safe := sanitizeFilename(name); safe != "" {
 					return safe

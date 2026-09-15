@@ -66,8 +66,7 @@ func TestUsageErrorsStillPrintUsage(t *testing.T) {
 		t.Fatal("expected an argument validation error")
 	}
 
-	var usageErr *usageError
-	if !errors.As(err, &usageErr) {
+	if _, ok := errors.AsType[*usageError](err); !ok {
 		t.Fatalf("argument errors must be marked as usage errors, got %T: %v", err, err)
 	}
 }
@@ -97,8 +96,7 @@ func TestRuntimeErrorsAreNotUsageErrors(t *testing.T) {
 		t.Fatal("expected the runtime error to be returned")
 	}
 
-	var usageErr *usageError
-	if errors.As(err, &usageErr) {
+	if _, ok := errors.AsType[*usageError](err); ok {
 		t.Error("runtime errors must not be marked as usage errors")
 	}
 }
