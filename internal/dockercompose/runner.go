@@ -89,6 +89,13 @@ func (r *Runner) Instance() string {
 	return r.instance
 }
 
+// Contexts returns the compose contexts declared by XF_CONTEXTS, which select
+// the environment's feature compose files (for example "mysql", "postgres" or
+// "redis").
+func (r *Runner) Contexts() []string {
+	return r.contexts
+}
+
 // ExecOutput runs a command in a service, streaming its output to stdout.
 //
 // Output is streamed rather than buffered so that large results, such as a
