@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - *(auth)* Surface a clean "not authenticated" message instead of a raw keychain error from `auth status` and `auth logout`
 - *(init)* Correct step counts shown during install and notify when `.default` files are written for user-modified configs
 - *(debug)* Fix argument handling for debug commands
+- *(download)* Fix checksum verification panic
 - *(init)* Persist validation warnings on the review screen
 
 ### Build
