@@ -256,6 +256,27 @@ xf compose exec xf mysql -u root
 xf exec xf ls -la
 ```
 
+### Database
+
+Open the environment's MySQL database in TablePlus. On macOS with OrbStack
+the container's `orb.local` hostname is used, so no ports need publishing.
+
+```bash
+# Open in TablePlus
+xf db
+
+# Print the connection URL instead
+xf db --print-url
+
+# Open the database client inside the container (any platform)
+xf db shell
+
+# Forward arguments to the client
+xf db shell -e 'show tables;'
+```
+
+`xf database` is an alias. Only MySQL environments are supported for now.
+
 ### Worktrees
 
 A worktree is a second checkout of the same repository on its own branch or
