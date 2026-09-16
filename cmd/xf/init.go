@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -271,23 +273,14 @@ func validateAdminDetails(opts *InitOptions) error {
 }
 
 func initExisting(ctx context.Context, opts *InitOptions) error {
-	ui.Println(ui.Bold.Render("Initializing Docker environment in existing XenForo directory..."))
+	ui.Println(ui.Header.Render("Initializing Docker environment"))
 	ui.Println()
 
 	xfDir := opts.TargetPath
 
-	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker is running: %w", err)
+	if err := checkPrerequisites(ctx); err != nil {
+		return err
 	}
-
-	ui.PrintSuccess("Docker is running")
-
-	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
-	}
-
-	ui.PrintSuccess("Docker Compose is available")
-	ui.Println()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -443,7 +436,25 @@ func checkPrerequisites(ctx context.Context) error {
 	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 
 	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker is running: %w", err)
+		// Cancellation must stay recognisable, or Ctrl-C during the check is
+		// reported as a Docker failure and exits 1 instead of 130.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		// A missing docker executable is not a stopped daemon, and telling the
+		// user to start Docker Desktop would not fix it.
+		if errors.Is(err, exec.ErrNotFound) {
+			return withHint(
+				markAs(err, "Docker is not installed or not in your PATH"),
+				"Install Docker and try again",
+			)
+		}
+
+		return withHint(
+			markAs(err, "Docker does not appear to be running"),
+			"Start Docker Desktop and try again",
+		)
 	}
 
 	ui.PrintSuccess("Docker is running")
@@ -512,7 +523,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		if len(licenses) == 0 {
-			return fmt.Errorf("no licenses found for your account: %w", ErrNotFound)
+			return markAs(ErrNotFound, "no licenses found for your account")
 		}
 
 		var licenseOptions []huh.Option[string]
@@ -525,7 +536,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		}
 
 		if len(licenseOptions) == 0 {
-			return fmt.Errorf("no licenses with download access found: %w", ErrForbidden)
+			return markAs(ErrForbidden, "no licenses with download access found")
 		}
 
 		err = huh.NewSelect[string]().
@@ -534,7 +545,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&opts.LicenseKey).
 			Run()
 		if err != nil {
-			return fmt.Errorf("license selection cancelled: %w", err)
+			return promptError(err, "license selection")
 		}
 	}
 
@@ -563,7 +574,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			Value(&selectedProducts).
 			Run()
 		if err != nil {
-			return fmt.Errorf("product selection cancelled: %w", err)
+			return promptError(err, "product selection")
 		}
 
 		opts.Products = ensureCoreFirstUnique(append([]string{"xenforo"}, selectedProducts...))
@@ -579,7 +590,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if len(versions.Versions) == 0 {
-		return fmt.Errorf("no versions available: %w", ErrNotFound)
+		return markAs(ErrNotFound, "no versions available")
 	}
 
 	initflow.SortVersionsDesc(versions.Versions)
@@ -601,7 +612,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.VersionID == 0 {
-		return fmt.Errorf("core version is required: %w", ErrInvalidInput)
+		return markAs(ErrInvalidInput, "core version is required")
 	}
 
 	if opts.AdminUser == "" || opts.AdminPassword == "" || opts.AdminEmail == "" {
@@ -648,7 +659,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return fmt.Errorf("credential input cancelled: %w", err)
+			return promptError(err, "credential input")
 		}
 	}
 
