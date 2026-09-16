@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -81,7 +80,15 @@ func runPHPWithMode(ctx context.Context, args []string, debug bool) error {
 	}
 
 	if debug {
-		ui.PrintInfo("Running with Xdebug: php " + strings.Join(phpArgs, " "))
+		// Only the first argument is echoed. The remainder routinely carries
+		// inline code (-r) or tokens, and this line ends up in terminal
+		// scrollback and CI logs.
+		label := "Xdebug enabled"
+		if len(phpArgs) > 0 {
+			label += ": " + ui.Command.Render("php "+phpArgs[0])
+		}
+
+		ui.PrintInfo(label)
 
 		if err := runner.PHPDebug(ctx, phpArgs...); err != nil {
 			return passthroughError(err, "failed to run PHP")
