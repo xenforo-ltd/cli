@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -213,6 +214,35 @@ func TestExtractXenForoZipUploadOnly(t *testing.T) {
 
 	if len(filenames) == 0 {
 		t.Fatal("expected progress callback filenames")
+	}
+}
+
+func TestXenForoZipNestedDirectoryPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions")
+	}
+
+	tmpDir := t.TempDir()
+	zipPath := filepath.Join(tmpDir, "xf.zip")
+
+	if err := writeZip(zipPath, map[string]string{
+		"upload/src/XF.php": "xf",
+	}); err != nil {
+		t.Fatalf("write zip: %v", err)
+	}
+
+	outDir := filepath.Join(tmpDir, "out")
+	if err := XenForoZip(zipPath, outDir, nil); err != nil {
+		t.Fatalf("XenForoZip failed: %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(outDir, "src"))
+	if err != nil {
+		t.Fatalf("stat nested directory: %v", err)
+	}
+
+	if got := info.Mode().Perm(); got != 0o755 {
+		t.Fatalf("nested directory mode = %o, want 0755", got)
 	}
 }
 

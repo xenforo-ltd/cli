@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -144,5 +145,53 @@ func TestInferSiteTitleAndBoardFallback(t *testing.T) {
 	url, detected := chooseBoardURL("demo", "", errTestBoom)
 	if detected || url != fallback {
 		t.Fatalf("unexpected chooseBoardURL fallback: url=%q detected=%v", url, detected)
+	}
+}
+
+func TestNormalizeRuntimeStoragePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions")
+	}
+
+	target := t.TempDir()
+
+	nestedDir := filepath.Join(target, "data", "nested")
+	if err := os.MkdirAll(nestedDir, 0o700); err != nil {
+		t.Fatalf("create nested directory: %v", err)
+	}
+
+	nestedFile := filepath.Join(nestedDir, "cache.txt")
+	if err := os.WriteFile(nestedFile, []byte("x"), 0o600); err != nil {
+		t.Fatalf("seed nested file: %v", err)
+	}
+
+	if err := normalizeRuntimeStorage(target); err != nil {
+		t.Fatalf("normalizeRuntimeStorage failed: %v", err)
+	}
+
+	// The seeded data/ tree and the newly created internal_data/ must all be
+	// traversable/writable by the container's www-data user.
+	for _, dir := range []string{
+		filepath.Join(target, "data"),
+		nestedDir,
+		filepath.Join(target, "internal_data"),
+	} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("stat %s: %v", dir, err)
+		}
+
+		if got := info.Mode().Perm(); got != 0o777 {
+			t.Fatalf("%s mode = %o, want 0777", dir, got)
+		}
+	}
+
+	info, err := os.Stat(nestedFile)
+	if err != nil {
+		t.Fatalf("stat nested file: %v", err)
+	}
+
+	if got := info.Mode().Perm(); got != 0o666 {
+		t.Fatalf("nested file mode = %o, want 0666", got)
 	}
 }

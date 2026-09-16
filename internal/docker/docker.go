@@ -42,7 +42,7 @@ func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) erro
 		targetPath := filepath.Join(targetDir, relPath, entry.Name())
 
 		if entry.IsDir() {
-			if err := os.MkdirAll(targetPath, 0o750); err != nil {
+			if err := os.MkdirAll(targetPath, 0o755); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 
@@ -82,11 +82,11 @@ func extractFile(srcPath, targetPath string) error {
 	}
 
 	parentDir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(parentDir, 0o750); err != nil {
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
-	if err := os.WriteFile(targetPath, data, 0o600); err != nil {
+	if err := os.WriteFile(targetPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -106,14 +106,14 @@ func extractDefaultFile(srcPath, targetPath string) error {
 	}
 
 	parentDir := filepath.Dir(targetBase)
-	if err := os.MkdirAll(parentDir, 0o750); err != nil {
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	if existingData, err := os.ReadFile(targetBase); err == nil {
 		if string(existingData) != string(data) {
 			defaultPath := targetBase + ".default"
-			if err := os.WriteFile(defaultPath, data, 0o600); err != nil {
+			if err := os.WriteFile(defaultPath, data, 0o644); err != nil {
 				return fmt.Errorf("failed to write default file: %w", err)
 			}
 		}
@@ -121,11 +121,23 @@ func extractDefaultFile(srcPath, targetPath string) error {
 		return nil
 	}
 
-	if err := os.WriteFile(targetBase, data, 0o600); err != nil {
+	if err := os.WriteFile(targetBase, data, defaultFileMode(targetBase)); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
 	return nil
+}
+
+// defaultFileMode returns the mode for a file generated from an embedded
+// ".default" companion. The .env file is kept private because it may contain
+// secrets; all other generated configuration is world-readable so it can be
+// consumed by containers.
+func defaultFileMode(targetPath string) os.FileMode {
+	if filepath.Base(targetPath) == ".env" {
+		return 0o600
+	}
+
+	return 0o644
 }
 
 // GetDockerFile returns the contents of an embedded Docker file.

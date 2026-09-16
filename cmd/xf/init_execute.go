@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -69,6 +70,10 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	step++
 
 	if err := extractProducts(cachedFiles, opts.TargetPath, titleMap); err != nil {
+		return err
+	}
+
+	if err := normalizeRuntimeStorage(opts.TargetPath); err != nil {
 		return err
 	}
 
@@ -432,7 +437,7 @@ func formatProductNames(products []string, titleMap map[string]string) string {
 func prepareTargetDirectory(targetPath string) error {
 	info, err := os.Stat(targetPath)
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(targetPath, 0o750); err != nil {
+		if err := os.MkdirAll(targetPath, 0o755); err != nil {
 			return fmt.Errorf("failed to create target directory: %w", err)
 		}
 
@@ -614,6 +619,52 @@ func extractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 	}
 
 	return nil
+}
+
+// normalizeRuntimeStorage makes XenForo's runtime storage trees writable by
+// the container's www-data user. Freshly extracted data/ and internal_data/
+// files are owned by the host user, so on native Linux the container cannot
+// write to them without world-writable permissions. Only the fresh install
+// path calls this; upgrade and --existing trees are left untouched.
+func normalizeRuntimeStorage(targetPath string) error {
+	roots := []string{"data", "internal_data"}
+
+	for _, name := range roots {
+		root := filepath.Join(targetPath, name)
+
+		if err := os.MkdirAll(root, 0o777); err != nil {
+			return fmt.Errorf("failed to create %s directory: %w", name, err)
+		}
+
+		if err := normalizeRuntimeTree(root); err != nil {
+			return fmt.Errorf("failed to normalize %s permissions: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+func normalizeRuntimeTree(root string) error {
+	return filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if entry.IsDir() {
+			return os.Chmod(path, 0o777)
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		return os.Chmod(path, 0o666)
+	})
 }
 
 func configureEnvironment(opts *InitOptions) error {

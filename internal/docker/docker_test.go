@@ -3,6 +3,7 @@ package docker
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -86,5 +87,36 @@ func TestExtractDockerFilesWithOptions_DefaultFileBehaviorUnchanged(t *testing.T
 	defaultPath := filepath.Join(tmp, ".env.default")
 	if _, err := os.Stat(defaultPath); err != nil {
 		t.Fatalf("expected .env.default to be generated: %v", err)
+	}
+}
+
+func TestExtractDockerFilesWithOptions_Permissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions")
+	}
+
+	tmp := t.TempDir()
+
+	if err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false}); err != nil {
+		t.Fatalf("extract docker files: %v", err)
+	}
+
+	cases := []struct {
+		path string
+		want os.FileMode
+	}{
+		{".env", 0o600},
+		{filepath.Join("src", "config.docker.php"), 0o644},
+	}
+
+	for _, tc := range cases {
+		info, err := os.Stat(filepath.Join(tmp, tc.path))
+		if err != nil {
+			t.Fatalf("stat %s: %v", tc.path, err)
+		}
+
+		if got := info.Mode().Perm(); got != tc.want {
+			t.Fatalf("%s mode = %o, want %o", tc.path, got, tc.want)
+		}
 	}
 }

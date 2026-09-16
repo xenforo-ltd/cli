@@ -66,7 +66,7 @@ func Init(xfDir string, opts InitOptions) error {
 			return fmt.Errorf("failed to read default dockerignore: %w", err)
 		}
 
-		if err := os.WriteFile(dockerignorePath, ignoreDefault, 0o600); err != nil {
+		if err := os.WriteFile(dockerignorePath, ignoreDefault, 0o644); err != nil {
 			return fmt.Errorf("failed to write .dockerignore file: %w", err)
 		}
 	}

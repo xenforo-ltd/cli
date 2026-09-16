@@ -54,7 +54,7 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 	}
 	defer reader.Close()
 
-	if err := os.MkdirAll(destDir, 0o750); err != nil {
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -86,7 +86,7 @@ func ZipFile(zipPath, destDir string, opts *Options) error {
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, 0o750); err != nil {
+			if err := os.MkdirAll(destPath, 0o755); err != nil {
 				return fmt.Errorf("failed to create directory: %s: %w", name, err)
 			}
 
@@ -117,7 +117,7 @@ func extractFile(file *zip.File, destPath string, opts *Options) error {
 	}
 
 	parentDir := filepath.Dir(destPath)
-	if err := os.MkdirAll(parentDir, 0o750); err != nil {
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %s: %w", parentDir, err)
 	}
 
@@ -262,7 +262,7 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 	}
 	defer reader.Close()
 
-	if err := os.MkdirAll(destDir, 0o750); err != nil {
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -300,7 +300,7 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, 0o750); err != nil {
+			if err := os.MkdirAll(destPath, 0o755); err != nil {
 				return fmt.Errorf("failed to create directory: %s: %w", name, err)
 			}
 
