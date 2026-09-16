@@ -330,8 +330,10 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 	// Detection can fail or return nothing, and installing --url= empty would
 	// leave the board with no address at all, so the predictable instance URL
-	// is the starting point.
+	// is the starting point. Installing still uses it in that case, but the
+	// success summary only advertises the URL when detection confirmed one.
 	siteURL := fallbackBoardURL(opts.InstanceName)
+	urlDetected := false
 
 	if opts.StartContainers {
 		ui.PrintStep(step, totalSteps, "Starting environment")
@@ -345,12 +347,9 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 			return fmt.Errorf("failed to start Docker environment: %w", err)
 		}
 
-		url, err := runner.GetURL(ctx)
-		if err == nil && url != "" {
-			siteURL = url
+		detectedURL, detectedErr := runner.GetURL(ctx)
 
-			ui.PrintDetail("Site: " + url)
-		}
+		siteURL, urlDetected = chooseBoardURL(opts.InstanceName, detectedURL, detectedErr)
 
 		// Composer and the installer both run inside the container, so they can
 		// only follow a successful start.
@@ -388,17 +387,20 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		printSkippedStep(step, totalSteps, "Starting environment", "use --up to start containers")
 	}
 
-	ui.Println()
-	ui.SuccessBox("Docker environment initialized!", []ui.KVPair{
-		ui.KV("Location", ui.Path.Render(xfDir)),
+	details := []ui.KVPair{
+		ui.KV("Location", ui.Path.Render(ui.ShortHome(xfDir))),
 		ui.KV("Instance", opts.InstanceName),
-	})
+	}
+	if urlDetected {
+		details = append(details, ui.KV("URL", ui.URL.Render(siteURL)))
+	}
+
+	ui.Println()
+	ui.SuccessBox("Docker environment initialized", details)
 
 	if !opts.StartContainers {
 		ui.Println()
-		ui.Println("To start the environment:")
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("cd "+xfDir))
-		ui.Printf("%s%s\n", ui.Indent1, ui.Command.Render("xf up"))
+		printStartHint(xfDir)
 	}
 
 	ui.Println()
@@ -706,6 +708,11 @@ func installExistingXenForo(
 
 	if err := runner.ExecOrRunWithEnvAndOutput(ctx, "xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
 		spinner.Stop()
+
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
 		printHiddenOutputTail("Installer output", tracker.TailLines())
 
 		return fmt.Errorf("failed to install XenForo: %w", err)

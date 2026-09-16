@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/viper"
+
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -16,6 +18,44 @@ import (
 func printSkippedStep(current, total int, label, reason string) {
 	ui.Printf("%s %s %s\n", ui.Step(current, total), ui.Bold.Render(label),
 		ui.Dim.Render("(skipped: "+reason+")"))
+}
+
+// printInstallFailure reports an xf:install failure with a single error line
+// and a remediation hint, then returns an error that carries the child's own
+// exit status, so callers propagate failure without handleError printing the
+// same failure again.
+//
+// A cancelled context is reported as the cancellation itself, before any
+// output: an interrupted install is not a failure with a retry step.
+func printInstallFailure(ctx context.Context, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+
+	ui.PrintError("xf:install failed")
+	printCause(err)
+	ui.PrintHint("Run " + ui.Command.Render("xf xf:install") + " to retry once the containers are up")
+
+	return passthroughError(err, "xf:install failed")
+}
+
+// printCause prints the underlying error beneath a status line, but only under
+// --verbose.
+//
+// Status lines stay readable by default, while the detail needed to diagnose a
+// failure is still one flag away rather than discarded.
+func printCause(err error) {
+	if err == nil || !viper.GetBool("verbose") {
+		return
+	}
+
+	ui.PrintDetail(err.Error())
+}
+
+// printStartHint prints the hint for starting an environment that was not
+// brought up during init.
+func printStartHint(dir string) {
+	ui.PrintHint("Run " + ui.Command.Render("xf up") + " in " + ui.Path.Render(ui.ShortHome(dir)) + " to start the environment")
 }
 
 func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key string) string {

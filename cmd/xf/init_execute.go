@@ -208,11 +208,6 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			printSkippedStep(step, totalSteps, "Installing Composer dependencies", "composer.json not present")
 		}
 
-			ui.PrintSubstep("Waiting for database to be ready...")
-
-			if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
-				return fmt.Errorf("failed waiting for database to become ready: %w", err)
-			}
 		step++
 
 		if opts.SkipInstall {
@@ -238,27 +233,41 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			shellInstallArgs := []string{"sh", "-c", installShellCommand(installArgs)}
 
 			if cfg.Verbose {
+				ui.PrintSubstep("Waiting for the database to be ready...")
+
+				if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
+					return fmt.Errorf("failed waiting for database to become ready: %w", err)
+				}
 				ui.PrintSubstep("Running XenForo installation...")
 
 				if err := runner.ExecOrRunWithEnv(ctx, "xf", true, installEnv, shellInstallArgs...); err != nil {
-					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
-					ui.Println("    You can run it manually:")
-					ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
+					return printInstallFailure(ctx, err)
 				}
 			} else {
-				spinner := ui.NewSpinner("Installing XenForo...")
+				spinner := ui.NewSpinner("Waiting for the database")
 				spinner.Start()
 
+				if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
+					spinner.Stop()
+
+					return fmt.Errorf("failed waiting for database to become ready: %w", err)
+				}
+
+				spinner.UpdateMessage("Installing XenForo")
 				tracker := newPhaseTrackerWriter(spinner, "Installing XenForo", installPhaseRules())
 				if err := runner.ExecOrRunWithEnvAndOutput(ctx, "xf", true, installEnv, tracker, tracker, shellInstallArgs...); err != nil {
 					spinner.Stop()
+
+					if ctxErr := ctx.Err(); ctxErr != nil {
+						return ctxErr
+					}
+
 					printHiddenOutputTail("Installer output", tracker.TailLines())
-					ui.PrintWarning(fmt.Sprintf("xf:install failed: %v", err))
-					ui.Println("    You can run it manually:")
-					ui.Printf("    %s\n", ui.Command.Render(fmt.Sprintf("cd %s && xf xf:install", opts.TargetPath)))
-				} else {
-					spinner.StopWithMessage("success", "XenForo installed")
+
+					return printInstallFailure(ctx, err)
 				}
+
+				spinner.StopWithMessage("success", "XenForo installed")
 			}
 		}
 	}
@@ -785,6 +794,12 @@ func runComposerInstall(ctx context.Context, runner *dockercompose.Runner, verbo
 
 	composerArgs := append([]string{"composer"}, args...)
 	if err := runner.ExecOrRunWithOutput(ctx, "xf", true, tracker, tracker, composerArgs...); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			spinner.Stop()
+
+			return ctxErr
+		}
+
 		spinner.StopWithMessage("error", "Failed to install Composer dependencies")
 		printHiddenOutputTail("Composer output", tracker.TailLines())
 
