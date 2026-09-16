@@ -109,6 +109,55 @@ func StatusIcon(status string) string {
 	}
 }
 
+// Plural returns the count with the correct singular/plural noun.
+func Plural(n int, singular, plural string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, singular)
+	}
+	return fmt.Sprintf("%d %s", n, plural)
+}
+
+// FormatDate renders a date for table cells.
+func FormatDate(t time.Time) string { return t.Format("2006-01-02") }
+
+// FormatDateTime renders a timestamp for key-value output.
+func FormatDateTime(t time.Time) string { return t.Format("2006-01-02 15:04") }
+
+// IsTerminal reports whether f is an interactive terminal.
+func IsTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+// ClearScreen clears the visible screen when stdout is a terminal.
+func ClearScreen() {
+	if IsTerminal(os.Stdout) {
+		fmt.Fprint(os.Stdout, "\033[H\033[2J")
+	}
+}
+
+// ShortHome abbreviates the home directory prefix of a path to ~.
+func ShortHome(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return path
+	}
+	if path == home {
+		return "~"
+	}
+	if strings.HasPrefix(path, home+string(os.PathSeparator)) {
+		return "~" + path[len(home):]
+	}
+	return path
+}
+
+// isTTY records whether stdout is an interactive terminal, gating spinner
+// and progress-bar animation.
+var isTTY = IsTerminal(os.Stdout)
+
 // Step returns a formatted progress step indicator.
 func Step(current, total int) string {
 	return Info.Render(fmt.Sprintf("[%d/%d]", current, total))
@@ -181,21 +230,36 @@ func PrintKeyValuePadded(pairs []KVPair) {
 
 // PrintKeyValuePaddedWithIndent prints key-value pairs with custom indentation.
 func PrintKeyValuePaddedWithIndent(pairs []KVPair, indent string) {
-	if len(pairs) == 0 {
+	out := renderKeyValuePadded(pairs, indent)
+	if out == "" {
 		return
+	}
+
+	_, _ = lipgloss.Print(out)
+}
+
+// renderKeyValuePadded renders key-value pairs with values aligned to the
+// widest key, using display width so styled/multi-byte keys don't break
+// alignment.
+func renderKeyValuePadded(pairs []KVPair, indent string) string {
+	if len(pairs) == 0 {
+		return ""
 	}
 
 	maxKeyLen := 0
 	for _, p := range pairs {
-		if len(p.Key) > maxKeyLen {
-			maxKeyLen = len(p.Key)
+		if w := lipgloss.Width(p.Key); w > maxKeyLen {
+			maxKeyLen = w
 		}
 	}
 
+	var sb strings.Builder
 	for _, p := range pairs {
-		padding := strings.Repeat(" ", maxKeyLen-len(p.Key))
-		lipgloss.Printf("%s%s%s  %s\n", indent, Label.Render(p.Key+":"), padding, p.Value)
+		padding := strings.Repeat(" ", maxKeyLen-lipgloss.Width(p.Key))
+		fmt.Fprintf(&sb, "%s%s%s  %s\n", indent, Label.Render(p.Key+":"), padding, p.Value)
 	}
+
+	return sb.String()
 }
 
 // List formats a slice of strings as a bulleted list.
@@ -474,6 +538,17 @@ func PrintDetail(message string) {
 // PrintKeyValue prints a key-value pair.
 func PrintKeyValue(key, value string) {
 	lipgloss.Println(KeyValue(key, value))
+}
+
+// PrintHint prints an actionable next step: "  → Run xf auth login to ...".
+// Callers style embedded commands themselves.
+func PrintHint(text string) {
+	lipgloss.Printf("%s%s %s\n", Indent1, Dim.Render(SymbolArrow), text)
+}
+
+// PrintEmpty prints a standard empty-result line.
+func PrintEmpty(message string) {
+	lipgloss.Printf("%s %s\n", StatusIcon("info"), message)
 }
 
 // SuccessBox prints a success message with optional key-value details.
