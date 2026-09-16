@@ -91,7 +91,7 @@ func (gitBackend) owner(ctx context.Context, repoDir, worktreePath string) (stri
 
 	var current string
 
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		switch {
 		case strings.HasPrefix(line, "worktree "):
 			current = resolveSymlinks(strings.TrimPrefix(line, "worktree "))
@@ -190,7 +190,7 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (WorktreeStat
 		return status, fmt.Errorf("failed to inspect commit history: %w", err)
 	}
 
-	for _, line := range strings.Split(commits, "\n") {
+	for line := range strings.SplitSeq(commits, "\n") {
 		if trimmed := strings.TrimSpace(line); trimmed != "" {
 			status.UnmergedCommits = append(status.UnmergedCommits, trimmed)
 		}

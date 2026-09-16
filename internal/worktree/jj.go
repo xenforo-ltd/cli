@@ -211,7 +211,7 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (WorktreeStatu
 		return status, fmt.Errorf("failed to inspect commit history: %w", err)
 	}
 
-	for _, line := range strings.Split(commits, "\n") {
+	for line := range strings.SplitSeq(commits, "\n") {
 		if trimmed := strings.TrimSpace(line); trimmed != "" {
 			status.UnmergedCommits = append(status.UnmergedCommits, trimmed)
 		}

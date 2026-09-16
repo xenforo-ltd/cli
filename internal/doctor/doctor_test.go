@@ -122,7 +122,7 @@ func (f *fakeWritableStore) LoadTokenForLogout() (*auth.Token, error) { return n
 
 func TestResolveAuthenticationPreflightsWritableStores(t *testing.T) {
 	preflightErr := errors.New("authentication directory is not writable")
-	store := &fakeWritableStore{fakeStore: fakeStore{source: "file"}, prepareErr: preflightErr}
+	store := &fakeWritableStore{source: "file", prepareErr: preflightErr}
 	loaded := false
 	load := func(auth.Store) (*auth.Token, error) {
 		loaded = true
