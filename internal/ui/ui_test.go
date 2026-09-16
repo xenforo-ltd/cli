@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -94,5 +95,313 @@ func TestListFormatting(t *testing.T) {
 	list := List([]string{"one", "two"})
 	if !strings.Contains(list, "one") || !strings.Contains(list, "two") {
 		t.Fatalf("List output mismatch: %q", list)
+	}
+}
+
+// withTTY forces the package's TTY detection for the duration of a test, so
+// spinner and progress-bar behaviour can be exercised deterministically.
+func withTTY(t *testing.T, on bool) {
+	t.Helper()
+
+	previous := isTTY
+	isTTY = on
+
+	t.Cleanup(func() { isTTY = previous })
+}
+
+func TestShortHomeAbbreviatesHomePrefix(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Skip("no home directory available")
+	}
+
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"home itself", home, "~"},
+		{"path under home", filepath.Join(home, "Sites", "main"), filepath.Join("~", "Sites", "main")},
+		{"unrelated path", "/var/tmp/thing", "/var/tmp/thing"},
+		{"prefix but not a child", home + "-other", home + "-other"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ShortHome(tc.in); got != tc.want {
+				t.Errorf("ShortHome(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSpinnerWithoutTTYPrintsMessageOnceAndDoesNotAnimate(t *testing.T) {
+	withTTY(t, false)
+
+	var buf bytes.Buffer
+
+	s := NewSpinner("Working")
+	s.writer = &buf
+	s.Start()
+	s.Stop()
+
+	if got := buf.String(); got != "Working\n" {
+		t.Errorf("non-TTY spinner wrote %q, want %q", got, "Working\n")
+	}
+
+	if strings.Contains(buf.String(), "\x1b[") {
+		t.Errorf("non-TTY spinner emitted ANSI escapes: %q", buf.String())
+	}
+}
+
+func TestSpinnerAnimatingReflectsTTYAndRunState(t *testing.T) {
+	t.Run("without TTY", func(t *testing.T) {
+		withTTY(t, false)
+
+		var buf bytes.Buffer
+
+		s := NewSpinner("Working")
+		s.writer = &buf
+
+		if s.Animating() {
+			t.Error("unstarted spinner should not report animating")
+		}
+
+		s.Start()
+
+		if s.Animating() {
+			t.Error("non-TTY spinner should not report animating")
+		}
+
+		s.Stop()
+
+		if s.Animating() {
+			t.Error("stopped non-TTY spinner should not report animating")
+		}
+	})
+
+	t.Run("with TTY", func(t *testing.T) {
+		withTTY(t, true)
+
+		var buf bytes.Buffer
+
+		s := NewSpinner("Working")
+		s.writer = &buf
+		s.interval = time.Millisecond
+
+		if s.Animating() {
+			t.Error("unstarted spinner should not report animating")
+		}
+
+		s.Start()
+
+		if !s.Animating() {
+			t.Error("running TTY spinner should report animating")
+		}
+
+		s.Stop()
+
+		if s.Animating() {
+			t.Error("stopped TTY spinner should not report animating")
+		}
+	})
+}
+
+func TestSpinnerStopWithMessagePrintsFinalLine(t *testing.T) {
+	withTTY(t, false)
+
+	var buf bytes.Buffer
+
+	s := NewSpinner("Downloading")
+	s.writer = &buf
+	s.Start()
+	s.StopWithMessage("success", "Downloaded")
+
+	out := stripANSI(buf.String())
+	if !strings.Contains(out, "Downloaded") {
+		t.Errorf("final message missing from %q", out)
+	}
+
+	if !strings.Contains(out, SymbolSuccess) {
+		t.Errorf("success icon missing from %q", out)
+	}
+}
+
+func TestSpinnerStopIsIdempotentAndWaitsForTheAnimation(t *testing.T) {
+	withTTY(t, true)
+
+	var buf bytes.Buffer
+
+	s := NewSpinner("Working")
+	s.writer = &buf
+	s.interval = time.Millisecond
+
+	s.Start()
+	time.Sleep(5 * time.Millisecond)
+	s.Stop()
+
+	// A second Stop must not panic on the already-closed channel, and a
+	// restart must be safe now that Stop waits for the goroutine to exit.
+	s.Stop()
+	s.Start()
+	s.Stop()
+}
+
+func TestSpinnerUpdateMessageChangesTheRenderedLine(t *testing.T) {
+	withTTY(t, true)
+
+	var buf bytes.Buffer
+
+	s := NewSpinner("First")
+	s.writer = &buf
+	s.interval = time.Millisecond
+
+	s.Start()
+	time.Sleep(5 * time.Millisecond)
+	s.UpdateMessage("Second")
+	time.Sleep(5 * time.Millisecond)
+	s.Stop()
+
+	if !strings.Contains(stripANSI(buf.String()), "Second") {
+		t.Errorf("updated message never rendered: %q", stripANSI(buf.String()))
+	}
+}
+
+func TestSpinnerOutputWriterPassesThroughWithoutASpinner(t *testing.T) {
+	var buf bytes.Buffer
+
+	w := NewSpinnerOutputWriter(nil, &buf)
+
+	n, err := w.Write([]byte("hello"))
+	if err != nil {
+		t.Fatalf("Write returned %v", err)
+	}
+
+	if n != 5 || buf.String() != "hello" {
+		t.Errorf("wrote %d bytes %q, want 5 %q", n, buf.String(), "hello")
+	}
+}
+
+func TestSpinnerOutputWriterDoesNotDoubleSpaceStreamedOutput(t *testing.T) {
+	withTTY(t, true)
+
+	var spinnerBuf, outBuf bytes.Buffer
+
+	s := NewSpinner("Working")
+	s.writer = &spinnerBuf
+	s.interval = time.Hour // no animation frames during the test
+
+	s.Start()
+
+	w := NewSpinnerOutputWriter(s, &outBuf)
+	if _, err := w.Write([]byte("chunk without newline")); err != nil {
+		t.Fatalf("Write returned %v", err)
+	}
+
+	s.Stop()
+
+	if strings.Contains(spinnerBuf.String(), "\n\n") {
+		t.Errorf("spinner repaint inserted a blank line: %q", spinnerBuf.String())
+	}
+
+	if outBuf.String() != "chunk without newline" {
+		t.Errorf("payload altered: %q", outBuf.String())
+	}
+}
+
+func TestProgressBarRendersProgressAndFinishes(t *testing.T) {
+	withTTY(t, true)
+
+	var buf bytes.Buffer
+
+	p := NewProgressBar(100, "asset.tar.gz")
+	p.writer = &buf
+
+	p.Update(50)
+
+	mid := stripANSI(buf.String())
+	if !strings.Contains(mid, "50%") {
+		t.Errorf("expected 50%% in %q", mid)
+	}
+
+	if !strings.Contains(mid, "asset.tar.gz") {
+		t.Errorf("expected the label in %q", mid)
+	}
+
+	p.Finish()
+
+	if !strings.Contains(stripANSI(buf.String()), "100%") {
+		t.Errorf("Finish did not render 100%%: %q", stripANSI(buf.String()))
+	}
+}
+
+func TestProgressBarIncrementClampsToTotal(t *testing.T) {
+	withTTY(t, true)
+
+	var buf bytes.Buffer
+
+	p := NewProgressBar(10, "")
+	p.writer = &buf
+
+	p.Increment(99)
+
+	if p.current != 10 {
+		t.Errorf("current = %d, want it clamped to 10", p.current)
+	}
+}
+
+func TestProgressBarAbandonDoesNotReportCompletion(t *testing.T) {
+	withTTY(t, true)
+
+	var buf bytes.Buffer
+
+	p := NewProgressBar(100, "asset.tar.gz")
+	p.writer = &buf
+
+	p.Update(25)
+	buf.Reset()
+	p.Abandon()
+
+	if strings.Contains(stripANSI(buf.String()), "100%") {
+		t.Errorf("Abandon reported the transfer as complete: %q", stripANSI(buf.String()))
+	}
+
+	if p.current != 25 {
+		t.Errorf("Abandon changed progress to %d, want it left at 25", p.current)
+	}
+}
+
+func TestProgressBarWithoutTTYWritesNothing(t *testing.T) {
+	withTTY(t, false)
+
+	var buf bytes.Buffer
+
+	p := NewProgressBar(100, "asset.tar.gz")
+	p.writer = &buf
+
+	p.Update(50)
+	p.Finish()
+
+	if buf.Len() != 0 {
+		t.Errorf("non-TTY progress bar wrote %q, want nothing", buf.String())
+	}
+}
+
+func TestFormatBytes(t *testing.T) {
+	cases := []struct {
+		in   int64
+		want string
+	}{
+		{512, "512 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1024 * 1024, "1.0 MB"},
+		{3 * 1024 * 1024 * 1024, "3.0 GB"},
+	}
+
+	for _, tc := range cases {
+		if got := FormatBytes(tc.in); got != tc.want {
+			t.Errorf("FormatBytes(%d) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }
