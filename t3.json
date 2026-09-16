@@ -1,0 +1,32 @@
+{
+  "$schema": "https://t3.codes/schema/t3.json",
+  "iconPath": "assets/logo.png",
+  "defaultThreadEnvMode": "worktree",
+  "scripts": [
+    {
+      "name": "Run",
+      "command": "go run ./cmd/xf",
+      "icon": "play"
+    },
+    {
+      "name": "Build",
+      "command": "make build",
+      "icon": "build"
+    },
+    {
+      "name": "Test",
+      "command": "make test",
+      "icon": "test"
+    },
+    {
+      "name": "Lint",
+      "command": "make lint",
+      "icon": "lint"
+    },
+    {
+      "name": "Format",
+      "command": "make fmt",
+      "icon": "configure"
+    }
+  ]
+}
