@@ -233,7 +233,7 @@ func helperCommand(t *testing.T, expectedArgs, expectedWd string, exitCode int) 
 	}
 }
 
-func TestHelperProcess(t *testing.T) {
+func TestHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
