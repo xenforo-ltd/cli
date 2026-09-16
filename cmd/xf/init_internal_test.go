@@ -155,7 +155,7 @@ func TestHelpersFormatting(t *testing.T) {
 	}
 
 	lic := customerapi.License{LicenseKey: "ABC", SiteTitle: "Site", SiteURL: "https://example.com"}
-	if got := licenseOptionLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
+	if got := licenseLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
 		t.Fatalf("unexpected license label: %q", got)
 	}
 

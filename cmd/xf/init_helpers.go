@@ -69,24 +69,7 @@ func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key s
 			continue
 		}
 
-		var parts []string
-		if lic.SiteTitle != "" {
-			parts = append(parts, lic.SiteTitle)
-		}
-
-		if lic.SiteURL != "" {
-			parts = append(parts, lic.SiteURL)
-		}
-
-		if len(parts) == 0 && lic.ProductTitle != "" {
-			parts = append(parts, lic.ProductTitle)
-		}
-
-		if len(parts) == 0 {
-			return key
-		}
-
-		return fmt.Sprintf("%s (%s)", key, strings.Join(parts, " - "))
+		return licenseLabel(lic)
 	}
 
 	return key
@@ -169,9 +152,10 @@ func normalizeContexts(contexts []string) []string {
 	return out
 }
 
-func licenseOptionLabel(lic customerapi.License) string {
-	label := lic.LicenseKey
-
+// licenseLabel formats a license for display: the key alone, or the key with
+// its site title/URL (falling back to the product title) in parentheses.
+// The result is intentionally unstyled — huh restyles select options itself.
+func licenseLabel(lic customerapi.License) string {
 	var parts []string
 	if lic.SiteTitle != "" {
 		parts = append(parts, lic.SiteTitle)
@@ -181,11 +165,15 @@ func licenseOptionLabel(lic customerapi.License) string {
 		parts = append(parts, lic.SiteURL)
 	}
 
-	if len(parts) > 0 {
-		label = fmt.Sprintf("%s (%s)", label, strings.Join(parts, " - "))
+	if len(parts) == 0 && lic.ProductTitle != "" {
+		parts = append(parts, lic.ProductTitle)
 	}
 
-	return label
+	if len(parts) == 0 {
+		return lic.LicenseKey
+	}
+
+	return fmt.Sprintf("%s (%s)", lic.LicenseKey, strings.Join(parts, " - "))
 }
 
 func inferSiteTitleFromEnv(opts *InitOptions) string {

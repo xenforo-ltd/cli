@@ -530,7 +530,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 
 		for _, lic := range licenses {
 			if lic.CanDownload {
-				label := licenseOptionLabel(lic)
+				label := licenseLabel(lic)
 				licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
 			}
 		}
