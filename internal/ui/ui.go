@@ -32,8 +32,6 @@ const ansiClearLine = "\r\033[2K"
 // Predefined styles for consistent use across commands.
 var (
 	Bold      = lipgloss.NewStyle().Bold(true)
-	Italic    = lipgloss.NewStyle().Italic(true)
-	Underline = lipgloss.NewStyle().Underline(true)
 	Dim       = lipgloss.NewStyle().Faint(true)                        // Terminal's native faint/dim
 	Muted     = lipgloss.NewStyle().Foreground(ColorSubtle)            // Adaptive subtle color
 	Label     = lipgloss.NewStyle().Foreground(ColorSubtle)            // For labels in key-value pairs
@@ -49,8 +47,7 @@ var (
 	ErrorBold   = lipgloss.NewStyle().Foreground(ColorError).Bold(true)
 	InfoBold    = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
 
-	Header    = lipgloss.NewStyle().Bold(true).Underline(true)
-	Subheader = lipgloss.NewStyle().Bold(true)
+	Header = lipgloss.NewStyle().Bold(true).Underline(true)
 
 	Command = lipgloss.NewStyle().Foreground(ColorAccent)
 	Path    = lipgloss.NewStyle().Foreground(ColorSecondary)
@@ -161,68 +158,9 @@ func Separator(width int) string {
 	return Dim.Render(strings.Repeat("─", width))
 }
 
-// DoubleSeparator returns a double-line horizontal separator.
-func DoubleSeparator(width int) string {
-	if width <= 0 {
-		width = 60
-	}
-
-	return Dim.Render(strings.Repeat("═", width))
-}
-
-// Box returns formatted text in a box border.
-func Box(title, content string) string {
-	var sb strings.Builder
-
-	lines := strings.Split(content, "\n")
-
-	maxWidth := len(title)
-	for _, line := range lines {
-		if len(line) > maxWidth {
-			maxWidth = len(line)
-		}
-	}
-
-	maxWidth += 4 // padding
-
-	sb.WriteString(Dim.Render("┌" + strings.Repeat("─", maxWidth) + "┐"))
-	sb.WriteString("\n")
-
-	if title != "" {
-		padding := maxWidth - len(title) - 1
-
-		sb.WriteString(Dim.Render("│ "))
-		sb.WriteString(Bold.Render(title))
-		sb.WriteString(strings.Repeat(" ", padding))
-		sb.WriteString(Dim.Render("│"))
-		sb.WriteString("\n")
-		sb.WriteString(Dim.Render("├" + strings.Repeat("─", maxWidth) + "┤"))
-		sb.WriteString("\n")
-	}
-
-	for _, line := range lines {
-		padding := maxWidth - len(line) - 1
-
-		sb.WriteString(Dim.Render("│ "))
-		sb.WriteString(line)
-		sb.WriteString(strings.Repeat(" ", padding))
-		sb.WriteString(Dim.Render("│"))
-		sb.WriteString("\n")
-	}
-
-	sb.WriteString(Dim.Render("└" + strings.Repeat("─", maxWidth) + "┘"))
-
-	return sb.String()
-}
-
 // KeyValue returns a formatted key-value pair.
 func KeyValue(key, value string) string {
 	return fmt.Sprintf("%s %s", Label.Render(key+":"), value)
-}
-
-// KeyValueBold returns a formatted key-value pair with a bold key.
-func KeyValueBold(key, value string) string {
-	return fmt.Sprintf("%s %s", Bold.Render(key+":"), value)
 }
 
 // KVPair represents a key-value pair for display.
@@ -270,16 +208,6 @@ func List(items []string) string {
 	return strings.TrimSuffix(sb.String(), "\n")
 }
 
-// NumberedList formats a slice of strings as a numbered list.
-func NumberedList(items []string) string {
-	var sb strings.Builder
-	for i, item := range items {
-		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(fmt.Sprintf("%d.", i+1)), item)
-	}
-
-	return strings.TrimSuffix(sb.String(), "\n")
-}
-
 // Spinner provides a simple terminal spinner.
 type Spinner struct {
 	mu       sync.Mutex
@@ -294,9 +222,6 @@ type Spinner struct {
 
 // SpinnerFrames are the animation frames for the spinner.
 var SpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-
-// SpinnerFramesSimple are simpler ASCII frames for terminals without Unicode.
-var SpinnerFramesSimple = []string{"|", "/", "-", "\\"}
 
 // NewSpinner creates a new spinner with the given message.
 func NewSpinner(message string) *Spinner {
@@ -590,28 +515,4 @@ func ErrorBox(message string, details []KVPair) {
 		lipgloss.Println()
 		PrintKeyValuePadded(details)
 	}
-}
-
-// Confirm displays a confirmation prompt and returns the result.
-// Note: This is a simple blocking prompt. For TUI, use huh forms.
-func Confirm(prompt string, defaultYes bool) bool {
-	var response string
-
-	defaultStr := "y/N"
-	if defaultYes {
-		defaultStr = "Y/n"
-	}
-
-	Printf("%s [%s]: ", prompt, defaultStr)
-
-	if _, err := fmt.Scanln(&response); err != nil {
-		return defaultYes
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	if response == "" {
-		return defaultYes
-	}
-
-	return response == "y" || response == "yes"
 }
