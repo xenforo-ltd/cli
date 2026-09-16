@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -122,7 +121,7 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(licenses) == 0 {
-		ui.PrintInfo("No licenses found.")
+		ui.PrintEmpty("No licenses found")
 		return nil
 	}
 
@@ -141,8 +140,33 @@ func runLicenses(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// licenseStatus renders the colored status label for a license.
+func licenseStatus(lic customerapi.License) string {
+	switch {
+	case !lic.IsValid:
+		return ui.Error.Render("Invalid")
+	case !lic.IsActive:
+		return ui.Warning.Render("Expired")
+	default:
+		return ui.Success.Render("Active")
+	}
+}
+
+// licenseStatusIcon renders the colored status icon for a license.
+func licenseStatusIcon(lic customerapi.License) string {
+	switch {
+	case !lic.IsValid:
+		return ui.StatusIcon("error")
+	case !lic.IsActive:
+		return ui.StatusIcon("warning")
+	default:
+		return ui.StatusIcon("success")
+	}
+}
+
 func runLicensesTable(licenses []customerapi.License) {
-	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(strconv.Itoa(len(licenses))))
+	ui.PrintInfo("Found " + ui.Plural(len(licenses), "license", "licenses"))
+	ui.Println()
 
 	headers := []string{"LICENSE", "SITE TITLE", "SITE URL", "PRODUCT", "STATUS", "EXPIRES", "DOWNLOAD"}
 	rows := make([][]string, 0, len(licenses))
@@ -150,24 +174,15 @@ func runLicensesTable(licenses []customerapi.License) {
 	for _, lic := range licenses {
 		siteTitle, siteURL := formatLicenseSite(lic)
 
-		var status string
-
-		switch {
-		case !lic.IsValid:
-			status = ui.Error.Render("Invalid")
-		case !lic.IsActive:
-			status = ui.Warning.Render("Expired")
-		default:
-			status = ui.Success.Render("Active")
-		}
+		status := licenseStatus(lic)
 
 		var expires string
 
 		if !lic.ExpirationDate.IsZero() {
 			if lic.ExpirationDate.After(time.Now()) {
-				expires = lic.ExpirationDate.Format("2006-01-02")
+				expires = ui.FormatDate(lic.ExpirationDate.Time)
 			} else {
-				expires = ui.Warning.Render(lic.ExpirationDate.Format("2006-01-02"))
+				expires = ui.Warning.Render(ui.FormatDate(lic.ExpirationDate.Time))
 			}
 		} else {
 			expires = ui.Success.Render("Lifetime")
@@ -192,80 +207,71 @@ func runLicensesTable(licenses []customerapi.License) {
 	}
 
 	ui.Println(ui.NewTable(headers, rows))
-	ui.Printf("\nUse %s for detailed license information.\n", ui.Command.Render("-v"))
+	ui.Println()
+	ui.PrintHint("Run " + ui.Command.Render("xf licenses -v") + " for detailed license information")
 }
 
 func formatLicenseSite(lic customerapi.License) (string, string) {
-	siteTitle := "N/A"
+	siteTitle := ui.Dim.Render("—")
 	if lic.SiteTitle != "" {
 		siteTitle = lic.SiteTitle
 	}
 
-	siteURL := "N/A"
+	siteURL := ui.Dim.Render("—")
 	if lic.SiteURL != "" {
-		siteURL = ui.URL.Render(lic.SiteURL)
+		siteURL = lic.SiteURL
 	}
 
 	return siteTitle, siteURL
 }
 
 func runLicensesVerbose(licenses []customerapi.License) {
-	ui.Printf("%s Found %s license(s)\n\n", ui.StatusIcon("success"), ui.Bold.Render(strconv.Itoa(len(licenses))))
+	ui.PrintInfo("Found " + ui.Plural(len(licenses), "license", "licenses"))
+	ui.Println()
 
 	for i, lic := range licenses {
-		var statusText string
-
-		switch {
-		case !lic.IsValid:
-			statusText = ui.Error.Render("Invalid")
-		case !lic.IsActive:
-			statusText = ui.Warning.Render("Expired")
-		default:
-			statusText = ui.Success.Render("Active")
-		}
-
-		ui.Printf("%s %s\n", ui.StatusIcon("success"), ui.Bold.Render(lic.ProductTitle))
+		ui.Printf("%s %s %s\n", licenseStatusIcon(lic), ui.Bold.Render(lic.ProductTitle), ui.Muted.Render(lic.LicenseKey))
 
 		siteTitle, siteURL := formatLicenseSite(lic)
 		pairs := []ui.KVPair{
-			ui.KV("License Key", lic.LicenseKey),
-			ui.KV("Status", statusText),
-			ui.KV("Site Title", siteTitle),
+			ui.KV("License key", lic.LicenseKey),
+			ui.KV("Status", licenseStatus(lic)),
+			ui.KV("Site title", siteTitle),
 			ui.KV("Site URL", siteURL),
 		}
 
 		if !lic.StartDate.IsZero() {
-			pairs = append(pairs, ui.KV("Purchased", lic.StartDate.Format("2006-01-02")))
+			pairs = append(pairs, ui.KV("Purchased", ui.FormatDate(lic.StartDate.Time)))
 		}
 
 		if !lic.ExpirationDate.IsZero() {
 			if lic.ExpirationDate.After(time.Now()) {
-				pairs = append(pairs, ui.KV("Expires", lic.ExpirationDate.Format("2006-01-02")))
+				pairs = append(pairs, ui.KV("Expires", ui.FormatDate(lic.ExpirationDate.Time)))
 			} else {
-				pairs = append(pairs, ui.KV("Expired", ui.Warning.Render(lic.ExpirationDate.Format("2006-01-02"))))
+				pairs = append(pairs, ui.KV("Expires", ui.Warning.Render(ui.FormatDate(lic.ExpirationDate.Time)+" (expired)")))
 			}
 		} else {
-			pairs = append(pairs, ui.KV("Expires", ui.Success.Render("Never (Lifetime)")))
+			pairs = append(pairs, ui.KV("Expires", ui.Success.Render("Lifetime")))
 		}
 
 		if lic.CanDownload {
-			pairs = append(pairs, ui.KV("Download", ui.Success.Render("Available")))
+			pairs = append(pairs, ui.KV("Download", ui.Success.Render("Yes")))
 		} else {
-			pairs = append(pairs, ui.KV("Download", ui.Dim.Render("Not available")))
+			pairs = append(pairs, ui.KV("Download", ui.Dim.Render("No")))
 		}
 
 		ui.PrintKeyValuePadded(pairs)
 
 		if len(lic.Extras) > 0 {
-			ui.Printf("\n%sExtras:\n", ui.Indent1)
+			ui.Println(ui.Indent1 + ui.Bold.Render("Extras"))
 
 			for _, extra := range lic.Extras {
-				downloadable := ""
+				note := ""
 				if extra.IsDownloadable {
-					downloadable = ui.Success.Render(" (downloadable)")
+					note = ui.Dim.Render(" (downloadable)")
 				}
 
-				ui.Printf("%s%s %s%s\n", ui.Indent2, ui.Dim.Render(ui.SymbolBullet), extra.Name, downloadable)
+				ui.Printf("%s%s %s%s\n", ui.Indent1, ui.Dim.Render(ui.SymbolBullet), extra.Name, note)
 			}
 		}
 
