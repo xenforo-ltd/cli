@@ -371,7 +371,10 @@ func IsOrbStack(ctx context.Context) (bool, error) {
 // GetURL returns the URL for accessing the XenForo site.
 // It detects OrbStack vs standard Docker.
 func (r *Runner) GetURL(ctx context.Context) (string, error) {
-	isOrbStack, _ := IsOrbStack(ctx)
+	isOrbStack, err := IsOrbStack(ctx)
+	if err != nil {
+		return "", err
+	}
 
 	if isOrbStack {
 		return fmt.Sprintf("https://%s.xf.local", r.instance), nil

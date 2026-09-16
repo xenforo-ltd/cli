@@ -52,6 +52,10 @@ func init() {
 }
 
 func runDB(cmd *cobra.Command, args []string) error {
+	if flagDBPrintURL && flagDBShell {
+		return newUsageError(errors.New("--print-url and --shell cannot be used together"))
+	}
+
 	xfDir, err := getXenForoDir(args)
 	if err != nil {
 		return err
@@ -68,6 +72,10 @@ func runDB(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagDBPrintURL {
+		if err := requireOrbStack(cmd.Context()); err != nil {
+			return err
+		}
+
 		// The URL carries the local development password so it can be piped
 		// straight into a database client.
 		// codeql[go/clear-text-logging] --print-url is an explicit request to expose it.
@@ -122,17 +130,10 @@ func openDatabaseShell(ctx context.Context, runner *dockercompose.Runner, info d
 	return nil
 }
 
-// openInTablePlus launches TablePlus with the connection URL. It relies on
-// OrbStack, which makes the container's orb.local hostname resolvable from
-// macOS without publishing a port.
-func openInTablePlus(ctx context.Context, info database.Info) error {
-	if runtime.GOOS != "darwin" {
-		return withHint(
-			errors.New("opening a database client is currently supported on macOS only"),
-			"Use "+ui.Command.Render("xf db --shell")+" or "+ui.Command.Render("xf db --print-url")+" instead",
-		)
-	}
-
+// requireOrbStack ensures the Docker engine is OrbStack, which resolves
+// container hostnames as <service>.<instance>.orb.local from the host without
+// publishing a port.
+func requireOrbStack(ctx context.Context) error {
 	isOrbStack, err := dockercompose.IsOrbStack(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to detect OrbStack: %w", err)
@@ -140,9 +141,27 @@ func openInTablePlus(ctx context.Context, info database.Info) error {
 
 	if !isOrbStack {
 		return withHint(
-			errors.New("opening TablePlus requires OrbStack"),
-			"TablePlus cannot reach the container network without OrbStack; use "+ui.Command.Render("xf db --shell"),
+			errors.New("this command requires OrbStack"),
+			"The orb.local hostname cannot be resolved without OrbStack; use "+ui.Command.Render("xf db --shell")+" instead",
 		)
+	}
+
+	return nil
+}
+
+// openInTablePlus launches TablePlus with the connection URL. It relies on
+// OrbStack, which makes the container's orb.local hostname resolvable from
+// macOS without publishing a port.
+func openInTablePlus(ctx context.Context, info database.Info) error {
+	if runtime.GOOS != "darwin" {
+		return withHint(
+			errors.New("opening a database client is currently supported on macOS only"),
+			"Use "+ui.Command.Render("xf db --shell")+" instead",
+		)
+	}
+
+	if err := requireOrbStack(ctx); err != nil {
+		return err
 	}
 
 	if _, err := exec.LookPath("open"); err != nil {

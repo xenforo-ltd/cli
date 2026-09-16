@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -96,5 +97,23 @@ func TestDBCmdAcceptsOnlyOnePath(t *testing.T) {
 
 	if err := cmd.Args(cmd, []string{"one", "two"}); err == nil {
 		t.Fatal("expected an error for more than one path")
+	}
+}
+
+// TestDBCmdRejectsMutuallyExclusiveFlags covers --print-url and --shell, which
+// select different actions and must not be combined.
+func TestDBCmdRejectsMutuallyExclusiveFlags(t *testing.T) {
+	t.Cleanup(func() {
+		flagDBPrintURL = false
+		flagDBShell = false
+	})
+
+	err := runTree(t, "db", "--print-url", "--shell")
+	if err == nil {
+		t.Fatal("expected an error when both --print-url and --shell are set")
+	}
+
+	if _, ok := errors.AsType[*usageError](err); !ok {
+		t.Fatalf("expected a usage error so usage is printed, got %T: %v", err, err)
 	}
 }
