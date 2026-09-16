@@ -8,12 +8,12 @@ import (
 )
 
 // createdWorktree makes a worktree and returns the source and worktree paths.
-func createdWorktree(t *testing.T, branch string) (string, string) {
+func createdWorktree(t *testing.T) (string, string) {
 	t.Helper()
 
 	repo := newXenForoRepo(t)
 
-	result, err := Create(t.Context(), Options{SourcePath: repo, Branch: branch})
+	result, err := Create(t.Context(), Options{SourcePath: repo, Branch: "feature"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -22,7 +22,7 @@ func createdWorktree(t *testing.T, branch string) (string, string) {
 }
 
 func TestRemoveDeletesACleanWorktree(t *testing.T) {
-	repo, wt := createdWorktree(t, "feature")
+	repo, wt := createdWorktree(t)
 
 	if err := Remove(t.Context(), repo, wt, false); err != nil {
 		t.Fatalf("Remove: %v", err)
@@ -32,9 +32,9 @@ func TestRemoveDeletesACleanWorktree(t *testing.T) {
 		t.Error("worktree directory still exists")
 	}
 
-	exists, err := BranchExists(t.Context(), repo, "feature")
+	exists, err := backendFor(t, repo).nameExists(t.Context(), repo, "feature")
 	if err != nil {
-		t.Fatalf("BranchExists: %v", err)
+		t.Fatalf("nameExists: %v", err)
 	}
 
 	if exists {
@@ -44,7 +44,7 @@ func TestRemoveDeletesACleanWorktree(t *testing.T) {
 
 // TestRemoveRefusesUncommittedChanges is the guard against losing work.
 func TestRemoveRefusesUncommittedChanges(t *testing.T) {
-	repo, wt := createdWorktree(t, "feature")
+	repo, wt := createdWorktree(t)
 
 	if err := os.WriteFile(filepath.Join(wt, "new-file.txt"), []byte("work"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
@@ -61,7 +61,7 @@ func TestRemoveRefusesUncommittedChanges(t *testing.T) {
 }
 
 func TestRemoveForceDiscardsChanges(t *testing.T) {
-	repo, wt := createdWorktree(t, "feature")
+	repo, wt := createdWorktree(t)
 
 	if err := os.WriteFile(filepath.Join(wt, "new-file.txt"), []byte("work"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
@@ -81,7 +81,7 @@ func TestRemoveForceDiscardsChanges(t *testing.T) {
 // The repository needs a remote for this to be meaningful: with no remote there
 // is nowhere to push, so "unpushed" would describe every commit ever made.
 func TestRemoveRefusesUnpushedCommits(t *testing.T) {
-	repo, wt := createdWorktree(t, "feature")
+	repo, wt := createdWorktree(t)
 
 	addRemote(t, repo)
 
@@ -108,9 +108,9 @@ func TestRemoveUnknownPath(t *testing.T) {
 }
 
 func TestStatusReportsModifiedFiles(t *testing.T) {
-	_, wt := createdWorktree(t, "feature")
+	_, wt := createdWorktree(t)
 
-	status, err := Status(t.Context(), wt)
+	status, err := backendFor(t, wt).status(t.Context(), wt)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestStatusReportsModifiedFiles(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	status, err = Status(t.Context(), wt)
+	status, err = backendFor(t, wt).status(t.Context(), wt)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -134,13 +134,13 @@ func TestStatusReportsModifiedFiles(t *testing.T) {
 }
 
 // TestStatusReturnsErrorOnInspectionFailure guards against treating a broken
-// git invocation as "nothing to lose": Status must surface a real command
-// failure rather than silently reporting a clean worktree, since Remove would
-// otherwise delete the worktree and force-delete its branch unverified.
+// git invocation as "nothing to lose": the status seam must surface a real
+// command failure rather than silently reporting a clean worktree, since Remove
+// would otherwise delete the worktree and force-delete its branch unverified.
 func TestStatusReturnsErrorOnInspectionFailure(t *testing.T) {
 	notARepo := t.TempDir()
 
-	if _, err := Status(t.Context(), notARepo); err == nil {
+	if _, err := (gitBackend{}).status(t.Context(), notARepo); err == nil {
 		t.Fatal("expected an error when inspecting a path that is not a git repository")
 	}
 }
@@ -164,7 +164,7 @@ func addRemote(t *testing.T, repo string) {
 // would refuse every worktree this tool made and push users to --force, which
 // also disables the unpushed-commit check.
 func TestStatusIgnoresGeneratedEnvironmentFiles(t *testing.T) {
-	_, wt := createdWorktree(t, "feature")
+	_, wt := createdWorktree(t)
 
 	for _, name := range []string{"compose.yaml", "compose.mysql.yaml", ".env", ".dockerignore"} {
 		if err := os.WriteFile(filepath.Join(wt, name), []byte("generated"), 0o600); err != nil {
@@ -172,7 +172,7 @@ func TestStatusIgnoresGeneratedEnvironmentFiles(t *testing.T) {
 		}
 	}
 
-	status, err := Status(t.Context(), wt)
+	status, err := backendFor(t, wt).status(t.Context(), wt)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -185,13 +185,13 @@ func TestStatusIgnoresGeneratedEnvironmentFiles(t *testing.T) {
 // TestStatusReportsRealUntrackedWork guards the filtering above from hiding
 // anything the user actually created.
 func TestStatusReportsRealUntrackedWork(t *testing.T) {
-	_, wt := createdWorktree(t, "feature")
+	_, wt := createdWorktree(t)
 
 	if err := os.WriteFile(filepath.Join(wt, "notes.txt"), []byte("work"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
-	status, err := Status(t.Context(), wt)
+	status, err := backendFor(t, wt).status(t.Context(), wt)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestStatusReportsRealUntrackedWork(t *testing.T) {
 // generated file is committed to the repository: once tracked, edits to it are
 // the user's work and must not be filtered out.
 func TestStatusReportsModifiedTrackedGeneratedFile(t *testing.T) {
-	_, wt := createdWorktree(t, "feature")
+	_, wt := createdWorktree(t)
 
 	compose := filepath.Join(wt, "compose.yaml")
 	if err := os.WriteFile(compose, []byte("generated"), 0o600); err != nil {
@@ -219,7 +219,7 @@ func TestStatusReportsModifiedTrackedGeneratedFile(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	status, err := Status(t.Context(), wt)
+	status, err := backendFor(t, wt).status(t.Context(), wt)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestStatusReportsModifiedTrackedGeneratedFile(t *testing.T) {
 // check cannot see: with no remotes configured, Status cannot tell whether a
 // commit exists elsewhere, so branch deletion must not be forced.
 func TestRemoveKeepsUnmergedBranchWithoutRemotes(t *testing.T) {
-	repo, wt := createdWorktree(t, "feature")
+	repo, wt := createdWorktree(t)
 
 	if err := os.WriteFile(filepath.Join(wt, "only-here.txt"), []byte("work"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
@@ -248,9 +248,9 @@ func TestRemoveKeepsUnmergedBranchWithoutRemotes(t *testing.T) {
 
 	// The worktree goes, but the branch holding the only copy of that commit
 	// must survive so the work remains recoverable.
-	exists, err := BranchExists(t.Context(), repo, "feature")
+	exists, err := backendFor(t, repo).nameExists(t.Context(), repo, "feature")
 	if err != nil {
-		t.Fatalf("BranchExists: %v", err)
+		t.Fatalf("nameExists: %v", err)
 	}
 
 	if !exists {

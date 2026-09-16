@@ -27,16 +27,6 @@ type WorktreeStatus struct {
 	UnmergedCommits []string
 }
 
-// Status inspects a worktree for work that would be lost by removing it.
-func Status(ctx context.Context, worktreePath string) (WorktreeStatus, error) {
-	b, err := detectBackend(ctx, worktreePath)
-	if err != nil {
-		return WorktreeStatus{}, err
-	}
-
-	return b.status(ctx, worktreePath)
-}
-
 // CheckRemovable reports whether a worktree can be removed without losing work.
 //
 // It is separate from Remove so callers can run the check before destroying

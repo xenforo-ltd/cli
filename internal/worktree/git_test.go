@@ -114,10 +114,11 @@ func TestSourceCheckoutOutsideRepository(t *testing.T) {
 
 func TestBranchExists(t *testing.T) {
 	repo := newTestRepo(t)
+	b := backendFor(t, repo)
 
-	exists, err := BranchExists(t.Context(), repo, "no-such-branch")
+	exists, err := b.nameExists(t.Context(), repo, "no-such-branch")
 	if err != nil {
-		t.Fatalf("BranchExists: %v", err)
+		t.Fatalf("nameExists: %v", err)
 	}
 
 	if exists {
@@ -126,9 +127,9 @@ func TestBranchExists(t *testing.T) {
 
 	runGit(t, repo, "branch", "real-branch")
 
-	exists, err = BranchExists(t.Context(), repo, "real-branch")
+	exists, err = b.nameExists(t.Context(), repo, "real-branch")
 	if err != nil {
-		t.Fatalf("BranchExists: %v", err)
+		t.Fatalf("nameExists: %v", err)
 	}
 
 	if !exists {

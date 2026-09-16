@@ -71,20 +71,10 @@ type Result struct {
 	CreatedAt time.Time
 }
 
-// Preflight validates a request without changing anything.
+// preflight validates a request without changing anything.
 //
 // It runs before any mutation so that a rejected request leaves no partial
 // state behind: no directory, no branch, no registry entry.
-func Preflight(ctx context.Context, sourcePath, branch string) error {
-	b, err := detectBackend(ctx, sourcePath)
-	if err != nil {
-		return err
-	}
-
-	return preflight(ctx, b, sourcePath, branch)
-}
-
-// preflight is Preflight with the backend already selected.
 func preflight(ctx context.Context, b backend, sourcePath, branch string) error {
 	if strings.TrimSpace(branch) == "" {
 		return fmt.Errorf("%w: branch name is empty", ErrInvalidBranch)

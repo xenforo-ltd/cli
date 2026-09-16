@@ -170,6 +170,7 @@ func TestJujutsuCreateDefaultsToSourceRevision(t *testing.T) {
 // workspace.
 func TestJujutsuRemoveRefusesDirtyWorkspaceAndForcesCleanup(t *testing.T) {
 	source := newJJXenForoRepo(t)
+	b := backendFor(t, source)
 
 	result, err := Create(t.Context(), Options{
 		SourcePath: source,
@@ -191,8 +192,8 @@ func TestJujutsuRemoveRefusesDirtyWorkspaceAndForcesCleanup(t *testing.T) {
 		t.Errorf("a refused removal must leave the workspace intact: %v", err)
 	}
 
-	if exists, err := BranchExists(t.Context(), source, "feature"); err != nil {
-		t.Fatalf("BranchExists: %v", err)
+	if exists, err := b.nameExists(t.Context(), source, "feature"); err != nil {
+		t.Fatalf("nameExists: %v", err)
 	} else if !exists {
 		t.Error("a refused removal must leave the workspace registered")
 	}
@@ -205,8 +206,8 @@ func TestJujutsuRemoveRefusesDirtyWorkspaceAndForcesCleanup(t *testing.T) {
 		t.Errorf("forced removal left the workspace directory behind: %v", err)
 	}
 
-	if exists, err := BranchExists(t.Context(), source, "feature"); err != nil {
-		t.Fatalf("BranchExists: %v", err)
+	if exists, err := b.nameExists(t.Context(), source, "feature"); err != nil {
+		t.Fatalf("nameExists: %v", err)
 	} else if exists {
 		t.Error("forced removal left the workspace registered")
 	}

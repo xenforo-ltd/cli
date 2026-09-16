@@ -62,7 +62,7 @@ func TestPreflightRejectsCollisionWithExistingBranch(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	err := Preflight(t.Context(), repo, "dev/xf/slack-unfurl")
+	err := preflight(t.Context(), backendFor(t, repo), repo, "dev/xf/slack-unfurl")
 	if err == nil {
 		t.Fatal("expected a colliding branch to be rejected")
 	}
@@ -86,7 +86,7 @@ func TestPreflightAllowsDistinctLastSegments(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if err := Preflight(t.Context(), repo, "dev/xfs/two"); err != nil {
+	if err := preflight(t.Context(), backendFor(t, repo), repo, "dev/xfs/two"); err != nil {
 		t.Errorf("distinct feature names must not conflict: %v", err)
 	}
 }
@@ -101,9 +101,9 @@ func TestWorktreeOwnerReportsTheBranchUsingADirectory(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	owner, err := worktreeOwner(t.Context(), repo, result.Path)
+	owner, err := backendFor(t, repo).owner(t.Context(), repo, result.Path)
 	if err != nil {
-		t.Fatalf("worktreeOwner: %v", err)
+		t.Fatalf("owner: %v", err)
 	}
 
 	if owner != "dev/xfs/slack-unfurl" {
@@ -114,9 +114,9 @@ func TestWorktreeOwnerReportsTheBranchUsingADirectory(t *testing.T) {
 func TestWorktreeOwnerForUnknownPath(t *testing.T) {
 	repo := newXenForoRepo(t)
 
-	owner, err := worktreeOwner(t.Context(), repo, filepath.Join(t.TempDir(), "absent"))
+	owner, err := backendFor(t, repo).owner(t.Context(), repo, filepath.Join(t.TempDir(), "absent"))
 	if err != nil {
-		t.Fatalf("worktreeOwner: %v", err)
+		t.Fatalf("owner: %v", err)
 	}
 
 	if owner != "" {

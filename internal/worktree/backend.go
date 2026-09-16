@@ -183,18 +183,6 @@ func SourceCheckout(ctx context.Context, dir string) (string, error) {
 	return source, err
 }
 
-// BranchExists reports whether a local branch of the given name exists.
-//
-// For a Jujutsu repository the argument is a workspace name.
-func BranchExists(ctx context.Context, repoDir, branch string) (bool, error) {
-	b, err := detectBackend(ctx, repoDir)
-	if err != nil {
-		return false, err
-	}
-
-	return b.nameExists(ctx, repoDir, branch)
-}
-
 // CurrentBranch returns the branch checked out in repoDir.
 //
 // For a Jujutsu repository this returns the workspace name.
@@ -205,18 +193,4 @@ func CurrentBranch(ctx context.Context, repoDir string) (string, error) {
 	}
 
 	return b.currentName(ctx, repoDir)
-}
-
-// worktreeOwner returns the branch or workspace occupying worktreePath, or an
-// empty string when nothing is registered there.
-//
-// This makes a collision actionable: the user is told which branch already owns
-// the directory, rather than only that something does.
-func worktreeOwner(ctx context.Context, repoDir, worktreePath string) (string, error) {
-	b, err := detectBackend(ctx, repoDir)
-	if err != nil {
-		return "", err
-	}
-
-	return b.owner(ctx, repoDir, worktreePath)
 }

@@ -33,7 +33,7 @@ func newXenForoRepo(t *testing.T) string {
 func TestPreflightAcceptsAValidRequest(t *testing.T) {
 	repo := newXenForoRepo(t)
 
-	if err := Preflight(t.Context(), repo, "dev/24x/feature"); err != nil {
+	if err := preflight(t.Context(), backendFor(t, repo), repo, "dev/24x/feature"); err != nil {
 		t.Errorf("Preflight rejected a valid request: %v", err)
 	}
 }
@@ -43,7 +43,7 @@ func TestPreflightRejectsExistingBranch(t *testing.T) {
 
 	runGit(t, repo, "branch", "taken")
 
-	err := Preflight(t.Context(), repo, "taken")
+	err := preflight(t.Context(), backendFor(t, repo), repo, "taken")
 	if !errors.Is(err, ErrBranchExists) {
 		t.Errorf("expected ErrBranchExists, got %v", err)
 	}
@@ -57,7 +57,7 @@ func TestPreflightRejectsExistingDirectory(t *testing.T) {
 		t.Fatalf("mkdir target: %v", err)
 	}
 
-	err := Preflight(t.Context(), repo, "dev/24x/feature")
+	err := preflight(t.Context(), backendFor(t, repo), repo, "dev/24x/feature")
 	if !errors.Is(err, ErrWorktreeExists) {
 		t.Errorf("expected ErrWorktreeExists, got %v", err)
 	}
@@ -75,7 +75,7 @@ func TestPreflightRejectsCollidingName(t *testing.T) {
 		t.Fatalf("mkdir target: %v", err)
 	}
 
-	err := Preflight(t.Context(), repo, "dev/xfs/feature")
+	err := preflight(t.Context(), backendFor(t, repo), repo, "dev/xfs/feature")
 	if !errors.Is(err, ErrWorktreeExists) {
 		t.Errorf("expected a collision to be caught, got %v", err)
 	}
@@ -85,7 +85,7 @@ func TestPreflightRejectsEmptyBranch(t *testing.T) {
 	repo := newXenForoRepo(t)
 
 	for _, branch := range []string{"", "   ", "..", "///"} {
-		if err := Preflight(t.Context(), repo, branch); !errors.Is(err, ErrInvalidBranch) {
+		if err := preflight(t.Context(), backendFor(t, repo), repo, branch); !errors.Is(err, ErrInvalidBranch) {
 			t.Errorf("Preflight(%q) = %v, want ErrInvalidBranch", branch, err)
 		}
 	}
@@ -94,7 +94,7 @@ func TestPreflightRejectsEmptyBranch(t *testing.T) {
 func TestPreflightRejectsNonXenForoDirectory(t *testing.T) {
 	repo := newTestRepo(t) // a git repo, but no src/XF.php
 
-	err := Preflight(t.Context(), repo, "feature")
+	err := preflight(t.Context(), backendFor(t, repo), repo, "feature")
 	if !errors.Is(err, ErrNotXenForo) {
 		t.Errorf("expected ErrNotXenForo, got %v", err)
 	}
