@@ -68,6 +68,9 @@ func runDB(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagDBPrintURL {
+		// The URL carries the local development password so it can be piped
+		// straight into a database client.
+		// codeql[go/clear-text-logging] --print-url is an explicit request to expose it.
 		fmt.Println(info.URL())
 		return nil
 	}
