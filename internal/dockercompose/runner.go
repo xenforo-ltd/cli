@@ -356,16 +356,22 @@ func (r *Runner) Compose(ctx context.Context, stdin io.Reader, stdout, stderr io
 	return r.runDockerCommandWithEnvAndIO(ctx, nil, stdin, stdout, stderr, composeArgs...)
 }
 
+// IsOrbStack reports whether the Docker engine is OrbStack, which exposes
+// container services to the host at <service>.<project>.orb.local without
+// publishing ports.
+func IsOrbStack(ctx context.Context) (bool, error) {
+	info, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.OperatingSystem}}").Output()
+	if err != nil {
+		return false, contextError(ctx, fmt.Errorf("docker info failed: %w", err))
+	}
+
+	return strings.TrimSpace(string(info)) == "OrbStack", nil
+}
+
 // GetURL returns the URL for accessing the XenForo site.
 // It detects OrbStack vs standard Docker.
 func (r *Runner) GetURL(ctx context.Context) (string, error) {
-	isOrbStack := false
-
-	if info, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.OperatingSystem}}").Output(); err == nil {
-		if strings.TrimSpace(string(info)) == "OrbStack" {
-			isOrbStack = true
-		}
-	}
+	isOrbStack, _ := IsOrbStack(ctx)
 
 	if isOrbStack {
 		return fmt.Sprintf("https://%s.xf.local", r.instance), nil
