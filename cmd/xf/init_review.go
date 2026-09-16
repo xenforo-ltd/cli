@@ -325,7 +325,7 @@ func editLicense(ctx context.Context, client *customerapi.Client, opts *InitOpti
 			continue
 		}
 
-		label := licenseOptionLabel(lic)
+		label := licenseLabel(lic)
 		options = append(options, huh.NewOption(label, lic.LicenseKey))
 	}
 
