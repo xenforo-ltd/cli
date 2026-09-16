@@ -140,3 +140,26 @@ func TestKnownSubcommandsStillDispatch(t *testing.T) {
 		t.Errorf("cache path resolved to %q, want dispatch to the subcommand", cmd.Name())
 	}
 }
+
+// TestRootRejectsUnknownCommandAfterGlobalFlag covers `xf -v xf-dev:import`.
+// A leading flag is not eligible for the direct XenForo route, so cobra
+// receives the command name and finds no subcommand. It must fail as a usage
+// error rather than print the root help and exit 0.
+func TestRootRejectsUnknownCommandAfterGlobalFlag(t *testing.T) {
+	err := runTree(t, "-v", "xf-dev:import")
+	if err == nil {
+		t.Fatal("expected an unknown command error")
+	}
+
+	if _, ok := errors.AsType[*usageError](err); !ok {
+		t.Fatalf("unknown command must be a usage error, got %T: %v", err, err)
+	}
+
+	if !strings.Contains(err.Error(), "xf-dev:import") {
+		t.Fatalf("error must name the offending token, got %v", err)
+	}
+
+	if hint := hintOf(err); !strings.Contains(hint, "xf xf-dev:import") {
+		t.Fatalf("hint must show the working invocation, got %q", hint)
+	}
+}

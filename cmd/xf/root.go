@@ -48,6 +48,22 @@ Run XenForo commands directly (from a XenForo directory):
   xf list
   xf xf-dev:import
 `,
+	// Without a Run, cobra answers unknown positional arguments with the root
+	// help and exit 0. That happens when a global flag precedes a forwarded
+	// XenForo command (`xf -v xf-dev:import`): Execute only takes the direct
+	// route when the first argument is not a flag, so cobra receives the
+	// command name and finds no subcommand. Fail loudly instead, so scripts
+	// do not see a false success.
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return cmd.Help()
+		}
+
+		return withHint(
+			newUsageError(markAs(ErrInvalidInput, "unknown command %q for %q", args[0], cmd.CommandPath())),
+			"Global flags cannot precede a XenForo command; run "+ui.Command.Render(cmd.CommandPath()+" "+args[0])+" instead",
+		)
+	},
 }
 
 // usageError marks an error as caused by incorrect invocation (bad arguments or
@@ -164,7 +180,7 @@ func isInterrupted(err error) bool {
 //
 // Known limitation: a leading flag is not eligible, so a global flag cannot be
 // combined with a direct XenForo command. `xf -v xf-dev:import` falls through to
-// cobra, which resolves nothing and prints the root help without an error.
+// cobra, where rootCmd's RunE rejects it as an unknown command.
 func takesDirectXenForoRoute(firstArg string) bool {
 	return !strings.HasPrefix(firstArg, "-") &&
 		firstArg != "help" && firstArg != "--help" && firstArg != "-h"
@@ -265,7 +281,10 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) 
 
 	xfDir, err := xf.GetXenForoDir(cwd)
 	if err != nil {
-		return fmt.Errorf("unknown command: %s (not in a XenForo directory): %w", args[0], err)
+		return withHint(
+			markAs(err, "unknown command: %s (not in a XenForo directory)", args[0]),
+			"Run "+ui.Command.Render("xf --help")+" to see available commands",
+		)
 	}
 
 	runner, err := dockercompose.NewRunner(xfDir)
