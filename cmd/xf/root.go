@@ -341,7 +341,7 @@ type commandFunc func(ctx context.Context, name string, args ...string) *exec.Cm
 func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
+		return fmt.Errorf("failed to determine the current directory: %w", err)
 	}
 
 	xfDir, err := xf.GetXenForoDir(cwd)
