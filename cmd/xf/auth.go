@@ -123,8 +123,9 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	if err := store.PrepareLogin(); err != nil {
 		return err
 	}
+
 	if file, ok := store.(*auth.FileStore); ok {
-		ui.PrintInfo("Credential file: " + file.Path() + " (plaintext; keep out of version control)")
+		ui.PrintInfo("Credential file: " + ui.Path.Render(file.Path()) + " (plaintext; keep out of version control)")
 	}
 
 	pkce, err := auth.GeneratePKCE()
@@ -156,43 +157,71 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	redirectURI := callbackServer.RedirectURI()
 	authURL := client.AuthorizationURL(pkce, redirectURI)
 
-	ui.PrintInfo("Opening browser for authentication...")
-	ui.PrintInfo(fmt.Sprintf("If the browser doesn't open, visit this URL:\n%s\n\n", ui.URL.Render(authURL)))
+	ui.PrintInfo("If the browser does not open, visit:")
+	ui.Printf("%s%s\n", ui.Indent1, ui.URL.Render(authURL))
+	ui.Println()
+
+	spinner := ui.NewSpinner("Opening browser for authentication")
+	spinner.Start()
 
 	if err := auth.OpenBrowser(cmd.Context(), authURL); err != nil {
-		ui.PrintWarning(fmt.Sprintf("Could not open browser automatically: %v", err))
+		// Stop the spinner before printing so the warning lands on its own
+		// line instead of being overwritten by the next animation frame.
+		// Restart only if it was animating: without a TTY, Stop is a no-op
+		// and Start would reprint the message.
+		animating := spinner.Animating()
+		spinner.Stop()
+		ui.PrintWarning("Could not open the browser automatically — use the URL above")
+		if animating {
+			spinner.Start()
+		}
 	}
 
-	ui.PrintInfo("Waiting for authentication...")
+	spinner.UpdateMessage("Waiting for authentication in the browser")
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), time.Duration(flagAuthTimeout)*time.Second)
 	defer cancel()
 
 	result, err := callbackServer.WaitForCallback(ctx)
 	if err != nil {
+		spinner.Stop()
 		return fmt.Errorf("failed to wait for authentication callback: %w", err)
 	}
 
 	if result.Error != "" {
+		spinner.Stop()
 		return fmt.Errorf("authentication failed: %s: %w", result.Error, ErrAuthFailed)
 	}
 
 	if result.State != pkce.State {
+		spinner.Stop()
 		return fmt.Errorf("authentication failed: state mismatch (possible CSRF attack): %w", ErrAuthFailed)
 	}
 
-	ui.PrintInfo("Exchanging authorization code for tokens...")
+	spinner.UpdateMessage("Completing authentication")
 
 	token, err := client.ExchangeCode(ctx, result.Code, pkce, redirectURI)
 	if err != nil {
+		spinner.Stop()
 		return fmt.Errorf("failed to exchange authorization code for token: %w", err)
 	}
 
 	if err := store.SaveToken(token); err != nil {
+		spinner.Stop()
 		return fmt.Errorf("failed to save authentication token: %w", err)
 	}
 
-	ui.PrintSuccess("Authentication successful!")
+	message := "Authentication complete"
+
+	ctx2, cancel2 := context.WithTimeout(cmd.Context(), 10*time.Second)
+	defer cancel2()
+
+	if introspect, err := client.IntrospectToken(ctx2, token.AccessToken); err == nil && introspect.Username != "" {
+		message = "Authenticated as " + ui.Bold.Render(introspect.Username)
+	}
+
+	spinner.StopWithMessage("success", message)
+
 	return nil
 }
 
