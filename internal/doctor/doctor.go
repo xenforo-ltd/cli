@@ -155,11 +155,11 @@ func (d *Doctor) checkAuthentication(source string, token *auth.Token, err error
 		case errors.Is(err, auth.ErrAuthRequired):
 			result.Status = StatusWarning
 			result.Message = "Not authenticated"
-			result.Suggestion = "Run 'xf auth login' to authenticate"
+			result.Suggestion = "Run " + ui.Command.Render("xf auth login") + " to authenticate"
 		case errors.Is(err, auth.ErrConfigMismatch):
 			result.Status = StatusWarning
 			result.Message = "Authenticated with different configuration"
-			result.Suggestion = "Run 'xf auth login' to re-authenticate"
+			result.Suggestion = "Run " + ui.Command.Render("xf auth login") + " to re-authenticate"
 		default:
 			storage.Status = StatusError
 			storage.Message = "Unable to use credential storage"
@@ -167,23 +167,25 @@ func (d *Doctor) checkAuthentication(source string, token *auth.Token, err error
 			result.Status = StatusSkipped
 			result.Message = "Credential storage must be fixed before authentication can be checked"
 		}
+
 		return
 	}
 	if token.External {
 		result.Status = StatusOK
 		result.Message = "XF_TOKEN is present (validity and expiry not checked)"
-		result.Suggestion = "Run 'xf auth status' for server validation"
+		result.Suggestion = "Run " + ui.Command.Render("xf auth status") + " for server validation"
 		return
 	}
+
 	switch {
 	case token.IsExpired():
 		result.Status = StatusWarning
 		result.Message = "Authentication token has expired"
-		result.Suggestion = "Run 'xf auth login' to re-authenticate"
+		result.Suggestion = "Run " + ui.Command.Render("xf auth login") + " to re-authenticate"
 	case token.IsExpiringSoon(10 * time.Minute):
 		result.Status = StatusWarning
 		result.Message = fmt.Sprintf("Token expires in %s", token.TimeUntilExpiry().Round(time.Minute))
-		result.Suggestion = "Consider re-authenticating soon with 'xf auth login'"
+		result.Suggestion = "Consider re-authenticating soon with " + ui.Command.Render("xf auth login")
 	default:
 		result.Status = StatusOK
 		result.Message = "Authenticated; credential source: " + source
