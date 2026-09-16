@@ -15,6 +15,43 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
+
+func TestFirstErrorClause(t *testing.T) {
+	in := "failed to start Docker environment: docker command failed: exit status 1"
+	if got := firstErrorClause(in); got != "failed to start Docker environment" {
+		t.Errorf("got %q", got)
+	}
+	if got := firstErrorClause("plain message"); got != "plain message" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// TestFirstErrorClauseLeadingPlumbing covers the case where the very first
+// clause is itself plumbing (cut == 0): trailing plumbing clauses must still
+// be stripped from the end rather than the whole chain, including its
+// sentinel tail, being returned verbatim.
+func TestFirstErrorClauseLeadingPlumbing(t *testing.T) {
+	// First clause is plumbing (cut == 0); a substantive clause follows,
+	// with a plumbing sentinel tail. The tail must be stripped even though
+	// the leading clause is also plumbing.
+	in := "docker command failed: container xf-web-1 is unhealthy: exit status 1"
+	if got := firstErrorClause(in); got != "docker command failed: container xf-web-1 is unhealthy" {
+		t.Errorf("got %q", got)
+	}
+
+	allPlumbing := "docker command failed: not found"
+	if got := firstErrorClause(allPlumbing); got == "" {
+		t.Errorf("firstErrorClause must never return empty, got %q", got)
+	}
+
+	// A message beginning with the ": " separator that Split drops leaves an
+	// empty first clause; the trailing-plumbing branch must not return "".
+	leadingEmpty := ": exit status 1"
+	if got := firstErrorClause(leadingEmpty); got == "" {
+		t.Errorf("firstErrorClause(%q) returned empty", leadingEmpty)
+	}
+}
+
 func TestFindXenForoDirFindsParent(t *testing.T) {
 	root := testutils.SetupXenForoDir(t)
 
