@@ -333,7 +333,7 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) 
 	}
 
 	if err := runner.XFCommand(ctx, args...); err != nil {
-		return fmt.Errorf("failed to run XenForo command %q: %w", args[0], err)
+		return passthroughError(err, fmt.Sprintf("failed to run XenForo command %q", args[0]))
 	}
 
 	return nil
@@ -361,7 +361,7 @@ func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, 
 			)
 		}
 
-		return fmt.Errorf("local XenForo command failed: %w", err)
+		return passthroughError(err, "local XenForo command failed")
 	}
 
 	return nil
