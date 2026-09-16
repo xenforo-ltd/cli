@@ -269,7 +269,10 @@ xf db
 xf db --print-url
 
 # Open the database client inside the container (any platform)
-xf db --shell
+xf db shell
+
+# Forward arguments to the client
+xf db shell -e 'show tables;'
 ```
 
 `xf database` is an alias. Only MySQL environments are supported for now.
