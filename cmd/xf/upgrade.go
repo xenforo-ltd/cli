@@ -34,10 +34,8 @@ This command:
 
 The target directory must contain an existing XenForo installation.
 If the installation was created with 'xf init', the license
-key will be detected automatically. Otherwise, use --license to specify it.
-
-Examples:
-  # Interactive upgrade (prompts for version)
+key will be detected automatically. Otherwise, use --license to specify it.`,
+	Example: `  # Interactive upgrade (prompts for version)
   xf upgrade ./my-project
 
   # Upgrade to a specific version
@@ -45,8 +43,9 @@ Examples:
 
   # Non-interactive upgrade
   xf upgrade ./my-project --version 2030971 --non-interactive`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runUpgrade,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runUpgrade,
 }
 
 // UpgradeOptions specifies upgrade parameters.

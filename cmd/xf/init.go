@@ -51,8 +51,9 @@ Existing Directory Mode (--existing flag):
   automatically once the containers are running. Release packages ship
   vendor/ prebuilt and have no manifest, so they are skipped.
 
-Examples:
-  # Fresh install (interactive)
+Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
+You can override either value via --env-file/--env.`,
+	Example: `  # Fresh install (interactive)
   xf init ./my-project
 
   # Fresh install (non-interactive)
@@ -69,12 +70,10 @@ Examples:
   xf init ./existing-xf-project --existing --up
 
   # Provide .env overrides
-  xf init ./my-project --env-file ./my.env --env XF_TITLE="My Site"
-
-Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
-You can override either value via --env-file/--env.`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runInit,
+  xf init ./my-project --env-file ./my.env --env XF_TITLE="My Site"`,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "start",
+	RunE:    runInit,
 }
 
 // InitOptions contains options for initialization.

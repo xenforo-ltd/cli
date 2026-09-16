@@ -20,10 +20,8 @@ var licensesCmd = &cobra.Command{
 	Long: `Display all XenForo licenses associated with your customer account.
 
 Shows license details including product, status, expiration date, site URL,
-and available extras (add-ons).
-
-Examples:
-  # List all licenses (compact table)
+and available extras (add-ons).`,
+	Example: `  # List all licenses (compact table)
   xf licenses
 
   # List with full details
@@ -31,8 +29,9 @@ Examples:
 
   # Output as JSON (useful for scripting)
   xf licenses --json`,
-	Args: cobra.NoArgs,
-	RunE: runLicenses,
+	Args:    cobra.NoArgs,
+	GroupID: "start",
+	RunE:    runLicenses,
 }
 
 var flagLicensesJSON bool

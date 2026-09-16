@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 
+- *(ui)* Styled errors with contextual hints, grouped help output, and consistent formatting across every command
 - *(cli)* Quiet cancellation from the review menu (exit 0), Ctrl-C at a prompt exits 130 like any other interrupt, and passthrough of exit codes from wrapped commands
 
 ### Bug fixes

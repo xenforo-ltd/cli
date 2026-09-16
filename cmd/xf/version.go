@@ -21,10 +21,8 @@ var versionCmd = &cobra.Command{
 	Long: `Display the version, build commit, build date, and runtime information.
 
 Shows detailed build information including the exact Git commit and
-build timestamp when available.
-
-Examples:
-  # Show full version info
+build timestamp when available.`,
+	Example: `  # Show full version info
   xf version
 
   # Show only version number
@@ -32,8 +30,9 @@ Examples:
 
   # Output as JSON (useful for scripting)
   xf version --json`,
-	Args: cobra.NoArgs,
-	RunE: runVersion,
+	Args:    cobra.NoArgs,
+	GroupID: "maint",
+	RunE:    runVersion,
 }
 
 func init() {

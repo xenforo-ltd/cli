@@ -14,16 +14,15 @@ var psCmd = &cobra.Command{
 	Short: "List running containers",
 	Long: `List the running Docker containers for a XenForo installation.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # List containers in current directory
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # List containers in current directory
   xf ps
 
   # List containers in specific directory
   xf ps ./my-project`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runPs,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runPs,
 }
 
 func init() {
