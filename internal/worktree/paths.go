@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -39,9 +40,9 @@ func BranchToDirName(branch string) string {
 
 	last := ""
 
-	for i := len(segments) - 1; i >= 0; i-- {
-		if strings.TrimSpace(segments[i]) != "" {
-			last = segments[i]
+	for _, segment := range slices.Backward(segments) {
+		if strings.TrimSpace(segment) != "" {
+			last = segment
 
 			break
 		}
