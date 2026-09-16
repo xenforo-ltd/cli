@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 ### Bug fixes
 
 - *(selfupdate)* Harden against zip-slips
+- *(init)* Correct step counts shown during install and notify when `.default` files are written for user-modified configs
 
 ### Build
 
