@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"sync/atomic"
+	"syscall"
 
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
@@ -130,7 +132,14 @@ func Execute(ctx context.Context) {
 			if !isKnownCommand(firstArg) {
 				if err := runAsXenForoCommand(ctx, os.Args[1:], exec.CommandContext); err != nil {
 					if isInterrupted(err) {
-						os.Exit(exitInterrupted)
+						os.Exit(interruptExitCode())
+					}
+
+					if errors.Is(err, ErrCancelled) {
+						os.Exit(0)
+					}
+					if exitErr, ok := errors.AsType[*exitCodeError](err); ok {
+						os.Exit(exitErr.code)
 					}
 
 					handleError(err)
@@ -147,7 +156,14 @@ func Execute(ctx context.Context) {
 		// Ctrl-C is a deliberate user action, not a failure. Exit quietly with
 		// the conventional signal status rather than reporting an error.
 		if isInterrupted(err) {
-			os.Exit(exitInterrupted)
+			os.Exit(interruptExitCode())
+		}
+
+		if errors.Is(err, ErrCancelled) {
+			os.Exit(0)
+		}
+		if exitErr, ok := errors.AsType[*exitCodeError](err); ok {
+			os.Exit(exitErr.code)
 		}
 
 		handleError(err)
@@ -163,8 +179,28 @@ func Execute(ctx context.Context) {
 }
 
 // exitInterrupted is the conventional exit status for a process terminated by
-// SIGINT (128 + 2).
+// SIGINT (128 + 2). It is the default when no signal was recorded, because
+// Ctrl-C is the interruption users actually produce.
 const exitInterrupted = 130
+
+// interruptSignal records which signal ended the process, so the exit status
+// can follow the 128+signum convention rather than always reporting SIGINT.
+var interruptSignal atomic.Value
+
+// recordInterruptSignal stores the signal that terminated the process.
+func recordInterruptSignal(sig os.Signal) {
+	interruptSignal.Store(sig)
+}
+
+// interruptExitCode returns the conventional exit status for the signal that
+// ended the process: 143 for SIGTERM, 130 for SIGINT or an unrecorded signal.
+func interruptExitCode() int {
+	if sig, ok := interruptSignal.Load().(syscall.Signal); ok {
+		return 128 + int(sig)
+	}
+
+	return exitInterrupted
+}
 
 // isInterrupted reports whether an error is the result of the user cancelling
 // the command, typically with Ctrl-C.

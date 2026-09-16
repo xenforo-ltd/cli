@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Features
+
+- *(cli)* Quiet cancellation from the review menu (exit 0), Ctrl-C at a prompt exits 130 like any other interrupt, and passthrough of exit codes from wrapped commands
+
 ### Bug fixes
 
 - *(selfupdate)* Harden against zip-slips
