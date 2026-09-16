@@ -93,24 +93,20 @@ func ValidateEnvKey(key string) error {
 }
 
 // MergeEnvMaps merges multiple environment maps with priority order.
-func MergeEnvMaps(base, fromFile, fromFlags map[string]string) (map[string]string, map[string]string) {
+func MergeEnvMaps(base, fromFile, fromFlags map[string]string) map[string]string {
 	merged := map[string]string{}
-	sources := map[string]string{}
 
 	for k, v := range base {
 		merged[k] = v
-		sources[k] = "inferred"
 	}
 
 	for k, v := range fromFile {
 		merged[k] = v
-		sources[k] = "env-file"
 	}
 
 	for k, v := range fromFlags {
 		merged[k] = v
-		sources[k] = "--env"
 	}
 
-	return merged, sources
+	return merged
 }

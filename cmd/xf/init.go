@@ -99,7 +99,6 @@ type InitOptions struct {
 	EnvFile          string
 	EnvFlags         []string
 	EnvResolved      map[string]string
-	EnvSources       map[string]string
 	ProductOverrides map[string]int
 	CoreVersions     []customerapi.Version
 	ProductTitleMap  map[string]string
@@ -194,7 +193,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse --env: %w", err)
 	}
 
-	opts.EnvResolved, opts.EnvSources = initflow.MergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
+	opts.EnvResolved = initflow.MergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
 
 	hasXenForo, err := detectXenForo(absPath)
 	if err != nil {

@@ -147,17 +147,13 @@ func TestEnsureCoreFirstUnique(t *testing.T) {
 }
 
 func TestCurrentEnvPreviewHidesDefaultDebugValues(t *testing.T) {
-	merged, _ := currentEnvPreview(&InitOptions{
+	merged := currentEnvPreview(&InitOptions{
 		InstanceName: "demo",
 		AdminEmail:   "admin@example.com",
 		SiteTitle:    "XenForo",
 		EnvResolved: map[string]string{
 			"XF_DEBUG":       "1",
 			"XF_DEVELOPMENT": "1",
-		},
-		EnvSources: map[string]string{
-			"XF_DEBUG":       "override",
-			"XF_DEVELOPMENT": "override",
 		},
 	})
 
@@ -171,7 +167,7 @@ func TestCurrentEnvPreviewHidesDefaultDebugValues(t *testing.T) {
 }
 
 func TestCurrentEnvPreviewShowsNonDefaultDebugValues(t *testing.T) {
-	merged, sources := currentEnvPreview(&InitOptions{
+	merged := currentEnvPreview(&InitOptions{
 		InstanceName: "demo",
 		AdminEmail:   "admin@example.com",
 		SiteTitle:    "XenForo",
@@ -179,18 +175,14 @@ func TestCurrentEnvPreviewShowsNonDefaultDebugValues(t *testing.T) {
 			"XF_DEBUG":       "0",
 			"XF_DEVELOPMENT": "0",
 		},
-		EnvSources: map[string]string{
-			"XF_DEBUG":       "override",
-			"XF_DEVELOPMENT": "override",
-		},
 	})
 
-	if merged["XF_DEBUG"] != "0" || sources["XF_DEBUG"] != "override" {
-		t.Fatalf("unexpected XF_DEBUG preview: value=%q source=%q", merged["XF_DEBUG"], sources["XF_DEBUG"])
+	if merged["XF_DEBUG"] != "0" {
+		t.Fatalf("unexpected XF_DEBUG preview: value=%q", merged["XF_DEBUG"])
 	}
 
-	if merged["XF_DEVELOPMENT"] != "0" || sources["XF_DEVELOPMENT"] != "override" {
-		t.Fatalf("unexpected XF_DEVELOPMENT preview: value=%q source=%q", merged["XF_DEVELOPMENT"], sources["XF_DEVELOPMENT"])
+	if merged["XF_DEVELOPMENT"] != "0" {
+		t.Fatalf("unexpected XF_DEVELOPMENT preview: value=%q", merged["XF_DEVELOPMENT"])
 	}
 }
 

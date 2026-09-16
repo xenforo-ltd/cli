@@ -80,12 +80,8 @@ func TestEnvParsingAndMerge(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	merged, src := MergeEnvMaps(map[string]string{"XF_INSTANCE": "demo"}, fileVals, flagVals)
+	merged := MergeEnvMaps(map[string]string{"XF_INSTANCE": "demo"}, fileVals, flagVals)
 	if merged["XF_TITLE"] != "Override" {
 		t.Fatalf("XF_TITLE = %q", merged["XF_TITLE"])
-	}
-
-	if src["XF_TITLE"] != "--env" {
-		t.Fatalf("source = %q", src["XF_TITLE"])
 	}
 }

@@ -384,7 +384,6 @@ func worktreeInitOptions(result *worktree.Result, cloning bool) *InitOptions {
 		AdminEmail:       defaultString(flagWorktreeAdminEmail, defaultWorktreeAdminEmail),
 		SiteTitle:        defaultString(flagWorktreeTitle, result.Branch),
 		EnvResolved:      map[string]string{},
-		EnvSources:       map[string]string{},
 		ProductOverrides: map[string]int{},
 		ProductTitleMap:  map[string]string{},
 	}

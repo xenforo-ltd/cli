@@ -234,7 +234,7 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 		}
 	}
 
-	envVals, _ := currentEnvPreview(opts)
+	envVals := currentEnvPreview(opts)
 
 	keys := make([]string, 0, len(envVals))
 	for k := range envVals {
@@ -531,7 +531,7 @@ func editEnvValues(opts *InitOptions) error {
 	additionalEnvChoices := 2
 
 	for {
-		envVals, _ := currentEnvPreview(opts)
+		envVals := currentEnvPreview(opts)
 
 		keys := make([]string, 0, len(envVals)+additionalEnvChoices)
 		for k := range envVals {
@@ -593,12 +593,7 @@ func editEnvValues(opts *InitOptions) error {
 			opts.EnvResolved = map[string]string{}
 		}
 
-		if opts.EnvSources == nil {
-			opts.EnvSources = map[string]string{}
-		}
-
 		opts.EnvResolved[key] = value
-		opts.EnvSources[key] = "review"
 	}
 }
 
@@ -628,7 +623,7 @@ func defaultPHPVersion() string {
 	return defaultPHPVersionFallback
 }
 
-func currentEnvPreview(opts *InitOptions) (map[string]string, map[string]string) {
+func currentEnvPreview(opts *InitOptions) map[string]string {
 	base := map[string]string{
 		"XF_INSTANCE": opts.InstanceName,
 		"XF_EMAIL":    opts.AdminEmail,
@@ -641,36 +636,24 @@ func currentEnvPreview(opts *InitOptions) (map[string]string, map[string]string)
 	}
 
 	merged := map[string]string{}
-	sources := map[string]string{}
 
 	for k, v := range base {
 		merged[k] = v
-		sources[k] = modeInferred.String()
 	}
 
 	for k, v := range opts.EnvResolved {
 		merged[k] = v
-
-		src := opts.EnvSources[k]
-		if src == "" {
-			src = modeOverride.String()
-		}
-
-		sources[k] = src
 	}
 
 	delete(merged, "XF_CONTEXTS")
-	delete(sources, "XF_CONTEXTS")
 
 	if strings.TrimSpace(merged["XF_DEBUG"]) == "" || strings.TrimSpace(merged["XF_DEBUG"]) == "1" {
 		delete(merged, "XF_DEBUG")
-		delete(sources, "XF_DEBUG")
 	}
 
 	if strings.TrimSpace(merged["XF_DEVELOPMENT"]) == "" || strings.TrimSpace(merged["XF_DEVELOPMENT"]) == "1" {
 		delete(merged, "XF_DEVELOPMENT")
-		delete(sources, "XF_DEVELOPMENT")
 	}
 
-	return merged, sources
+	return merged
 }
