@@ -23,13 +23,12 @@ This command checks:
   - Docker installation and daemon status
   - Cache directory permissions
   - Disk space availability
-  - Network connectivity
-
-Examples:
-  # Run all health checks
+  - Network connectivity`,
+	Example: `  # Run all health checks
   xf doctor`,
-	Args: cobra.NoArgs,
-	RunE: runDoctor,
+	Args:    cobra.NoArgs,
+	GroupID: "maint",
+	RunE:    runDoctor,
 }
 
 func init() {

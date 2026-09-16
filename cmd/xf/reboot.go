@@ -14,16 +14,15 @@ var rebootCmd = &cobra.Command{
 	Short: "Restart the Docker environment",
 	Long: `Stop and restart the Docker containers for a XenForo installation.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # Reboot in current directory (auto-detect)
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # Reboot in current directory (auto-detect)
   xf reboot
 
   # Reboot specific directory
   xf reboot ./my-project`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runReboot,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runReboot,
 }
 
 func init() {

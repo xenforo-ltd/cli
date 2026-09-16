@@ -19,10 +19,8 @@ var phpCmd = &cobra.Command{
 If no path is provided, the current directory will be searched for a XenForo installation.
 
 Everything after 'php' is passed to PHP, including flags. Give xf's own flags
-before the command name, and use 'xf help php' for this help text.
-
-Examples:
-  # Check PHP version
+before the command name, and use 'xf help php' for this help text.`,
+	Example: `  # Check PHP version
   xf php -v
 
   # Run a PHP script
@@ -37,6 +35,7 @@ Examples:
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(0),
+	GroupID:            "run",
 	RunE:               runPHP,
 }
 
@@ -46,15 +45,14 @@ var phpDebugCmd = &cobra.Command{
 	Long: `Run PHP with Xdebug enabled in the Docker environment.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-All arguments are passed to PHP.
-
-Examples:
-  # Run PHP script with Xdebug
+All arguments are passed to PHP.`,
+	Example: `  # Run PHP script with Xdebug
   xf php-debug my-script.php`,
 	// Everything after this command belongs to the target tool, including
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(0),
+	GroupID:            "run",
 	RunE:               runPHPDebug,
 }
 

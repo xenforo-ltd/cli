@@ -16,10 +16,8 @@ var logsCmd = &cobra.Command{
 	Long: `Show logs from Docker containers.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
-Specific services can be specified, or all services will be shown.
-
-Examples:
-  # Show all logs
+Specific services can be specified, or all services will be shown.`,
+	Example: `  # Show all logs
   xf logs
 
   # Follow logs (like tail -f)
@@ -30,8 +28,9 @@ Examples:
 
   # Show logs in specific directory
   xf logs ./my-project`,
-	Args: cobra.MinimumNArgs(0),
-	RunE: runLogs,
+	Args:    cobra.MinimumNArgs(0),
+	GroupID: "env",
+	RunE:    runLogs,
 }
 
 var flagLogsFollow bool

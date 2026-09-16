@@ -16,10 +16,8 @@ var debugCmd = &cobra.Command{
 	Short: "Run XenForo CLI commands with Xdebug",
 	Long: `Run XenForo CLI commands with Xdebug enabled for debugging.
 
-This is the equivalent of running with XDEBUG_SESSION=1 to trigger your IDE debugger.
-
-Examples:
-  # Debug xf-dev:import
+This is the equivalent of running with XDEBUG_SESSION=1 to trigger your IDE debugger.`,
+	Example: `  # Debug xf-dev:import
   xf debug xf-dev:import
 
   # Debug addon build with options
@@ -32,6 +30,7 @@ Examples:
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
 	Args:               cobra.MinimumNArgs(1),
+	GroupID:            "run",
 	RunE:               runDebug,
 }
 

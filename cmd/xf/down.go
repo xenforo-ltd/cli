@@ -14,16 +14,15 @@ var downCmd = &cobra.Command{
 	Short: "Stop the Docker environment",
 	Long: `Stop and remove the Docker containers for a XenForo installation.
 
-If no path is provided, the current directory will be searched for a XenForo installation.
-
-Examples:
-  # Stop in current directory (auto-detect)
+If no path is provided, the current directory will be searched for a XenForo installation.`,
+	Example: `  # Stop in current directory (auto-detect)
   xf down
 
   # Stop specific directory
   xf down ./my-project`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runDown,
+	Args:    cobra.MaximumNArgs(1),
+	GroupID: "env",
+	RunE:    runDown,
 }
 
 func init() {
