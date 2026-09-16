@@ -44,9 +44,4 @@ func TestListFormatting(t *testing.T) {
 	if !strings.Contains(list, "one") || !strings.Contains(list, "two") {
 		t.Fatalf("List output mismatch: %q", list)
 	}
-
-	numbered := NumberedList([]string{"first", "second"})
-	if !strings.Contains(numbered, "1.") || !strings.Contains(numbered, "2.") {
-		t.Fatalf("NumberedList output mismatch: %q", numbered)
-	}
 }

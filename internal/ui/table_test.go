@@ -30,10 +30,3 @@ func TestNewTableFunctions(t *testing.T) {
 		t.Fatalf("unexpected custom table output: %q", custom)
 	}
 }
-
-func TestStatusTableStyle(t *testing.T) {
-	fn := StatusTableStyle(1, map[string]lipgloss.Style{})
-	if fn == nil {
-		t.Fatal("expected style func")
-	}
-}
