@@ -193,6 +193,56 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.PrintSuccess("Authentication successful!")
+	return nil
+}
+
+// authStatusJSON is the single stable shape for `xf auth status --json`,
+// regardless of whether the keychain is unavailable, no token is stored, or
+// a token is present (valid or expired).
+// Authenticated and Expired are pointers so an unknown value can be reported
+// as null rather than being coerced into a definite false.
+type authStatusJSON struct {
+	Authenticated *bool  `json:"authenticated"`
+	Source        string `json:"source,omitempty"`
+	StoragePath   string `json:"storage_path,omitempty"`
+	Reason        string `json:"reason,omitempty"`
+	Expired       *bool  `json:"expired"`
+	Scope         string `json:"scope,omitempty"`
+	IssuedAt      string `json:"issued_at,omitempty"`  // RFC3339
+	ExpiresAt     string `json:"expires_at,omitempty"` // RFC3339
+	ServerValid   *bool  `json:"server_valid,omitempty"`
+	Username      string `json:"username,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+// environmentAuthStatusJSON is the shape of `xf auth status --json` when the
+// token comes from XF_TOKEN.
+//
+// Unlike authStatusJSON, whose optional fields are absent when there is no
+// stored token, the environment contract reports a fixed set of keys. Scripts
+// for XF_TOKEN branch on their presence, so the pointer fields carry no
+// omitempty and unknown values serialize as explicit null. Scope and username
+// only exist once introspection has succeeded, matching the original
+// map-based output.
+type environmentAuthStatusJSON struct {
+	Authenticated *bool   `json:"authenticated"`
+	Source        string  `json:"source"`
+	ServerValid   *bool   `json:"server_valid"`
+	ExpiresAt     *string `json:"expires_at"`
+	IssuedAt      *string `json:"issued_at"`
+	Expired       *bool   `json:"expired"`
+	Scope         *string `json:"scope,omitempty"`
+	Username      *string `json:"username,omitempty"`
+	Error         string  `json:"error,omitempty"`
+}
+
+func printAuthStatusJSON(output any) error {
+	data, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal auth status: %w", err)
+	}
+
+	fmt.Println(string(data))
 
 	return nil
 }
@@ -202,20 +252,25 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return reportAuthUnavailable(store, err)
 	}
+
 	token, err := auth.RequireAuthFrom(store)
 	if err != nil {
 		return reportAuthUnavailable(store, err)
 	}
+
 	if token.External {
 		return runEnvironmentAuthStatus(cmd, token)
 	}
+
+	expired := token.IsExpired()
+	refreshable := token.RefreshToken != ""
 
 	var (
 		serverValid *bool
 		username    string
 	)
 
-	if !token.IsExpired() {
+	if !expired {
 		introspect, err := introspectAuthToken(cmd.Context(), token)
 		if err == nil {
 			serverValid = &introspect.Active
@@ -224,71 +279,70 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagAuthStatusJSON {
-		output := map[string]any{
-			"authenticated": true,
-			"source":        store.Source(),
-			"scope":         token.Scope,
-			"expires_at":    token.ExpiresAt.Format(time.RFC3339),
-			"issued_at":     token.IssuedAt.Format(time.RFC3339),
-			"expired":       token.IsExpired(),
+		output := authStatusJSON{
+			Authenticated: new(true),
+			Source:        store.Source(),
+			Expired:       new(expired),
+			Scope:         token.Scope,
+			IssuedAt:      token.IssuedAt.Format(time.RFC3339),
+			ExpiresAt:     token.ExpiresAt.Format(time.RFC3339),
+			ServerValid:   serverValid,
+			Username:      username,
 		}
 		if file, ok := store.(*auth.FileStore); ok {
-			output["storage_path"] = file.Path()
-		}
-		if serverValid != nil {
-			output["server_valid"] = *serverValid
+			output.StoragePath = file.Path()
 		}
 
-		if username != "" {
-			output["username"] = username
-		}
-
-		data, err := json.MarshalIndent(output, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal auth status: %w", err)
-		}
-
-		ui.Println(string(data))
-
-		return nil
+		return printAuthStatusJSON(output)
 	}
 
-	ui.PrintSuccess("Authenticated")
-	ui.Println()
+	switch {
+	case expired && refreshable:
+		ui.PrintWarning("Authenticated — token expired (will refresh automatically)")
+	case expired:
+		ui.PrintError("Authenticated — token expired")
+		ui.PrintHint("Run " + ui.Command.Render("xf auth login") + " to re-authenticate")
+	default:
+		ui.PrintSuccess("Authenticated")
+	}
 
-	pairs := []ui.KVPair{ui.KV("Source", store.Source())}
+	var expiresValue string
+
+	if expired {
+		expiresValue = ui.Warning.Render(ui.FormatDateTime(token.ExpiresAt) + " (expired)")
+	} else {
+		remaining := time.Until(token.ExpiresAt).Round(time.Minute)
+		expiresValue = fmt.Sprintf("%s (in %s)", ui.FormatDateTime(token.ExpiresAt), remaining)
+	}
+
+	pairs := make([]ui.KVPair, 0, 7)
+
+	pairs = append(pairs, ui.KV("Source", store.Source()))
 	if file, ok := store.(*auth.FileStore); ok {
-		pairs = append(pairs, ui.KV("File", file.Path()))
+		pairs = append(pairs, ui.KV("File", ui.Path.Render(file.Path())))
 	}
+
 	if username != "" {
 		pairs = append(pairs, ui.KV("User", username))
 	}
 
-	pairs = append(pairs, ui.KV("Scope", token.Scope))
-	pairs = append(pairs, ui.KV("Issued", token.IssuedAt.Format(time.RFC1123)))
-	pairs = append(pairs, ui.KV("Expires", token.ExpiresAt.Format(time.RFC1123)))
-	ui.PrintKeyValuePadded(pairs)
-
-	ui.Println()
-
-	if token.IsExpired() {
-		ui.Printf("%s %s\n", ui.StatusIcon("error"), ui.Error.Render("Token EXPIRED"))
-
-		if token.RefreshToken != "" {
-			ui.PrintDetail("Token can be refreshed automatically")
-		}
-	} else {
-		remaining := token.TimeUntilExpiry().Round(time.Minute)
-		ui.Printf("%s Token valid (%s remaining)\n", ui.StatusIcon("success"), ui.Success.Render(remaining.String()))
-	}
+	pairs = append(pairs,
+		ui.KV("Scope", token.Scope),
+		ui.KV("Issued", ui.FormatDateTime(token.IssuedAt)),
+		ui.KV("Expires", expiresValue),
+	)
 
 	if serverValid != nil {
-		if *serverValid {
-			ui.Printf("%s Server validation: %s\n", ui.StatusIcon("success"), ui.Success.Render("Active"))
-		} else {
-			ui.Printf("%s Server validation: %s\n", ui.StatusIcon("error"), ui.Error.Render("Revoked or Invalid"))
+		serverValue := ui.Success.Render("Active")
+		if !*serverValid {
+			serverValue = ui.Error.Render("Revoked or invalid")
 		}
+
+		pairs = append(pairs, ui.KV("Server validation", serverValue))
 	}
+
+	ui.Println()
+	ui.PrintKeyValuePadded(pairs)
 
 	return nil
 }
@@ -302,7 +356,7 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 	token, err := store.LoadTokenForLogout()
 	if err != nil {
 		if errors.Is(err, auth.ErrAuthRequired) {
-			ui.PrintInfo("Already logged out.")
+			ui.PrintInfo("Already logged out")
 			return nil
 		}
 
@@ -339,7 +393,7 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to delete stored authentication token: %w", err)
 	}
 
-	ui.PrintSuccess("Logged out successfully.")
+	ui.SuccessBox("Logged out", nil)
 
 	return nil
 }
@@ -356,10 +410,10 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	}
 
 	if token.RefreshToken == "" {
-		return fmt.Errorf("no refresh token available - run 'xf auth login': %w", ErrAuthFailed)
+		return withHint(errors.New("no refresh token available"), "Run "+ui.Command.Render("xf auth login")+" to authenticate")
 	}
 
-	ui.PrintInfo("Refreshing access token...")
+	ui.PrintInfo("Refreshing access token")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -383,10 +437,10 @@ func runAuthRefresh(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save refreshed authentication token: %w", err)
 	}
 
-	ui.PrintSuccess("Token refreshed successfully!")
+	ui.PrintSuccess("Token refreshed")
 	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("New expiry", newToken.ExpiresAt.Format(time.RFC1123)),
+		ui.KV("New expiry", ui.FormatDateTime(newToken.ExpiresAt)),
 		ui.KV("Time until expiry", newToken.TimeUntilExpiry().Round(time.Minute).String()),
 	})
 
@@ -406,19 +460,15 @@ func reportAuthUnavailable(store auth.Store, err error) error {
 		reason = "invalid_credentials"
 	}
 	if flagAuthStatusJSON {
-		output := map[string]any{"authenticated": false, "reason": reason}
+		output := authStatusJSON{Authenticated: new(false), Reason: reason}
 		if store != nil {
-			output["source"] = store.Source()
+			output.Source = store.Source()
 		}
 		if reason != "not_authenticated" {
-			output["error"] = auth.ErrorMessage(err)
+			output.Error = auth.ErrorMessage(err)
 		}
-		data, marshalErr := json.Marshal(output)
-		if marshalErr != nil {
-			return marshalErr
-		}
-		ui.Println(string(data))
-		return nil
+
+		return printAuthStatusJSON(output)
 	}
 	if errors.Is(err, auth.ErrAuthRequired) || errors.Is(err, auth.ErrConfigMismatch) {
 		ui.PrintWarning(auth.ErrorMessage(err))
@@ -429,30 +479,34 @@ func reportAuthUnavailable(store auth.Store, err error) error {
 
 func runEnvironmentAuthStatus(cmd *cobra.Command, token *auth.Token) error {
 	result, validationErr := introspectAuthToken(cmd.Context(), token)
-	output := map[string]any{"source": "environment", "authenticated": nil, "server_valid": nil, "expires_at": nil, "issued_at": nil, "expired": nil}
+	// Every established key is emitted; unknown ones stay nil and serialize
+	// as explicit null so scripts can rely on their presence.
+	output := environmentAuthStatusJSON{Source: "environment"}
 	if validationErr == nil {
-		output["authenticated"] = result.Active
-		output["server_valid"] = result.Active
-		output["scope"] = result.Scope
-		output["username"] = result.Username
+		output.Authenticated = new(result.Active)
+		output.ServerValid = new(result.Active)
+
+		// Introspection succeeded, so the claims exist even when empty.
+		scope := result.Scope
+		username := result.Username
+		output.Scope = &scope
+		output.Username = &username
+
 		if result.Exp > 0 {
 			expiry := time.Unix(result.Exp, 0)
-			output["expires_at"] = expiry.Format(time.RFC3339)
-			output["expired"] = !time.Now().Before(expiry)
+			expiresAt := expiry.Format(time.RFC3339)
+			output.ExpiresAt = &expiresAt
+			output.Expired = new(!time.Now().Before(expiry))
 		}
 		if result.Iat > 0 {
-			output["issued_at"] = time.Unix(result.Iat, 0).Format(time.RFC3339)
+			issuedAt := time.Unix(result.Iat, 0).Format(time.RFC3339)
+			output.IssuedAt = &issuedAt
 		}
 	} else {
-		output["error"] = "Unable to validate XF_TOKEN with the server"
+		output.Error = "Unable to validate XF_TOKEN with the server"
 	}
 	if flagAuthStatusJSON {
-		data, err := json.MarshalIndent(output, "", "  ")
-		if err != nil {
-			return err
-		}
-		ui.Println(string(data))
-		return nil
+		return printAuthStatusJSON(output)
 	}
 	ui.PrintInfo("Credential source: environment (XF_TOKEN)")
 	if validationErr != nil {
