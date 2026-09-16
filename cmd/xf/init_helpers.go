@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -164,17 +163,13 @@ func inferSiteTitleFromEnv(opts *InitOptions) string {
 	return strings.TrimSuffix(title, suffix)
 }
 
-func clearScreen() {
-	_, _ = fmt.Fprint(os.Stdout, "\033[H\033[2J")
-}
-
 func validateReviewInputs(opts *InitOptions) error {
 	if strings.TrimSpace(opts.AdminPassword) == "" {
 		return ErrPasswordRequired
 	}
 
 	if !strings.Contains(strings.TrimSpace(opts.AdminEmail), "@") {
-		return ErrValidEmailRequired
+		return ErrInvalidEmail
 	}
 
 	if strings.TrimSpace(opts.AdminUser) == "" {
