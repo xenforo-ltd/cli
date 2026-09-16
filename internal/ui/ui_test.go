@@ -75,26 +75,9 @@ func TestStatusIconSymbols(t *testing.T) {
 	}
 }
 
-func TestStepAndIndentHelpers(t *testing.T) {
+func TestStepWithLabel(t *testing.T) {
 	if got := StepWithLabel(1, 3, "Init"); !strings.Contains(got, "Init") || !strings.Contains(got, "1/3") {
 		t.Fatalf("unexpected StepWithLabel output: %q", got)
-	}
-
-	indented := Indent("a\n\nb", 2)
-	if indented != "  a\n\n  b" {
-		t.Fatalf("Indent output mismatch: %q", indented)
-	}
-
-	lines := IndentLines([]string{"x", "", "y"}, 3)
-	if lines[0] != "   x" || lines[1] != "" || lines[2] != "   y" {
-		t.Fatalf("IndentLines output mismatch: %#v", lines)
-	}
-}
-
-func TestListFormatting(t *testing.T) {
-	list := List([]string{"one", "two"})
-	if !strings.Contains(list, "one") || !strings.Contains(list, "two") {
-		t.Fatalf("List output mismatch: %q", list)
 	}
 }
 
@@ -267,48 +250,6 @@ func TestSpinnerUpdateMessageChangesTheRenderedLine(t *testing.T) {
 	}
 }
 
-func TestSpinnerOutputWriterPassesThroughWithoutASpinner(t *testing.T) {
-	var buf bytes.Buffer
-
-	w := NewSpinnerOutputWriter(nil, &buf)
-
-	n, err := w.Write([]byte("hello"))
-	if err != nil {
-		t.Fatalf("Write returned %v", err)
-	}
-
-	if n != 5 || buf.String() != "hello" {
-		t.Errorf("wrote %d bytes %q, want 5 %q", n, buf.String(), "hello")
-	}
-}
-
-func TestSpinnerOutputWriterDoesNotDoubleSpaceStreamedOutput(t *testing.T) {
-	withTTY(t, true)
-
-	var spinnerBuf, outBuf bytes.Buffer
-
-	s := NewSpinner("Working")
-	s.writer = &spinnerBuf
-	s.interval = time.Hour // no animation frames during the test
-
-	s.Start()
-
-	w := NewSpinnerOutputWriter(s, &outBuf)
-	if _, err := w.Write([]byte("chunk without newline")); err != nil {
-		t.Fatalf("Write returned %v", err)
-	}
-
-	s.Stop()
-
-	if strings.Contains(spinnerBuf.String(), "\n\n") {
-		t.Errorf("spinner repaint inserted a blank line: %q", spinnerBuf.String())
-	}
-
-	if outBuf.String() != "chunk without newline" {
-		t.Errorf("payload altered: %q", outBuf.String())
-	}
-}
-
 func TestProgressBarRendersProgressAndFinishes(t *testing.T) {
 	withTTY(t, true)
 
@@ -332,21 +273,6 @@ func TestProgressBarRendersProgressAndFinishes(t *testing.T) {
 
 	if !strings.Contains(stripANSI(buf.String()), "100%") {
 		t.Errorf("Finish did not render 100%%: %q", stripANSI(buf.String()))
-	}
-}
-
-func TestProgressBarIncrementClampsToTotal(t *testing.T) {
-	withTTY(t, true)
-
-	var buf bytes.Buffer
-
-	p := NewProgressBar(10, "")
-	p.writer = &buf
-
-	p.Increment(99)
-
-	if p.current != 10 {
-		t.Errorf("current = %d, want it clamped to 10", p.current)
 	}
 }
 

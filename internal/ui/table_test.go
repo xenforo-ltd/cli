@@ -3,8 +3,6 @@ package ui
 import (
 	"strings"
 	"testing"
-
-	"charm.land/lipgloss/v2"
 )
 
 func TestDefaultTableStyle(t *testing.T) {
@@ -21,12 +19,5 @@ func TestNewTableFunctions(t *testing.T) {
 	out := NewTable(headers, rows)
 	if !strings.Contains(out, "A") || !strings.Contains(out, "1") {
 		t.Fatalf("unexpected table output: %q", out)
-	}
-
-	custom := NewTableWithStyles(headers, rows, func(_, _ int) lipgloss.Style {
-		return lipgloss.NewStyle()
-	})
-	if !strings.Contains(custom, "B") || !strings.Contains(custom, "2") {
-		t.Fatalf("unexpected custom table output: %q", custom)
 	}
 }

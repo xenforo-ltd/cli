@@ -31,11 +31,10 @@ const ansiClearLine = "\r\033[2K"
 
 // Predefined styles for consistent use across commands.
 var (
-	Bold      = lipgloss.NewStyle().Bold(true)
-	Dim       = lipgloss.NewStyle().Faint(true)                        // Terminal's native faint/dim
-	Muted     = lipgloss.NewStyle().Foreground(ColorSubtle)            // Adaptive subtle color
-	Label     = lipgloss.NewStyle().Foreground(ColorSubtle)            // For labels in key-value pairs
-	Secondary = lipgloss.NewStyle().Foreground(ColorSubtle).Bold(true) // Secondary emphasis (e.g., table headers)
+	Bold  = lipgloss.NewStyle().Bold(true)
+	Dim   = lipgloss.NewStyle().Faint(true)             // Terminal's native faint/dim
+	Muted = lipgloss.NewStyle().Foreground(ColorSubtle) // Adaptive subtle color
+	Label = lipgloss.NewStyle().Foreground(ColorSubtle) // For labels in key-value pairs
 
 	Success = lipgloss.NewStyle().Foreground(ColorSuccess)
 	Warning = lipgloss.NewStyle().Foreground(ColorWarning)
@@ -43,9 +42,7 @@ var (
 	Info    = lipgloss.NewStyle().Foreground(ColorInfo)
 
 	SuccessBold = lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true)
-	WarningBold = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true)
 	ErrorBold   = lipgloss.NewStyle().Foreground(ColorError).Bold(true)
-	InfoBold    = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
 
 	Header = lipgloss.NewStyle().Bold(true).Underline(true)
 
@@ -71,8 +68,6 @@ const (
 	SymbolPending = "○"
 	SymbolArrow   = "→"
 	SymbolBullet  = "•"
-	SymbolCheck   = "✓"
-	SymbolCross   = "✗"
 )
 
 // Println is a wrapper around lipgloss.Println for color-downsampled output.
@@ -168,50 +163,6 @@ func StepWithLabel(current, total int, label string) string {
 	return fmt.Sprintf("%s %s", Step(current, total), Bold.Render(label))
 }
 
-// Indent indents all non-empty lines of text by the specified number of spaces.
-func Indent(s string, spaces int) string {
-	indent := strings.Repeat(" ", spaces)
-
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		if line != "" {
-			lines[i] = indent + line
-		}
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// IndentLines indents each line of text by the specified number of spaces.
-func IndentLines(lines []string, spaces int) []string {
-	indent := strings.Repeat(" ", spaces)
-
-	result := make([]string, len(lines))
-	for i, line := range lines {
-		if line != "" {
-			result[i] = indent + line
-		} else {
-			result[i] = line
-		}
-	}
-
-	return result
-}
-
-// Separator returns a horizontal separator line.
-func Separator(width int) string {
-	if width <= 0 {
-		width = 60
-	}
-
-	return Dim.Render(strings.Repeat("─", width))
-}
-
-// KeyValue returns a formatted key-value pair.
-func KeyValue(key, value string) string {
-	return fmt.Sprintf("%s %s", Label.Render(key+":"), value)
-}
-
 // KVPair represents a key-value pair for display.
 type KVPair struct {
 	Key   string
@@ -260,16 +211,6 @@ func renderKeyValuePadded(pairs []KVPair, indent string) string {
 	}
 
 	return sb.String()
-}
-
-// List formats a slice of strings as a bulleted list.
-func List(items []string) string {
-	var sb strings.Builder
-	for _, item := range items {
-		fmt.Fprintf(&sb, "  %s %s\n", Dim.Render(SymbolBullet), item)
-	}
-
-	return strings.TrimSuffix(sb.String(), "\n")
 }
 
 // Spinner provides a simple terminal spinner.
@@ -406,55 +347,6 @@ func (s *Spinner) UpdateMessage(message string) {
 	s.message = message
 }
 
-// SpinnerOutputWriter writes to a writer while managing spinner output.
-type SpinnerOutputWriter struct {
-	spinner *Spinner
-	writer  io.Writer
-}
-
-// NewSpinnerOutputWriter creates a writer that coordinates with a spinner.
-func NewSpinnerOutputWriter(spinner *Spinner, writer io.Writer) io.Writer {
-	return &SpinnerOutputWriter{
-		spinner: spinner,
-		writer:  writer,
-	}
-}
-
-func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
-	if w.spinner == nil {
-		n, err := w.writer.Write(p)
-		if err != nil {
-			return n, fmt.Errorf("failed to write spinner output: %w", err)
-		}
-
-		return n, nil
-	}
-
-	w.spinner.mu.Lock()
-	defer w.spinner.mu.Unlock()
-
-	repaint := isTTY && w.spinner.running && !w.spinner.plain
-
-	if repaint {
-		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
-	}
-
-	n, err := w.writer.Write(p)
-	if err != nil {
-		return n, fmt.Errorf("failed to write spinner output: %w", err)
-	}
-
-	if repaint {
-		lipgloss.Fprint(w.spinner.writer, "\n")
-		frame := Info.Render(w.spinner.frames[w.spinner.frameIdx%len(w.spinner.frames)])
-		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
-		lipgloss.Fprintf(w.spinner.writer, "%s %s", frame, w.spinner.message)
-		w.spinner.frameIdx++
-	}
-
-	return n, nil
-}
-
 // ProgressBar displays download or operation progress.
 type ProgressBar struct {
 	mu      sync.Mutex
@@ -481,19 +373,6 @@ func (p *ProgressBar) Update(current int64) {
 	defer p.mu.Unlock()
 
 	p.current = current
-	p.render()
-}
-
-// Increment increments the progress bar by the given amount.
-func (p *ProgressBar) Increment(amount int64) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.current += amount
-	if p.current > p.total {
-		p.current = p.total
-	}
-
 	p.render()
 }
 
@@ -596,11 +475,6 @@ func PrintDetail(message string) {
 	lipgloss.Printf("%s%s\n", Indent2, Dim.Render(message))
 }
 
-// PrintKeyValue prints a key-value pair.
-func PrintKeyValue(key, value string) {
-	lipgloss.Println(KeyValue(key, value))
-}
-
 // PrintHint prints an actionable next step: "  → Run xf auth login to ...".
 // Callers style embedded commands themselves.
 func PrintHint(text string) {
@@ -626,26 +500,6 @@ func SuccessBox(message string, details []KVPair) {
 // InfoBox prints an info message with optional key-value details.
 func InfoBox(message string, details []KVPair) {
 	lipgloss.Printf("%s %s\n", StatusIcon("info"), Bold.Render(message))
-
-	if len(details) > 0 {
-		lipgloss.Println()
-		PrintKeyValuePadded(details)
-	}
-}
-
-// WarningBox prints a warning message with optional key-value details.
-func WarningBox(message string, details []KVPair) {
-	lipgloss.Printf("%s %s\n", StatusIcon("warning"), WarningBold.Render(message))
-
-	if len(details) > 0 {
-		lipgloss.Println()
-		PrintKeyValuePadded(details)
-	}
-}
-
-// ErrorBox prints an error message with optional key-value details.
-func ErrorBox(message string, details []KVPair) {
-	lipgloss.Printf("%s %s\n", StatusIcon("error"), ErrorBold.Render(message))
 
 	if len(details) > 0 {
 		lipgloss.Println()

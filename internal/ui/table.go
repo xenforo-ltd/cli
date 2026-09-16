@@ -47,18 +47,6 @@ func NewTable(headers []string, rows [][]string) string {
 	return t.String()
 }
 
-// NewTableWithStyles creates a table with styled cells.
-// The styleFunc receives (row, col) where row == -1 indicates the header.
-func NewTableWithStyles(headers []string, rows [][]string, styleFunc func(row, col int) lipgloss.Style) string {
-	t := table.New().
-		Border(lipgloss.HiddenBorder()).
-		Headers(headers...).
-		Rows(rows...).
-		StyleFunc(styleFunc)
-
-	return t.String()
-}
-
 // PrintTable prints a formatted table to stdout.
 func PrintTable(headers []string, rows [][]string) {
 	if len(rows) == 0 {
