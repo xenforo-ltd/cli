@@ -40,13 +40,14 @@ func runDown(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Stopping Docker environment...")
+	ui.PrintInfo("Stopping Docker environment " + ui.Bold.Render(runner.Instance()))
 
 	if err := runner.Down(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}
 
-	ui.PrintSuccess("Docker environment stopped")
+	ui.Println()
+	ui.SuccessBox("Docker environment stopped", nil)
 
 	return nil
 }
