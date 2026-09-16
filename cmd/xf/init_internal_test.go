@@ -85,6 +85,10 @@ func TestPhaseTrackerWriterProcessLine(t *testing.T) {
 	}
 }
 
+// TestPrepareTargetDirectory covers the target-directory precondition and
+// the action taken on it, now implemented in one place: prepareTargetDirectory
+// must reject a doomed target before any download, and report the outcome for
+// a usable one.
 func TestPrepareTargetDirectory(t *testing.T) {
 	t.Run("creates missing dir", func(t *testing.T) {
 		target := filepath.Join(t.TempDir(), "new-dir")
