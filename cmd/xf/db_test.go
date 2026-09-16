@@ -1,9 +1,9 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/xenforo-ltd/cli/internal/database"
@@ -100,20 +100,33 @@ func TestDBCmdAcceptsOnlyOnePath(t *testing.T) {
 	}
 }
 
-// TestDBCmdRejectsMutuallyExclusiveFlags covers --print-url and --shell, which
-// select different actions and must not be combined.
-func TestDBCmdRejectsMutuallyExclusiveFlags(t *testing.T) {
-	t.Cleanup(func() {
-		flagDBPrintURL = false
-		flagDBShell = false
-	})
+// TestDatabaseShellArgs covers the in-container client command and the
+// forwarding of extra arguments.
+func TestDatabaseShellArgs(t *testing.T) {
+	info := database.Info{User: "xf", Name: "xf"}
 
-	err := runTree(t, "db", "--print-url", "--shell")
-	if err == nil {
-		t.Fatal("expected an error when both --print-url and --shell are set")
+	tests := []struct {
+		name  string
+		extra []string
+		want  []string
+	}{
+		{
+			name:  "interactive session",
+			extra: nil,
+			want:  []string{"mariadb", "--user=xf", "--database=xf"},
+		},
+		{
+			name:  "single query is forwarded",
+			extra: []string{"-e", "show tables;"},
+			want:  []string{"mariadb", "--user=xf", "--database=xf", "-e", "show tables;"},
+		},
 	}
 
-	if _, ok := errors.AsType[*usageError](err); !ok {
-		t.Fatalf("expected a usage error so usage is printed, got %T: %v", err, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := databaseShellArgs(info, tt.extra); !slices.Equal(got, tt.want) {
+				t.Errorf("databaseShellArgs() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

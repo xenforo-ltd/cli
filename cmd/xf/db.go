@@ -17,7 +17,6 @@ import (
 
 var (
 	flagDBPrintURL bool
-	flagDBShell    bool
 )
 
 // databaseService is the compose service that runs the MySQL server.
@@ -40,23 +39,42 @@ Currently only MySQL environments are supported.`,
   xf db --print-url
 
   # Open the database client inside the container (any platform)
-  xf db --shell`,
+  xf db shell`,
 	Args:    cobra.MaximumNArgs(1),
 	GroupID: "env",
 	RunE:    runDB,
 }
 
+var dbShellCmd = &cobra.Command{
+	Use:   "shell [path] [args...]",
+	Short: "Open the database client inside the container",
+	Long: `Open the database client inside the database container.
+
+If no path is provided, the current directory will be searched for a XenForo
+installation.
+
+Everything after 'shell' is passed to the client, including flags, so queries
+and client options work as they would locally. Give xf's own flags before the
+command name, and use 'xf help db shell' for this help.`,
+	Example: `  # Open an interactive session
+  xf db shell
+
+  # Run a query and exit
+  xf db shell -e 'show tables;'`,
+	// Everything after this command belongs to the wrapped client, including
+	// flags. xf's own flags must be given before the command name.
+	DisableFlagParsing: true,
+	Args:               cobra.MinimumNArgs(0),
+	RunE:               runDBShell,
+}
+
 func init() {
 	dbCmd.Flags().BoolVar(&flagDBPrintURL, "print-url", false, "print the connection URL and exit")
-	dbCmd.Flags().BoolVar(&flagDBShell, "shell", false, "open the database client inside the container")
+	dbCmd.AddCommand(dbShellCmd)
 	rootCmd.AddCommand(dbCmd)
 }
 
 func runDB(cmd *cobra.Command, args []string) error {
-	if flagDBPrintURL && flagDBShell {
-		return newUsageError(errors.New("--print-url and --shell cannot be used together"))
-	}
-
 	xfDir, err := getXenForoDir(args)
 	if err != nil {
 		return err
@@ -84,11 +102,28 @@ func runDB(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if flagDBShell {
-		return openDatabaseShell(cmd.Context(), runner, info)
+	return openInTablePlus(cmd.Context(), info)
+}
+
+// runDBShell opens the database client inside the container, forwarding any
+// trailing arguments to it.
+func runDBShell(cmd *cobra.Command, args []string) error {
+	xfDir, clientArgs, err := resolveXenForoDirAndArgs(args)
+	if err != nil {
+		return err
 	}
 
-	return openInTablePlus(cmd.Context(), info)
+	runner, err := dockercompose.NewRunner(xfDir)
+	if err != nil {
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
+	}
+
+	info, err := resolveDatabaseInfo(runner)
+	if err != nil {
+		return err
+	}
+
+	return openDatabaseShell(cmd.Context(), runner, info, clientArgs)
 }
 
 // resolveDatabaseInfo turns the environment's contexts and credentials into a
@@ -119,17 +154,27 @@ func resolveDatabaseInfo(runner *dockercompose.Runner) (database.Info, error) {
 	}, nil
 }
 
-// openDatabaseShell runs the database client inside the database container.
-// The password travels in the environment rather than the argument list.
-func openDatabaseShell(ctx context.Context, runner *dockercompose.Runner, info database.Info) error {
+// openDatabaseShell runs the database client inside the database container,
+// forwarding any extra arguments to it. The password travels in the
+// environment rather than the argument list.
+func openDatabaseShell(ctx context.Context, runner *dockercompose.Runner, info database.Info, args []string) error {
 	env := map[string]string{"MYSQL_PWD": info.Password}
 
-	err := runner.ExecOrRun(ctx, databaseService, env, os.Stdin, os.Stdout, os.Stderr, "mariadb", "--user="+info.User, info.Name)
-	if err != nil {
+	cmd := databaseShellArgs(info, args)
+	if err := runner.ExecOrRun(ctx, databaseService, env, os.Stdin, os.Stdout, os.Stderr, cmd...); err != nil {
 		return passthroughError(err, "failed to open the database shell")
 	}
 
 	return nil
+}
+
+// databaseShellArgs builds the in-container client command. Extra arguments are
+// appended verbatim, so callers can run a one-off query or pass any other
+// client option.
+func databaseShellArgs(info database.Info, extra []string) []string {
+	args := []string{"mariadb", "--user=" + info.User, "--database=" + info.Name}
+
+	return append(args, extra...)
 }
 
 // requireOrbStack ensures the Docker engine is OrbStack, which resolves
@@ -144,7 +189,7 @@ func requireOrbStack(ctx context.Context) error {
 	if !isOrbStack {
 		return withHint(
 			errors.New("this command requires OrbStack"),
-			"The orb.local hostname cannot be resolved without OrbStack; use "+ui.Command.Render("xf db --shell")+" instead",
+			"The orb.local hostname cannot be resolved without OrbStack; use "+ui.Command.Render("xf db shell")+" instead",
 		)
 	}
 
@@ -158,7 +203,7 @@ func openInTablePlus(ctx context.Context, info database.Info) error {
 	if runtime.GOOS != "darwin" {
 		return withHint(
 			errors.New("opening a database client is currently supported on macOS only"),
-			"Use "+ui.Command.Render("xf db --shell")+" instead",
+			"Use "+ui.Command.Render("xf db shell")+" instead",
 		)
 	}
 
