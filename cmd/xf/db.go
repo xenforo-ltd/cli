@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 
@@ -123,7 +124,8 @@ func resolveDatabaseInfo(runner *dockercompose.Runner) (database.Info, error) {
 func openDatabaseShell(ctx context.Context, runner *dockercompose.Runner, info database.Info) error {
 	env := map[string]string{"MYSQL_PWD": info.Password}
 
-	if err := runner.ExecWithEnv(ctx, databaseService, env, "mariadb", "--user="+info.User, info.Name); err != nil {
+	err := runner.ExecOrRun(ctx, databaseService, env, os.Stdin, os.Stdout, os.Stderr, "mariadb", "--user="+info.User, info.Name)
+	if err != nil {
 		return passthroughError(err, "failed to open the database shell")
 	}
 
