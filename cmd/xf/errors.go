@@ -98,8 +98,6 @@ var (
 	// ErrInternal indicates an internal error.
 	ErrInternal = errors.New("internal error")
 
-	// ErrGetCurrentDirectory is returned when the current directory cannot be determined.
-	ErrGetCurrentDirectory = errors.New("failed to get current directory")
 	// minimumUsernameLength is the shortest admin username accepted across
 	// interactive prompts.
 	minimumUsernameLength = 3
@@ -115,7 +113,4 @@ var (
 
 	// ErrAdminUserRequired is returned when admin username is not provided.
 	ErrAdminUserRequired = errors.New("admin username is required")
-
-	// ErrValidEmailRequired is returned when admin email is not provided.
-	ErrValidEmailRequired = errors.New("valid admin email is required")
 )
