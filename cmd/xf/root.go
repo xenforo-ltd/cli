@@ -9,11 +9,13 @@ import (
 	"slices"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/version"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -169,7 +171,68 @@ func takesDirectXenForoRoute(firstArg string) bool {
 }
 
 func handleError(err error) {
-	fmt.Fprintf(os.Stderr, "Error: %s\n", err.Error())
+	msg := err.Error()
+	if !viper.GetBool("verbose") {
+		msg = firstErrorClause(msg)
+	}
+
+	// Errors belong on stderr, not lipgloss's default stdout writer, so
+	// render through lipgloss.Fprintf: like ui's own Print* helpers, it
+	// downsamples any ANSI in the rendered text (including from hints built
+	// with ui.Command.Render elsewhere) based on stderr's own profile - a
+	// plain os.Stderr write would carry the raw escapes straight through
+	// regardless of NO_COLOR or piping.
+	lipgloss.Fprintf(os.Stderr, "%s %s\n", ui.ErrorBold.Render(ui.SymbolError), ui.Error.Render(msg))
+
+	if hint := hintOf(err); hint != "" {
+		lipgloss.Fprintf(os.Stderr, "%s%s %s\n", ui.Indent1, ui.Dim.Render(ui.SymbolArrow), hint)
+	}
+}
+
+// firstErrorClause trims a wrapped chain to its most useful prefix: it keeps
+// clauses until one adds no information (pure plumbing like "exit status 1").
+//
+// If the very first clause is itself plumbing, there is no useful prefix to
+// cut to; instead, plumbing clauses are trimmed off the end so any leading
+// substantive text survives (and the sentinel tail never leaks through).
+func firstErrorClause(msg string) string {
+	parts := strings.Split(msg, ": ")
+	cut := len(parts)
+	for i, p := range parts {
+		if plumbingClause(p) {
+			cut = i
+			break
+		}
+	}
+	if cut > 0 {
+		if result := strings.Join(parts[:cut], ": "); result != "" {
+			return result
+		}
+
+		return msg
+	}
+
+	end := len(parts)
+	for end > 0 && plumbingClause(parts[end-1]) {
+		end--
+	}
+	if end == 0 {
+		return msg
+	}
+	return strings.Join(parts[:end], ": ")
+}
+
+func plumbingClause(s string) bool {
+	if strings.HasPrefix(s, "exit status ") {
+		return true
+	}
+	switch s {
+	case "docker command failed", "invalid input", "not found",
+		"forbidden", "internal error", "authentication failed",
+		"keychain unavailable", "context canceled":
+		return true
+	}
+	return false
 }
 
 func isKnownCommand(name string) bool {
@@ -237,7 +300,10 @@ func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, 
 		}
 
 		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf("local PHP executable not found in PATH: %w", err)
+			return withHint(
+				&kindError{err: errors.New("PHP is not installed or not in your PATH"), kind: err},
+				"Install PHP or run this inside a started environment ("+ui.Command.Render("xf up")+")",
+			)
 		}
 
 		return fmt.Errorf("local XenForo command failed: %w", err)
