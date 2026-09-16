@@ -280,7 +280,9 @@ type Spinner struct {
 	message  string
 	writer   io.Writer
 	done     chan struct{}
+	stopped  chan struct{} // closed by the animation goroutine as it exits
 	running  bool
+	plain    bool // true when Start ran without a TTY: no animation, no Stop line
 	frameIdx int
 }
 
@@ -298,7 +300,8 @@ func NewSpinner(message string) *Spinner {
 	}
 }
 
-// Start begins the spinner animation.
+// Start begins the spinner animation. When stdout is not an interactive
+// terminal, it prints the message once and returns without animating.
 func (s *Spinner) Start() {
 	s.mu.Lock()
 	if s.running {
@@ -306,42 +309,87 @@ func (s *Spinner) Start() {
 		return
 	}
 
+	if !isTTY {
+		s.plain = true
+		s.running = true
+		msg := s.message
+		s.mu.Unlock()
+		lipgloss.Fprintf(s.writer, "%s\n", msg)
+		return
+	}
+
 	s.running = true
 	s.done = make(chan struct{})
+	s.stopped = make(chan struct{})
+	done, stopped := s.done, s.stopped
 	s.mu.Unlock()
 
 	go func() {
+		defer close(stopped)
+
+		ticker := time.NewTicker(s.interval)
+		defer ticker.Stop()
+
 		for {
+			s.mu.Lock()
+			msg := s.message
+			frame := Info.Render(s.frames[s.frameIdx%len(s.frames)])
+			lipgloss.Fprint(s.writer, ansiClearLine)
+			lipgloss.Fprintf(s.writer, "%s %s", frame, msg)
+			s.frameIdx++
+			s.mu.Unlock()
+
+			// Waiting on the ticker and done together keeps Stop responsive:
+			// a plain sleep would make it block for up to a full interval.
 			select {
-			case <-s.done:
+			case <-done:
 				return
-			default:
-				s.mu.Lock()
-				msg := s.message
-				frame := Info.Render(s.frames[s.frameIdx%len(s.frames)])
-				lipgloss.Fprint(s.writer, ansiClearLine)
-				lipgloss.Fprintf(s.writer, "%s %s", frame, msg)
-				s.frameIdx++
-				s.mu.Unlock()
-				time.Sleep(s.interval)
+			case <-ticker.C:
 			}
 		}
 	}()
 }
 
-// Stop stops the spinner and clears the line.
+// Stop stops the spinner and clears the line. It is a no-op if Start ran
+// without a TTY (the message was already printed once, plainly).
 func (s *Spinner) Stop() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if !s.running {
+		s.mu.Unlock()
 		return
 	}
 
-	close(s.done)
 	s.running = false
 
+	if s.plain {
+		s.mu.Unlock()
+		return
+	}
+
+	stopped := s.stopped
+	close(s.done)
+	s.mu.Unlock()
+
+	// Wait for the animation goroutine to exit before returning, so a
+	// subsequent Start — or any output printed after Stop — cannot be
+	// overwritten by a stale frame from the old goroutine.
+	<-stopped
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	lipgloss.Fprint(s.writer, ansiClearLine)
+}
+
+// Animating reports whether the spinner is actively animating. It returns
+// false when Start ran without a TTY (the message was printed once, plainly)
+// and when the spinner is not running.
+func (s *Spinner) Animating() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.running && !s.plain
 }
 
 // StopWithMessage stops the spinner and prints a final message.
@@ -385,7 +433,9 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 	w.spinner.mu.Lock()
 	defer w.spinner.mu.Unlock()
 
-	if w.spinner.running {
+	repaint := isTTY && w.spinner.running && !w.spinner.plain
+
+	if repaint {
 		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
 	}
 
@@ -394,13 +444,8 @@ func (w *SpinnerOutputWriter) Write(p []byte) (int, error) {
 		return n, fmt.Errorf("failed to write spinner output: %w", err)
 	}
 
-	if w.spinner.running {
-		spacing := "\n\n"
-		if strings.HasSuffix(string(p), "\n") {
-			spacing = "\n"
-		}
-
-		lipgloss.Fprint(w.spinner.writer, spacing)
+	if repaint {
+		lipgloss.Fprint(w.spinner.writer, "\n")
 		frame := Info.Render(w.spinner.frames[w.spinner.frameIdx%len(w.spinner.frames)])
 		lipgloss.Fprint(w.spinner.writer, ansiClearLine)
 		lipgloss.Fprintf(w.spinner.writer, "%s %s", frame, w.spinner.message)
@@ -459,11 +504,26 @@ func (p *ProgressBar) Finish() {
 
 	p.current = p.total
 	p.render()
-	lipgloss.Fprintln(p.writer)
+
+	if isTTY {
+		lipgloss.Fprintln(p.writer)
+	}
+}
+
+// Abandon ends an unfinished progress bar, clearing its line. Use this when the
+// operation failed: Finish would paint the bar at 100%, reporting a partial or
+// failed transfer as complete.
+func (p *ProgressBar) Abandon() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if isTTY {
+		lipgloss.Fprint(p.writer, ansiClearLine)
+	}
 }
 
 func (p *ProgressBar) render() {
-	if p.total <= 0 {
+	if p.total <= 0 || !isTTY {
 		return
 	}
 
@@ -477,7 +537,8 @@ func (p *ProgressBar) render() {
 	pctStr := fmt.Sprintf("%3.0f%%", percent*100)
 	sizeStr := fmt.Sprintf("%s / %s", FormatBytes(p.current), FormatBytes(p.total))
 
-	lipgloss.Fprintf(p.writer, "\r%s %s %s %s",
+	lipgloss.Fprintf(p.writer, "%s%s %s %s %s",
+		ansiClearLine,
 		p.message,
 		bar,
 		Info.Render(pctStr),
