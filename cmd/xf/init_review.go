@@ -78,7 +78,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 		Options(versionOptions...).
 		Value(&selection).
 		Run(); err != nil {
-		return fmt.Errorf("version selection cancelled: %w", err)
+		return promptError(err, "version selection")
 	}
 
 	if selection == manual {
@@ -89,7 +89,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 				Description("Examples: 2.3.9, v2.3.9, 2030900").
 				Value(&manualInput).
 				Run(); err != nil {
-				return fmt.Errorf("version input cancelled: %w", err)
+				return promptError(err, "version input")
 			}
 
 			v, ok := initflow.ResolveVersionInput(manualInput, opts.CoreVersions)
@@ -146,7 +146,7 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 			Options(options...).
 			Value(&choice).
 			Run(); err != nil {
-			return fmt.Errorf("review cancelled: %w", err)
+			return promptError(err, "review")
 		}
 
 		switch choice {
@@ -158,7 +158,7 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 
 			return nil
 		case "cancel":
-			return fmt.Errorf("initialization cancelled: %w", ErrInvalidInput)
+			return markAs(ErrCancelled, "initialization cancelled")
 		case "core":
 			ui.ClearScreen()
 
@@ -306,7 +306,7 @@ func editAdminSite(opts *InitOptions) error {
 		),
 	)
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("admin/site edit cancelled: %w", err)
+		return promptError(err, "admin/site edit")
 	}
 
 	return nil
@@ -334,7 +334,7 @@ func editLicense(ctx context.Context, client *customerapi.Client, opts *InitOpti
 	}
 
 	if err := huh.NewSelect[string]().Title("Select a license").Options(options...).Value(&opts.LicenseKey).Run(); err != nil {
-		return fmt.Errorf("license selection cancelled: %w", err)
+		return promptError(err, "license selection")
 	}
 
 	opts.CoreVersions = nil
@@ -378,7 +378,7 @@ func editProducts(ctx context.Context, client *customerapi.Client, opts *InitOpt
 		Description("XenForo core is always installed. Use ↑/↓ to move, Space to select, Enter to continue.").
 		Options(options...).
 		Value(&picked).Run(); err != nil {
-		return fmt.Errorf("product selection cancelled: %w", err)
+		return promptError(err, "product selection")
 	}
 
 	opts.Products = ensureCoreFirstUnique(append([]string{"xenforo"}, picked...))
@@ -437,7 +437,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 			Title("Select add-on override to edit").
 			Options(addonOptions...).
 			Value(&product).Run(); err != nil {
-			return fmt.Errorf("add-on override selection cancelled: %w", err)
+			return promptError(err, "add-on override selection")
 		}
 
 		if product == reviewDone {
@@ -461,7 +461,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 				huh.NewOption("Set specific version", modeOverride),
 			).
 			Value(&mode).Run(); err != nil {
-			return fmt.Errorf("override mode selection cancelled for %s: %w", product, err)
+			return promptError(err, "override mode selection for %s", product)
 		}
 
 		if mode == modeInferred {
@@ -496,7 +496,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 			Description(fmt.Sprintf("Showing latest %d versions. Choose manual entry for older versions.", versionCount)).
 			Options(selectOptions...).
 			Value(&choice).Run(); err != nil {
-			return fmt.Errorf("version selection cancelled for %s: %w", product, err)
+			return promptError(err, "version selection for %s", product)
 		}
 
 		if choice == manual {
@@ -506,7 +506,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 					Title("Enter version string or version ID").
 					Description("Examples: 2.3.9, v2.3.9, 2030900").
 					Value(&input).Run(); err != nil {
-					return fmt.Errorf("version input cancelled for %s: %w", product, err)
+					return promptError(err, "version input for %s", product)
 				}
 
 				v, ok := initflow.ResolveVersionInput(input, versions.Versions)
@@ -564,7 +564,7 @@ func editEnvValues(opts *InitOptions) error {
 			Title("Edit environment values").
 			Options(options...).
 			Value(&choice).Run(); err != nil {
-			return fmt.Errorf("environment variable selection cancelled: %w", err)
+			return promptError(err, "environment variable selection")
 		}
 
 		if choice == reviewDone {
@@ -574,7 +574,7 @@ func editEnvValues(opts *InitOptions) error {
 		key := choice
 		if choice == "__add__" {
 			if err := huh.NewInput().Title("Environment key").Value(&key).Run(); err != nil {
-				return fmt.Errorf("environment key entry cancelled: %w", err)
+				return promptError(err, "environment key entry")
 			}
 
 			key = strings.TrimSpace(strings.ToUpper(key))
@@ -586,7 +586,7 @@ func editEnvValues(opts *InitOptions) error {
 
 		value := envVals[key]
 		if err := huh.NewInput().Title("Value for " + key).Value(&value).Run(); err != nil {
-			return fmt.Errorf("environment value entry cancelled for %s: %w", key, err)
+			return promptError(err, "environment value entry for %s", key)
 		}
 
 		if opts.EnvResolved == nil {
