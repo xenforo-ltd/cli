@@ -258,13 +258,7 @@ func editCoreSetup(ctx context.Context, client *customerapi.Client, opts *InitOp
 func editAdminSite(opts *InitOptions) error {
 	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title("Admin username").Value(&opts.AdminUser).Validate(func(s string) error {
-				if strings.TrimSpace(s) == "" {
-					return ErrAdminUserRequired
-				}
-
-				return nil
-			}),
+			huh.NewInput().Title("Admin username").Value(&opts.AdminUser).Validate(validateAdminUsername),
 			huh.NewInput().Title("Admin password").EchoMode(huh.EchoModePassword).Value(&opts.AdminPassword).Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
 					return ErrPasswordRequired
