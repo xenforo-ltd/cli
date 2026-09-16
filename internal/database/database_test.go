@@ -16,7 +16,7 @@ func TestDetect(t *testing.T) {
 		},
 		{
 			name:     "mysql replication context",
-			contexts: []string{"caddy", "mysql", "mysql-replication"},
+			contexts: []string{"caddy", "mysql-replication"},
 			want:     DriverMySQL,
 		},
 		{
