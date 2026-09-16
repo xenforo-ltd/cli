@@ -40,11 +40,33 @@ func runPs(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	ui.PrintInfo("Container status:")
-
-	if err := runner.PS(cmd.Context()); err != nil {
-		return fmt.Errorf("failed to list container status: %w", err)
+	containers, err := runner.PSInfo(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to list containers: %w", err)
 	}
+
+	if len(containers) == 0 {
+		ui.PrintEmpty("No containers running")
+		return nil
+	}
+
+	rows := make([][]string, 0, len(containers))
+	for _, c := range containers {
+		var state string
+
+		switch c.State {
+		case "running":
+			state = ui.Success.Render("running")
+		case "exited", "dead":
+			state = ui.Error.Render(c.State)
+		default:
+			state = ui.Warning.Render(c.State)
+		}
+
+		rows = append(rows, []string{c.Service, c.Name, state, c.Status, c.Ports})
+	}
+
+	ui.PrintTable([]string{"SERVICE", "CONTAINER", "STATE", "STATUS", "PORTS"}, rows)
 
 	return nil
 }
