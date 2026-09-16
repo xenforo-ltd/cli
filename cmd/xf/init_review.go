@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
 
 	"charm.land/huh/v2"
 
@@ -17,7 +18,22 @@ import (
 const (
 	reviewDone   = "__done__"
 	versionCount = 10
+
 )
+
+// sentence upper-cases the first rune of s, leaving the rest untouched.
+// Validation sentinel errors are lower-case by Go convention; this makes
+// them read as sentence-case UI copy when surfaced via pendingWarning.
+func sentence(s string) string {
+	if s == "" {
+		return s
+	}
+
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+
+	return string(r)
+}
 
 type overrideMode int
 
@@ -99,10 +115,18 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 }
 
 func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
+	var pendingWarning string
+
 	for {
-		clearScreen()
-		ui.Println()
-		ui.Println(ui.Bold.Render("Review configuration"))
+		ui.ClearScreen()
+		ui.Println(ui.Header.Render("Review configuration"))
+
+		if pendingWarning != "" {
+			ui.PrintWarning(pendingWarning)
+			ui.Println()
+			pendingWarning = ""
+		}
+
 		printReviewSummary(ctx, client, opts)
 		ui.Println()
 
@@ -117,7 +141,6 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 			huh.NewOption("Cancel", "cancel"),
 		}
 		if err := huh.NewSelect[string]().
-			Title("Choose an action").
 			Options(options...).
 			Value(&choice).
 			Run(); err != nil {
@@ -127,7 +150,7 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 		switch choice {
 		case "continue":
 			if err := validateReviewInputs(opts); err != nil {
-				ui.PrintWarning(err.Error())
+				pendingWarning = sentence(err.Error())
 				continue
 			}
 
@@ -135,25 +158,25 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 		case "cancel":
 			return fmt.Errorf("initialization cancelled: %w", ErrInvalidInput)
 		case "core":
-			clearScreen()
+			ui.ClearScreen()
 
 			if err := editCoreSetup(ctx, client, opts); err != nil {
 				return err
 			}
 		case "admin-site":
-			clearScreen()
+			ui.ClearScreen()
 
 			if err := editAdminSite(opts); err != nil {
 				return err
 			}
 		case "addon-overrides":
-			clearScreen()
+			ui.ClearScreen()
 
 			if err := editAddonOverrides(ctx, client, opts); err != nil {
 				return err
 			}
 		case "env":
-			clearScreen()
+			ui.ClearScreen()
 
 			if err := editEnvValues(opts); err != nil {
 				return err
@@ -268,7 +291,7 @@ func editAdminSite(opts *InitOptions) error {
 			}),
 			huh.NewInput().Title("Admin email").Value(&opts.AdminEmail).Validate(func(s string) error {
 				if !strings.Contains(strings.TrimSpace(s), "@") {
-					return ErrValidEmailRequired
+					return ErrInvalidEmail
 				}
 
 				return nil
@@ -535,7 +558,7 @@ func editEnvValues(opts *InitOptions) error {
 
 			key = strings.TrimSpace(strings.ToUpper(key))
 			if err := initflow.ValidateEnvKey(key); err != nil {
-				ui.PrintWarning(err.Error())
+				ui.PrintWarning(sentence(err.Error()))
 				continue
 			}
 		}

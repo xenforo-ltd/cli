@@ -4,7 +4,33 @@ import (
 	"errors"
 	"os/exec"
 	"testing"
+	"unicode/utf8"
 )
+
+func TestUsernameLengthIsCountedInRunes(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		valid bool
+	}{
+		{"plain name", "admin", true},
+		{"exactly the minimum", "abc", true},
+		{"too short", "ab", false},
+		{"single emoji is one character", "😀", false},
+		{"three emoji", "😀😀😀", true},
+		{"multi-byte accents below the minimum", "áé", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			valid := validateAdminUsername(tc.input) == nil
+			if valid != tc.valid {
+				t.Errorf("%q: valid = %v, want %v (bytes=%d runes=%d)",
+					tc.input, valid, tc.valid, len(tc.input), utf8.RuneCountInString(tc.input))
+			}
+		})
+	}
+}
 
 func TestPassthroughErrorIgnoresSignalExitCodes(t *testing.T) {
 	// A process killed by a signal reports -1, which cannot be used as a
