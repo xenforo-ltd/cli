@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -156,6 +157,20 @@ func TestHelpersFormatting(t *testing.T) {
 
 	if got := formatProductList([]string{"xenforo", "xfmg"}, map[string]string{"xenforo": "XenForo", "xfmg": "Media"}); got != "XenForo, Media" {
 		t.Fatalf("unexpected product list: %q", got)
+	}
+}
+
+// TestPrintInstallFailureDefersToCancellation pins the contract that an
+// interrupted install is reported as the cancellation itself rather than a
+// failed install with a retry hint. The guard runs before any ui output, so
+// the test stays quiet.
+func TestPrintInstallFailureDefersToCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := printInstallFailure(ctx, errTestBoom)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("printInstallFailure returned %v, want context.Canceled", err)
 	}
 }
 
