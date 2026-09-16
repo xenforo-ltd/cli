@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"strings"
@@ -96,17 +97,11 @@ func ValidateEnvKey(key string) error {
 func MergeEnvMaps(base, fromFile, fromFlags map[string]string) map[string]string {
 	merged := map[string]string{}
 
-	for k, v := range base {
-		merged[k] = v
-	}
+	maps.Copy(merged, base)
 
-	for k, v := range fromFile {
-		merged[k] = v
-	}
+	maps.Copy(merged, fromFile)
 
-	for k, v := range fromFlags {
-		merged[k] = v
-	}
+	maps.Copy(merged, fromFlags)
 
 	return merged
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"unicode"
@@ -637,13 +638,9 @@ func currentEnvPreview(opts *InitOptions) map[string]string {
 
 	merged := map[string]string{}
 
-	for k, v := range base {
-		merged[k] = v
-	}
+	maps.Copy(merged, base)
 
-	for k, v := range opts.EnvResolved {
-		merged[k] = v
-	}
+	maps.Copy(merged, opts.EnvResolved)
 
 	delete(merged, "XF_CONTEXTS")
 
