@@ -215,6 +215,12 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	result, err := cacheManager.DownloadWithAuth(ctx, opts, accessToken, progress)
 	if err != nil {
+		// The bar's render leaves the cursor on its line, so the error would be
+		// appended to the partial bar without this.
+		if progressBar != nil {
+			progressBar.Abandon()
+		}
+
 		return fmt.Errorf("failed to download %s version %d: %w", downloadID, versionID, err)
 	}
 
@@ -231,7 +237,6 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 		ui.Println()
 		ui.PrintKeyValuePadded([]ui.KVPair{
 			ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),
-			ui.KV("Checksum", ui.Dim.Render(result.Entry.Metadata.Checksum[:16]+"...")),
 		})
 	}
 
