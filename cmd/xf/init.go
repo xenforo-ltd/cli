@@ -608,19 +608,12 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			opts.SiteTitle = "XenForo"
 		}
 
-		minimumUsernameLength := 3
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
 					Title("Admin username").
 					Value(&opts.AdminUser).
-					Validate(func(s string) error {
-						if len(s) < minimumUsernameLength {
-							return ErrUsernameTooShort
-						}
-
-						return nil
-					}),
+					Validate(validateAdminUsername),
 				huh.NewInput().
 					Title("Admin password").
 					Value(&opts.AdminPassword).
