@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
@@ -245,29 +244,3 @@ func cloneFiles(ctx context.Context, spinner *ui.Spinner, sourcePath, worktreePa
 
 // progressUpdateInterval is how many files to copy between progress updates.
 const progressUpdateInterval = 100
-
-// retitleBoard appends a worktree label to a board title, replacing any label
-// already present.
-//
-// A clone inherits the source forum's title, so several worktrees would
-// otherwise be indistinguishable in a browser tab.
-//
-// This mirrors the expression used in retargetBoardIdentity, which has to run
-// inside PHP because it depends on the live option value. It exists separately
-// so the behaviour can be tested directly.
-func retitleBoard(title, label string) string {
-	trimmed := strings.TrimRight(trailingLabel.ReplaceAllString(title, ""), " \t")
-
-	suffix := "[" + label + "]"
-
-	if trimmed == "" {
-		return suffix
-	}
-
-	return trimmed + " " + suffix
-}
-
-// trailingLabel matches a bracketed label at the end of a board title. Nested
-// brackets are excluded so a title ending in "[a [b]]" is left alone rather
-// than partly consumed.
-var trailingLabel = regexp.MustCompile(`\s*\[[^\[\]]*\]\s*$`)
