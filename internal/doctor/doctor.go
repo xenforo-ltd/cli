@@ -72,28 +72,6 @@ func (d *Doctor) RunAll(ctx context.Context) []*CheckResult {
 	return d.results
 }
 
-// HasErrors returns whether any checks failed.
-func (d *Doctor) HasErrors() bool {
-	for _, r := range d.results {
-		if r.Status == StatusError {
-			return true
-		}
-	}
-
-	return false
-}
-
-// HasWarnings returns whether any checks reported warnings.
-func (d *Doctor) HasWarnings() bool {
-	for _, r := range d.results {
-		if r.Status == StatusWarning {
-			return true
-		}
-	}
-
-	return false
-}
-
 // resolveAuthentication records the credential source, preflights writable
 // persistent stores, and only then loads credentials. Environment-backed stores
 // are read-only and are not probed.

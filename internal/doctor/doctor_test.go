@@ -9,25 +9,16 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
-func TestDoctorHasErrorsAndWarnings(t *testing.T) {
-	d := &Doctor{results: []*CheckResult{{Status: StatusOK}}}
-	if d.HasErrors() || d.HasWarnings() {
-		t.Fatal("expected no errors or warnings")
+// hasStatus reports whether any result has the given status. It replaces the
+// former Doctor.HasErrors helper, which only tests exercised.
+func hasStatus(results []*CheckResult, status CheckStatus) bool {
+	for _, r := range results {
+		if r.Status == status {
+			return true
+		}
 	}
 
-	d.results = append(d.results, &CheckResult{Status: StatusWarning})
-	if d.HasErrors() {
-		t.Fatal("expected no errors")
-	}
-
-	if !d.HasWarnings() {
-		t.Fatal("expected warning")
-	}
-
-	d.results = append(d.results, &CheckResult{Status: StatusError})
-	if !d.HasErrors() {
-		t.Fatal("expected error")
-	}
+	return false
 }
 
 func TestFormatBytes(t *testing.T) {
@@ -66,7 +57,7 @@ func TestCredentialFailuresAreNotReportedAsLoggedOut(t *testing.T) {
 	}
 	d := NewDoctor()
 	d.checkAuthentication("file", nil, auth.ErrAuthRequired)
-	if d.HasErrors() || d.results[1].Message != "Not authenticated" {
+	if hasStatus(d.results, StatusError) || d.results[1].Message != "Not authenticated" {
 		t.Fatal("missing credentials reported as broken storage")
 	}
 }
