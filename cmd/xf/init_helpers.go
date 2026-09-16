@@ -9,7 +9,15 @@ import (
 
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/initflow"
+	"github.com/xenforo-ltd/cli/internal/ui"
 )
+
+// printSkippedStep prints a step line for a step that occupies its slot in
+// the plan but did not run, with its real label and a dim skip reason.
+func printSkippedStep(current, total int, label, reason string) {
+	ui.Printf("%s %s %s\n", ui.Step(current, total), ui.Bold.Render(label),
+		ui.Dim.Render("(skipped: "+reason+")"))
+}
 
 func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key string) string {
 	licenses, err := client.GetLicenses(ctx)
