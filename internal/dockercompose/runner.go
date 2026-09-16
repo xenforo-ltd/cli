@@ -461,10 +461,26 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, rm bool, cmd ...
 			return r.Run(ctx, service, rm, cmd...)
 		}
 
+		// stderr is captured only to detect the not-running case above. For any
+		// other failure it is the command's own error message, so replay it
+		// rather than let the caller exit silently.
+		replayStderr(err, stderr)
+
 		return err
 	}
 
 	return r.Run(ctx, service, rm, cmd...)
+}
+
+// replayStderr writes a failed command's captured stderr to the process's own
+// stderr. Callers that capture stderr for the not-running probe would otherwise
+// swallow the command's real error message.
+func replayStderr(err error, stderr string) {
+	if err == nil || stderr == "" {
+		return
+	}
+
+	_, _ = io.WriteString(os.Stderr, stderr)
 }
 
 // ExecOrRunWithOutput uses exec for running services and falls back to run for stopped services.
@@ -482,6 +498,10 @@ func (r *Runner) ExecOrRunWithOutput(ctx context.Context, service string, rm boo
 		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, nil, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithOutput(ctx, service, rm, stdout, stderr, cmd...)
+		}
+
+		if err != nil && stderrOutput != "" {
+			_, _ = io.WriteString(stderr, stderrOutput)
 		}
 
 		return err
@@ -509,6 +529,8 @@ func (r *Runner) ExecOrRunWithEnv(ctx context.Context, service string, rm bool, 
 			return r.RunWithEnv(ctx, service, rm, env, cmd...)
 		}
 
+		replayStderr(err, stderr)
+
 		return err
 	}
 
@@ -532,6 +554,10 @@ func (r *Runner) ExecOrRunWithEnvAndOutput(ctx context.Context, service string, 
 		stderrOutput, err := r.runDockerCommandCaptureStderrWithOutput(ctx, env, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
 			return r.RunWithEnvAndOutput(ctx, service, rm, env, stdout, stderr, cmd...)
+		}
+
+		if err != nil && stderrOutput != "" {
+			_, _ = io.WriteString(stderr, stderrOutput)
 		}
 
 		return err
