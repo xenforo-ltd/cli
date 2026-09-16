@@ -324,9 +324,9 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		return err
 	}
 
-	ui.PrintSuccess("Configured instance: " + opts.InstanceName)
+	ui.PrintSubstep("Configured instance: " + ui.Bold.Render(opts.InstanceName))
 
-	ui.PrintStep(step, totalSteps, "Starting environment")
+	ui.Println()
 
 	// Detection can fail or return nothing, and installing --url= empty would
 	// leave the board with no address at all, so the predictable instance URL
@@ -334,6 +334,8 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
 	if opts.StartContainers {
+		ui.PrintStep(step, totalSteps, "Starting environment")
+
 		runner, err := dockercompose.NewRunner(xfDir)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
@@ -383,7 +385,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 			}
 		}
 	} else {
-		ui.PrintDetail("Skipped (use --up flag to start containers)")
+		printSkippedStep(step, totalSteps, "Starting environment", "use --up to start containers")
 	}
 
 	ui.Println()

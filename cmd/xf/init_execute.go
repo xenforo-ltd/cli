@@ -22,6 +22,31 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xfcmd"
 )
 
+// plannedInitSteps returns the number of steps that will be printed for a
+// fresh install run with the given options. Every step that runs, or that is
+// reachable but skipped (and therefore printed via printSkippedStep), counts
+// toward the total.
+//
+// The Composer and install slots are fixed once containers will be started:
+// both are always printed, whether they run or are marked skipped, so the
+// total does not depend on what the downloaded package happens to contain.
+// Anything gated behind a skipped "Starting Docker environment" step is not
+// reachable, so --skip-up prints the six steps before it.
+func plannedInitSteps(opts InitOptions) int {
+	// Preparing target directory, Downloading XenForo files, Extracting
+	// XenForo files, Setting up Docker configuration, Configuring
+	// environment, Starting Docker environment.
+	const base = 6
+
+	if opts.SkipUp {
+		return base
+	}
+
+	// Installing Composer dependencies and Installing XenForo occupy a slot
+	// once containers can start, whether they run or are printed as skipped.
+	return base + 2
+}
+
 func executeInit(ctx context.Context, opts *InitOptions) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -43,23 +68,9 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	titleMap := getProductTitleMap(ctx, client, opts.LicenseKey)
 
-	// A repository checkout is the only source that needs Composer: it tracks
-	// a composer.json, while release packages ship vendor/ prebuilt and have
-	// none. That is knowable before the files land, so the total is correct
-	// from the first step rather than changing halfway through.
-	//
-	// --existing installs run from an existing checkout, so the target's own
-	// composer.json is the answer there.
-	runComposer := !opts.SkipComposer && shouldRunComposer(opts.TargetPath)
-
-	totalSteps := 7
-	if runComposer {
-		totalSteps++
-	}
-
+	totalSteps := plannedInitSteps(*opts)
 	step := 1
 
-	ui.Println()
 	ui.PrintStep(step, totalSteps, "Preparing target directory")
 	ui.PrintDetail(opts.TargetPath)
 
@@ -132,8 +143,6 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	ui.PrintSuccess("Environment configured")
 
 	ui.Println()
-	ui.PrintStep(step, totalSteps, "Starting Docker environment")
-	step++
 
 	runner, err := dockercompose.NewRunner(opts.TargetPath)
 	if err != nil {
@@ -142,7 +151,13 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
-	if !opts.SkipUp {
+	if opts.SkipUp {
+		// No further steps run in this branch, so step is not advanced.
+		printSkippedStep(step, totalSteps, "Starting Docker environment", "use --up to start containers")
+	} else {
+		ui.PrintStep(step, totalSteps, "Starting Docker environment")
+		step++
+
 		if cfg.Verbose {
 			ui.PrintSubstep("Running docker compose up...")
 
@@ -173,25 +188,39 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintWarning(fmt.Sprintf("Could not auto-detect site URL, using fallback %s: %v", siteURL, detectedErr))
 		}
 
-		if runComposer {
-			ui.Println()
+		// The Composer step always occupies its slot once containers start,
+		// so the plan stays fixed regardless of what the extracted package
+		// contains. The filesystem is authoritative here: release packages
+		// ship vendor/ prebuilt and no manifest, repository checkouts track
+		// composer.json.
+		ui.Println()
+
+		switch {
+		case opts.SkipComposer:
+			printSkippedStep(step, totalSteps, "Installing Composer dependencies", "--skip-composer")
+		case shouldRunComposer(opts.TargetPath):
 			ui.PrintStep(step, totalSteps, "Installing Composer dependencies")
-			step++
 
 			if err := runComposerInstall(ctx, runner, cfg.Verbose); err != nil {
 				return err
 			}
+		default:
+			printSkippedStep(step, totalSteps, "Installing Composer dependencies", "composer.json not present")
 		}
 
-		ui.Println()
-		ui.PrintStep(step, totalSteps, "Installing XenForo")
-
-		if !opts.SkipInstall {
 			ui.PrintSubstep("Waiting for database to be ready...")
 
 			if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
 				return fmt.Errorf("failed waiting for database to become ready: %w", err)
 			}
+		step++
+
+		if opts.SkipInstall {
+			ui.Println()
+			printSkippedStep(step, totalSteps, "Installing XenForo", "--skip-install")
+		} else {
+			ui.Println()
+			ui.PrintStep(step, totalSteps, "Installing XenForo")
 
 			installArgs := make([]string, 0, 8)
 			installArgs = append(installArgs, "xf:install")
@@ -231,11 +260,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 					spinner.StopWithMessage("success", "XenForo installed")
 				}
 			}
-		} else {
-			ui.PrintSubstep("Skipped (--skip-install flag set)")
 		}
-	} else {
-		ui.PrintSubstep("Skipped (--skip-up flag set)")
 	}
 
 	ui.Println()

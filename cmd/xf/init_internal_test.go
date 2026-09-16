@@ -14,6 +14,34 @@ import (
 
 var errTestBoom = errors.New("boom")
 
+// TestPlannedInitSteps pins the fixed step plan: the Composer and XenForo
+// install slots count toward the total whether they run or are printed as
+// skipped, so the only thing that changes the total is --skip-up, which makes
+// both unreachable.
+func TestPlannedInitSteps(t *testing.T) {
+	tests := []struct {
+		name string
+		opts InitOptions
+		want int
+	}{
+		{name: "full run", opts: InitOptions{}, want: 8},
+		{name: "skip install", opts: InitOptions{SkipInstall: true}, want: 8},
+		{name: "skip composer", opts: InitOptions{SkipComposer: true}, want: 8},
+		{name: "skip install and composer", opts: InitOptions{SkipInstall: true, SkipComposer: true}, want: 8},
+		{name: "skip up", opts: InitOptions{SkipUp: true}, want: 6},
+		{name: "skip up and skip install", opts: InitOptions{SkipUp: true, SkipInstall: true}, want: 6},
+		{name: "skip up and skip composer", opts: InitOptions{SkipUp: true, SkipComposer: true}, want: 6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := plannedInitSteps(tt.opts); got != tt.want {
+				t.Fatalf("plannedInitSteps(%+v) = %d, want %d", tt.opts, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseInstallImportMessage(t *testing.T) {
 	if got := parseInstallImportMessage("Importing master data (phrases: 35%)"); got != "importing phrases (35%)" {
 		t.Fatalf("unexpected message: %q", got)
