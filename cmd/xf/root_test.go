@@ -179,8 +179,15 @@ func TestRunAsLocalXenForoCommandReturnsErrorOnNonZeroExit(t *testing.T) {
 		t.Fatal("expected error")
 	}
 
-	if !containsAll(err.Error(), "local XenForo command failed") {
-		t.Fatalf("unexpected error: %v", err)
+	// The child already reported its own failure, so the exit code is passed
+	// through bare, exactly as the Docker path does.
+	var exitErr *exitCodeError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected a bare exit-code error, got %T: %v", err, err)
+	}
+
+	if exitErr.code != 2 {
+		t.Fatalf("exit code = %d, want 2", exitErr.code)
 	}
 }
 

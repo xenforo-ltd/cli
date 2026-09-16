@@ -86,14 +86,14 @@ func runPHPWithMode(ctx context.Context, args []string, debug bool) error {
 		ui.PrintInfo("Running with Xdebug: php " + strings.Join(phpArgs, " "))
 
 		if err := runner.PHPDebug(ctx, phpArgs...); err != nil {
-			return fmt.Errorf("failed to run PHP with Xdebug: %w", err)
+			return passthroughError(err, "failed to run PHP")
 		}
 
 		return nil
 	}
 
 	if err := runner.PHP(ctx, phpArgs...); err != nil {
-		return fmt.Errorf("failed to run PHP command: %w", err)
+		return passthroughError(err, "failed to run PHP")
 	}
 
 	return nil
