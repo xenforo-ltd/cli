@@ -282,8 +282,8 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 			continue
 		}
 
-		name := path.Base(cleanName)
-		if !isBinaryCandidate(name) {
+		name, ok := binaryName(path.Base(cleanName))
+		if !ok {
 			continue
 		}
 
@@ -292,12 +292,6 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		}
 
 		outPath := filepath.Join(destDir, name)
-		relPath, err := filepath.Rel(destDir, outPath)
-		if err != nil ||
-			relPath == ".." ||
-			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-			return "", fmt.Errorf("invalid update binary path in archive: %s: %w", header.Name, ErrUpdateFailed)
-		}
 
 		limitedReader := io.LimitReader(tarReader, maxBinarySize)
 
@@ -355,8 +349,8 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 			continue
 		}
 
-		name := path.Base(cleanName)
-		if !isBinaryCandidate(name) {
+		name, ok := binaryName(path.Base(cleanName))
+		if !ok {
 			continue
 		}
 
@@ -370,16 +364,6 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 		}
 
 		outPath := filepath.Join(destDir, name)
-		relPath, err := filepath.Rel(destDir, outPath)
-		if err != nil ||
-			relPath == ".." ||
-			strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-			closeErr := inFile.Close()
-			return "", errors.Join(
-				fmt.Errorf("invalid update binary path in archive: %s: %w", file.Name, ErrUpdateFailed),
-				closeErr,
-			)
-		}
 
 		limitedReader := io.LimitReader(inFile, maxBinarySize)
 
@@ -426,8 +410,18 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 	return pickExtractedBinary(extracted)
 }
 
-func isBinaryCandidate(name string) bool {
-	return name == "xf" || name == "xf.exe"
+// binaryName reports whether an archive entry is the xf binary, returning the
+// matching constant name. Only the constant is used to build the output path,
+// so the archive's own entry name never reaches the file system.
+func binaryName(entry string) (string, bool) {
+	switch entry {
+	case "xf":
+		return "xf", true
+	case "xf.exe":
+		return "xf.exe", true
+	default:
+		return "", false
+	}
 }
 
 func runtimeBinaryName() string {

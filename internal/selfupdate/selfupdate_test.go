@@ -215,6 +215,38 @@ func TestExtractBinaryFromZipRejectsOversizedBinary(t *testing.T) {
 	assertOversizedArchiveRejected(t, "xf-v1.0.0-windows-amd64.zip", makeZipArchive(t, "xf", binaryContent))
 }
 
+// TestExtractBinaryIgnoresTraversalEntries guards against zip-slip: an entry
+// that would escape the destination must never be written outside it.
+func TestExtractBinaryIgnoresTraversalEntries(t *testing.T) {
+	for _, archiveName := range []string{"xf-v1.0.0-linux-amd64.tar.gz", "xf-v1.0.0-windows-amd64.zip"} {
+		for _, entry := range []string{"../xf", "../../xf.exe", "/xf"} {
+			t.Run(archiveName+"/"+entry, func(t *testing.T) {
+				tmp := t.TempDir()
+				destDir := filepath.Join(tmp, "dest")
+
+				if err := os.Mkdir(destDir, 0o750); err != nil {
+					t.Fatalf("mkdir dest: %v", err)
+				}
+
+				archivePath := filepath.Join(tmp, archiveName)
+				if err := os.WriteFile(archivePath, makeArchiveForName(t, archiveName, entry, []byte("evil")), 0o600); err != nil {
+					t.Fatalf("write archive: %v", err)
+				}
+
+				if _, err := extractBinaryFromArchive(archivePath, destDir); err == nil {
+					t.Fatal("expected an error for an archive with no safe xf binary")
+				}
+
+				for _, name := range []string{"xf", "xf.exe"} {
+					if _, err := os.Stat(filepath.Join(tmp, name)); err == nil {
+						t.Fatalf("%s was written outside the destination", name)
+					}
+				}
+			})
+		}
+	}
+}
+
 func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 	archive := filepath.Join(t.TempDir(), "file.tar.gz")
 	if err := os.WriteFile(archive, []byte("archive"), 0o600); err != nil {
