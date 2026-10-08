@@ -62,9 +62,9 @@ func TestIsServiceRunning(t *testing.T) {
 		runner, _ := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "running")
 
-		running, err := runner.isServiceRunning(t.Context(), "xf")
+		running, err := runner.IsServiceRunning(t.Context(), "xf")
 		if err != nil {
-			t.Fatalf("isServiceRunning returned error: %v", err)
+			t.Fatalf("IsServiceRunning returned error: %v", err)
 		}
 
 		if !running {
@@ -76,9 +76,9 @@ func TestIsServiceRunning(t *testing.T) {
 		runner, _ := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "stopped")
 
-		running, err := runner.isServiceRunning(t.Context(), "xf")
+		running, err := runner.IsServiceRunning(t.Context(), "xf")
 		if err != nil {
-			t.Fatalf("isServiceRunning returned error: %v", err)
+			t.Fatalf("IsServiceRunning returned error: %v", err)
 		}
 
 		if running {
@@ -90,7 +90,7 @@ func TestIsServiceRunning(t *testing.T) {
 		runner, _ := newRunnerWithFakeDocker(t)
 		t.Setenv("DOCKER_PS_MODE", "error")
 
-		if _, err := runner.isServiceRunning(t.Context(), "xf"); err == nil {
+		if _, err := runner.IsServiceRunning(t.Context(), "xf"); err == nil {
 			t.Fatal("expected error when docker ps probe fails")
 		}
 	})

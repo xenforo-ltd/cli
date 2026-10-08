@@ -315,7 +315,7 @@ func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
 // process list. The streams are explicit so interactive commands and progress
 // writers behave the same whether the service is running or stopped.
 func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
-	running, err := r.isServiceRunning(ctx, service)
+	running, err := r.IsServiceRunning(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -639,7 +639,9 @@ func (r *Runner) getServicePort(ctx context.Context, service, internalPort strin
 	return "", fmt.Errorf("unexpected port output: %s: %w", output, ErrUnexpectedOutput)
 }
 
-func (r *Runner) isServiceRunning(ctx context.Context, service string) (bool, error) {
+// IsServiceRunning reports whether the given compose service has a running
+// container.
+func (r *Runner) IsServiceRunning(ctx context.Context, service string) (bool, error) {
 	args := r.buildComposeArgs()
 	args = append(args, "ps", "--status", "running", "--services", service)
 

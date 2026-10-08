@@ -3,7 +3,9 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/xenforo-ltd/cli/internal/database"
@@ -128,5 +130,47 @@ func TestDatabaseShellArgs(t *testing.T) {
 				t.Errorf("databaseShellArgs() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestOpenDatabaseShellRequiresRunningDatabase guards against falling back to
+// a one-off container, which has no server for the client to connect to.
+func TestOpenDatabaseShellRequiresRunningDatabase(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake docker shim test is unix-only")
+	}
+
+	binDir := t.TempDir()
+	logFile := filepath.Join(binDir, "docker.log")
+
+	// Report no running services, and log every call so the test can prove
+	// the client was never started.
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"" + logFile + "\"\n"
+	if err := os.WriteFile(filepath.Join(binDir, "docker"), []byte(script), 0o700); err != nil {
+		t.Fatalf("write fake docker: %v", err)
+	}
+
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	runner := newRunnerForDB(t, "XF_CONTEXTS=mysql\n")
+
+	err := openDatabaseShell(t.Context(), runner, database.Info{User: "xf", Name: "xf"}, nil)
+	if err == nil {
+		t.Fatal("expected an error when the database is not running")
+	}
+
+	if !strings.Contains(hintOf(err), "xf up") {
+		t.Errorf("hint = %q, want it to suggest xf up", hintOf(err))
+	}
+
+	calls, readErr := os.ReadFile(logFile)
+	if readErr != nil {
+		t.Fatalf("read docker log: %v", readErr)
+	}
+
+	for _, call := range strings.Split(strings.TrimSpace(string(calls)), "\n") {
+		if !strings.Contains(call, " ps ") {
+			t.Errorf("unexpected docker call: %s", call)
+		}
 	}
 }

@@ -157,7 +157,23 @@ func resolveDatabaseInfo(runner *dockercompose.Runner) (database.Info, error) {
 // openDatabaseShell runs the database client inside the database container,
 // forwarding any extra arguments to it. The password travels in the
 // environment rather than the argument list.
+//
+// The client needs the server in the running container, so a stopped
+// environment is reported rather than falling back to a one-off container
+// that has no server to connect to.
 func openDatabaseShell(ctx context.Context, runner *dockercompose.Runner, info database.Info, args []string) error {
+	running, err := runner.IsServiceRunning(ctx, databaseService)
+	if err != nil {
+		return err
+	}
+
+	if !running {
+		return withHint(
+			errors.New("the database is not running"),
+			"Start the environment with "+ui.Command.Render("xf up"),
+		)
+	}
+
 	env := map[string]string{"MYSQL_PWD": info.Password}
 
 	cmd := databaseShellArgs(info, args)
