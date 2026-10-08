@@ -2,31 +2,130 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-08
 
 ### Features
 
-- *(ui)* Styled errors with contextual hints, grouped help output, and consistent formatting across every command
-- *(ps)* Render a native table of running containers
-- *(cli)* Quiet cancellation from the review menu (exit 0), Ctrl-C at a prompt exits 130 like any other interrupt, and passthrough of exit codes from wrapped commands
+- *(auth)* Support file and environment credentials
+- *(auth)* Add JSON status output and a clean unauthenticated state
+- *(auth)* Animate the browser login flow
+- *(cli)* **Breaking**: Forward all arguments to passthrough commands
+- *(cli)* Distinguish cancellation, interrupts and child exit codes
+- *(cli)* Pass through the exit code of wrapped commands
+- *(cli)* Group commands and style help output
+- *(cli)* Improve download and self-update progress output
+- *(cli)* Restyle environment command output
+- *(db)* Open the environment's database in TablePlus
+- *(docker)* Expose the embedded file list
+- *(dockercompose)* Add environment-safe exec, project checks and teardown
+- *(doctor)* Diagnose configured credential source
+- *(doctor)* Render suggestions and fail with a non-zero status
+- *(errors)* Add classified, hinted and cancellation errors
+- *(errors)* Render errors with hints and concise causes
+- *(init)* Install Composer dependencies for existing checkouts
+- *(init)* Report .default files written for user-modified configs
+- *(init)* Improve the review editor and install summary
+- *(licenses)* Restyle license output
+- *(ps)* Render a native container table
+- *(ui)* Add shared formatting and output helpers
+- *(upgrade)* Improve upgrade progress and failure reporting
+- *(worktree)* Add repository backends, path resolution and creation
+- *(worktree)* Add recursive directory copy
+- *(worktree)* Add the worktree registry
+- *(worktree)* Add the xf worktree command
+- *(worktree)* Render worktree state and restyle output
 
 ### Bug fixes
 
-- *(selfupdate)* Harden against zip-slips
-- *(auth)* Surface a clean "not authenticated" message instead of a raw keychain error from `auth status` and `auth logout`
-- *(init)* Correct step counts shown during install and notify when `.default` files are written for user-modified configs
-- *(debug)* Fix argument handling for debug commands
-- *(download)* Fix checksum verification panic
+- *(cache)* Validate purge flags and keep path output script-friendly
+- *(cli)* Handle more errors in XF directory detection
+- *(cli)* Pass flags through to passthrough commands without --
+- *(cli)* Report runtime errors without usage
+- *(cli)* Reject unexpected arguments on leaf commands
+- *(cli)* Classify audited invocation errors as usage errors
+- *(cli)* Exit quietly when interrupted
+- *(cli)* Scope config initialization to the root command
+- *(cli)* Reject an unknown command after a global flag
+- *(cli)* Redact forwarded arguments from debug and PHP output
+- *(config)* Guard Init against concurrent callers
+- *(docker)* Add OCI labels and Orbstack icons to Docker images
+- *(docker)* Set `opcache.revalidate_freq` to `0` by default
+- *(docker)* Fix line continuation
+- *(docker)* Grant containers access to generated and runtime files
+- *(dockercompose)* Replay captured stderr when exec fails
+- *(download)* Avoid the checksum verification panic
+- *(init)* Quote installer arguments
+- *(init)* Correct install step counts and mark skipped steps
 - *(init)* Persist validation warnings on the review screen
+- *(init)* Report install failures once and honour cancellation
+- *(release)* Match installers and self-update to the published archives
+- *(selfupdate)* Harden against zip-slips
+- *(selfupdate)* Build the extracted binary path from a constant name
+- *(ui)* Make spinners and progress bars TTY-aware and stoppable
+- *(version)* Make --short output script-friendly
+
+### Refactor
+
+- *(api)* Trim unused response fields
+- *(cache)* Remove unused cache operations and fields
+- *(cli)* Define the root pre-run hook with the command
+- *(dockercompose)* Collapse runner command API
+- *(doctor)* Remove test-only status helpers
+- *(errors)* Remove superseded sentinels
+- *(extract)* Remove unused generic archive API
+- *(init)* Classify prompts, lookups and cancellations
+- *(init)* Rename license option label to licenseLabel
+- *(init)* Drop unused environment-provenance map
+- *(init)* Merge environment maps with maps.Copy
+- *(ui)* Remove unused styles and helpers
+- *(ui)* Remove dead helpers and orphaned styles
+- *(worktree)* Narrate clone with a single spinner
+- *(worktree)* Remove thin exported wrappers
+- *(worktree)* Remove unused board retitle helper
+- *(xf)* Export the maximum instance name length
+- *(xf)* Remove unused environment configuration model
+- Remove redundant convenience wrappers
+- Remove unreachable helper APIs
+
+### Documentation
+
+- *(auth)* Document credential storage options
+- *(cli)* Document command routing and forwarding
+- *(github)* Add concise pull request template
+- *(readme)* Document worktrees and automatic Composer install
+- *(readme)* Document -n/--no-interaction and -c/--config
+- *(xdebug)* Fix references to XDebug
+
+### Tests
+
+- *(cmd)* Mark the re-exec helper parameter unused
 
 ### Build
 
 - *(goreleaser)* Do not generate package manifests for pre-release versions
 - *(make)* Set build date using same format as CI/CD
+- *(make)* Disable CGO where sensible and clean up coverage
 
 ### Miscellaneous
 
 - *(changelog)* Use git-cliff to manage changelog
+- *(codecov)* Set realistic coverage targets
+- *(dependabot)* Set Dependabot cooldown for supply chain attack mitigation
+- *(dependabot)* Add Compose dependencies to Dependabot
+- *(gha)* Harden GHA workflows
+- *(gha)* Further restrict top-level permissions
+- *(gha)* Update GHA comments to a format Dependabot understands
+- *(git)* Ignore local docs directory
+- *(go)* Fix legacy syntax
+- *(go)* Use declared toolchain for lint
+- *(lint)* Use golangci-lint v2.13 for Go 1.27 support
+- *(t3)* Add project configuration with scripts and icon
+- *(t3)* Downscale project icon
+- Publish additional PHP images
+- Add SVG project icon
+- Minify SVG icon
+- Modernize Go stdlib usage
+- Track the renamed golangci config in path filters
 
 ### Other
 
@@ -37,6 +136,8 @@ All notable changes to this project will be documented in this file.
 - Use latest stable Go version for GHA
 - Adjust issue template configuration
 - Bump Docker dependencies
+- Bump charm.land/lipgloss/v2 from 2.0.3 to 2.0.4 in the gomod group
+- Bump the github-actions group across 1 directory with 6 updates
 
 ## [0.1.7-alpha.7] - 2026-04-23
 
@@ -324,7 +425,7 @@ All notable changes to this project will be documented in this file.
 - Include zip and unzip tools in image
 - Introduce XF CLI tool
 
-[Unreleased]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.7..HEAD
+[0.2.0]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.7..v0.2.0
 [0.1.7-alpha.7]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.6..v0.1.7-alpha.7
 [0.1.7-alpha.6]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.5..v0.1.7-alpha.6
 [0.1.7-alpha.5]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.4..v0.1.7-alpha.5
