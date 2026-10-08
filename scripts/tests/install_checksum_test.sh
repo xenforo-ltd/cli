@@ -43,21 +43,21 @@ trap 'rm -rf "$tmp_dir"' EXIT
 checksums="$tmp_dir/checksums.txt"
 
 cat > "$checksums" <<'CHECKSUMS'
-1111111111111111111111111111111111111111111111111111111111111111  xf-v1.2.3-linux-amd64.tar.gz
-2222222222222222222222222222222222222222222222222222222222222222  xf-v1.2.3-linux-amd64.tar.gz.sig
-3333333333333333333333333333333333333333333333333333333333333333 *xf-v1.2.3-darwin-arm64.tar.gz
+1111111111111111111111111111111111111111111111111111111111111111  xf_linux_amd64.tar.gz
+2222222222222222222222222222222222222222222222222222222222222222  xf_linux_amd64.tar.gz.sig
+3333333333333333333333333333333333333333333333333333333333333333 *xf_macOS_arm64.tar.gz
 CHECKSUMS
 
-exact=$(parse_checksum "$checksums" "xf-v1.2.3-linux-amd64.tar.gz")
+exact=$(parse_checksum "$checksums" "xf_linux_amd64.tar.gz")
 assert_eq "1111111111111111111111111111111111111111111111111111111111111111" "$exact" "exact filename match should select the correct hash"
 
-collision=$(parse_checksum "$checksums" "xf-v1.2.3-linux-amd64.tar.gz.sig")
+collision=$(parse_checksum "$checksums" "xf_linux_amd64.tar.gz.sig")
 assert_eq "2222222222222222222222222222222222222222222222222222222222222222" "$collision" "substring collision should not affect exact match parsing"
 
-star_line=$(parse_checksum "$checksums" "xf-v1.2.3-darwin-arm64.tar.gz")
+star_line=$(parse_checksum "$checksums" "xf_macOS_arm64.tar.gz")
 assert_eq "3333333333333333333333333333333333333333333333333333333333333333" "$star_line" "parser should accept optional binary-marker prefix"
 
-missing=$(parse_checksum "$checksums" "xf-v1.2.3-windows-amd64.zip")
+missing=$(parse_checksum "$checksums" "xf_windows_amd64.zip")
 assert_empty "$missing" "missing checksum entry should produce no hash"
 
 echo "install_checksum_test.sh: PASS"

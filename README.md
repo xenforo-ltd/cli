@@ -28,14 +28,28 @@ make build
 ./xf --help
 ```
 
-## Install for Local Use
+## Install
 
 ```bash
-# Installs into $(go env GOBIN) or $(go env GOPATH)/bin
-go install .
+# Homebrew (macOS and Linux)
+brew install xenforo-ltd/tap/xf-cli
 
-# Verify
-xf version
+# macOS and Linux, installs into ~/.xf/bin
+curl -fsSL https://raw.githubusercontent.com/xenforo-ltd/cli/main/scripts/install.sh | bash
+```
+
+```powershell
+# Windows, installs into %USERPROFILE%\.xf\bin
+irm https://raw.githubusercontent.com/xenforo-ltd/cli/main/scripts/install.ps1 | iex
+```
+
+Update an installer-managed copy with `xf self-update`, or with `brew upgrade`
+if you installed it with Homebrew.
+
+To install from source into `$(go env GOBIN)` or `$(go env GOPATH)/bin`:
+
+```bash
+go install ./cmd/xf
 ```
 
 ## Command Routing

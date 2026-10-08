@@ -314,7 +314,8 @@ function Install-FromGitHub {
     New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 
     try {
-        $archiveName = "xf-v$Ver-windows-$arch.zip"
+        $archiveBase = "${App}_windows_$arch"
+        $archiveName = "$archiveBase.zip"
         $downloadUrl = "https://github.com/$Repo/releases/download/v$Ver/$archiveName"
         $checksumsUrl = "https://github.com/$Repo/releases/download/v$Ver/checksums.txt"
 
@@ -358,7 +359,7 @@ function Install-FromGitHub {
 
         New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-        $binaryPath = Join-Path $tempDir "$App.exe"
+        $binaryPath = Join-Path $tempDir "$archiveBase\bin\$App.exe"
         Move-Item -Path $binaryPath -Destination "$InstallDir\$App.exe" -Force
 
         Add-ToPath

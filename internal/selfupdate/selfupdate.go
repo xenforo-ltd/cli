@@ -112,7 +112,7 @@ func (u *Updater) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 	if isNewerVersion(latestVersion, currentVersion) {
 		info.HasUpdate = true
 
-		assetName := getArchiveAssetNameForPlatform(release.TagName, runtime.GOOS, runtime.GOARCH)
+		assetName := getArchiveAssetNameForPlatform(runtime.GOOS, runtime.GOARCH)
 		for _, asset := range release.Assets {
 			if asset.Name == assetName {
 				info.AssetURL = asset.BrowserDownloadURL
@@ -277,7 +277,6 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		cleanName := path.Clean(header.Name)
 		if cleanName == "." ||
 			path.IsAbs(cleanName) ||
-			strings.Contains(cleanName, "/") ||
 			strings.HasPrefix(cleanName, "..") {
 			continue
 		}
@@ -604,14 +603,12 @@ func (u *Updater) verifyChecksum(ctx context.Context, filePath string, info *Upd
 	return nil
 }
 
-func getArchiveAssetNameForPlatform(versionTag, goos, goarch string) string {
-	tag := strings.TrimSpace(versionTag)
-	if tag == "" {
-		tag = version.Get().Version
-	}
-
-	if tag != "" && !strings.HasPrefix(tag, "v") {
-		tag = "v" + tag
+// getArchiveAssetNameForPlatform returns the release archive name GoReleaser
+// publishes for a platform, such as xf_macOS_arm64.tar.gz.
+func getArchiveAssetNameForPlatform(goos, goarch string) string {
+	platform := goos
+	if goos == "darwin" {
+		platform = "macOS"
 	}
 
 	ext := ".tar.gz"
@@ -619,7 +616,7 @@ func getArchiveAssetNameForPlatform(versionTag, goos, goarch string) string {
 		ext = ".zip"
 	}
 
-	return fmt.Sprintf("xf-%s-%s-%s%s", tag, goos, goarch, ext)
+	return fmt.Sprintf("xf_%s_%s%s", platform, goarch, ext)
 }
 
 // isNewerVersion compares two semantic versions.

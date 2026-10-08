@@ -96,37 +96,33 @@ func TestParseVersion(t *testing.T) {
 func TestGetArchiveAssetNameForPlatform(t *testing.T) {
 	tests := []struct {
 		name     string
-		tag      string
 		goos     string
 		goarch   string
 		expected string
 	}{
 		{
 			name:     "linux tar.gz",
-			tag:      "v1.2.3",
 			goos:     "linux",
 			goarch:   "amd64",
-			expected: "xf-v1.2.3-linux-amd64.tar.gz",
+			expected: "xf_linux_amd64.tar.gz",
 		},
 		{
 			name:     "windows zip",
-			tag:      "v1.2.3",
 			goos:     "windows",
 			goarch:   "amd64",
-			expected: "xf-v1.2.3-windows-amd64.zip",
+			expected: "xf_windows_amd64.zip",
 		},
 		{
-			name:     "adds missing v prefix",
-			tag:      "1.2.3",
+			name:     "darwin is published as macOS",
 			goos:     "darwin",
 			goarch:   "arm64",
-			expected: "xf-v1.2.3-darwin-arm64.tar.gz",
+			expected: "xf_macOS_arm64.tar.gz",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getArchiveAssetNameForPlatform(tt.tag, tt.goos, tt.goarch)
+			got := getArchiveAssetNameForPlatform(tt.goos, tt.goarch)
 			if got != tt.expected {
 				t.Fatalf("asset name = %q, want %q", got, tt.expected)
 			}
@@ -135,9 +131,9 @@ func TestGetArchiveAssetNameForPlatform(t *testing.T) {
 }
 
 func TestParseChecksumForAsset(t *testing.T) {
-	data := []byte("abc123  xf-v1.0.0-linux-amd64.tar.gz\ndef456  xf-v1.0.0-darwin-arm64.tar.gz\n")
+	data := []byte("abc123  xf_linux_amd64.tar.gz\ndef456  xf_macOS_arm64.tar.gz\n")
 
-	checksum, ok := parseChecksumForAsset(data, "xf-v1.0.0-darwin-arm64.tar.gz")
+	checksum, ok := parseChecksumForAsset(data, "xf_macOS_arm64.tar.gz")
 	if !ok {
 		t.Fatal("expected checksum match")
 	}
@@ -159,10 +155,10 @@ func TestParseChecksumForAsset(t *testing.T) {
 
 func TestExtractBinaryFromTarGz(t *testing.T) {
 	tmp := t.TempDir()
-	archivePath := filepath.Join(tmp, "xf-v1.0.0-linux-amd64.tar.gz")
+	archivePath := filepath.Join(tmp, "xf_linux_amd64.tar.gz")
 
 	binaryContent := []byte("new-binary")
-	if err := os.WriteFile(archivePath, makeTarGzArchive(t, "xf", binaryContent), 0o600); err != nil {
+	if err := os.WriteFile(archivePath, makeTarGzArchive(t, "xf_linux_amd64/bin/xf", binaryContent), 0o600); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -183,15 +179,15 @@ func TestExtractBinaryFromTarGz(t *testing.T) {
 
 func TestExtractBinaryFromTarGzRejectsOversizedBinary(t *testing.T) {
 	binaryContent := bytes.Repeat([]byte("x"), maxBinarySize+1)
-	assertOversizedArchiveRejected(t, "xf-v1.0.0-linux-amd64.tar.gz", makeTarGzArchive(t, "xf", binaryContent))
+	assertOversizedArchiveRejected(t, "xf_linux_amd64.tar.gz", makeTarGzArchive(t, "xf", binaryContent))
 }
 
 func TestExtractBinaryFromZip(t *testing.T) {
 	tmp := t.TempDir()
-	archivePath := filepath.Join(tmp, "xf-v1.0.0-windows-amd64.zip")
+	archivePath := filepath.Join(tmp, "xf_windows_amd64.zip")
 
 	binaryContent := []byte("new-binary-windows")
-	if err := os.WriteFile(archivePath, makeZipArchive(t, "xf.exe", binaryContent), 0o600); err != nil {
+	if err := os.WriteFile(archivePath, makeZipArchive(t, "xf_windows_amd64/bin/xf.exe", binaryContent), 0o600); err != nil {
 		t.Fatalf("write archive: %v", err)
 	}
 
@@ -212,13 +208,13 @@ func TestExtractBinaryFromZip(t *testing.T) {
 
 func TestExtractBinaryFromZipRejectsOversizedBinary(t *testing.T) {
 	binaryContent := bytes.Repeat([]byte("x"), maxBinarySize+1)
-	assertOversizedArchiveRejected(t, "xf-v1.0.0-windows-amd64.zip", makeZipArchive(t, "xf", binaryContent))
+	assertOversizedArchiveRejected(t, "xf_windows_amd64.zip", makeZipArchive(t, "xf", binaryContent))
 }
 
 // TestExtractBinaryIgnoresTraversalEntries guards against zip-slip: an entry
 // that would escape the destination must never be written outside it.
 func TestExtractBinaryIgnoresTraversalEntries(t *testing.T) {
-	for _, archiveName := range []string{"xf-v1.0.0-linux-amd64.tar.gz", "xf-v1.0.0-windows-amd64.zip"} {
+	for _, archiveName := range []string{"xf_linux_amd64.tar.gz", "xf_windows_amd64.zip"} {
 		for _, entry := range []string{"../xf", "../../xf.exe", "/xf"} {
 			t.Run(archiveName+"/"+entry, func(t *testing.T) {
 				tmp := t.TempDir()
@@ -308,7 +304,7 @@ func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 	defer func() { version.Version = oldVersion }()
 
 	tag := "v2.0.0"
-	assetName := getArchiveAssetNameForPlatform(tag, runtime.GOOS, runtime.GOARCH)
+	assetName := getArchiveAssetNameForPlatform(runtime.GOOS, runtime.GOARCH)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/repos/o/r/releases/latest" {
@@ -366,9 +362,9 @@ func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 		t.Fatalf("write old binary: %v", err)
 	}
 
-	archiveName := getArchiveAssetNameForPlatform("v9.9.9", runtime.GOOS, runtime.GOARCH)
+	archiveName := getArchiveAssetNameForPlatform(runtime.GOOS, runtime.GOARCH)
 	newContent := []byte("new-binary-content")
-	archiveData := makeArchiveForName(t, archiveName, runtimeBinaryName(), newContent)
+	archiveData := makeArchiveForName(t, archiveName, wrappedBinaryPath(archiveName), newContent)
 	archiveChecksum := checksumHex(archiveData)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -430,6 +426,14 @@ func assertOversizedArchiveRejected(t *testing.T, archiveName string, archiveDat
 	if !errors.Is(err, ErrUpdateFailed) {
 		t.Fatalf("expected update failed code, got: %v", err)
 	}
+}
+
+// wrappedBinaryPath returns where GoReleaser places the binary inside an
+// archive: a directory named after the archive, then bin/.
+func wrappedBinaryPath(archiveName string) string {
+	base := strings.TrimSuffix(strings.TrimSuffix(archiveName, ".tar.gz"), ".zip")
+
+	return base + "/bin/" + runtimeBinaryName()
 }
 
 func makeArchiveForName(t *testing.T, archiveName, binaryName string, binaryContent []byte) []byte {
