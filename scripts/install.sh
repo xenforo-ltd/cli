@@ -516,7 +516,14 @@ main() {
     tmp_dir=$(mktemp -d)
     trap "rm -rf '$tmp_dir'" EXIT
     
-    local archive_name="xf-v$version-$os-$arch.tar.gz"
+    # Release archives name macOS "macOS" rather than "darwin".
+    local platform="$os"
+    if [[ "$os" == "darwin" ]]; then
+        platform="macOS"
+    fi
+
+    local archive_base="${APP}_${platform}_${arch}"
+    local archive_name="$archive_base.tar.gz"
     local download_url="https://github.com/$REPO/releases/download/v$version/$archive_name"
     local checksums_url="https://github.com/$REPO/releases/download/v$version/checksums.txt"
     
@@ -529,7 +536,7 @@ main() {
     echo "Extracting..."
     tar -xzf "$tmp_dir/$archive_name" -C "$tmp_dir"
     
-    mv "$tmp_dir/$APP" "$INSTALL_DIR/$APP"
+    mv "$tmp_dir/$archive_base/bin/$APP" "$INSTALL_DIR/$APP"
     chmod 755 "$INSTALL_DIR/$APP"
     
     update_path

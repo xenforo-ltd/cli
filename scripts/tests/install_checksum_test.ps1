@@ -42,22 +42,22 @@ function Assert-Null {
 
 $checksumsPath = Join-Path $env:TEMP "xf-install-checksum-test-$PID.txt"
 @"
-1111111111111111111111111111111111111111111111111111111111111111  xf-v1.2.3-windows-amd64.zip
-2222222222222222222222222222222222222222222222222222222222222222  xf-v1.2.3-windows-amd64.zip.sig
-3333333333333333333333333333333333333333333333333333333333333333 *xf-v1.2.3-linux-amd64.tar.gz
+1111111111111111111111111111111111111111111111111111111111111111  xf_windows_amd64.zip
+2222222222222222222222222222222222222222222222222222222222222222  xf_windows_amd64.zip.sig
+3333333333333333333333333333333333333333333333333333333333333333 *xf_linux_amd64.tar.gz
 "@ | Set-Content -Path $checksumsPath -NoNewline
 
 try {
-    $exact = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf-v1.2.3-windows-amd64.zip'
+    $exact = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf_windows_amd64.zip'
     Assert-Eq -Expected '1111111111111111111111111111111111111111111111111111111111111111' -Actual $exact -Message 'exact filename match should select the correct hash'
 
-    $collision = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf-v1.2.3-windows-amd64.zip.sig'
+    $collision = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf_windows_amd64.zip.sig'
     Assert-Eq -Expected '2222222222222222222222222222222222222222222222222222222222222222' -Actual $collision -Message 'substring collision should not affect exact match parsing'
 
-    $starLine = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf-v1.2.3-linux-amd64.tar.gz'
+    $starLine = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf_linux_amd64.tar.gz'
     Assert-Eq -Expected '3333333333333333333333333333333333333333333333333333333333333333' -Actual $starLine -Message 'parser should accept optional binary-marker prefix'
 
-    $missing = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf-v1.2.3-darwin-arm64.tar.gz'
+    $missing = Get-ExpectedHash -ChecksumsPath $checksumsPath -ArchiveName 'xf_macOS_arm64.tar.gz'
     Assert-Null -Actual $missing -Message 'missing checksum entry should produce null'
 
     if (-not [Environment]::Is64BitOperatingSystem) {
