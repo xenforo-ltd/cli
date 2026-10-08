@@ -89,6 +89,13 @@ func (r *Runner) Instance() string {
 	return r.instance
 }
 
+// Contexts returns the compose contexts declared by XF_CONTEXTS, which select
+// the environment's feature compose files (for example "mysql", "postgres" or
+// "redis").
+func (r *Runner) Contexts() []string {
+	return r.contexts
+}
+
 // ExecOutput runs a command in a service, streaming its output to stdout.
 //
 // Output is streamed rather than buffered so that large results, such as a
@@ -308,7 +315,7 @@ func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
 // process list. The streams are explicit so interactive commands and progress
 // writers behave the same whether the service is running or stopped.
 func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
-	running, err := r.isServiceRunning(ctx, service)
+	running, err := r.IsServiceRunning(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -356,15 +363,24 @@ func (r *Runner) Compose(ctx context.Context, stdin io.Reader, stdout, stderr io
 	return r.runDockerCommandWithEnvAndIO(ctx, nil, stdin, stdout, stderr, composeArgs...)
 }
 
+// IsOrbStack reports whether the Docker engine is OrbStack, which exposes
+// container services to the host at <service>.<project>.orb.local without
+// publishing ports.
+func IsOrbStack(ctx context.Context) (bool, error) {
+	info, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.OperatingSystem}}").Output()
+	if err != nil {
+		return false, contextError(ctx, fmt.Errorf("docker info failed: %w", err))
+	}
+
+	return strings.TrimSpace(string(info)) == "OrbStack", nil
+}
+
 // GetURL returns the URL for accessing the XenForo site.
 // It detects OrbStack vs standard Docker.
 func (r *Runner) GetURL(ctx context.Context) (string, error) {
-	isOrbStack := false
-
-	if info, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.OperatingSystem}}").Output(); err == nil {
-		if strings.TrimSpace(string(info)) == "OrbStack" {
-			isOrbStack = true
-		}
+	isOrbStack, err := IsOrbStack(ctx)
+	if err != nil {
+		return "", err
 	}
 
 	if isOrbStack {
@@ -623,7 +639,9 @@ func (r *Runner) getServicePort(ctx context.Context, service, internalPort strin
 	return "", fmt.Errorf("unexpected port output: %s: %w", output, ErrUnexpectedOutput)
 }
 
-func (r *Runner) isServiceRunning(ctx context.Context, service string) (bool, error) {
+// IsServiceRunning reports whether the given compose service has a running
+// container.
+func (r *Runner) IsServiceRunning(ctx context.Context, service string) (bool, error) {
 	args := r.buildComposeArgs()
 	args = append(args, "ps", "--status", "running", "--services", service)
 
