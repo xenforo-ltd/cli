@@ -37,16 +37,20 @@ jobs:
       - name: Generate changelog
         uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         with:
-          version: '2.13'
+          version: v2.13.0
           args: --verbose --current --strip all
         env:
-          OUTPUT: RELEASE.md
+          # Written outside the checkout: GoReleaser refuses to run on a dirty tree.
+          OUTPUT: ${{ runner.temp }}/RELEASE.md
+
+      - name: Strip release notes heading
+        run: tail -n +3 "$RUNNER_TEMP/RELEASE.md" > "$RUNNER_TEMP/release-notes.md"
 
       - name: Release
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           version: '~> v2'
-          args: release --clean --release-notes <(cat RELEASE.md | tail -n +3)
+          args: release --clean --release-notes ${{ runner.temp }}/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
