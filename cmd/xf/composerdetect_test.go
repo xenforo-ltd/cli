@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -68,5 +69,61 @@ func TestShouldRunComposerIgnoresDirectory(t *testing.T) {
 
 	if shouldRunComposer(dir) {
 		t.Error("a directory named composer.json must not count as a manifest")
+	}
+}
+
+func TestPendingAddOnComposerProjects(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+
+	write := func(rel, content string) {
+		t.Helper()
+
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+
+	const autoload = `{"composer_autoload": "_vendor/composer"}`
+
+	// Dependencies declared but not installed, as in a fresh worktree.
+	write("src/addons/Missing/addon.json", autoload)
+	write("src/addons/Missing/composer.json", "{}")
+
+	// Add-ons may be nested one level under a vendor directory.
+	write("src/addons/Vendor/Nested/addon.json", autoload)
+	write("src/addons/Vendor/Nested/composer.json", "{}")
+
+	// Dependencies already present, as when _vendor is committed.
+	write("src/addons/Installed/addon.json", autoload)
+	write("src/addons/Installed/composer.json", "{}")
+	write("src/addons/Installed/_vendor/composer/autoload_namespaces.php", "<?php")
+
+	// No composer_autoload: XenForo never loads anything.
+	write("src/addons/NoAutoload/addon.json", "{}")
+	write("src/addons/NoAutoload/composer.json", "{}")
+
+	// No manifest: nothing for Composer to install.
+	write("src/addons/NoManifest/addon.json", autoload)
+
+	got := pendingAddOnComposerProjects(root)
+	want := []string{"src/addons/Missing", "src/addons/Vendor/Nested"}
+
+	if !slices.Equal(got, want) {
+		t.Errorf("pendingAddOnComposerProjects = %v, want %v", got, want)
+	}
+}
+
+func TestPendingAddOnComposerProjectsWithoutAddOns(t *testing.T) {
+	t.Parallel()
+
+	if got := pendingAddOnComposerProjects(t.TempDir()); len(got) != 0 {
+		t.Errorf("pendingAddOnComposerProjects = %v, want none", got)
 	}
 }

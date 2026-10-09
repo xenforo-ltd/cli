@@ -50,8 +50,9 @@ Existing Directory Mode (--existing flag):
   4. Optionally starts containers (with --up flag)
 
   Repository checkouts track composer.json, so dependencies are installed
-  automatically once the containers are running. Release packages ship
-  vendor/ prebuilt and have no manifest, so they are skipped.
+  automatically once the containers are running, along with those of any
+  add-on that keeps its own in a gitignored _vendor directory. Release
+  packages ship vendor/ prebuilt and have no manifest, so they are skipped.
 
 Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
 You can override either value via --env-file/--env.`,
@@ -348,7 +349,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 		if shouldRunComposer(xfDir) && !opts.SkipComposer {
 			ui.Println()
 
-			if err := runComposerInstall(ctx, runner, cfg.Verbose); err != nil {
+			if err := runComposerInstall(ctx, runner, xfDir, cfg.Verbose); err != nil {
 				return err
 			}
 		}
