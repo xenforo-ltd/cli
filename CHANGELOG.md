@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.0] - 2026-10-08
+## [0.2.1] - 2026-10-09
 
 ### Features
 
@@ -58,7 +58,9 @@ All notable changes to this project will be documented in this file.
 - *(init)* Correct install step counts and mark skipped steps
 - *(init)* Persist validation warnings on the review screen
 - *(init)* Report install failures once and honour cancellation
+- *(init)* Install Composer dependencies for add-ons with their own
 - *(release)* Match installers and self-update to the published archives
+- *(release)* Fix changelog generation in the release workflow
 - *(selfupdate)* Harden against zip-slips
 - *(selfupdate)* Build the extracted binary path from a constant name
 - *(ui)* Make spinners and progress bars TTY-aware and stoppable
@@ -425,7 +427,7 @@ All notable changes to this project will be documented in this file.
 - Include zip and unzip tools in image
 - Introduce XF CLI tool
 
-[0.2.0]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.7..v0.2.0
+[0.2.1]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.7..v0.2.1
 [0.1.7-alpha.7]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.6..v0.1.7-alpha.7
 [0.1.7-alpha.6]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.5..v0.1.7-alpha.6
 [0.1.7-alpha.5]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.4..v0.1.7-alpha.5
