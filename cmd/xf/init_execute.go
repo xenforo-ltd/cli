@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -883,9 +884,11 @@ func pendingAddOnComposerProjects(root string) []string {
 			continue
 		}
 
-		// XenForo requires this file first, so its absence is what fails.
+		// XenForo requires this file first, so its absence is what fails. Any
+		// other error leaves the state unknown, and installing over a loader
+		// that may exist is worse than skipping.
 		loader := filepath.Join(dir, filepath.FromSlash(addOn.ComposerAutoload), "autoload_namespaces.php")
-		if _, err := os.Stat(loader); err == nil {
+		if _, err := os.Stat(loader); !errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -124,6 +127,52 @@ func TestPendingAddOnComposerProjectsWithoutAddOns(t *testing.T) {
 	t.Parallel()
 
 	if got := pendingAddOnComposerProjects(t.TempDir()); len(got) != 0 {
+		t.Errorf("pendingAddOnComposerProjects = %v, want none", got)
+	}
+}
+
+// TestPendingAddOnComposerProjectsSkipsUnreadableLoader guards against an error
+// other than absence being taken to mean the loader is missing, which would
+// run composer install over dependencies that may already be in place.
+func TestPendingAddOnComposerProjectsSkipsUnreadableLoader(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permissions do not block access on Windows")
+	}
+
+	root := t.TempDir()
+	addOn := filepath.Join(root, "src", "addons", "Locked")
+	vendor := filepath.Join(addOn, "_vendor")
+
+	if err := os.MkdirAll(vendor, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	for name, content := range map[string]string{
+		"addon.json":    `{"composer_autoload": "_vendor/composer"}`,
+		"composer.json": "{}",
+	} {
+		if err := os.WriteFile(filepath.Join(addOn, name), []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	// Without search permission on _vendor, stat fails with EACCES rather
+	// than reporting the loader missing.
+	if err := os.Chmod(vendor, 0); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = os.Chmod(vendor, 0o750)
+	})
+
+	if _, err := os.Stat(filepath.Join(vendor, "composer")); err == nil || errors.Is(err, fs.ErrNotExist) {
+		t.Skip("permissions are not enforced for this user")
+	}
+
+	if got := pendingAddOnComposerProjects(root); len(got) != 0 {
 		t.Errorf("pendingAddOnComposerProjects = %v, want none", got)
 	}
 }
