@@ -296,7 +296,7 @@ xf db shell -e 'show tables;'
 A worktree is a second checkout of the same repository on its own branch or
 workspace, with its own Docker containers and database. Worktrees are created
 alongside the source checkout: `~/Sites/main` gains
-`~/Sites/main.worktrees/<branch>`, named after the branch's last segment.
+`~/Sites/main.worktrees/<name>`.
 
 The source repository decides the backend. A repository that uses Jujutsu —
 including one colocated with Git — gets a Jujutsu workspace named from
@@ -308,12 +308,17 @@ By default `create` clones the source environment — database, `data/` and
 `internal_data/` — and points the cloned board at its own URL, labelling its
 title with the worktree name.
 
-Each worktree's Docker instance name is derived from the branch's final segment
-plus a short, stable suffix computed from the checkout path and the full branch
-name. Because branch names are reduced to their final segment, two branches such
-as `dev/24x/feature` and `dev/xfs/feature` would otherwise share a Compose
-project — and therefore containers and volumes. The suffix keeps their
-environments apart. Pass `--instance` to choose a name yourself.
+A worktree's name comes from the branch's last segment, lowercased with
+punctuation turned into dashes: `dev/xfs/user-state-ladder-redesign` becomes
+`user-state-ladder-redesign`. The same name is used for the directory, the
+Docker instance and the URL, `https://user-state-ladder-redesign.xf.local`. If
+the name is already taken — by another worktree, such as `dev/24x/feature` and
+`dev/xfs/feature`, by the source checkout's own instance, or by an existing
+Docker environment — a number is added:
+`feature-2`, `feature-3`. Pass `--instance` to choose the Docker instance name
+yourself.
+
+`path` and `remove` accept either the branch or the worktree's name.
 
 `create --json` intentionally does not run setup: setup writes progress to
 stdout, which would corrupt the JSON document. It therefore requires
@@ -348,6 +353,7 @@ xf worktree list --json
 
 # Print the path of a worktree (bare output, shell-substitution safe)
 cd "$(xf worktree path dev/24x/feature)"
+cd "$(xf worktree path feature)"
 
 # Remove a worktree and its containers and volumes
 xf worktree remove dev/24x/feature

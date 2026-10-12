@@ -71,38 +71,28 @@ func (gitBackend) currentName(ctx context.Context, repoDir string) (string, erro
 	return out, nil
 }
 
-// owner returns the branch checked out at a worktree path, or an empty string
-// when no worktree is registered there.
-//
-// This makes a collision actionable: the user is told which branch already owns
-// the directory, rather than only that something does.
-func (gitBackend) owner(ctx context.Context, repoDir, worktreePath string) (string, error) {
+// checkouts lists the repository's worktrees with the branch each has checked
+// out.
+func (gitBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, error) {
 	out, err := gitOutput(ctx, repoDir, "worktree", "list", "--porcelain")
 	if err != nil {
-		return "", fmt.Errorf("failed to list worktrees: %w", err)
+		return nil, fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	want, err := filepath.Abs(worktreePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve %s: %w", worktreePath, err)
-	}
-
-	want = resolveSymlinks(want)
-
-	var current string
+	var result []checkout
 
 	for line := range strings.SplitSeq(out, "\n") {
 		switch {
 		case strings.HasPrefix(line, "worktree "):
-			current = resolveSymlinks(strings.TrimPrefix(line, "worktree "))
+			result = append(result, checkout{path: strings.TrimPrefix(line, "worktree ")})
 
-		case strings.HasPrefix(line, "branch ") && current == want:
+		case strings.HasPrefix(line, "branch ") && len(result) > 0:
 			// Reported as a full ref, e.g. refs/heads/dev/xfs/feature.
-			return strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/"), nil
+			result[len(result)-1].name = strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/")
 		}
 	}
 
-	return "", nil
+	return result, nil
 }
 
 // create adds a worktree at target on a new branch.

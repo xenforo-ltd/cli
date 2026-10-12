@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,23 +105,20 @@ var worktreeListAllCmd = &cobra.Command{
 }
 
 var worktreePathCmd = &cobra.Command{
-	Use:   "path <branch>",
+	Use:   "path <branch|name>",
 	Short: "Print the path of a worktree",
-	Long: `Print the resolved path for a branch's worktree.
+	Long: `Print the path of an existing worktree, given its branch or its name.
 
-The path is derived from the branch name, so this works whether or not the
-worktree exists. Useful for shell and agent use:
+Useful for shell and agent use:
 
   cd "$(xf worktree path dev/24x/feature)"
-
-Branch names that resolve to no directory of their own, such as "." or "..",
-are rejected rather than printing the directory that holds every worktree.`,
+  cd "$(xf worktree path feature)"`,
 	Args: cobra.ExactArgs(1),
 	RunE: runWorktreePath,
 }
 
 var worktreeRemoveCmd = &cobra.Command{
-	Use:   "remove <branch>",
+	Use:   "remove <branch|name>",
 	Short: "Remove a worktree and its containers",
 	Long: `Remove a worktree or workspace and its Docker containers and volumes.
 
@@ -227,37 +225,34 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Resolve the instance before creating anything so that the collision check
-	// and the creation itself cannot disagree about the name.
-	instance := flagWorktreeInstance
-	if instance == "" {
-		instance = worktree.InstanceName(source, branch)
+	registry, err := worktree.NewRegistry()
+	if err != nil {
+		return err
 	}
 
-	// --no-setup creates no Docker resources, so a project with the same name
-	// is not a conflict. A stopped environment can leave volumes with no
-	// containers, so the check covers both.
-	if !flagWorktreeNoSetup {
-		exists, err := dockercompose.ProjectExists(cmd.Context(), instance)
-		if err != nil {
-			return err
-		}
-
-		if exists {
-			return fmt.Errorf(
-				"the Docker Compose project %q is already in use by another environment; choose another name with --instance",
-				instance,
-			)
-		}
+	reserved, err := reserveWorktreeName(cmd.Context(), registry, source, branch)
+	if err != nil {
+		return err
 	}
 
 	result, err := worktree.Create(cmd.Context(), worktree.Options{
 		SourcePath: source,
 		Branch:     branch,
+		Name:       filepath.Base(reserved.WorktreePath),
 		Base:       flagWorktreeBase,
-		Instance:   instance,
+		Instance:   reserved.Instance,
 	})
 	if err != nil {
+		// Release the name so a retry can use it, unless creation left the
+		// directory behind. ChooseName skips that directory for this source,
+		// but only the reservation keeps another checkout from reusing the
+		// instance name.
+		if _, statErr := os.Lstat(reserved.WorktreePath); errors.Is(statErr, fs.ErrNotExist) {
+			if removeErr := registry.Remove(reserved.WorktreePath); removeErr != nil {
+				warnRegistryUpdateFailed()
+			}
+		}
+
 		return err
 	}
 
@@ -410,7 +405,7 @@ func runWorktreePath(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	target, err := worktree.ResolveExistingPath(source, args[0])
+	target, err := worktree.Locate(cmd.Context(), source, args[0])
 	if err != nil {
 		return err
 	}
@@ -470,16 +465,8 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	target, err := worktree.ResolveExistingPath(source, args[0])
+	target, err := worktree.Locate(cmd.Context(), source, args[0])
 	if err != nil {
-		return err
-	}
-
-	// The path is derived from the branch's last segment, so dev/a/foo and
-	// dev/b/foo resolve to the same directory. Removing without checking which
-	// branch is actually there would destroy the wrong worktree, its branch,
-	// and its volumes.
-	if err := verifyWorktreeBranch(cmd.Context(), target, args[0]); err != nil {
 		return err
 	}
 
@@ -527,21 +514,9 @@ func runWorktreePrune(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	entries, err := registry.All()
+	pruned, err := registry.Prune(time.Now())
 	if err != nil {
 		return registryReadError(err)
-	}
-
-	pruned := 0
-
-	for _, entry := range entries {
-		if _, statErr := os.Stat(entry.WorktreePath); os.IsNotExist(statErr) {
-			if err := registry.Remove(entry.WorktreePath); err != nil {
-				return err
-			}
-
-			pruned++
-		}
 	}
 
 	if pruned == 0 {
@@ -721,35 +696,161 @@ func defaultString(value, fallback string) string {
 	return fallback
 }
 
-// verifyWorktreeBranch reports whether the worktree at path has branch checked
-// out.
+// maxReserveAttempts bounds how often reserveWorktreeName retries after
+// another process claims the name it chose.
+const maxReserveAttempts = 10
+
+// reserveWorktreeName chooses a name for a new worktree of branch and records
+// it in the registry, returning the reserved entry.
 //
-// Worktree paths are derived from a branch's last segment, so dev/a/foo and
-// dev/b/foo share a directory. Without this check, removing one branch would
-// silently destroy the other's worktree, branch, containers and volumes. For a
-// Jujutsu repository CurrentBranch returns the workspace name instead.
-func verifyWorktreeBranch(ctx context.Context, worktreePath, branch string) error {
-	if _, err := os.Stat(worktreePath); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("no worktree at %s: %w", worktreePath, err)
+// Choosing and recording are separate steps, so another xf process can claim
+// the same name in between. Reserve detects that under the registry lock, and
+// the name is chosen again, now seeing the other process's entry.
+//
+// The worktree's name doubles as its instance name unless --instance gave one.
+// An explicit instance is the user's choice, so a clash on it is reported
+// rather than numbered around. The directory is still numbered.
+func reserveWorktreeName(ctx context.Context, registry *worktree.Registry, source, branch string) (worktree.Entry, error) {
+	sourceInstance, err := configuredInstance(source)
+	if err != nil {
+		return worktree.Entry{}, err
+	}
+
+	for range maxReserveAttempts {
+		if flagWorktreeInstance != "" {
+			taken, err := instanceTaken(ctx, registry, sourceInstance, flagWorktreeInstance)
+			if err != nil {
+				return worktree.Entry{}, err
+			}
+
+			if taken {
+				return worktree.Entry{}, fmt.Errorf(
+					"the instance name %q is already in use by another environment; choose another name with --instance",
+					flagWorktreeInstance,
+				)
+			}
 		}
 
-		return fmt.Errorf("failed to inspect %s: %w", worktreePath, err)
+		name, err := worktree.ChooseName(source, branch, func(name string) (bool, error) {
+			reserved, err := directoryReserved(registry, source, name)
+			if err != nil || reserved {
+				return reserved, err
+			}
+
+			// With --instance the name is only a directory, so it cannot
+			// clash with another environment's instance.
+			if flagWorktreeInstance != "" {
+				return false, nil
+			}
+
+			return instanceTaken(ctx, registry, sourceInstance, name)
+		})
+		if err != nil {
+			return worktree.Entry{}, err
+		}
+
+		entry := worktree.Entry{
+			SourcePath:   source,
+			WorktreePath: filepath.Join(worktree.WorktreesDir(source), name),
+			Branch:       branch,
+			Instance:     defaultString(flagWorktreeInstance, name),
+			CreatedAt:    time.Now().UTC(),
+		}
+
+		err = registry.Reserve(entry)
+		if err == nil {
+			return entry, nil
+		}
+
+		if !errors.Is(err, worktree.ErrNameReserved) {
+			return worktree.Entry{}, registryReadError(err)
+		}
 	}
 
-	current, err := worktree.CurrentBranch(ctx, worktreePath)
+	return worktree.Entry{}, fmt.Errorf("could not reserve a worktree name for %q: other xf processes kept claiming it", branch)
+}
+
+// directoryReserved reports whether a registry entry, possibly a reservation
+// for a worktree still being created, holds the directory name in source's
+// worktrees directory. A reservation made with --instance holds a directory
+// whose name differs from its instance, and the directory does not exist until
+// the creation finishes, so neither the instance check nor the filesystem
+// would see it.
+func directoryReserved(registry *worktree.Registry, source, name string) (bool, error) {
+	entries, err := registry.All()
 	if err != nil {
-		return fmt.Errorf("failed to determine the branch or workspace checked out at %s: %w", worktreePath, err)
+		return false, registryReadError(err)
 	}
 
-	if current != branch {
-		return fmt.Errorf(
-			"%s has %s checked out, not %s: refusing to remove it%.0w",
-			worktreePath, current, branch, ErrInvalidInput,
-		)
+	path := filepath.Clean(filepath.Join(worktree.WorktreesDir(source), name))
+
+	for _, entry := range entries {
+		if filepath.Clean(entry.WorktreePath) == path {
+			return true, nil
+		}
 	}
 
-	return nil
+	return false, nil
+}
+
+// instanceTaken reports whether an instance name is already used by another
+// environment.
+//
+// Docker Compose projects are global, so a project left by another checkout,
+// or by a worktree removed with --keep-containers, would otherwise be shared.
+// The registry covers worktrees with no project yet: those created with
+// --no-setup, and those still being created by another process. The source's
+// configured instance is reserved even if it has never been started.
+//
+// Every registry entry counts, including ones whose worktree has gone, until
+// "xf worktree prune" drops them: an entry can be a reservation for a worktree
+// that does not exist yet, and prune leaves those alone. A registry that
+// cannot be read is an error rather than an empty one, because it is what
+// keeps names unique.
+//
+// With --no-setup Docker need not be running, so failing to reach it is not
+// an error there.
+func instanceTaken(ctx context.Context, registry *worktree.Registry, sourceInstance, name string) (bool, error) {
+	if name == sourceInstance {
+		return true, nil
+	}
+
+	entries, err := registry.All()
+	if err != nil {
+		return false, registryReadError(err)
+	}
+
+	for _, entry := range entries {
+		if entry.Instance == name {
+			return true, nil
+		}
+	}
+
+	exists, err := dockercompose.ProjectExists(ctx, name)
+	if err != nil {
+		if flagWorktreeNoSetup {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return exists, nil
+}
+
+// configuredInstance returns the instance name the checkout at dir is
+// configured to use, or an empty string when it has no environment.
+func configuredInstance(dir string) (string, error) {
+	runner, err := dockercompose.NewRunner(dir)
+	if err != nil {
+		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("failed to read the source environment: %w", err)
+	}
+
+	return runner.Instance(), nil
 }
 
 // destroyWorktreeEnvironment removes a worktree's containers and volumes.

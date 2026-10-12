@@ -27,6 +27,15 @@ const (
 // existing entries are unknown rather than absent.
 var ErrRegistryCorrupt = errors.New("worktree registry is corrupt")
 
+// ReservationTimeout is how long a pending reservation survives pruning
+// without its worktree appearing. Creating the checkout takes seconds, so a
+// reservation this old belongs to a creation that was interrupted.
+const ReservationTimeout = time.Hour
+
+// ErrNameReserved indicates another entry already holds a worktree path or
+// instance name.
+var ErrNameReserved = errors.New("worktree name is already reserved")
+
 // Entry records a worktree created by xf.
 type Entry struct {
 	// SourcePath is the checkout the worktree was created from.
@@ -49,6 +58,10 @@ type Entry struct {
 
 	// CreatedAt is when the worktree was created.
 	CreatedAt time.Time `json:"created_at"`
+
+	// Pending marks a reservation for a worktree that is still being created.
+	// Add clears it by replacing the entry once the worktree exists.
+	Pending bool `json:"pending,omitempty"`
 }
 
 // Registry is the on-disk record of worktrees xf has created.
@@ -158,6 +171,92 @@ func (r *Registry) Add(entry Entry) error {
 	}
 
 	return r.save(entries)
+}
+
+// Reserve records entry before its worktree exists, unless another entry
+// already holds its path or instance name.
+//
+// The check and the write happen under the registry lock, so two concurrent
+// creations cannot both claim a name: the second sees the first's entry and
+// gets ErrNameReserved. The caller replaces the entry with Add once the
+// worktree exists, or drops it with Remove if creation fails.
+//
+// Unlike Add, a corrupt registry is an error here. Its entries are what keep
+// names unique, so an unreadable one cannot be treated as empty.
+func (r *Registry) Reserve(entry Entry) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	entries, err := r.load()
+	if err != nil {
+		return err
+	}
+
+	want := filepath.Clean(entry.WorktreePath)
+
+	for _, e := range entries {
+		if filepath.Clean(e.WorktreePath) == want || e.Instance == entry.Instance {
+			return fmt.Errorf("%w: %s", ErrNameReserved, entry.Instance)
+		}
+	}
+
+	entry.Pending = true
+
+	return r.save(append(entries, entry))
+}
+
+// Prune drops entries whose worktree directory no longer exists and returns
+// how many were dropped.
+//
+// A pending reservation has no directory yet by design, so it is kept until
+// ReservationTimeout has passed. The check runs under the registry lock, so a
+// reservation made while pruning is either seen as pending or not seen at all,
+// never dropped as stale.
+func (r *Registry) Prune(now time.Time) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	unlock, err := r.lock()
+	if err != nil {
+		return 0, err
+	}
+	defer unlock()
+
+	entries, err := r.load()
+	if err != nil {
+		return 0, err
+	}
+
+	kept := make([]Entry, 0, len(entries))
+
+	for _, e := range entries {
+		if e.Pending && now.Sub(e.CreatedAt) < ReservationTimeout {
+			kept = append(kept, e)
+
+			continue
+		}
+
+		// Only a confirmed absence is stale: a permission or I/O failure says
+		// nothing about whether the worktree is there.
+		if _, err := os.Stat(e.WorktreePath); errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+
+		kept = append(kept, e)
+	}
+
+	pruned := len(entries) - len(kept)
+	if pruned == 0 {
+		return 0, nil
+	}
+
+	return pruned, r.save(kept)
 }
 
 // Remove drops the entry for a worktree path. Removing an absent entry is not
