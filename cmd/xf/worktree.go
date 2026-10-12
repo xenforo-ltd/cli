@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -242,9 +243,14 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		Instance:   reserved.Instance,
 	})
 	if err != nil {
-		// Release the name so a retry can use it.
-		if removeErr := registry.Remove(reserved.WorktreePath); removeErr != nil {
-			warnRegistryUpdateFailed()
+		// Release the name so a retry can use it, unless creation left the
+		// directory behind. ChooseName skips that directory for this source,
+		// but only the reservation keeps another checkout from reusing the
+		// instance name.
+		if _, statErr := os.Lstat(reserved.WorktreePath); errors.Is(statErr, fs.ErrNotExist) {
+			if removeErr := registry.Remove(reserved.WorktreePath); removeErr != nil {
+				warnRegistryUpdateFailed()
+			}
 		}
 
 		return err
