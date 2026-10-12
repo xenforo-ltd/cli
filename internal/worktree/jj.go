@@ -106,7 +106,7 @@ func (jjBackend) currentName(ctx context.Context, checkoutPath string) (string, 
 		return "", fmt.Errorf("failed to determine current workspace: %w", err)
 	}
 
-	name, err := jjBackend{}.owner(ctx, checkoutPath, root)
+	name, err := owner(ctx, jjBackend{}, checkoutPath, root)
 	if err != nil {
 		return "", err
 	}
@@ -114,28 +114,20 @@ func (jjBackend) currentName(ctx context.Context, checkoutPath string) (string, 
 	return name, nil
 }
 
-// owner returns the workspace whose root is checkoutPath, or an empty string
-// when no workspace is registered there.
-func (jjBackend) owner(ctx context.Context, repoDir, checkoutPath string) (string, error) {
+// checkouts lists the repository's workspaces with their roots.
+func (jjBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, error) {
 	workspaces, err := jjWorkspaces(ctx, repoDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to list workspaces: %w", err)
+		return nil, fmt.Errorf("failed to list workspaces: %w", err)
 	}
 
-	want, err := filepath.Abs(checkoutPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve %s: %w", checkoutPath, err)
-	}
-
-	want = resolveSymlinks(want)
+	result := make([]checkout, 0, len(workspaces))
 
 	for _, ws := range workspaces {
-		if resolveSymlinks(ws.root) == want {
-			return ws.name, nil
-		}
+		result = append(result, checkout{path: ws.root, name: ws.name})
 	}
 
-	return "", nil
+	return result, nil
 }
 
 // create adds a workspace named name at target.
@@ -232,7 +224,7 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (WorktreeStatu
 // failure leaves an ordinary directory rather than live metadata pointing at a
 // partially deleted checkout.
 func (jjBackend) remove(ctx context.Context, sourcePath, worktreePath string, _ bool) error {
-	name, err := jjBackend{}.owner(ctx, sourcePath, worktreePath)
+	name, err := owner(ctx, jjBackend{}, sourcePath, worktreePath)
 	if err != nil {
 		return err
 	}

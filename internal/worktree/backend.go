@@ -109,9 +109,9 @@ type backend interface {
 	// at checkoutPath.
 	currentName(ctx context.Context, checkoutPath string) (string, error)
 
-	// owner returns the branch or workspace occupying checkoutPath, or an
-	// empty string when nothing is registered there.
-	owner(ctx context.Context, repoDir, checkoutPath string) (string, error)
+	// checkouts lists every checkout registered with the repository containing
+	// repoDir, including the source checkout itself.
+	checkouts(ctx context.Context, repoDir string) ([]checkout, error)
 
 	// create checks name out at target, based on base when base is non-empty.
 	// It is a VCS mutation only: validating and creating paths is the caller's
@@ -125,6 +125,38 @@ type backend interface {
 	// force only widens what the VCS will discard; the shared pre-removal
 	// checks are the caller's responsibility.
 	remove(ctx context.Context, source, checkoutPath string, force bool) error
+}
+
+// checkout is a checkout registered with a repository: its root directory and
+// the branch (Git) or workspace (Jujutsu) it has checked out. name is empty for
+// a Git worktree on a detached HEAD.
+type checkout struct {
+	path string
+	name string
+}
+
+// owner returns the branch or workspace checked out at checkoutPath, or an
+// empty string when no checkout is registered there.
+func owner(ctx context.Context, b backend, repoDir, checkoutPath string) (string, error) {
+	want, err := filepath.Abs(checkoutPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve %s: %w", checkoutPath, err)
+	}
+
+	want = resolveSymlinks(want)
+
+	checkouts, err := b.checkouts(ctx, repoDir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, c := range checkouts {
+		if resolveSymlinks(c.path) == want {
+			return c.name, nil
+		}
+	}
+
+	return "", nil
 }
 
 // detectBackend selects the backend for the repository containing dir.

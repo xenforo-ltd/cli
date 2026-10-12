@@ -211,8 +211,10 @@ func GetXenForoDir(startDir string) (string, error) {
 // MaxInstanceNameLength bounds every generated Docker instance name.
 //
 // Instance names become Compose project names, container and volume name
-// prefixes and hostnames, so they are kept short enough to stay valid in each.
-const MaxInstanceNameLength = 32
+// prefixes, image tags and hostnames. The tightest of those is a DNS label, at
+// 63 characters; 48 leaves room for that while keeping URLs and container names
+// short enough to read.
+const MaxInstanceNameLength = 48
 
 // GenerateInstanceName generates a Docker-safe instance name from a directory name.
 func GenerateInstanceName(dirName string) string {

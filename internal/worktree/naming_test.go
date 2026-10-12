@@ -1,99 +1,107 @@
 package worktree
 
 import (
+	"errors"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestBranchToDirNameUsesLastSegment(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name   string
-		branch string
-		want   string
-	}{
-		{name: "conventional branch", branch: "dev/xfs/slack-unfurl", want: "slack-unfurl"},
-		{name: "two segments", branch: "dev/feature", want: "feature"},
-		{name: "single segment", branch: "feature", want: "feature"},
-		{name: "trailing slash ignored", branch: "dev/feature/", want: "feature"},
-		{name: "dots preserved", branch: "release/2.4.0", want: "2.4.0"},
-		{name: "spaces become dashes", branch: "dev/my feature", want: "my-feature"},
-		{name: "unsafe characters stripped", branch: "dev/feat:x*y", want: "feat-x-y"},
-		{name: "traversal neutralised", branch: "../escape", want: "escape"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := BranchToDirName(tt.branch); got != tt.want {
-				t.Errorf("BranchToDirName(%q) = %q, want %q", tt.branch, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestBranchToDirNameCollides documents the trade-off that last-segment naming
-// accepts: different branches can want the same directory. Preflight rejects
-// the second one rather than silently renaming it.
-func TestBranchToDirNameCollides(t *testing.T) {
-	t.Parallel()
-
-	a := BranchToDirName("dev/xfs/slack-unfurl")
-	b := BranchToDirName("dev/xf/slack-unfurl")
-
-	if a != b {
-		t.Fatalf("expected these to collide, got %q and %q", a, b)
-	}
-}
-
-// TestPreflightRejectsCollisionWithExistingBranch is the safeguard: a second
-// branch wanting an occupied directory must be refused, and the error must name
-// the branch already using it so the fix is obvious.
-func TestPreflightRejectsCollisionWithExistingBranch(t *testing.T) {
+// TestCreateNumbersBranchesSharingAFinalSegment covers the collision the lossy
+// mapping creates: the second branch gets a numbered worktree rather than an
+// error.
+func TestCreateNumbersBranchesSharingAFinalSegment(t *testing.T) {
 	repo := newXenForoRepo(t)
 
-	if _, err := Create(t.Context(), Options{
-		SourcePath: repo,
-		Branch:     "dev/xfs/slack-unfurl",
-	}); err != nil {
+	first, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/xfs/slack-unfurl"})
+	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	err := preflight(t.Context(), backendFor(t, repo), repo, "dev/xf/slack-unfurl")
-	if err == nil {
-		t.Fatal("expected a colliding branch to be rejected")
-	}
-
-	msg := err.Error()
-
-	if !strings.Contains(msg, "slack-unfurl") {
-		t.Errorf("error %q does not identify the directory in conflict", msg)
-	}
-
-	if !strings.Contains(msg, "dev/xfs/slack-unfurl") {
-		t.Errorf("error %q does not name the branch already using it", msg)
-	}
-}
-
-// TestPreflightAllowsDistinctLastSegments confirms the common case still works.
-func TestPreflightAllowsDistinctLastSegments(t *testing.T) {
-	repo := newXenForoRepo(t)
-
-	if _, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/xfs/one"}); err != nil {
+	second, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/xf/slack-unfurl"})
+	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if err := preflight(t.Context(), backendFor(t, repo), repo, "dev/xfs/two"); err != nil {
-		t.Errorf("distinct feature names must not conflict: %v", err)
+	if filepath.Base(first.Path) != "slack-unfurl" || first.Instance != "slack-unfurl" {
+		t.Errorf("first worktree = %s (%s), want slack-unfurl", first.Path, first.Instance)
+	}
+
+	if filepath.Base(second.Path) != "slack-unfurl-2" || second.Instance != "slack-unfurl-2" {
+		t.Errorf("second worktree = %s (%s), want slack-unfurl-2", second.Path, second.Instance)
 	}
 }
 
-// TestWorktreeOwnerReportsTheBranchUsingADirectory covers the lookup that makes
-// the rejection message actionable.
-func TestWorktreeOwnerReportsTheBranchUsingADirectory(t *testing.T) {
+// TestLocateFindsAWorktreeByBranchOrName covers both ways of naming a worktree
+// on the command line, including a numbered one that its branch cannot
+// predict.
+func TestLocateFindsAWorktreeByBranchOrName(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	if _, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/xfs/feature"}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	second, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/xf/feature"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	want := second.Path
+
+	for _, ref := range []string{"dev/xf/feature", "feature-2"} {
+		got, err := Locate(t.Context(), repo, ref)
+		if err != nil {
+			t.Fatalf("Locate(%q): %v", ref, err)
+		}
+
+		if got != want {
+			t.Errorf("Locate(%q) = %q, want %q", ref, got, want)
+		}
+	}
+}
+
+// TestLocatePrefersABranchMatch ensures a branch named like another worktree's
+// directory resolves to its own worktree.
+func TestLocatePrefersABranchMatch(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	if _, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/feature"}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	own, err := Create(t.Context(), Options{SourcePath: repo, Branch: "feature"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := Locate(t.Context(), repo, "feature")
+	if err != nil {
+		t.Fatalf("Locate: %v", err)
+	}
+
+	if got != own.Path {
+		t.Errorf("Locate(feature) = %q, want the worktree on branch feature, %q", got, own.Path)
+	}
+}
+
+func TestLocateRejectsUnknownAndSourceCheckouts(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	current, err := CurrentBranch(t.Context(), repo)
+	if err != nil {
+		t.Fatalf("CurrentBranch: %v", err)
+	}
+
+	for _, ref := range []string{"absent", current, "..", "."} {
+		if _, err := Locate(t.Context(), repo, ref); !errors.Is(err, ErrWorktreeNotFound) {
+			t.Errorf("Locate(%q) = %v, want ErrWorktreeNotFound", ref, err)
+		}
+	}
+}
+
+// TestOwnerReportsTheBranchUsingADirectory covers the lookup removal uses to
+// confirm a directory is a registered checkout.
+func TestOwnerReportsTheBranchUsingADirectory(t *testing.T) {
 	repo := newXenForoRepo(t)
 
 	result, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/xfs/slack-unfurl"})
@@ -101,25 +109,25 @@ func TestWorktreeOwnerReportsTheBranchUsingADirectory(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	owner, err := backendFor(t, repo).owner(t.Context(), repo, result.Path)
+	got, err := owner(t.Context(), backendFor(t, repo), repo, result.Path)
 	if err != nil {
 		t.Fatalf("owner: %v", err)
 	}
 
-	if owner != "dev/xfs/slack-unfurl" {
-		t.Errorf("owner = %q, want the branch that owns the worktree", owner)
+	if got != "dev/xfs/slack-unfurl" {
+		t.Errorf("owner = %q, want the branch that owns the worktree", got)
 	}
 }
 
-func TestWorktreeOwnerForUnknownPath(t *testing.T) {
+func TestOwnerForUnknownPath(t *testing.T) {
 	repo := newXenForoRepo(t)
 
-	owner, err := backendFor(t, repo).owner(t.Context(), repo, filepath.Join(t.TempDir(), "absent"))
+	got, err := owner(t.Context(), backendFor(t, repo), repo, filepath.Join(t.TempDir(), "absent"))
 	if err != nil {
 		t.Fatalf("owner: %v", err)
 	}
 
-	if owner != "" {
-		t.Errorf("owner = %q, want empty for an unknown path", owner)
+	if got != "" {
+		t.Errorf("owner = %q, want empty for an unknown path", got)
 	}
 }

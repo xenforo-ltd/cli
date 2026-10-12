@@ -2,22 +2,13 @@ package worktree
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/xenforo-ltd/cli/internal/xf"
 )
-
-// instanceHashLength is the number of hex characters of the source-and-branch
-// digest kept in a derived instance name. Twelve characters (48 bits) put an
-// accidental collision between two checkouts or branches out of reach.
-const instanceHashLength = 12
 
 var (
 	// ErrInvalidBranch indicates a branch name that cannot be used.
@@ -29,6 +20,9 @@ var (
 	// ErrWorktreeExists indicates the target directory is already in use.
 	ErrWorktreeExists = errors.New("worktree already exists")
 
+	// ErrWorktreeNotFound indicates no worktree matches a branch or name.
+	ErrWorktreeNotFound = errors.New("worktree not found")
+
 	// ErrNotXenForo indicates the source is not a XenForo installation.
 	ErrNotXenForo = errors.New("not a XenForo directory")
 )
@@ -39,14 +33,18 @@ type Options struct {
 	SourcePath string
 
 	// Branch is the branch (Git) or workspace (Jujutsu) to create in the new
-	// checkout. It also names the new directory.
+	// checkout.
 	Branch string
+
+	// Name names the new directory. Defaults to ChooseName's choice for
+	// Branch.
+	Name string
 
 	// Base is the revision to base the new checkout on, interpreted with the
 	// selected backend's revision syntax. Defaults to the source's current HEAD.
 	Base string
 
-	// Instance overrides the derived Docker instance name.
+	// Instance overrides the Docker instance name, which defaults to Name.
 	Instance string
 }
 
@@ -75,14 +73,9 @@ type Result struct {
 //
 // It runs before any mutation so that a rejected request leaves no partial
 // state behind: no directory, no branch, no registry entry.
-func preflight(ctx context.Context, b backend, sourcePath, branch string) error {
+func preflight(ctx context.Context, b backend, sourcePath, branch, name string) error {
 	if strings.TrimSpace(branch) == "" {
 		return fmt.Errorf("%w: branch name is empty", ErrInvalidBranch)
-	}
-
-	dirName := BranchToDirName(branch)
-	if dirName == "" {
-		return fmt.Errorf("%w: %q does not yield a usable directory name", ErrInvalidBranch, branch)
 	}
 
 	xfPath := filepath.Join(sourcePath, "src", "XF.php")
@@ -99,58 +92,20 @@ func preflight(ctx context.Context, b backend, sourcePath, branch string) error 
 		return fmt.Errorf("%w: %s", ErrBranchExists, branch)
 	}
 
-	// Only the last segment of a branch names the directory, so different
-	// branches can want the same one. Reject the collision rather than renaming
-	// around it: an auto-generated suffix would make the path depend on what
-	// existed at the time, and resolving a branch to its path would no longer
-	// be possible without consulting stored state.
-	target := filepath.Join(WorktreesDir(sourcePath), dirName)
-	if _, err := os.Stat(target); err == nil {
-		owner, ownerErr := b.owner(ctx, sourcePath, target)
-		if ownerErr == nil && owner != "" && owner != branch {
-			return fmt.Errorf(
-				"%w: %q is already used by branch %q; choose a more specific final segment, such as %q",
-				ErrWorktreeExists, dirName, owner, suggestAlternative(branch),
-			)
-		}
+	// The name becomes a path segment, so it must not be able to name a
+	// different directory.
+	if name == "" || name == "." || name == ".." || name != filepath.Base(name) || strings.ContainsAny(name, `/\`) {
+		return fmt.Errorf("%w: %q is not a usable worktree name", ErrInvalidBranch, name)
+	}
 
+	// ChooseName skips occupied directories, but a name supplied by the caller
+	// has not been checked, and something can appear between the two.
+	target := filepath.Join(WorktreesDir(sourcePath), name)
+	if _, err := os.Lstat(target); err == nil {
 		return fmt.Errorf("%w: %s", ErrWorktreeExists, target)
 	}
 
 	return nil
-}
-
-// InstanceName derives the Docker Compose project name for a worktree.
-//
-// It combines a readable prefix taken from the branch's final segment with a
-// short digest of the canonical source checkout and the full branch name. The
-// branch-to-directory mapping is lossy - dev/24x/feature and dev/xfs/feature
-// both reduce to "feature" - so without the digest those worktrees would also
-// share a Compose project, and stopping or destroying one would affect the
-// other. Mixing in the source path keeps checkouts that happen to use the same
-// branch names apart as well.
-//
-// The digest is computed from the symlink-resolved source so that the name is
-// stable whether the checkout is reached through a symlinked path or not.
-func InstanceName(sourcePath, branch string) string {
-	prefix := xf.GenerateInstanceName(BranchToDirName(branch))
-
-	sum := sha256.Sum256([]byte(resolveSymlinks(sourcePath) + "\x00" + branch))
-	suffix := hex.EncodeToString(sum[:])[:instanceHashLength]
-
-	// Reserve room for the separator and the digest, shortening only the
-	// readable prefix: truncating the digest would trade away the collision
-	// resistance it exists to provide.
-	maxPrefix := xf.MaxInstanceNameLength - len(suffix) - 1
-	if len(prefix) > maxPrefix {
-		prefix = strings.Trim(prefix[:maxPrefix], "-")
-	}
-
-	if prefix == "" {
-		prefix = "xf"
-	}
-
-	return prefix + "-" + suffix
 }
 
 // Create makes a worktree on a new branch.
@@ -163,7 +118,19 @@ func Create(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 
-	if err := preflight(ctx, b, source, opts.Branch); err != nil {
+	if strings.TrimSpace(opts.Branch) == "" {
+		return nil, fmt.Errorf("%w: branch name is empty", ErrInvalidBranch)
+	}
+
+	name := opts.Name
+	if name == "" {
+		name, err = ChooseName(source, opts.Branch, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := preflight(ctx, b, source, opts.Branch, name); err != nil {
 		return nil, err
 	}
 
@@ -172,7 +139,7 @@ func Create(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 
-	target := ResolvePath(source, opts.Branch)
+	target := filepath.Join(WorktreesDir(source), name)
 
 	if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create worktrees directory: %w", err)
@@ -187,7 +154,7 @@ func Create(ctx context.Context, opts Options) (*Result, error) {
 
 	instance := opts.Instance
 	if instance == "" {
-		instance = InstanceName(source, opts.Branch)
+		instance = name
 	}
 
 	return &Result{
@@ -198,15 +165,4 @@ func Create(ctx context.Context, opts Options) (*Result, error) {
 		Instance:     instance,
 		CreatedAt:    time.Now().UTC(),
 	}, nil
-}
-
-// suggestAlternative proposes a more specific name for a colliding branch, by
-// including the segment before the last one.
-func suggestAlternative(branch string) string {
-	segments := strings.Split(strings.Trim(branch, "/"), "/")
-	if len(segments) < 2 {
-		return branch + "-2"
-	}
-
-	return segments[len(segments)-2] + "-" + segments[len(segments)-1]
 }

@@ -104,23 +104,20 @@ var worktreeListAllCmd = &cobra.Command{
 }
 
 var worktreePathCmd = &cobra.Command{
-	Use:   "path <branch>",
+	Use:   "path <branch|name>",
 	Short: "Print the path of a worktree",
-	Long: `Print the resolved path for a branch's worktree.
+	Long: `Print the path of an existing worktree, given its branch or its name.
 
-The path is derived from the branch name, so this works whether or not the
-worktree exists. Useful for shell and agent use:
+Useful for shell and agent use:
 
   cd "$(xf worktree path dev/24x/feature)"
-
-Branch names that resolve to no directory of their own, such as "." or "..",
-are rejected rather than printing the directory that holds every worktree.`,
+  cd "$(xf worktree path feature)"`,
 	Args: cobra.ExactArgs(1),
 	RunE: runWorktreePath,
 }
 
 var worktreeRemoveCmd = &cobra.Command{
-	Use:   "remove <branch>",
+	Use:   "remove <branch|name>",
 	Short: "Remove a worktree and its containers",
 	Long: `Remove a worktree or workspace and its Docker containers and volumes.
 
@@ -227,33 +224,42 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Resolve the instance before creating anything so that the collision check
-	// and the creation itself cannot disagree about the name.
-	instance := flagWorktreeInstance
-	if instance == "" {
-		instance = worktree.InstanceName(source, branch)
+	name, err := worktree.ChooseName(source, branch, func(name string) (bool, error) {
+		return worktreeNameTaken(cmd.Context(), name)
+	})
+	if err != nil {
+		return err
 	}
 
-	// --no-setup creates no Docker resources, so a project with the same name
-	// is not a conflict. A stopped environment can leave volumes with no
-	// containers, so the check covers both.
-	if !flagWorktreeNoSetup {
-		exists, err := dockercompose.ProjectExists(cmd.Context(), instance)
-		if err != nil {
-			return err
-		}
+	// The worktree's name doubles as its instance name unless one was given.
+	// An explicit name is the user's choice, so a clash is reported rather than
+	// numbered around.
+	instance := name
 
-		if exists {
-			return fmt.Errorf(
-				"the Docker Compose project %q is already in use by another environment; choose another name with --instance",
-				instance,
-			)
+	if flagWorktreeInstance != "" {
+		instance = flagWorktreeInstance
+
+		// --no-setup creates no Docker resources, so a project with the same
+		// name is not a conflict.
+		if !flagWorktreeNoSetup {
+			exists, err := dockercompose.ProjectExists(cmd.Context(), instance)
+			if err != nil {
+				return err
+			}
+
+			if exists {
+				return fmt.Errorf(
+					"the Docker Compose project %q is already in use by another environment; choose another name with --instance",
+					instance,
+				)
+			}
 		}
 	}
 
 	result, err := worktree.Create(cmd.Context(), worktree.Options{
 		SourcePath: source,
 		Branch:     branch,
+		Name:       name,
 		Base:       flagWorktreeBase,
 		Instance:   instance,
 	})
@@ -410,7 +416,7 @@ func runWorktreePath(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	target, err := worktree.ResolveExistingPath(source, args[0])
+	target, err := worktree.Locate(cmd.Context(), source, args[0])
 	if err != nil {
 		return err
 	}
@@ -470,17 +476,14 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	target, err := worktree.ResolveExistingPath(source, args[0])
+	target, err := worktree.Locate(cmd.Context(), source, args[0])
 	if err != nil {
 		return err
 	}
 
-	// The path is derived from the branch's last segment, so dev/a/foo and
-	// dev/b/foo resolve to the same directory. Removing without checking which
-	// branch is actually there would destroy the wrong worktree, its branch,
-	// and its volumes.
-	if err := verifyWorktreeBranch(cmd.Context(), target, args[0]); err != nil {
-		return err
+	// The VCS can still list a worktree whose directory was deleted by hand.
+	if _, err := os.Stat(target); err != nil {
+		return fmt.Errorf("failed to inspect worktree %s: %w", target, err)
 	}
 
 	// The safety check runs before anything is destroyed. Tearing down first
@@ -721,35 +724,38 @@ func defaultString(value, fallback string) string {
 	return fallback
 }
 
-// verifyWorktreeBranch reports whether the worktree at path has branch checked
-// out.
+// worktreeNameTaken reports whether name is already used by another
+// environment, so ChooseName numbers past it.
 //
-// Worktree paths are derived from a branch's last segment, so dev/a/foo and
-// dev/b/foo share a directory. Without this check, removing one branch would
-// silently destroy the other's worktree, branch, containers and volumes. For a
-// Jujutsu repository CurrentBranch returns the workspace name instead.
-func verifyWorktreeBranch(ctx context.Context, worktreePath, branch string) error {
-	if _, err := os.Stat(worktreePath); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("no worktree at %s: %w", worktreePath, err)
+// Docker Compose projects are global, so a project left by another checkout,
+// or by a worktree removed with --keep-containers, would otherwise be shared.
+// The registry covers worktrees created with --no-setup, which have no
+// project yet but will take their name as one when set up. Entries whose
+// worktree is gone are stale and do not reserve anything.
+//
+// With --no-setup Docker need not be running, so failing to reach it is not
+// an error there.
+func worktreeNameTaken(ctx context.Context, name string) (bool, error) {
+	if registry, err := worktree.NewRegistry(); err == nil {
+		if entries, err := registry.All(); err == nil {
+			for _, entry := range entries {
+				if _, err := os.Stat(entry.WorktreePath); entry.Instance == name && err == nil {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	exists, err := dockercompose.ProjectExists(ctx, name)
+	if err != nil {
+		if flagWorktreeNoSetup {
+			return false, nil
 		}
 
-		return fmt.Errorf("failed to inspect %s: %w", worktreePath, err)
+		return false, err
 	}
 
-	current, err := worktree.CurrentBranch(ctx, worktreePath)
-	if err != nil {
-		return fmt.Errorf("failed to determine the branch or workspace checked out at %s: %w", worktreePath, err)
-	}
-
-	if current != branch {
-		return fmt.Errorf(
-			"%s has %s checked out, not %s: refusing to remove it%.0w",
-			worktreePath, current, branch, ErrInvalidInput,
-		)
-	}
-
-	return nil
+	return exists, nil
 }
 
 // destroyWorktreeEnvironment removes a worktree's containers and volumes.
