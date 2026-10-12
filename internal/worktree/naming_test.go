@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -129,5 +130,24 @@ func TestOwnerForUnknownPath(t *testing.T) {
 
 	if got != "" {
 		t.Errorf("owner = %q, want empty for an unknown path", got)
+	}
+}
+
+// TestLocateSkipsDeletedWorktrees covers a worktree directory removed without
+// telling Git, which still lists it as prunable.
+func TestLocateSkipsDeletedWorktrees(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	result, err := Create(t.Context(), Options{SourcePath: repo, Branch: "dev/feature"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := os.RemoveAll(result.Path); err != nil {
+		t.Fatalf("RemoveAll: %v", err)
+	}
+
+	if _, err := Locate(t.Context(), repo, "feature"); !errors.Is(err, ErrWorktreeNotFound) {
+		t.Errorf("Locate = %v, want ErrWorktreeNotFound for a deleted worktree", err)
 	}
 }

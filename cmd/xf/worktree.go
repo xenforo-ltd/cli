@@ -224,46 +224,29 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	name, err := worktree.ChooseName(source, branch, func(name string) (bool, error) {
-		return worktreeNameTaken(cmd.Context(), name)
-	})
+	registry, err := worktree.NewRegistry()
 	if err != nil {
 		return err
 	}
 
-	// The worktree's name doubles as its instance name unless one was given.
-	// An explicit name is the user's choice, so a clash is reported rather than
-	// numbered around.
-	instance := name
-
-	if flagWorktreeInstance != "" {
-		instance = flagWorktreeInstance
-
-		// --no-setup creates no Docker resources, so a project with the same
-		// name is not a conflict.
-		if !flagWorktreeNoSetup {
-			exists, err := dockercompose.ProjectExists(cmd.Context(), instance)
-			if err != nil {
-				return err
-			}
-
-			if exists {
-				return fmt.Errorf(
-					"the Docker Compose project %q is already in use by another environment; choose another name with --instance",
-					instance,
-				)
-			}
-		}
+	reserved, err := reserveWorktreeName(cmd.Context(), registry, source, branch)
+	if err != nil {
+		return err
 	}
 
 	result, err := worktree.Create(cmd.Context(), worktree.Options{
 		SourcePath: source,
 		Branch:     branch,
-		Name:       name,
+		Name:       filepath.Base(reserved.WorktreePath),
 		Base:       flagWorktreeBase,
-		Instance:   instance,
+		Instance:   reserved.Instance,
 	})
 	if err != nil {
+		// Release the name so a retry can use it.
+		if removeErr := registry.Remove(reserved.WorktreePath); removeErr != nil {
+			warnRegistryUpdateFailed()
+		}
+
 		return err
 	}
 
@@ -479,11 +462,6 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 	target, err := worktree.Locate(cmd.Context(), source, args[0])
 	if err != nil {
 		return err
-	}
-
-	// The VCS can still list a worktree whose directory was deleted by hand.
-	if _, err := os.Stat(target); err != nil {
-		return fmt.Errorf("failed to inspect worktree %s: %w", target, err)
 	}
 
 	// The safety check runs before anything is destroyed. Tearing down first
@@ -724,25 +702,100 @@ func defaultString(value, fallback string) string {
 	return fallback
 }
 
+// maxReserveAttempts bounds how often reserveWorktreeName retries after
+// another process claims the name it chose.
+const maxReserveAttempts = 10
+
+// reserveWorktreeName chooses a name for a new worktree of branch and records
+// it in the registry, returning the reserved entry.
+//
+// Choosing and recording are separate steps, so another xf process can claim
+// the same name in between. Reserve detects that under the registry lock, and
+// the name is chosen again, now seeing the other process's entry.
+//
+// The worktree's name doubles as its instance name unless --instance gave one.
+// An explicit name is the user's choice, so a clash is reported rather than
+// numbered around.
+func reserveWorktreeName(ctx context.Context, registry *worktree.Registry, source, branch string) (worktree.Entry, error) {
+	sourceInstance, err := configuredInstance(source)
+	if err != nil {
+		return worktree.Entry{}, err
+	}
+
+	if flagWorktreeInstance != "" {
+		taken, err := worktreeNameTaken(ctx, registry, sourceInstance, flagWorktreeInstance)
+		if err != nil {
+			return worktree.Entry{}, err
+		}
+
+		if taken {
+			return worktree.Entry{}, fmt.Errorf(
+				"the instance name %q is already in use by another environment; choose another name with --instance",
+				flagWorktreeInstance,
+			)
+		}
+	}
+
+	for range maxReserveAttempts {
+		name, err := worktree.ChooseName(source, branch, func(name string) (bool, error) {
+			return worktreeNameTaken(ctx, registry, sourceInstance, name)
+		})
+		if err != nil {
+			return worktree.Entry{}, err
+		}
+
+		entry := worktree.Entry{
+			SourcePath:   source,
+			WorktreePath: filepath.Join(worktree.WorktreesDir(source), name),
+			Branch:       branch,
+			Instance:     defaultString(flagWorktreeInstance, name),
+			CreatedAt:    time.Now().UTC(),
+		}
+
+		err = registry.Reserve(entry)
+		if err == nil {
+			return entry, nil
+		}
+
+		// An explicit instance cannot be numbered around, so a clash on it
+		// will not resolve by choosing again.
+		if !errors.Is(err, worktree.ErrNameReserved) || flagWorktreeInstance != "" {
+			return worktree.Entry{}, registryReadError(err)
+		}
+	}
+
+	return worktree.Entry{}, fmt.Errorf("could not reserve a worktree name for %q: other xf processes kept claiming it", branch)
+}
+
 // worktreeNameTaken reports whether name is already used by another
 // environment, so ChooseName numbers past it.
 //
 // Docker Compose projects are global, so a project left by another checkout,
 // or by a worktree removed with --keep-containers, would otherwise be shared.
-// The registry covers worktrees created with --no-setup, which have no
-// project yet but will take their name as one when set up. Entries whose
-// worktree is gone are stale and do not reserve anything.
+// The registry covers worktrees with no project yet: those created with
+// --no-setup, and those still being created by another process. The source's
+// configured instance is reserved even if it has never been started.
+//
+// Every registry entry counts, including ones whose worktree has gone, until
+// "xf worktree prune" drops them: an entry can be a reservation for a worktree
+// that does not exist yet. A registry that cannot be read is an error rather
+// than an empty one, because it is what keeps names unique.
 //
 // With --no-setup Docker need not be running, so failing to reach it is not
 // an error there.
-func worktreeNameTaken(ctx context.Context, name string) (bool, error) {
-	if registry, err := worktree.NewRegistry(); err == nil {
-		if entries, err := registry.All(); err == nil {
-			for _, entry := range entries {
-				if _, err := os.Stat(entry.WorktreePath); entry.Instance == name && err == nil {
-					return true, nil
-				}
-			}
+func worktreeNameTaken(ctx context.Context, registry *worktree.Registry, sourceInstance, name string) (bool, error) {
+	if name == sourceInstance {
+		return true, nil
+	}
+
+	entries, err := registry.All()
+	if err != nil {
+		return false, registryReadError(err)
+	}
+
+	for _, entry := range entries {
+		if entry.Instance == name {
+			return true, nil
 		}
 	}
 
@@ -756,6 +809,21 @@ func worktreeNameTaken(ctx context.Context, name string) (bool, error) {
 	}
 
 	return exists, nil
+}
+
+// configuredInstance returns the instance name the checkout at dir is
+// configured to use, or an empty string when it has no environment.
+func configuredInstance(dir string) (string, error) {
+	runner, err := dockercompose.NewRunner(dir)
+	if err != nil {
+		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("failed to read the source environment: %w", err)
+	}
+
+	return runner.Instance(), nil
 }
 
 // destroyWorktreeEnvironment removes a worktree's containers and volumes.

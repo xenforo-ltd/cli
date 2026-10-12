@@ -154,7 +154,8 @@ func WorktreesDir(sourcePath string) string {
 // directory it lives in. A branch match wins, so a branch that happens to be
 // named like another worktree's directory still resolves to its own worktree.
 // Only checkouts inside the worktrees directory are considered: the source
-// checkout itself is never a match.
+// checkout itself is never a match. Neither is a checkout whose directory was
+// deleted without telling the VCS, which Git still lists as prunable.
 //
 // The path is returned under WorktreesDir(sourcePath), the form Create reports
 // and the registry records, rather than as the VCS spells it, which may have
@@ -178,6 +179,14 @@ func Locate(ctx context.Context, sourcePath, ref string) (string, error) {
 		path := resolveSymlinks(c.path)
 		if filepath.Dir(path) != dir {
 			continue
+		}
+
+		if _, err := os.Stat(path); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+
+			return "", fmt.Errorf("failed to inspect worktree %s: %w", path, err)
 		}
 
 		name := filepath.Base(path)

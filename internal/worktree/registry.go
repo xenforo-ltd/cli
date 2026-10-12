@@ -27,6 +27,10 @@ const (
 // existing entries are unknown rather than absent.
 var ErrRegistryCorrupt = errors.New("worktree registry is corrupt")
 
+// ErrNameReserved indicates another entry already holds a worktree path or
+// instance name.
+var ErrNameReserved = errors.New("worktree name is already reserved")
+
 // Entry records a worktree created by xf.
 type Entry struct {
 	// SourcePath is the checkout the worktree was created from.
@@ -158,6 +162,42 @@ func (r *Registry) Add(entry Entry) error {
 	}
 
 	return r.save(entries)
+}
+
+// Reserve records entry before its worktree exists, unless another entry
+// already holds its path or instance name.
+//
+// The check and the write happen under the registry lock, so two concurrent
+// creations cannot both claim a name: the second sees the first's entry and
+// gets ErrNameReserved. The caller replaces the entry with Add once the
+// worktree exists, or drops it with Remove if creation fails.
+//
+// Unlike Add, a corrupt registry is an error here. Its entries are what keep
+// names unique, so an unreadable one cannot be treated as empty.
+func (r *Registry) Reserve(entry Entry) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	entries, err := r.load()
+	if err != nil {
+		return err
+	}
+
+	want := filepath.Clean(entry.WorktreePath)
+
+	for _, e := range entries {
+		if filepath.Clean(e.WorktreePath) == want || e.Instance == entry.Instance {
+			return fmt.Errorf("%w: %s", ErrNameReserved, entry.Instance)
+		}
+	}
+
+	return r.save(append(entries, entry))
 }
 
 // Remove drops the entry for a worktree path. Removing an absent entry is not

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,6 +104,8 @@ func preflight(ctx context.Context, b backend, sourcePath, branch, name string) 
 	target := filepath.Join(WorktreesDir(sourcePath), name)
 	if _, err := os.Lstat(target); err == nil {
 		return fmt.Errorf("%w: %s", ErrWorktreeExists, target)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to inspect %s: %w", target, err)
 	}
 
 	return nil

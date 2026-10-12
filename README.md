@@ -313,7 +313,8 @@ punctuation turned into dashes: `dev/xfs/user-state-ladder-redesign` becomes
 `user-state-ladder-redesign`. The same name is used for the directory, the
 Docker instance and the URL, `https://user-state-ladder-redesign.xf.local`. If
 the name is already taken — by another worktree, such as `dev/24x/feature` and
-`dev/xfs/feature`, or by an existing Docker environment — a number is added:
+`dev/xfs/feature`, by the source checkout's own instance, or by an existing
+Docker environment — a number is added:
 `feature-2`, `feature-3`. Pass `--instance` to choose the Docker instance name
 yourself.
 

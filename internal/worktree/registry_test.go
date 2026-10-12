@@ -282,3 +282,83 @@ func TestRegistryDoesNotDiscardEntriesItCannotRead(t *testing.T) {
 		t.Errorf("entries = %+v, want the seeded entry preserved", entries)
 	}
 }
+
+// TestRegistryReserveRejectsAClaimedName covers the reservation that keeps two
+// concurrent creations from settling on the same worktree or instance name.
+func TestRegistryReserveRejectsAClaimedName(t *testing.T) {
+	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
+
+	first := Entry{WorktreePath: "/s/main.worktrees/feature", Instance: "feature"}
+	if err := reg.Reserve(first); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	for _, clash := range []Entry{
+		{WorktreePath: "/s/main.worktrees/feature", Instance: "other"},
+		{WorktreePath: "/t/main.worktrees/feature", Instance: "feature"},
+	} {
+		if err := reg.Reserve(clash); !errors.Is(err, ErrNameReserved) {
+			t.Errorf("Reserve(%+v) = %v, want ErrNameReserved", clash, err)
+		}
+	}
+
+	if err := reg.Reserve(Entry{WorktreePath: "/s/main.worktrees/feature-2", Instance: "feature-2"}); err != nil {
+		t.Errorf("Reserve of a free name: %v", err)
+	}
+}
+
+// TestRegistryReserveConcurrently is the race the reservation exists for:
+// however many processes reserve the same name at once, exactly one wins.
+func TestRegistryReserveConcurrently(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "worktrees.json")
+
+	const workers = 8
+
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		wins int
+	)
+
+	for i := range workers {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			// Separate Registry values, as separate processes would have.
+			reg := &Registry{path: path}
+
+			err := reg.Reserve(Entry{WorktreePath: fmt.Sprintf("/src%d/main.worktrees/feature", i), Instance: "feature"})
+			if err == nil {
+				mu.Lock()
+				wins++
+				mu.Unlock()
+			} else if !errors.Is(err, ErrNameReserved) {
+				t.Errorf("Reserve: %v", err)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	if wins != 1 {
+		t.Errorf("%d reservations of the same name succeeded, want exactly 1", wins)
+	}
+}
+
+// TestRegistryReserveRefusesACorruptRegistry covers the difference from Add:
+// the entries are what keep names unique, so an unreadable registry must stop
+// allocation rather than read as empty.
+func TestRegistryReserveRefusesACorruptRegistry(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "worktrees.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	reg := &Registry{path: path}
+
+	if err := reg.Reserve(Entry{WorktreePath: "/s/main.worktrees/feature", Instance: "feature"}); !errors.Is(err, ErrRegistryCorrupt) {
+		t.Errorf("Reserve = %v, want ErrRegistryCorrupt", err)
+	}
+}
