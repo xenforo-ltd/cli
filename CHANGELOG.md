@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2026-10-12
+
+### Features
+
+- *(worktree)* **Breaking**: Name worktrees after their branch, without a digest
+
+### Bug fixes
+
+- *(release)* Use HTTPS privacy policy URL for WinGet
+
 ## [0.2.1] - 2026-10-09
 
 ### Features
@@ -427,6 +437,7 @@ All notable changes to this project will be documented in this file.
 - Include zip and unzip tools in image
 - Introduce XF CLI tool
 
+[0.2.2]: https://github.com/xenforo-ltd/cli/compare/v0.2.1..v0.2.2
 [0.2.1]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.7..v0.2.1
 [0.1.7-alpha.7]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.6..v0.1.7-alpha.7
 [0.1.7-alpha.6]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.5..v0.1.7-alpha.6
