@@ -362,3 +362,84 @@ func TestRegistryReserveRefusesACorruptRegistry(t *testing.T) {
 		t.Errorf("Reserve = %v, want ErrRegistryCorrupt", err)
 	}
 }
+
+// TestRegistryPruneKeepsActiveReservations covers prune running while another
+// process is creating a worktree: its reservation has no directory yet but
+// must survive, or another checkout could claim the same instance name.
+func TestRegistryPruneKeepsActiveReservations(t *testing.T) {
+	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
+	dir := t.TempDir()
+	now := time.Now().UTC()
+
+	existing := filepath.Join(dir, "existing")
+	if err := os.Mkdir(existing, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	if err := reg.Add(Entry{WorktreePath: existing, Instance: "existing", CreatedAt: now}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	if err := reg.Add(Entry{WorktreePath: filepath.Join(dir, "stale"), Instance: "stale", CreatedAt: now}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	if err := reg.Reserve(Entry{WorktreePath: filepath.Join(dir, "creating"), Instance: "creating", CreatedAt: now}); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	if err := reg.Reserve(Entry{
+		WorktreePath: filepath.Join(dir, "abandoned"),
+		Instance:     "abandoned",
+		CreatedAt:    now.Add(-2 * ReservationTimeout),
+	}); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	pruned, err := reg.Prune(now)
+	if err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+
+	if pruned != 2 {
+		t.Errorf("pruned %d entries, want 2 (stale and abandoned)", pruned)
+	}
+
+	entries, err := reg.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+
+	var kept []string
+	for _, e := range entries {
+		kept = append(kept, e.Instance)
+	}
+
+	if len(kept) != 2 || kept[0] != "existing" || kept[1] != "creating" {
+		t.Errorf("kept %v, want [existing creating]", kept)
+	}
+}
+
+// TestRegistryAddClearsPending covers a reservation becoming an ordinary entry
+// once its worktree exists.
+func TestRegistryAddClearsPending(t *testing.T) {
+	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
+	entry := Entry{WorktreePath: "/s/main.worktrees/feature", Instance: "feature"}
+
+	if err := reg.Reserve(entry); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	if err := reg.Add(entry); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	entries, err := reg.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+
+	if len(entries) != 1 || entries[0].Pending {
+		t.Errorf("entries = %+v, want one entry that is no longer pending", entries)
+	}
+}

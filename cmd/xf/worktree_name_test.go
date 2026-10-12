@@ -27,12 +27,12 @@ func useTempRegistry(t *testing.T) *worktree.Registry {
 	return registry
 }
 
-// TestWorktreeNameTakenBySourceInstance covers a source whose environment is
+// TestInstanceTakenBySourceInstance covers a source whose environment is
 // configured but has never started, so Docker has no project for it yet.
-func TestWorktreeNameTakenBySourceInstance(t *testing.T) {
+func TestInstanceTakenBySourceInstance(t *testing.T) {
 	registry := useTempRegistry(t)
 
-	taken, err := worktreeNameTaken(t.Context(), registry, "feature", "feature")
+	taken, err := instanceTaken(t.Context(), registry, "feature", "feature")
 	if err != nil {
 		t.Fatalf("worktreeNameTaken: %v", err)
 	}
@@ -42,10 +42,10 @@ func TestWorktreeNameTakenBySourceInstance(t *testing.T) {
 	}
 }
 
-// TestWorktreeNameTakenByRegistryEntry covers a worktree with no Docker
+// TestInstanceTakenByRegistryEntry covers a worktree with no Docker
 // project, such as one created with --no-setup or still being created. The
 // entry reserves its name even though its directory does not exist.
-func TestWorktreeNameTakenByRegistryEntry(t *testing.T) {
+func TestInstanceTakenByRegistryEntry(t *testing.T) {
 	registry := useTempRegistry(t)
 
 	if err := registry.Reserve(worktree.Entry{
@@ -55,7 +55,7 @@ func TestWorktreeNameTakenByRegistryEntry(t *testing.T) {
 		t.Fatalf("Reserve: %v", err)
 	}
 
-	taken, err := worktreeNameTaken(t.Context(), registry, "", "feature")
+	taken, err := instanceTaken(t.Context(), registry, "", "feature")
 	if err != nil {
 		t.Fatalf("worktreeNameTaken: %v", err)
 	}
@@ -65,9 +65,9 @@ func TestWorktreeNameTakenByRegistryEntry(t *testing.T) {
 	}
 }
 
-// TestWorktreeNameTakenFailsOnACorruptRegistry covers the registry being what
+// TestInstanceTakenFailsOnACorruptRegistry covers the registry being what
 // keeps names unique: unreadable must not mean available.
-func TestWorktreeNameTakenFailsOnACorruptRegistry(t *testing.T) {
+func TestInstanceTakenFailsOnACorruptRegistry(t *testing.T) {
 	registry := useTempRegistry(t)
 
 	path, err := worktree.RegistryPath()
@@ -83,7 +83,7 @@ func TestWorktreeNameTakenFailsOnACorruptRegistry(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	_, err = worktreeNameTaken(t.Context(), registry, "", "feature")
+	_, err = instanceTaken(t.Context(), registry, "", "feature")
 	if err == nil || !strings.Contains(err.Error(), "corrupt") {
 		t.Errorf("worktreeNameTaken = %v, want a corrupt registry error", err)
 	}
@@ -114,5 +114,32 @@ func TestConfiguredInstance(t *testing.T) {
 	got, err = configuredInstance(dir)
 	if err != nil || got != "main" {
 		t.Errorf("configuredInstance = %q, %v; want main", got, err)
+	}
+}
+
+// TestDirectoryReservedByACustomInstance covers a reservation made with
+// --instance: its directory name differs from its instance, and the directory
+// does not exist yet, so only the reserved path shows it is taken.
+func TestDirectoryReservedByACustomInstance(t *testing.T) {
+	registry := useTempRegistry(t)
+	source := filepath.Join(t.TempDir(), "main")
+
+	if err := registry.Reserve(worktree.Entry{
+		SourcePath:   source,
+		WorktreePath: filepath.Join(worktree.WorktreesDir(source), "feature"),
+		Instance:     "custom",
+	}); err != nil {
+		t.Fatalf("Reserve: %v", err)
+	}
+
+	got, err := worktree.ChooseName(source, "dev/other/feature", func(name string) (bool, error) {
+		return directoryReserved(registry, source, name)
+	})
+	if err != nil {
+		t.Fatalf("ChooseName: %v", err)
+	}
+
+	if got != "feature-2" {
+		t.Errorf("ChooseName = %q, want feature-2 past the reserved directory", got)
 	}
 }

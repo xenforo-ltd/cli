@@ -514,21 +514,9 @@ func runWorktreePrune(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	entries, err := registry.All()
+	pruned, err := registry.Prune(time.Now())
 	if err != nil {
 		return registryReadError(err)
-	}
-
-	pruned := 0
-
-	for _, entry := range entries {
-		if _, statErr := os.Stat(entry.WorktreePath); os.IsNotExist(statErr) {
-			if err := registry.Remove(entry.WorktreePath); err != nil {
-				return err
-			}
-
-			pruned++
-		}
 	}
 
 	if pruned == 0 {
@@ -720,31 +708,42 @@ const maxReserveAttempts = 10
 // the name is chosen again, now seeing the other process's entry.
 //
 // The worktree's name doubles as its instance name unless --instance gave one.
-// An explicit name is the user's choice, so a clash is reported rather than
-// numbered around.
+// An explicit instance is the user's choice, so a clash on it is reported
+// rather than numbered around. The directory is still numbered.
 func reserveWorktreeName(ctx context.Context, registry *worktree.Registry, source, branch string) (worktree.Entry, error) {
 	sourceInstance, err := configuredInstance(source)
 	if err != nil {
 		return worktree.Entry{}, err
 	}
 
-	if flagWorktreeInstance != "" {
-		taken, err := worktreeNameTaken(ctx, registry, sourceInstance, flagWorktreeInstance)
-		if err != nil {
-			return worktree.Entry{}, err
-		}
-
-		if taken {
-			return worktree.Entry{}, fmt.Errorf(
-				"the instance name %q is already in use by another environment; choose another name with --instance",
-				flagWorktreeInstance,
-			)
-		}
-	}
-
 	for range maxReserveAttempts {
+		if flagWorktreeInstance != "" {
+			taken, err := instanceTaken(ctx, registry, sourceInstance, flagWorktreeInstance)
+			if err != nil {
+				return worktree.Entry{}, err
+			}
+
+			if taken {
+				return worktree.Entry{}, fmt.Errorf(
+					"the instance name %q is already in use by another environment; choose another name with --instance",
+					flagWorktreeInstance,
+				)
+			}
+		}
+
 		name, err := worktree.ChooseName(source, branch, func(name string) (bool, error) {
-			return worktreeNameTaken(ctx, registry, sourceInstance, name)
+			reserved, err := directoryReserved(registry, source, name)
+			if err != nil || reserved {
+				return reserved, err
+			}
+
+			// With --instance the name is only a directory, so it cannot
+			// clash with another environment's instance.
+			if flagWorktreeInstance != "" {
+				return false, nil
+			}
+
+			return instanceTaken(ctx, registry, sourceInstance, name)
 		})
 		if err != nil {
 			return worktree.Entry{}, err
@@ -763,9 +762,7 @@ func reserveWorktreeName(ctx context.Context, registry *worktree.Registry, sourc
 			return entry, nil
 		}
 
-		// An explicit instance cannot be numbered around, so a clash on it
-		// will not resolve by choosing again.
-		if !errors.Is(err, worktree.ErrNameReserved) || flagWorktreeInstance != "" {
+		if !errors.Is(err, worktree.ErrNameReserved) {
 			return worktree.Entry{}, registryReadError(err)
 		}
 	}
@@ -773,8 +770,31 @@ func reserveWorktreeName(ctx context.Context, registry *worktree.Registry, sourc
 	return worktree.Entry{}, fmt.Errorf("could not reserve a worktree name for %q: other xf processes kept claiming it", branch)
 }
 
-// worktreeNameTaken reports whether name is already used by another
-// environment, so ChooseName numbers past it.
+// directoryReserved reports whether a registry entry, possibly a reservation
+// for a worktree still being created, holds the directory name in source's
+// worktrees directory. A reservation made with --instance holds a directory
+// whose name differs from its instance, and the directory does not exist until
+// the creation finishes, so neither the instance check nor the filesystem
+// would see it.
+func directoryReserved(registry *worktree.Registry, source, name string) (bool, error) {
+	entries, err := registry.All()
+	if err != nil {
+		return false, registryReadError(err)
+	}
+
+	path := filepath.Clean(filepath.Join(worktree.WorktreesDir(source), name))
+
+	for _, entry := range entries {
+		if filepath.Clean(entry.WorktreePath) == path {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// instanceTaken reports whether an instance name is already used by another
+// environment.
 //
 // Docker Compose projects are global, so a project left by another checkout,
 // or by a worktree removed with --keep-containers, would otherwise be shared.
@@ -784,12 +804,13 @@ func reserveWorktreeName(ctx context.Context, registry *worktree.Registry, sourc
 //
 // Every registry entry counts, including ones whose worktree has gone, until
 // "xf worktree prune" drops them: an entry can be a reservation for a worktree
-// that does not exist yet. A registry that cannot be read is an error rather
-// than an empty one, because it is what keeps names unique.
+// that does not exist yet, and prune leaves those alone. A registry that
+// cannot be read is an error rather than an empty one, because it is what
+// keeps names unique.
 //
 // With --no-setup Docker need not be running, so failing to reach it is not
 // an error there.
-func worktreeNameTaken(ctx context.Context, registry *worktree.Registry, sourceInstance, name string) (bool, error) {
+func instanceTaken(ctx context.Context, registry *worktree.Registry, sourceInstance, name string) (bool, error) {
 	if name == sourceInstance {
 		return true, nil
 	}
