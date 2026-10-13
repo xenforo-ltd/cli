@@ -23,7 +23,7 @@ func CompletionRefs(cmd *cobra.Command, args []string, _ string) ([]cobra.Comple
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	source, err := sourceCheckout(cmd.Context(), cwd)
+	source, err := managementSource(cmd.Context(), cwd)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

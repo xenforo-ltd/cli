@@ -27,6 +27,13 @@ type RemoveOptions struct {
 	Verbose        bool
 }
 
+// AdoptOptions controls the recorded instance and output format of an adopted
+// worktree.
+type AdoptOptions struct {
+	Instance string
+	JSON     bool
+}
+
 // worktreeInitOptions builds the init options for a new worktree.
 //
 // cloning reports whether the source environment will be copied in, which

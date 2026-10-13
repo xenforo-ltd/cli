@@ -154,7 +154,7 @@ func configuredInstance(dir string) (string, error) {
 			return "", nil
 		}
 
-		return "", fmt.Errorf("failed to read the source environment: %w", err)
+		return "", fmt.Errorf("failed to read the environment at %s: %w", dir, err)
 	}
 
 	return runner.Instance(), nil

@@ -34,6 +34,9 @@ const reservationTimeout = time.Hour
 // instance name.
 var errNameReserved = errors.New("worktree name is already reserved")
 
+// errRegistryAmbiguous indicates a worktree recorded with more than one source.
+var errRegistryAmbiguous = errors.New("worktree registry has conflicting entries")
+
 // entry records the source checkout and branch, resolved worktree path, branch,
 // Docker instance, cloning state, creation time, and pending reservation state.
 // add clears a pending reservation when the worktree exists.
@@ -55,7 +58,7 @@ type entry struct {
 	Pending bool `json:"pending,omitempty"`
 }
 
-// registry is the on-disk record of worktrees xf has created.
+// registry is the on-disk record of worktrees xf has created or adopted.
 //
 // It exists so that worktrees can be listed across projects, which git alone
 // cannot do. It is deliberately *not* the source of truth: git and Docker are.
@@ -119,6 +122,41 @@ func (r *registry) forSource(sourcePath string) ([]entry, error) {
 	}
 
 	return matched, nil
+}
+
+// forWorktree returns the entry for the worktree at path. The boolean reports
+// whether one exists. It returns an error if entries for path disagree on the
+// source.
+func (r *registry) forWorktree(path string) (entry, bool, error) {
+	entries, err := r.all()
+	if err != nil {
+		return entry{}, false, err
+	}
+
+	want := resolveSymlinks(path)
+
+	var (
+		found entry
+		ok    bool
+	)
+
+	for _, e := range entries {
+		if resolveSymlinks(e.WorktreePath) != want {
+			continue
+		}
+
+		if !ok {
+			found, ok = e, true
+
+			continue
+		}
+
+		if resolveSymlinks(e.SourcePath) != resolveSymlinks(found.SourcePath) {
+			return entry{}, false, fmt.Errorf("%w: %s is recorded with more than one source", errRegistryAmbiguous, path)
+		}
+	}
+
+	return found, ok, nil
 }
 
 // add records a worktree, replacing any existing entry for the same path.

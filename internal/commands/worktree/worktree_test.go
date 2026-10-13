@@ -183,8 +183,9 @@ func TestJJCreateListPathAndPrune(t *testing.T) {
 	if err := os.RemoveAll(first.Path); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := capture(t, func() error { return worktree.Path(t.Context(), "one/feature") }); err == nil {
-		t.Fatal("path unexpectedly found externally deleted workspace")
+	out, err := capture(t, func() error { return worktree.Path(t.Context(), "one/feature") })
+	if err != nil || strings.TrimSpace(out) != first.Path {
+		t.Fatalf("path after external deletion: %q, %v", out, err)
 	}
 	entries = list(t)
 	if len(entries) != 2 || entries[first.Path].State != "missing" || entries[second.Path].State != "ok" {

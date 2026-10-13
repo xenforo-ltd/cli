@@ -13,7 +13,7 @@ func List(ctx context.Context, json bool) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	source, err := sourceCheckout(ctx, cwd)
+	source, err := managementSource(ctx, cwd)
 	if err != nil {
 		return err
 	}

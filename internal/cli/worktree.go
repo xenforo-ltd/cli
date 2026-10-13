@@ -27,7 +27,7 @@ var (
 	flagWorktreeNoUp bool
 	// flagWorktreeInstance selects the Docker instance name.
 	flagWorktreeInstance string
-	// flagWorktreeJSON selects JSON output for create or list operations.
+	// flagWorktreeJSON selects JSON output for create, adopt, or list operations.
 	flagWorktreeJSON bool
 	// flagWorktreeForce permits removal despite uncommitted or unpushed work.
 	flagWorktreeForce bool
@@ -63,7 +63,12 @@ always predictable.
 
 'xf worktree create <branch>' creates the worktree and then initialises the
 environment: Docker configuration, containers, Composer dependencies and the
-XenForo installation.`,
+XenForo installation.
+
+'xf worktree adopt <path>' registers an existing linked worktree or workspace
+that xf did not create, so list, list-all and prune can see it and path and
+remove can address it wherever it lives. Adoption records metadata only: it
+never changes the checkout or its environment.`,
 		Example: `  # Create a worktree and set up its environment
   xf worktree create dev/24x/feature
 
@@ -75,6 +80,15 @@ XenForo installation.`,
 
   # Print a machine-readable result (requires --no-setup)
   xf worktree create dev/24x/feature --no-setup --json
+
+  # Register an existing worktree or workspace at any location
+  xf worktree adopt ../shared/feature
+
+  # Register it and record a Docker instance name
+  xf worktree adopt ../shared/feature --instance my-feature
+
+  # Print the registration as JSON
+  xf worktree adopt ../shared/feature --json
 
   # Print the path of an existing worktree
   cd "$(xf worktree path dev/24x/feature)"`,
@@ -112,6 +126,37 @@ written to stdout.`,
 		RunE: runWorktreeCreate,
 	}
 
+	worktreeAdoptCmd := &cobra.Command{
+		Use:   "adopt <path>",
+		Short: "Register an existing worktree or workspace",
+		Long: `Register an existing Git worktree or Jujutsu workspace that xf did not create.
+
+Adoption is metadata-only. It reads the checkout's root, source and branch or
+workspace name, then records them so list, list-all, path and remove can find a
+checkout that lives outside the usual "<source>.worktrees/<branch>" location.
+It does not change any file in the checkout, touch version-control metadata,
+create or move branches, bookmarks or workspaces, configure Docker, or set up
+an environment.
+
+<path> may be the checkout's root or any directory inside it, absolute or
+relative to your current directory. The checkout must be a XenForo checkout
+with a regular src/XF.php. The source or main checkout cannot be adopted, and a
+Git checkout in a detached HEAD state is refused. A Jujutsu workspace named
+HEAD is not detached and is accepted.
+
+The Docker instance name comes from --instance when given, otherwise from a
+non-empty XF_INSTANCE in the checkout's .env, otherwise it is derived from the
+branch or workspace name, without a collision suffix. It is recorded only:
+adoption does not write .env or move containers, so a later remove still reads
+the checkout's own configuration.
+
+Re-adopting a path refreshes its record, including the registration time and
+instance, and clears the "cloned" flag; it never infers how the checkout was
+originally made.`,
+		Args: cobra.ExactArgs(1),
+		RunE: runWorktreeAdopt,
+	}
+
 	worktreeListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List worktrees for this project",
@@ -134,7 +179,12 @@ written to stdout.`,
 Useful for shell and agent use:
 
   cd "$(xf worktree path dev/24x/feature)"
-  cd "$(xf worktree path feature)"`,
+  cd "$(xf worktree path feature)"
+
+For an adopted checkout at a non-conventional location, the recorded path is
+printed instead when the conventional one does not exist. A registered path
+that is missing still prints, so it remains visible as Missing in list until
+prune drops the record.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: worktree.CompletionRefs,
 		RunE:              runWorktreePath,
@@ -147,7 +197,13 @@ Useful for shell and agent use:
 
 For a Git repository the worktree's branch is deleted too. Refuses when the
 checkout contains uncommitted changes or commits that exist on no remote, listing
-what would be lost. Use --force to remove it anyway.`,
+what would be lost. Use --force to remove it anyway.
+
+This works for an adopted checkout at a non-conventional location. Removal is
+destructive for adopted checkouts just as for created ones, and it verifies that
+the target really is a registered, non-source checkout of this repository before
+deleting anything -- even with --force. An adopted record's instance name does
+not retarget containers: removal reads the checkout's own Docker configuration.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: worktree.CompletionRefs,
 		RunE:              runWorktreeRemove,
@@ -172,12 +228,16 @@ what would be lost. Use --force to remove it anyway.`,
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminEmail, "admin-email", "", "admin email (default \"admin@example.com\")")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeTitle, "title", "", "site title (defaults to the branch name)")
 
+	worktreeAdoptCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
+	worktreeAdoptCmd.Flags().StringVar(&flagWorktreeInstance, "instance", "", "Docker instance name to record for the checkout")
+
 	worktreeListCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
 	worktreeListAllCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
 	worktreeRemoveCmd.Flags().BoolVar(&flagWorktreeForce, "force", false, "remove even if there are uncommitted changes or unpushed commits")
 	worktreeRemoveCmd.Flags().BoolVar(&flagWorktreeKeepContainers, "keep-containers", false, "leave the Docker containers and volumes in place")
 
 	worktreeCmd.AddCommand(worktreeCreateCmd)
+	worktreeCmd.AddCommand(worktreeAdoptCmd)
 	worktreeCmd.AddCommand(worktreeListCmd)
 	worktreeCmd.AddCommand(worktreeListAllCmd)
 	worktreeCmd.AddCommand(worktreePathCmd)
@@ -201,6 +261,14 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		JSON:          flagWorktreeJSON,
 		Fresh:         flagWorktreeFresh,
 		SkipBuildJS:   flagWorktreeSkipBuildJS,
+	})
+}
+
+// runWorktreeAdopt registers an existing checkout with the selected options.
+func runWorktreeAdopt(cmd *cobra.Command, args []string) error {
+	return worktree.AdoptWorktree(cmd.Context(), args[0], worktree.AdoptOptions{
+		Instance: flagWorktreeInstance,
+		JSON:     flagWorktreeJSON,
 	})
 }
 

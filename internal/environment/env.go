@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -192,4 +193,19 @@ func GenerateInstanceName(dirName string) string {
 	}
 
 	return name
+}
+
+// ReadInstanceName returns the XF_INSTANCE value from the .env file in xfDir.
+// It returns "" if the file or value is missing.
+func ReadInstanceName(xfDir string) (string, error) {
+	env, err := ReadEnvFile(filepath.Join(xfDir, ".env"))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	return env["XF_INSTANCE"], nil
 }

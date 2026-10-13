@@ -93,6 +93,15 @@ func markerExists(path string) (bool, error) {
 	return false, fmt.Errorf("failed to inspect %s: %w", path, err)
 }
 
+// checkoutInfo describes a checkout: its root directory, the source checkout of
+// its repository, and the branch (Git) or workspace (Jujutsu) checked out at
+// root. source equals root for the source checkout itself.
+type checkoutInfo struct {
+	root   string
+	source string
+	name   string
+}
+
 // backend is the version control system seam behind worktree orchestration.
 //
 // Every method is a single VCS operation that creating, inspecting or removing
@@ -100,13 +109,16 @@ func markerExists(path string) (bool, error) {
 // stable, VCS-neutral API -- create, status, remove and the rest -- while Git
 // and Jujutsu each implement the operations in their own terms: a Git branch
 // and worktree, or a Jujutsu workspace.
-// sourceCheckout resolves the original checkout, nameExists checks a branch or
-// workspace name, currentName identifies the current one, and checkouts lists
-// all registered checkouts. create performs only the VCS mutation, while status
+// sourceCheckout resolves the original checkout, linkedCheckout describes the
+// checkout containing a directory, nameExists checks a branch or workspace
+// name, currentName identifies the current one, and checkouts lists all
+// registered checkouts. create performs only the VCS mutation, while status
 // inspects potential data loss and remove deletes the checkout and its branch
 // or workspace. Callers validate paths and perform removal safety checks.
 type backend interface {
 	sourceCheckout(ctx context.Context, dir string) (string, error)
+
+	linkedCheckout(ctx context.Context, dir string) (checkoutInfo, error)
 
 	nameExists(ctx context.Context, repoDir, name string) (bool, error)
 
