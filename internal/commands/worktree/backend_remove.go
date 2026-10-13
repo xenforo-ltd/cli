@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -54,6 +56,70 @@ func removableError(status worktreeStatus) error {
 
 	if len(status.unmergedCommits) > 0 {
 		return fmt.Errorf("%w:\n  %s", errUnmergedCommits, strings.Join(status.unmergedCommits, "\n  "))
+	}
+
+	return nil
+}
+
+// validateRemovalTarget returns an error unless target is the root of a linked
+// checkout of the repository at source. If expectedName is non-empty, it must
+// be the branch or workspace checked out there.
+func validateRemovalTarget(ctx context.Context, source, target, expectedName string) error {
+	info, err := os.Stat(target)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("no checkout at %s: %w", target, err)
+		}
+
+		return fmt.Errorf("failed to inspect %s: %w", target, err)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", target)
+	}
+
+	sourceKind, err := repositoryMarker(ctx, source)
+	if err != nil {
+		return err
+	}
+
+	targetKind, err := repositoryMarker(ctx, target)
+	if err != nil {
+		return err
+	}
+
+	if sourceKind != targetKind {
+		return fmt.Errorf("%s is not part of the repository at %s", target, source)
+	}
+
+	b, err := detectBackend(ctx, source)
+	if err != nil {
+		return err
+	}
+
+	discovered, err := b.linkedCheckout(ctx, target)
+	if err != nil {
+		return err
+	}
+
+	root := resolveSymlinks(discovered.root)
+
+	if root != resolveSymlinks(target) {
+		return fmt.Errorf("%s is not the root of a registered checkout", target)
+	}
+
+	discoveredSource := resolveSymlinks(discovered.source)
+
+	if root == resolveSymlinks(source) || root == discoveredSource {
+		return fmt.Errorf("refusing to remove the source checkout %s", target)
+	}
+
+	if discoveredSource != resolveSymlinks(source) {
+		return fmt.Errorf("%s is not a checkout of the repository at %s", target, source)
+	}
+
+	if expectedName != "" && discovered.name != expectedName {
+		return fmt.Errorf("%s has %s checked out, not %s: refusing to remove it", target, discovered.name, expectedName)
 	}
 
 	return nil

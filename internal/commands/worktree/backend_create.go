@@ -45,7 +45,7 @@ type backendOptions struct {
 }
 
 // backendResult records the worktree path and branch, source path and branch,
-// Docker instance, and creation time of a created worktree.
+// Docker instance, and creation time of a created or adopted worktree.
 type backendResult struct {
 	path string
 
@@ -70,9 +70,8 @@ func preflight(ctx context.Context, b backend, sourcePath, branch, name string) 
 		return fmt.Errorf("%w: branch name is empty", errInvalidBranch)
 	}
 
-	xfPath := filepath.Join(sourcePath, "src", "XF.php")
-	if _, err := os.Stat(xfPath); err != nil {
-		return fmt.Errorf("%w: src/XF.php not found in %s", errNotXenForo, sourcePath)
+	if err := requireXenForoCheckout(sourcePath); err != nil {
+		return err
 	}
 
 	exists, err := b.nameExists(ctx, sourcePath, branch)

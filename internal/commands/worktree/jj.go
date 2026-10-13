@@ -66,15 +66,118 @@ func (jjBackend) sourceCheckout(ctx context.Context, dir string) (string, error)
 		return "", fmt.Errorf("failed to list workspaces: %w", err)
 	}
 
-	want := resolveSymlinks(candidate)
-
-	for _, ws := range workspaces {
-		if resolveSymlinks(ws.root) == want {
-			return candidate, nil
-		}
+	if _, ok := jjWorkspaceAt(workspaces, candidate); ok {
+		return candidate, nil
 	}
 
 	return abs, nil
+}
+
+// linkedCheckout describes the workspace containing dir. Its source is the
+// workspace that holds the repository, unless sourceCheckout would anchor it
+// to a sibling source.
+func (jjBackend) linkedCheckout(ctx context.Context, dir string) (checkoutInfo, error) {
+	out, err := jjReadOutput(ctx, dir, "workspace", "root")
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to determine the workspace root: %w", err)
+	}
+
+	root, err := filepath.Abs(out)
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to resolve workspace root: %w", err)
+	}
+
+	workspaces, err := jjWorkspaces(ctx, dir)
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to list workspaces: %w", err)
+	}
+
+	current, ok := jjWorkspaceAt(workspaces, root)
+	if !ok {
+		return checkoutInfo{}, fmt.Errorf("%w: no Jujutsu workspace is registered at %s", errNotAWorktree, root)
+	}
+
+	host, err := jjRepositoryHost(root, workspaces)
+	if err != nil {
+		return checkoutInfo{}, err
+	}
+
+	if resolveSymlinks(host) == resolveSymlinks(root) {
+		return checkoutInfo{root: root, source: root, name: current.name}, nil
+	}
+
+	source := host
+
+	if parent := filepath.Dir(root); strings.HasSuffix(filepath.Base(parent), worktreesSuffix) {
+		if sibling, ok := jjWorkspaceAt(workspaces, strings.TrimSuffix(parent, worktreesSuffix)); ok {
+			source = sibling.root
+		}
+	}
+
+	return checkoutInfo{root: root, source: source, name: current.name}, nil
+}
+
+// jjRepositoryHost returns the root of the workspace whose .jj directory holds
+// the repository of the workspace at root.
+func jjRepositoryHost(root string, workspaces []jjWorkspace) (string, error) {
+	repoDir, err := jjRepoDir(root)
+	if err != nil {
+		return "", err
+	}
+
+	if filepath.Base(repoDir) != "repo" || filepath.Base(filepath.Dir(repoDir)) != ".jj" {
+		return "", fmt.Errorf("%s does not use the standard .jj/repo layout", root)
+	}
+
+	host := filepath.Dir(filepath.Dir(repoDir))
+
+	ws, ok := jjWorkspaceAt(workspaces, host)
+	if !ok {
+		return "", fmt.Errorf("%w: the repository host %s is not a registered workspace", errNotAWorktree, host)
+	}
+
+	return ws.root, nil
+}
+
+// jjRepoDir returns the repository directory of the workspace at root, with
+// symlinks resolved. In a secondary workspace, .jj/repo is a file that holds
+// the path.
+func jjRepoDir(root string) (string, error) {
+	path := filepath.Join(root, ".jj", "repo")
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect %s: %w", path, err)
+	}
+
+	if !info.IsDir() {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("failed to read %s: %w", path, err)
+		}
+
+		path = filepath.FromSlash(string(data))
+
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(root, ".jj", path)
+		}
+	}
+
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve repository path %s: %w", path, err)
+	}
+
+	info, err = os.Stat(resolved)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect repository path %s: %w", resolved, err)
+	}
+
+	if !info.IsDir() {
+		return "", fmt.Errorf("repository path %s is not a directory", resolved)
+	}
+
+	return resolved, nil
 }
 
 // nameExists reports whether a workspace of the given name is registered.
@@ -225,6 +328,20 @@ func (jjBackend) remove(ctx context.Context, sourcePath, worktreePath string, _ 
 type jjWorkspace struct {
 	name string
 	root string
+}
+
+// jjWorkspaceAt returns the workspace whose root resolves to the same directory
+// as path. The boolean reports whether one was found.
+func jjWorkspaceAt(workspaces []jjWorkspace, path string) (jjWorkspace, bool) {
+	want := resolveSymlinks(path)
+
+	for _, ws := range workspaces {
+		if resolveSymlinks(ws.root) == want {
+			return ws, true
+		}
+	}
+
+	return jjWorkspace{}, false
 }
 
 // jjWorkspaces lists the repository's workspaces with their roots.

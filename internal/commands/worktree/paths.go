@@ -144,6 +144,13 @@ func worktreesDir(sourcePath string) string {
 	return filepath.Clean(sourcePath) + worktreesSuffix
 }
 
+// match is a worktree found by locate. byName reports whether it matched by
+// directory name rather than by branch or workspace.
+type match struct {
+	path   string
+	byName bool
+}
+
 // locate finds an existing worktree of the checkout at sourcePath.
 //
 // ref may be the worktree's branch (or Jujutsu workspace) or its name, the
@@ -156,15 +163,15 @@ func worktreesDir(sourcePath string) string {
 // The path is returned under worktreesDir(sourcePath), the form create reports
 // and the registry records, rather than as the VCS spells it, which may have
 // symlinks resolved.
-func locate(ctx context.Context, sourcePath, ref string) (string, error) {
+func locate(ctx context.Context, sourcePath, ref string) (match, error) {
 	b, err := detectBackend(ctx, sourcePath)
 	if err != nil {
-		return "", err
+		return match{}, err
 	}
 
 	checkouts, err := b.checkouts(ctx, sourcePath)
 	if err != nil {
-		return "", err
+		return match{}, err
 	}
 
 	worktrees := worktreesDir(sourcePath)
@@ -183,13 +190,13 @@ func locate(ctx context.Context, sourcePath, ref string) (string, error) {
 				continue
 			}
 
-			return "", fmt.Errorf("failed to inspect worktree %s: %w", path, err)
+			return match{}, fmt.Errorf("failed to inspect worktree %s: %w", path, err)
 		}
 
 		name := filepath.Base(path)
 
 		if c.name == ref {
-			return filepath.Join(worktrees, name), nil
+			return match{path: filepath.Join(worktrees, name)}, nil
 		}
 
 		if name == ref && byName == "" {
@@ -198,8 +205,8 @@ func locate(ctx context.Context, sourcePath, ref string) (string, error) {
 	}
 
 	if byName != "" {
-		return filepath.Join(worktrees, byName), nil
+		return match{path: filepath.Join(worktrees, byName), byName: true}, nil
 	}
 
-	return "", fmt.Errorf("%w: no worktree for %q in %s", errWorktreeNotFound, ref, worktrees)
+	return match{}, fmt.Errorf("%w: no worktree for %q in %s", errWorktreeNotFound, ref, worktrees)
 }

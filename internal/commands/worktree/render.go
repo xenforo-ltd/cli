@@ -11,7 +11,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
-// worktreeOutput is the machine-readable form of a created worktree.
+// worktreeOutput is the machine-readable form of a created or adopted worktree.
 type worktreeOutput struct {
 	Path         string    `json:"path"`
 	Branch       string    `json:"branch"`

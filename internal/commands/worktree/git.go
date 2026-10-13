@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -13,31 +14,111 @@ import (
 type gitBackend struct{}
 
 // sourceCheckout returns the main checkout for the repository containing dir.
-//
-// --git-common-dir points at the shared .git directory, which belongs to the
-// main checkout even when called from a linked worktree, so the checkout is its
-// parent. Detection already established that dir is in a Git repository, so a
-// failure here is a Git failure and is reported as one rather than as "not a
-// repository".
-func (gitBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
-	out, err := vcsOutput(ctx, "git", dir, "rev-parse", "--git-common-dir")
+// If dir is inside the main checkout, the result keeps dir's spelling of the
+// path, so symlinks in it are preserved.
+func (b gitBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
+	checkouts, err := b.checkouts(ctx, dir)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the source checkout: %w", err)
 	}
 
-	gitDir := out
-	if !filepath.IsAbs(gitDir) {
-		gitDir = filepath.Join(dir, gitDir)
+	main, err := mainCheckout(checkouts)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine the source checkout: %w", err)
 	}
 
-	checkout := filepath.Dir(filepath.Clean(gitDir))
+	if spelling, ok := mainRootSpelling(dir, main.path); ok {
+		return spelling, nil
+	}
 
-	abs, err := filepath.Abs(checkout)
+	abs, err := filepath.Abs(main.path)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve checkout path: %w", err)
 	}
 
 	return abs, nil
+}
+
+// mainRootSpelling returns the first of dir and its ancestors that resolves to
+// mainRoot. The boolean reports whether one was found.
+func mainRootSpelling(dir, mainRoot string) (string, bool) {
+	dirAbs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false
+	}
+
+	root := resolveSymlinks(mainRoot)
+
+	for spelling := dirAbs; ; spelling = filepath.Dir(spelling) {
+		if resolveSymlinks(spelling) == root {
+			return spelling, true
+		}
+
+		if filepath.Dir(spelling) == spelling {
+			return "", false
+		}
+	}
+}
+
+// linkedCheckout describes the worktree containing dir. It returns an error
+// for a worktree with a detached HEAD.
+func (b gitBackend) linkedCheckout(ctx context.Context, dir string) (checkoutInfo, error) {
+	out, err := vcsOutput(ctx, "git", dir, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to determine the checkout root: %w", err)
+	}
+
+	root, err := filepath.Abs(out)
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to resolve checkout root: %w", err)
+	}
+
+	checkouts, err := b.checkouts(ctx, dir)
+	if err != nil {
+		return checkoutInfo{}, err
+	}
+
+	main, err := mainCheckout(checkouts)
+	if err != nil {
+		return checkoutInfo{}, err
+	}
+
+	want := resolveSymlinks(root)
+
+	for _, c := range checkouts {
+		if resolveSymlinks(c.path) != want {
+			continue
+		}
+
+		if c.name == "" {
+			return checkoutInfo{}, fmt.Errorf("%w: %s has a detached HEAD", errNoBranch, root)
+		}
+
+		return checkoutInfo{root: root, source: main.path, name: c.name}, nil
+	}
+
+	return checkoutInfo{}, fmt.Errorf("%w: %s is not a registered Git worktree", errNotAWorktree, root)
+}
+
+// mainCheckout returns the first of checkouts, which Git reports as the main
+// checkout. It returns an error if that checkout is not an existing directory.
+func mainCheckout(checkouts []checkout) (checkout, error) {
+	if len(checkouts) == 0 {
+		return checkout{}, errors.New("git reported no worktrees")
+	}
+
+	main := checkouts[0]
+
+	info, err := os.Stat(main.path)
+	if err != nil {
+		return checkout{}, fmt.Errorf("the main checkout %s is unavailable: %w", main.path, err)
+	}
+
+	if !info.IsDir() {
+		return checkout{}, fmt.Errorf("the main checkout %s is not a directory", main.path)
+	}
+
+	return main, nil
 }
 
 // nameExists reports whether a local branch of the given name exists. A Git

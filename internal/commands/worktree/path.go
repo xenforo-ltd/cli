@@ -13,17 +13,17 @@ func Path(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	source, err := sourceCheckout(ctx, cwd)
+	source, err := managementSource(ctx, cwd)
 	if err != nil {
 		return err
 	}
 
-	target, err := locate(ctx, source, name)
+	found, err := findWorktree(ctx, source, name)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(target)
+	fmt.Println(found.path)
 
 	return nil
 }
