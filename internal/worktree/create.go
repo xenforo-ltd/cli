@@ -49,24 +49,25 @@ type Options struct {
 	Instance string
 }
 
-// Result describes a created worktree.
+// Result describes a created or adopted worktree.
 type Result struct {
 	// Path is the worktree location.
 	Path string
 
-	// Branch is the branch checked out in the worktree.
+	// Branch is the branch or workspace checked out in the worktree.
 	Branch string
 
-	// SourcePath is the checkout it was created from.
+	// SourcePath is the checkout that manages the worktree.
 	SourcePath string
 
-	// SourceBranch is the branch the source was on at creation time.
+	// SourceBranch is the branch or workspace the source had at creation or
+	// adoption time.
 	SourceBranch string
 
 	// Instance is the Docker instance name for the worktree.
 	Instance string
 
-	// CreatedAt is when the worktree was created.
+	// CreatedAt is when the worktree was created, or last adopted.
 	CreatedAt time.Time
 }
 

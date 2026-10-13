@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/xenforo-ltd/cli/internal/gitenv"
 )
 
 // gitBackend implements backend with Git worktrees.
@@ -14,38 +17,236 @@ type gitBackend struct{}
 
 // sourceCheckout returns the main checkout for the repository containing dir.
 //
-// --git-common-dir points at the shared .git directory, which belongs to the
-// main checkout even when called from a linked worktree, so the checkout is its
-// parent. Detection already established that dir is in a Git repository, so a
-// failure here is a Git failure and is reported as one rather than as "not a
-// repository".
+// The main checkout is taken from Git's own worktree list rather than from the
+// parent of the common Git directory: a repository created with
+// --separate-git-dir keeps its .git directory somewhere other than beside the
+// checkout, and the list is the only reliable record of where the main
+// checkout actually is. The list is ordered with the main checkout first.
+//
+// Detection already established that dir is in a Git repository, so a failure
+// here is a Git failure and is reported as one rather than as "not a
+// repository". A bare repository, or a main checkout that is missing or not a
+// directory, cannot supply the metadata the rest of xf manages by, so it is
+// refused explicitly instead of guessed at.
 func (gitBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
-	out, err := gitOutput(ctx, dir, "rev-parse", "--git-common-dir")
+	checkouts, err := gitWorktrees(ctx, dir)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the source checkout: %w", err)
 	}
 
-	gitDir := out
-	if !filepath.IsAbs(gitDir) {
-		gitDir = filepath.Join(dir, gitDir)
+	main, err := mainCheckout(checkouts)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine the source checkout: %w", err)
 	}
 
-	checkout := filepath.Dir(filepath.Clean(gitDir))
-
-	abs, err := filepath.Abs(checkout)
+	abs, err := filepath.Abs(main.root)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve checkout path: %w", err)
 	}
 
+	// Git reports canonical paths, but the caller may have reached the source
+	// through a symlink. When dir is inside the main checkout, walking up from
+	// dir keeps the source spelled the way the caller sees it, so derived
+	// worktree paths stay where the caller expects them.
+	if spelling, ok := mainRootSpelling(dir, main.root); ok {
+		return spelling, nil
+	}
+
 	return abs, nil
+}
+
+// mainRootSpelling returns dir's own spelling of the main checkout root, when
+// dir lies inside the main checkout.
+//
+// It compares canonical paths to decide containment but climbs the caller's
+// path, so a source reached through a symlinked directory keeps that spelling.
+func mainRootSpelling(dir, mainRoot string) (string, bool) {
+	dirAbs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false
+	}
+
+	rel, err := filepath.Rel(resolveSymlinks(mainRoot), resolveSymlinks(dirAbs))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+
+	spelling := dirAbs
+
+	// Climb the caller's path rather than counting components relative to the
+	// resolved root: a symlinked component can stand for several canonical
+	// levels, so a component count climbs past the root. The caller's spelling
+	// of the source is the first ancestor whose canonical path is the main
+	// root.
+	for {
+		if resolveSymlinks(spelling) == resolveSymlinks(mainRoot) {
+			return spelling, true
+		}
+
+		parent := filepath.Dir(spelling)
+		if parent == spelling {
+			return "", false
+		}
+
+		spelling = parent
+	}
+}
+
+// linkedCheckout discovers the registered Git worktree containing dir.
+//
+// The reported root must be one of the worktrees Git itself lists, so a
+// directory that merely looks like a checkout is not accepted. The first
+// record is the main checkout and supplies the source; the matching record
+// supplies the branch. A detached target has no branch to address it by, so it
+// is refused with errNoBranch.
+func (gitBackend) linkedCheckout(ctx context.Context, dir string) (checkoutInfo, error) {
+	out, err := gitOutput(ctx, dir, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to determine the checkout root: %w", err)
+	}
+
+	root, err := filepath.Abs(out)
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to resolve checkout root: %w", err)
+	}
+
+	checkouts, err := gitWorktrees(ctx, dir)
+	if err != nil {
+		return checkoutInfo{}, err
+	}
+
+	main, err := mainCheckout(checkouts)
+	if err != nil {
+		return checkoutInfo{}, err
+	}
+
+	want := resolveSymlinks(root)
+
+	for _, wt := range checkouts {
+		if resolveSymlinks(wt.root) != want {
+			continue
+		}
+
+		if wt.detached || wt.branch == "" {
+			return checkoutInfo{}, fmt.Errorf("%w: %s has a detached HEAD", errNoBranch, root)
+		}
+
+		return checkoutInfo{root: root, source: main.root, name: wt.branch}, nil
+	}
+
+	return checkoutInfo{}, fmt.Errorf("%w: %s is not a registered Git worktree", errNotAWorktree, root)
+}
+
+// mainCheckout returns the main checkout from Git's worktree list.
+//
+// The first record is documented to be the main checkout. A bare repository
+// has no checkout to return, and a main checkout that has gone missing cannot
+// supply the source metadata, so both are refused rather than approximated.
+func mainCheckout(checkouts []gitWorktree) (gitWorktree, error) {
+	main := checkouts[0]
+
+	if main.bare {
+		return gitWorktree{}, fmt.Errorf("the repository is bare; a separate main checkout is required")
+	}
+
+	info, err := os.Stat(main.root)
+	if err != nil {
+		return gitWorktree{}, fmt.Errorf("the main checkout %s is unavailable: %w", main.root, err)
+	}
+
+	if !info.IsDir() {
+		return gitWorktree{}, fmt.Errorf("the main checkout %s is not a directory", main.root)
+	}
+
+	return main, nil
+}
+
+// gitWorktree is one record from "git worktree list --porcelain -z".
+type gitWorktree struct {
+	// root is the worktree's absolute path as Git reports it.
+	root string
+
+	// branch is the short local branch name, empty for a detached checkout.
+	branch string
+
+	// bare reports a bare repository, which has no checkout on disk.
+	bare bool
+
+	// detached reports a checkout with no branch checked out.
+	detached bool
+}
+
+// gitWorktrees lists the repository's worktrees, main checkout first.
+func gitWorktrees(ctx context.Context, dir string) ([]gitWorktree, error) {
+	out, err := gitOutput(ctx, dir, "worktree", "list", "--porcelain", "-z")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list worktrees: %w", err)
+	}
+
+	checkouts := parseWorktreeList(out)
+	if len(checkouts) == 0 {
+		return nil, fmt.Errorf("git reported no worktrees for %s", dir)
+	}
+
+	return checkouts, nil
+}
+
+// parseWorktreeList splits "git worktree list --porcelain -z" output into
+// records.
+//
+// -z terminates every attribute with NUL and each record with an additional
+// NUL, so an empty field marks a record boundary. Attributes other than the
+// ones xf uses (locked, prunable, HEAD) are ignored without losing the
+// boundary, and a path containing spaces or newlines therefore survives
+// intact.
+func parseWorktreeList(out string) []gitWorktree {
+	var (
+		checkouts []gitWorktree
+		current   *gitWorktree
+	)
+
+	for field := range strings.SplitSeq(out, "\x00") {
+		if field == "" {
+			if current != nil {
+				checkouts = append(checkouts, *current)
+				current = nil
+			}
+
+			continue
+		}
+
+		if current == nil {
+			current = &gitWorktree{}
+		}
+
+		switch {
+		case strings.HasPrefix(field, "worktree "):
+			current.root = strings.TrimPrefix(field, "worktree ")
+
+		case strings.HasPrefix(field, "branch "):
+			current.branch = strings.TrimPrefix(strings.TrimPrefix(field, "branch "), "refs/heads/")
+
+		case field == "bare":
+			current.bare = true
+
+		case field == "detached":
+			current.detached = true
+		}
+	}
+
+	// A final record without a trailing separator is still a record.
+	if current != nil {
+		checkouts = append(checkouts, *current)
+	}
+
+	return checkouts
 }
 
 // nameExists reports whether a local branch of the given name exists.
 func (gitBackend) nameExists(ctx context.Context, repoDir, branch string) (bool, error) {
 	ref := "refs/heads/" + branch
 
-	cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", ref)
-	cmd.Dir = repoDir
+	cmd := gitCommand(ctx, repoDir, "show-ref", "--verify", "--quiet", ref)
 
 	err := cmd.Run()
 	if err == nil {
@@ -105,8 +306,7 @@ func (gitBackend) create(ctx context.Context, source, branch, base, target strin
 		args = append(args, base)
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = source
+	cmd := gitCommand(ctx, source, args...)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -201,8 +401,7 @@ func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, f
 		args = append(args, "--force")
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = sourcePath
+	cmd := gitCommand(ctx, sourcePath, args...)
 
 	if out, err := cmd.CombinedOutput(); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
@@ -229,17 +428,30 @@ func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, f
 		deleteFlag = "-D"
 	}
 
-	del := exec.CommandContext(ctx, "git", "branch", deleteFlag, branch)
-	del.Dir = sourcePath
+	del := gitCommand(ctx, sourcePath, "branch", deleteFlag, branch)
 	_ = del.Run()
 
 	return nil
 }
 
-// gitOutput runs git in dir and returns its trimmed standard output.
-func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
+// gitCommand builds a git command that runs in dir and resolves the repository
+// from it.
+//
+// Repository-location variables are removed from the environment: xf names the
+// directory to work in, and a GIT_DIR or GIT_WORK_TREE inherited from a hook or
+// a nested Git invocation would override it, making the command act on a
+// different checkout.
+func gitCommand(ctx context.Context, dir string, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
+	cmd.Env = gitenv.Environment()
+
+	return cmd
+}
+
+// gitOutput runs git in dir and returns its trimmed standard output.
+func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
+	cmd := gitCommand(ctx, dir, args...)
 
 	out, err := cmd.Output()
 	if err != nil {

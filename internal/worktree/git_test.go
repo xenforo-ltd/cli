@@ -5,20 +5,22 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/xenforo-ltd/cli/internal/gitenv"
 )
 
 // runGit runs git in dir and fails the test if it does not succeed.
 //
 // Every git call in these tests goes through here so none of them inherit the
-// developer's own configuration. commit.gpgsign asking for a key that CI does
-// not have, or a custom init.defaultBranch, would otherwise decide whether the
-// suite passes.
+// developer's own configuration or repository location. commit.gpgsign asking
+// for a key that CI does not have, a custom init.defaultBranch, or a GIT_DIR
+// inherited from a hook would otherwise decide whether the suite passes.
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 
 	cmd := exec.CommandContext(t.Context(), "git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(gitenv.Environment(),
 		"GIT_CONFIG_GLOBAL="+os.DevNull,
 		"GIT_CONFIG_NOSYSTEM=1",
 	)
