@@ -21,7 +21,7 @@ Usage: install.sh [options]
 
 Options:
     -h, --help              Display this help message
-    -v, --version <version> Install a specific version (e.g., 1.0.0)
+    -v, --version <version> Install an exact version or latest stable major.minor patch
     -b, --binary <path>     Install from a local binary instead of downloading
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
         --skip-prereq       Skip prerequisite checks
@@ -29,6 +29,7 @@ Options:
 Examples:
     curl -fsSL https://raw.githubusercontent.com/$REPO/main/scripts/install.sh | bash
     curl -fsSL https://raw.githubusercontent.com/$REPO/main/scripts/install.sh | bash -s -- --version 1.0.0
+    curl -fsSL https://raw.githubusercontent.com/$REPO/main/scripts/install.sh | bash -s -- --version 0.1
     ./install.sh --binary /path/to/xf
 EOF
 }
@@ -304,6 +305,144 @@ get_latest_version() {
     echo "$version"
 }
 
+parse_release_page() {
+    awk -v series="$1" '
+        function advance(    first) {
+            sub(/^[[:space:]]+/, "", json)
+            if (json == "") {
+                token = ""
+                return
+            }
+
+            if (match(json, /^"([^"\\[:cntrl:]]|\\(["\\\/bfnrt]|u[[:xdigit:]]{4}))*"/) ||
+                match(json, /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?/) ||
+                match(json, /^(true|false|null)/)) {
+                token = substr(json, 1, RLENGTH)
+            } else {
+                first = substr(json, 1, 1)
+                if (index("{}[],:", first) == 0) exit 1
+                token = first
+            }
+            json = substr(json, length(token) + 1)
+        }
+
+        function parse_value(release,    key) {
+            if (token == "{") {
+                advance()
+                if (token != "}") {
+                    while (1) {
+                        if (substr(token, 1, 1) != "\"") exit 1
+                        key = token
+                        advance()
+                        if (token != ":") exit 1
+                        advance()
+                        if (release) {
+                            if (key == "\"tag_name\"") tag = token
+                            if (key == "\"draft\"") draft = token
+                            if (key == "\"prerelease\"") prerelease = token
+                        }
+                        parse_value(0)
+                        if (token == "}") break
+                        if (token != ",") exit 1
+                        advance()
+                    }
+                }
+                advance()
+            } else if (token == "[") {
+                advance()
+                if (token != "]") {
+                    while (1) {
+                        parse_value(0)
+                        if (token == "]") break
+                        if (token != ",") exit 1
+                        advance()
+                    }
+                }
+                advance()
+            } else {
+                if (token == "" || index("{}[],:", token) != 0) exit 1
+                advance()
+            }
+        }
+
+        { json = json $0 "\n" }
+        END {
+            advance()
+            if (token != "[") exit 1
+            advance()
+            if (token != "]") {
+                while (1) {
+                    if (token != "{") exit 1
+                    count++
+                    tag = draft = prerelease = ""
+                    parse_value(1)
+
+                    # Only release-level fields count, not nested assets or release notes.
+                    if (draft == "false" && prerelease == "false" && tag ~ /^"v?[0-9]+\.[0-9]+\.[0-9]+"$/) {
+                        version = substr(tag, 2, length(tag) - 2)
+                        sub(/^v/, "", version)
+                        if (index(version, series ".") == 1) {
+                            split(version, parts, ".")
+                            if (latest == "" || parts[3] + 0 > patch) {
+                                latest = version
+                                patch = parts[3] + 0
+                            }
+                        }
+                    }
+
+                    if (token == "]") break
+                    if (token != ",") exit 1
+                    advance()
+                }
+            }
+            advance()
+            if (token != "") exit 1
+            printf "%d %s\n", count, latest
+        }
+    '
+}
+
+get_latest_series_version() {
+    local series="$1"
+    local page=1 latest="" releases selection candidate count url
+    while true; do
+        url="https://api.github.com/repos/$REPO/releases?per_page=100&page=$page"
+        if command -v curl >/dev/null 2>&1; then
+            if ! releases=$(curl -fsSL "$url"); then
+                echo -e "${RED}Error: Failed to fetch releases from GitHub${NC}" >&2
+                return 1
+            fi
+        else
+            if ! releases=$(wget -qO- "$url"); then
+                echo -e "${RED}Error: Failed to fetch releases from GitHub${NC}" >&2
+                return 1
+            fi
+        fi
+
+        if ! selection=$(printf '%s' "$releases" | parse_release_page "$series"); then
+            echo -e "${RED}Error: Invalid release list from GitHub${NC}" >&2
+            return 1
+        fi
+        read -r count candidate <<< "$selection"
+
+        if [[ -n "$candidate" ]] && { [[ -z "$latest" ]] || version_gte "$candidate" "$latest"; }; then
+            latest="$candidate"
+        fi
+
+        if ((count < 100)); then
+            break
+        fi
+        page=$((page + 1))
+    done
+
+    if [[ -z "$latest" ]]; then
+        echo -e "${RED}Error: No stable release found for $series.x${NC}" >&2
+        return 1
+    fi
+
+    echo "$latest"
+}
+
 download_file() {
     local url="$1"
     local output="$2"
@@ -489,6 +628,11 @@ main() {
     local version
     if [[ -n "$requested_version" ]]; then
         version="${requested_version#v}"
+
+        if [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "Fetching latest stable version in $version.x..."
+            version=$(get_latest_series_version "$version")
+        fi
         
         local check_url="https://github.com/$REPO/releases/tag/v$version"
         local http_status

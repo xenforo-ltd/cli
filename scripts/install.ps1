@@ -8,7 +8,8 @@
     Checks for prerequisites (git, docker) and adds the install location to PATH.
 
 .PARAMETER Version
-    Specific version to install (e.g., 1.0.0). If not specified, installs latest.
+    Exact version (e.g., 1.0.0) or latest stable patch in a series (e.g., 0.1).
+    If not specified, installs latest.
 
 .PARAMETER Binary
     Path to a local binary to install instead of downloading.
@@ -24,6 +25,9 @@
 
 .EXAMPLE
     .\install.ps1 -Version 1.0.0
+
+.EXAMPLE
+    .\install.ps1 -Version 0.1
 
 .EXAMPLE
     .\install.ps1 -Binary C:\path\to\xf.exe
@@ -62,7 +66,7 @@ Usage: install.ps1 [options]
 
 Options:
     -Help               Display this help message
-    -Version <version>  Install a specific version (e.g., 1.0.0)
+    -Version <version>  Install an exact version or latest stable major.minor patch
     -Binary <path>      Install from a local binary instead of downloading
     -NoModifyPath       Don't modify the PATH environment variable
     -SkipPrereq         Skip prerequisite checks
@@ -70,6 +74,7 @@ Options:
 Examples:
     irm https://raw.githubusercontent.com/$Repo/main/scripts/install.ps1 | iex
     .\install.ps1 -Version 1.0.0
+    .\install.ps1 -Version 0.1
     .\install.ps1 -Binary C:\path\to\xf.exe
 "@
 }
@@ -216,6 +221,44 @@ function Get-LatestVersion {
         Write-Color "Error: Failed to fetch latest version from GitHub" "Red"
         exit 1
     }
+}
+
+function Get-LatestSeriesVersion {
+    param([string]$Series)
+
+    $page = 1
+    $latest = $null
+    $pattern = '^v?' + [regex]::Escape($Series) + '\.[0-9]+$'
+
+    do {
+        $url = "https://api.github.com/repos/$Repo/releases?per_page=100&page=$page"
+        try {
+            $releases = Invoke-RestMethod -Uri $url -UseBasicParsing
+        } catch {
+            Write-Color "Error: Failed to fetch releases from GitHub" "Red"
+            exit 1
+        }
+
+        foreach ($release in $releases) {
+            if ($release.draft -ne $false -or $release.prerelease -ne $false -or $release.tag_name -notmatch $pattern) {
+                continue
+            }
+
+            $candidate = $release.tag_name -replace '^v', ''
+            if (-not $latest -or [version]$candidate -gt [version]$latest) {
+                $latest = $candidate
+            }
+        }
+
+        $page++
+    } while ($releases.Count -eq 100)
+
+    if (-not $latest) {
+        Write-Color "Error: No stable release found for $Series.x" "Red"
+        exit 1
+    }
+
+    return $latest
 }
 
 function Test-ReleaseExists {
@@ -392,6 +435,10 @@ if ($Binary) {
 } else {
     if ($Version) {
         $Version = $Version -replace '^v', ''
+        if ($Version -match '^[0-9]+\.[0-9]+$') {
+            Write-Host "Fetching latest stable version in $Version.x..."
+            $Version = Get-LatestSeriesVersion -Series $Version
+        }
         if (-not (Test-ReleaseExists $Version)) {
             Write-Color "Error: Release v$Version not found" "Red"
             Write-Host "Available releases: https://github.com/$Repo/releases" 
