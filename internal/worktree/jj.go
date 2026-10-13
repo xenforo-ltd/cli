@@ -47,7 +47,7 @@ type jjBackend struct{}
 // sibling source instead, which keeps new workspaces beside the original and
 // survives the source workspace being renamed.
 func (jjBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
-	out, err := jjOutput(ctx, dir, "workspace", "root")
+	out, err := jjReadOutput(ctx, dir, "workspace", "root")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the current workspace: %w", err)
 	}
@@ -83,6 +83,165 @@ func (jjBackend) sourceCheckout(ctx context.Context, dir string) (string, error)
 	return abs, nil
 }
 
+// linkedCheckout discovers the registered Jujutsu workspace containing dir.
+//
+// Unlike sourceCheckout, which keeps Create's policy that an arbitrary
+// workspace is its own creation source, this reports the workspace that
+// manages the checkout. Jujutsu has no immutable main workspace -- names are
+// mutable -- so the manager is identified from the repository itself: the
+// workspace that hosts the repository store found through .jj/repo. That is
+// independent of the name "default" or of the directory matching xf's own
+// "<source>.worktrees" convention.
+//
+// The repository host is returned as its own source, so adoption refuses it.
+// For any other registered workspace the existing sibling-source convention
+// wins only when it names another registered workspace of the same repository;
+// otherwise the repository host is the source. This keeps xf-created
+// workspaces anchored to a non-primary source without guessing.
+func (jjBackend) linkedCheckout(ctx context.Context, dir string) (checkoutInfo, error) {
+	out, err := jjReadOutput(ctx, dir, "workspace", "root")
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to determine the workspace root: %w", err)
+	}
+
+	root, err := filepath.Abs(out)
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to resolve workspace root: %w", err)
+	}
+
+	workspaces, err := jjWorkspaces(ctx, dir)
+	if err != nil {
+		return checkoutInfo{}, fmt.Errorf("failed to list workspaces: %w", err)
+	}
+
+	want := resolveSymlinks(root)
+
+	name := ""
+	for _, ws := range workspaces {
+		if resolveSymlinks(ws.root) == want {
+			name = ws.name
+
+			break
+		}
+	}
+
+	if name == "" {
+		return checkoutInfo{}, fmt.Errorf("%w: no Jujutsu workspace is registered at %s", errNotAWorktree, root)
+	}
+
+	host, err := jjRepositoryHost(root, workspaces)
+	if err != nil {
+		return checkoutInfo{}, err
+	}
+
+	// The repository host is never a valid target: adopting or removing it
+	// would treat the original checkout as a linked one.
+	if resolveSymlinks(host) == want {
+		return checkoutInfo{root: root, source: root, name: name}, nil
+	}
+
+	source := host
+
+	parent := filepath.Dir(root)
+	if strings.HasSuffix(filepath.Base(parent), worktreesSuffix) {
+		candidate := resolveSymlinks(strings.TrimSuffix(parent, worktreesSuffix))
+
+		for _, ws := range workspaces {
+			if resolveSymlinks(ws.root) == candidate {
+				source = ws.root
+
+				break
+			}
+		}
+	}
+
+	return checkoutInfo{root: root, source: source, name: name}, nil
+}
+
+// jjRepositoryHost returns the registered root spelling of the workspace that
+// hosts the repository store shared by the workspaces.
+//
+// A repository-host workspace keeps .jj/repo as a directory. A linked
+// workspace keeps .jj/repo as a file pointing at that directory, absolutely or
+// relative to .jj. The host is the workspace whose .jj directory contains the
+// resolved repository directory. An unrecognised layout, or a host that is no
+// longer a registered workspace, is refused rather than guessed at.
+func jjRepositoryHost(root string, workspaces []jjWorkspace) (string, error) {
+	repoDir, err := jjRepoDir(root)
+	if err != nil {
+		return "", err
+	}
+
+	resolvedRepo, err := filepath.EvalSymlinks(repoDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve repository path %s: %w", repoDir, err)
+	}
+
+	if filepath.Base(resolvedRepo) != "repo" || filepath.Base(filepath.Dir(resolvedRepo)) != ".jj" {
+		return "", fmt.Errorf("%s does not use the standard .jj/repo layout", root)
+	}
+
+	host := resolveSymlinks(filepath.Dir(filepath.Dir(resolvedRepo)))
+
+	for _, ws := range workspaces {
+		if resolveSymlinks(ws.root) == host {
+			return ws.root, nil
+		}
+	}
+
+	return "", fmt.Errorf("%w: the repository host %s is not a registered workspace", errNotAWorktree, filepath.Dir(filepath.Dir(resolvedRepo)))
+}
+
+// jjRepoDir returns the repository store directory referenced by root's
+// .jj/repo entry.
+//
+// The entry is a directory in the workspace that hosts the repository and a
+// file elsewhere. A file's content is a path to the directory, absolute or
+// relative to .jj; its bytes are used verbatim, since a path may legitimately
+// contain leading or trailing spaces.
+func jjRepoDir(root string) (string, error) {
+	path := filepath.Join(root, ".jj", "repo")
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect %s: %w", path, err)
+	}
+
+	if info.IsDir() {
+		return path, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	repoDir := string(data)
+	if filepath.Separator != '/' {
+		repoDir = strings.ReplaceAll(repoDir, "/", string(filepath.Separator))
+	}
+
+	if !filepath.IsAbs(repoDir) {
+		repoDir = filepath.Join(root, ".jj", repoDir)
+	}
+
+	resolved, err := filepath.EvalSymlinks(repoDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve repository path %s: %w", repoDir, err)
+	}
+
+	info, err = os.Stat(resolved)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect repository path %s: %w", resolved, err)
+	}
+
+	if !info.IsDir() {
+		return "", fmt.Errorf("repository path %s is not a directory", resolved)
+	}
+
+	return resolved, nil
+}
+
 // nameExists reports whether a workspace of the given name is registered.
 func (jjBackend) nameExists(ctx context.Context, repoDir, name string) (bool, error) {
 	workspaces, err := jjWorkspaces(ctx, repoDir)
@@ -101,7 +260,7 @@ func (jjBackend) nameExists(ctx context.Context, repoDir, name string) (bool, er
 
 // currentName returns the name of the workspace checked out at checkoutPath.
 func (jjBackend) currentName(ctx context.Context, checkoutPath string) (string, error) {
-	root, err := jjOutput(ctx, checkoutPath, "workspace", "root")
+	root, err := jjReadOutput(ctx, checkoutPath, "workspace", "root")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine current workspace: %w", err)
 	}
@@ -274,8 +433,11 @@ type jjWorkspace struct {
 }
 
 // jjWorkspaces lists the repository's workspaces with their roots.
+//
+// Discovery is read-only: listing workspaces must not snapshot the working
+// copy or merge operation heads.
 func jjWorkspaces(ctx context.Context, dir string) ([]jjWorkspace, error) {
-	out, err := jjOutput(ctx, dir, "workspace", "list", "--template", jjWorkspaceTemplate)
+	out, err := jjReadOutput(ctx, dir, "workspace", "list", "--template", jjWorkspaceTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -346,4 +508,24 @@ func jjOutput(ctx context.Context, dir string, args ...string) (string, error) {
 	}
 
 	return strings.TrimSpace(string(out)), nil
+}
+
+// jjReadOnlyArgs are the global options that make a jj invocation inspect
+// metadata without touching the working copy.
+//
+// --ignore-working-copy stops jj from snapshotting the working copy or
+// updating it, and --at-operation=@ stops it from merging concurrent operation
+// heads. Together they make discovery exactly read-only: adopting or
+// validating a checkout must not create a snapshot, move a bookmark or rewrite
+// the operation log. --no-pager and --color=never keep the output parseable
+// regardless of the user's configuration.
+var jjReadOnlyArgs = []string{"--ignore-working-copy", "--at-operation=@", "--no-pager", "--color=never"}
+
+// jjReadOutput runs a read-only jj command in dir.
+//
+// Only metadata discovery goes through here. Diff and status inspection and
+// mutating operations use jjOutput directly, because they deliberately act on
+// or snapshot the working copy.
+func jjReadOutput(ctx context.Context, dir string, args ...string) (string, error) {
+	return jjOutput(ctx, dir, append(jjReadOnlyArgs, args...)...)
 }

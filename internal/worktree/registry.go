@@ -36,27 +36,41 @@ const ReservationTimeout = time.Hour
 // instance name.
 var ErrNameReserved = errors.New("worktree name is already reserved")
 
-// Entry records a worktree created by xf.
+// ErrRegistryAmbiguous indicates the registry holds conflicting records for one
+// checkout path: several equivalent paths disagree about the source they
+// belong to, so no source can be chosen without guessing.
+var ErrRegistryAmbiguous = errors.New("worktree registry has conflicting entries")
+
+// Entry records a worktree created or adopted by xf.
+//
+// A created record comes from "worktree create"; an adopted one from "worktree
+// adopt", which registers a checkout xf did not make. Both describe the same
+// fields, but an adopted entry claims nothing about how the checkout was
+// produced: Cloned is false and CreatedAt is the registration time. An entry
+// is metadata, never proof that a checkout is safe to remove.
 type Entry struct {
-	// SourcePath is the checkout the worktree was created from.
+	// SourcePath is the checkout that manages the worktree.
 	SourcePath string `json:"source_path"`
 
-	// SourceBranch is the branch the source was on at creation time.
+	// SourceBranch is the branch or workspace the source had at registration.
 	SourceBranch string `json:"source_branch"`
 
 	// WorktreePath is the resolved location of the worktree.
 	WorktreePath string `json:"worktree_path"`
 
-	// Branch is the branch checked out in the worktree.
+	// Branch is the branch or workspace name checked out in the worktree.
 	Branch string `json:"branch"`
 
-	// Instance is the Docker instance name for the worktree.
+	// Instance is the Docker instance name recorded for the worktree. For an
+	// adopted worktree this is metadata: adoption does not rewrite .env or
+	// retarget containers.
 	Instance string `json:"instance"`
 
-	// Cloned records whether the environment was cloned from the source.
+	// Cloned records whether the environment was cloned from the source. An
+	// adopted entry is false: adoption never infers or claims a clone.
 	Cloned bool `json:"cloned"`
 
-	// CreatedAt is when the worktree was created.
+	// CreatedAt is when the entry was created or last adopted.
 	CreatedAt time.Time `json:"created_at"`
 
 	// Pending marks a reservation for a worktree that is still being created.
@@ -64,12 +78,16 @@ type Entry struct {
 	Pending bool `json:"pending,omitempty"`
 }
 
-// Registry is the on-disk record of worktrees xf has created.
+// Registry is the on-disk record of worktrees xf has created or adopted.
 //
 // It exists so that worktrees can be listed across projects, which git alone
 // cannot do. It is deliberately *not* the source of truth: git and Docker are.
 // Worktrees can be removed behind xf's back, so callers must reconcile entries
 // against reality rather than trusting the file.
+//
+// It is also metadata rather than authority: a record, adopted or created, is
+// never proof that a checkout is safe to remove. Removal validates the actual
+// checkout and its repository before deleting anything.
 //
 // A missing registry reads as empty, and the operations that rewrite it --
 // Add and Remove -- recover from a damaged one by replacing it, so creating
@@ -115,23 +133,71 @@ func (r *Registry) All() ([]Entry, error) {
 }
 
 // ForSource returns the entries belonging to a single checkout.
+//
+// Paths are compared by their canonical identity, so an alias and the path it
+// resolves to name the same source.
 func (r *Registry) ForSource(sourcePath string) ([]Entry, error) {
 	entries, err := r.All()
 	if err != nil {
 		return nil, err
 	}
 
-	want := filepath.Clean(sourcePath)
+	want := resolveSymlinks(sourcePath)
 
 	var matched []Entry
 
 	for _, e := range entries {
-		if filepath.Clean(e.SourcePath) == want {
+		if resolveSymlinks(e.SourcePath) == want {
 			matched = append(matched, e)
 		}
 	}
 
 	return matched, nil
+}
+
+// ForWorktree returns the entry recorded for a checkout path, by the same
+// canonical identity used everywhere else.
+//
+// A missing registry, or one with no record for the path, reports no match and
+// no error. Equivalent legacy records are tolerated when they agree about the
+// source, but conflicting sources are an ErrRegistryAmbiguous rather than an
+// arbitrary choice between them.
+func (r *Registry) ForWorktree(path string) (Entry, bool, error) {
+	entries, err := r.All()
+	if err != nil {
+		return Entry{}, false, err
+	}
+
+	want := resolveSymlinks(path)
+
+	var (
+		match       Entry
+		found       bool
+		matchSource string
+	)
+
+	for _, e := range entries {
+		if resolveSymlinks(e.WorktreePath) != want {
+			continue
+		}
+
+		if !found {
+			match = e
+			matchSource = resolveSymlinks(e.SourcePath)
+			found = true
+
+			continue
+		}
+
+		if resolveSymlinks(e.SourcePath) != matchSource {
+			return Entry{}, false, fmt.Errorf(
+				"%w: %s is recorded with more than one source",
+				ErrRegistryAmbiguous, path,
+			)
+		}
+	}
+
+	return match, found, nil
 }
 
 // Add records a worktree, replacing any existing entry for the same path.
@@ -154,23 +220,34 @@ func (r *Registry) Add(entry Entry) error {
 		return err
 	}
 
-	want := filepath.Clean(entry.WorktreePath)
+	want := resolveSymlinks(entry.WorktreePath)
+
+	// Equivalent records are collapsed into one updated entry, so a path
+	// reached through both a symlink and its target, or left twice by an older
+	// xf, ends up recorded once. The updated entry takes the first matching
+	// slot to keep unrelated entries in their existing order.
+	updated := make([]Entry, 0, len(entries)+1)
+
 	replaced := false
 
-	for i, e := range entries {
-		if filepath.Clean(e.WorktreePath) == want {
-			entries[i] = entry
-			replaced = true
+	for _, e := range entries {
+		if resolveSymlinks(e.WorktreePath) == want {
+			if !replaced {
+				updated = append(updated, entry)
+				replaced = true
+			}
 
-			break
+			continue
 		}
+
+		updated = append(updated, e)
 	}
 
 	if !replaced {
-		entries = append(entries, entry)
+		updated = append(updated, entry)
 	}
 
-	return r.save(entries)
+	return r.save(updated)
 }
 
 // Reserve records entry before its worktree exists, unless another entry
@@ -283,11 +360,11 @@ func (r *Registry) Remove(worktreePath string) error {
 		return err
 	}
 
-	want := filepath.Clean(worktreePath)
+	want := resolveSymlinks(worktreePath)
 	kept := make([]Entry, 0, len(entries))
 
 	for _, e := range entries {
-		if filepath.Clean(e.WorktreePath) != want {
+		if resolveSymlinks(e.WorktreePath) != want {
 			kept = append(kept, e)
 		}
 	}

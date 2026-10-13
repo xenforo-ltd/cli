@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,7 +38,12 @@ always predictable.
 
 'xf worktree create <branch>' creates the worktree and then initialises the
 environment: Docker configuration, containers, Composer dependencies and the
-XenForo installation.`,
+XenForo installation.
+
+'xf worktree adopt <path>' registers an existing linked worktree or workspace
+that xf did not create, so list, list-all and prune can see it and path and
+remove can address it wherever it lives. Adoption records metadata only: it
+never changes the checkout or its environment.`,
 	Example: `  # Create a worktree and set up its environment
   xf worktree create dev/24x/feature
 
@@ -49,6 +55,15 @@ XenForo installation.`,
 
   # Print a machine-readable result (requires --no-setup)
   xf worktree create dev/24x/feature --no-setup --json
+
+  # Register an existing worktree or workspace at any location
+  xf worktree adopt ../shared/feature
+
+  # Register it and record a Docker instance name
+  xf worktree adopt ../shared/feature --instance my-feature
+
+  # Print the registration as JSON
+  xf worktree adopt ../shared/feature --json
 
   # Print the path of an existing worktree
   cd "$(xf worktree path dev/24x/feature)"`,
@@ -90,6 +105,37 @@ written to stdout.`,
 	RunE: runWorktreeCreate,
 }
 
+var worktreeAdoptCmd = &cobra.Command{
+	Use:   "adopt <path>",
+	Short: "Register an existing worktree or workspace",
+	Long: `Register an existing Git worktree or Jujutsu workspace that xf did not create.
+
+Adoption is metadata-only. It reads the checkout's root, source and branch or
+workspace name, then records them so list, list-all, path and remove can find a
+checkout that lives outside the usual "<source>.worktrees/<branch>" location.
+It does not change any file in the checkout, touch version-control metadata,
+create or move branches, bookmarks or workspaces, configure Docker, or set up
+an environment.
+
+<path> may be the checkout's root or any directory inside it, absolute or
+relative to your current directory. The checkout must be a XenForo checkout
+with a regular src/XF.php. The source or main checkout cannot be adopted, and a
+Git checkout in a detached HEAD state is refused. A Jujutsu workspace named
+HEAD is not detached and is accepted.
+
+The Docker instance name comes from --instance when given, otherwise from a
+non-empty XF_INSTANCE in the checkout's .env, otherwise it is derived from the
+branch or workspace name, without a collision suffix. It is recorded only:
+adoption does not write .env or move containers, so a later remove still reads
+the checkout's own configuration.
+
+Re-adopting a path refreshes its record, including the registration time and
+instance, and clears the "cloned" flag; it never infers how the checkout was
+originally made.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runWorktreeAdopt,
+}
+
 var worktreeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List worktrees for this project",
@@ -112,7 +158,12 @@ var worktreePathCmd = &cobra.Command{
 Useful for shell and agent use:
 
   cd "$(xf worktree path dev/24x/feature)"
-  cd "$(xf worktree path feature)"`,
+  cd "$(xf worktree path feature)"
+
+For an adopted checkout at a non-conventional location, the recorded path is
+printed instead when the conventional one does not exist. A registered path
+that is missing still prints, so it remains visible as Missing in list until
+prune drops the record.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runWorktreePath,
 }
@@ -124,7 +175,13 @@ var worktreeRemoveCmd = &cobra.Command{
 
 For a Git repository the worktree's branch is deleted too. Refuses when the
 checkout contains uncommitted changes or commits that exist on no remote, listing
-what would be lost. Use --force to remove it anyway.`,
+what would be lost. Use --force to remove it anyway.
+
+This works for an adopted checkout at a non-conventional location. Removal is
+destructive for adopted checkouts just as for created ones, and it verifies that
+the target really is a registered, non-source checkout of this repository before
+deleting anything -- even with --force. An adopted record's instance name does
+not retarget containers: removal reads the checkout's own Docker configuration.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runWorktreeRemove,
 }
@@ -158,6 +215,7 @@ var (
 	flagWorktreeFresh          bool
 )
 
+// init registers the worktree commands and their flags.
 func init() {
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeBase, "base", "", "revision to base the new checkout on, in the source VCS's syntax (defaults to current HEAD)")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeNoSetup, "no-setup", false, "create the worktree only, without setting up the environment")
@@ -175,10 +233,13 @@ func init() {
 
 	worktreeListCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
 	worktreeListAllCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
+	worktreeAdoptCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON")
+	worktreeAdoptCmd.Flags().StringVar(&flagWorktreeInstance, "instance", "", "Docker instance name to record for the checkout")
 	worktreeRemoveCmd.Flags().BoolVar(&flagWorktreeForce, "force", false, "remove even if there are uncommitted changes or unpushed commits")
 	worktreeRemoveCmd.Flags().BoolVar(&flagWorktreeKeepContainers, "keep-containers", false, "leave the Docker containers and volumes in place")
 
 	worktreeCmd.AddCommand(worktreeCreateCmd)
+	worktreeCmd.AddCommand(worktreeAdoptCmd)
 	worktreeCmd.AddCommand(worktreeListCmd)
 	worktreeCmd.AddCommand(worktreeListAllCmd)
 	worktreeCmd.AddCommand(worktreePathCmd)
@@ -188,7 +249,8 @@ func init() {
 	rootCmd.AddCommand(worktreeCmd)
 }
 
-// worktreeOutput is the machine-readable form of a created worktree.
+// worktreeOutput is the machine-readable form of a created or adopted
+// worktree.
 type worktreeOutput struct {
 	Path         string    `json:"path"`
 	Branch       string    `json:"branch"`
@@ -199,6 +261,8 @@ type worktreeOutput struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// runWorktreeCreate creates a worktree and, unless --no-setup is set, sets up
+// its environment.
 func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 	// JSON must be the only thing on stdout, but setup writes progress there.
 	// Requiring --no-setup keeps the stream machine-readable. This runs before
@@ -220,7 +284,12 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	source, err := worktree.SourceCheckout(cmd.Context(), cwd)
+	// Use the same source policy as list, path and remove. For an adopted
+	// Jujutsu workspace at an arbitrary location that is its repository host,
+	// so a child created here is recorded under the source the management
+	// commands later consult. Resolving the conventional source instead would
+	// place the child beside the adopted workspace and leave it unfindable.
+	source, err := worktreeManagementSource(cmd.Context(), cwd)
 	if err != nil {
 		return err
 	}
@@ -394,18 +463,92 @@ func setUpWorktree(ctx context.Context, result *worktree.Result, opts *InitOptio
 	return nil
 }
 
+// runWorktreeAdopt registers an existing checkout in the registry, recording
+// the instance name resolved from --instance, the local .env or the branch.
+func runWorktreeAdopt(cmd *cobra.Command, args []string) error {
+	// A blank path is a usage mistake. Adopt rejects it too, but catching it at
+	// the boundary means usage is printed for a mistyped invocation.
+	if strings.TrimSpace(args[0]) == "" {
+		return newUsageError(fmt.Errorf("a path is required, for example %q", "xf worktree adopt ../feature"))
+	}
+
+	result, err := worktree.Adopt(cmd.Context(), worktree.AdoptOptions{
+		Path:     args[0],
+		Instance: flagWorktreeInstance,
+	})
+	if err != nil {
+		return err
+	}
+
+	instance := result.Instance
+	if flagWorktreeInstance == "" {
+		// A local XF_INSTANCE names the environment that already exists, so it
+		// beats the derived name. A genuine read failure stops registration
+		// rather than recording a guessed instance.
+		local, err := dockercompose.ReadInstanceName(result.Path)
+		if err != nil {
+			return err
+		}
+
+		if local != "" {
+			instance = local
+		}
+	}
+
+	// No other useful operation has happened, so a registry failure is a hard
+	// error rather than a warning printed after a successful action.
+	if err := cmd.Context().Err(); err != nil {
+		return err
+	}
+
+	entry := worktree.Entry{
+		SourcePath:   result.SourcePath,
+		SourceBranch: result.SourceBranch,
+		WorktreePath: result.Path,
+		Branch:       result.Branch,
+		Instance:     instance,
+		CreatedAt:    result.CreatedAt,
+	}
+
+	if err := recordWorktree(entry); err != nil {
+		return fmt.Errorf("failed to register the worktree: %w", err)
+	}
+
+	if flagWorktreeJSON {
+		return printJSON(worktreeOutput{
+			Path:         result.Path,
+			Branch:       result.Branch,
+			SourcePath:   result.SourcePath,
+			SourceBranch: result.SourceBranch,
+			Instance:     instance,
+			Cloned:       false,
+			CreatedAt:    result.CreatedAt,
+		})
+	}
+
+	ui.SuccessBox("Registered worktree", []ui.KVPair{
+		ui.KV("Path", ui.Path.Render(ui.ShortHome(result.Path))),
+		ui.KV("Branch", result.Branch),
+		ui.KV("Source", ui.Path.Render(ui.ShortHome(result.SourcePath))),
+		ui.KV("Instance", instance),
+	})
+
+	return nil
+}
+
+// runWorktreePath prints the path of an existing worktree.
 func runWorktreePath(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	source, err := worktree.SourceCheckout(cmd.Context(), cwd)
+	source, err := worktreeManagementSource(cmd.Context(), cwd)
 	if err != nil {
 		return err
 	}
 
-	target, err := worktree.Locate(cmd.Context(), source, args[0])
+	target, err := worktreeTarget(cmd.Context(), source, args[0])
 	if err != nil {
 		return err
 	}
@@ -416,13 +559,14 @@ func runWorktreePath(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// runWorktreeList prints the worktrees recorded for the current source.
 func runWorktreeList(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	source, err := worktree.SourceCheckout(cmd.Context(), cwd)
+	source, err := worktreeManagementSource(cmd.Context(), cwd)
 	if err != nil {
 		return err
 	}
@@ -454,19 +598,40 @@ func runWorktreeListAll(cmd *cobra.Command, args []string) error {
 	return printWorktrees(entries)
 }
 
+// runWorktreeRemove validates a worktree and removes it with its environment.
 func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	source, err := worktree.SourceCheckout(cmd.Context(), cwd)
+	source, err := worktreeManagementSource(cmd.Context(), cwd)
 	if err != nil {
 		return err
 	}
 
-	target, err := worktree.Locate(cmd.Context(), source, args[0])
+	target, err := worktreeTarget(cmd.Context(), source, args[0])
 	if err != nil {
+		return err
+	}
+
+	// A registry-selected target may live anywhere, so confirm it really is a
+	// registered, non-source checkout of this repository before anything is
+	// destroyed. This holds even under --force: force widens what the version
+	// control system discards, never whose checkout is deleted.
+	//
+	// The argument may name the worktree's directory rather than its branch,
+	// and Locate has already matched that name to the conventional directory.
+	// Compare it with the owner only when it is not that name, so removing a
+	// numbered directory such as "feature-2" is not refused for the branch it
+	// holds. A registry-selected adopted checkout keeps the strict comparison.
+	expected := args[0]
+	if filepath.Base(target) == args[0] &&
+		comparablePath(filepath.Dir(target)) == comparablePath(worktree.WorktreesDir(source)) {
+		expected = ""
+	}
+
+	if err := worktree.ValidateRemovalTarget(cmd.Context(), source, target, expected); err != nil {
 		return err
 	}
 
@@ -617,10 +782,13 @@ func printWorktrees(entries []worktree.Entry) error {
 
 // registryReadError explains how to recover from an unreadable registry.
 //
-// The registry is only a record of what xf created, so deleting it costs
-// nothing but the cross-project listing: the worktrees themselves are still
-// on disk and still known to the version control system. Saying so turns a
-// dead end into one command.
+// The registry is only a record, so deleting it cannot damage a checkout: the
+// worktrees themselves are still on disk and still known to the version control
+// system. What is lost is the cross-project listing and, for adopted
+// checkouts, the stored path and source that path and remove consult outside
+// the conventional location. Existing linked checkouts can simply be adopted
+// again once a fresh registry exists. Saying so turns a dead end into one
+// command.
 func registryReadError(err error) error {
 	if !errors.Is(err, worktree.ErrRegistryCorrupt) {
 		return err
@@ -631,7 +799,8 @@ func registryReadError(err error) error {
 		return err
 	}
 
-	return withHint(err, "The worktrees themselves are unaffected: delete "+ui.Path.Render(ui.ShortHome(path))+" to start a new record")
+	return withHint(err, "Checkout files and version-control registrations are unaffected: delete "+
+		ui.Path.Render(ui.ShortHome(path))+" to start a new record, then adopt any linked checkouts again")
 }
 
 // warnRegistryUpdateFailed reports a registry write failure without printing
@@ -641,6 +810,7 @@ func warnRegistryUpdateFailed() {
 	ui.PrintWarning("Could not update the worktree registry")
 }
 
+// recordWorktree adds an entry to the registry.
 func recordWorktree(entry worktree.Entry) error {
 	registry, err := worktree.NewRegistry()
 	if err != nil {
@@ -650,6 +820,158 @@ func recordWorktree(entry worktree.Entry) error {
 	return registry.Add(entry)
 }
 
+// worktreeManagementSource resolves the source checkout that owns the worktree
+// being managed or created.
+//
+// It starts from conventional detection, then consults the registry when the
+// current directory is inside the returned source. That covers an adopted
+// Jujutsu workspace at an arbitrary location, whose conventional source would
+// otherwise be itself. A conventional child checkout sits beside its source
+// rather than inside it, so its sibling source is never redirected merely
+// because that source was also adopted.
+//
+// Creation resolves its source through here too, so a child created from an
+// adopted workspace is recorded under the same source that list, path and
+// remove later consult.
+//
+// A registry that cannot be opened or read leaves the conventional source in
+// place; list reports that failure itself. Conflicting or stale source records
+// are surfaced rather than silently ignored. A recorded source is accepted
+// only when read-only discovery in the current checkout confirms it.
+func worktreeManagementSource(ctx context.Context, cwd string) (string, error) {
+	source, err := worktree.SourceCheckout(ctx, cwd)
+	if err != nil {
+		return "", err
+	}
+
+	if !pathWithin(source, cwd) {
+		return source, nil
+	}
+
+	registry, err := worktree.NewRegistry()
+	if err != nil {
+		return source, nil
+	}
+
+	entry, ok, err := registry.ForWorktree(source)
+	if err != nil {
+		if errors.Is(err, worktree.ErrRegistryAmbiguous) {
+			return "", err
+		}
+
+		return source, nil
+	}
+
+	if ok {
+		if err := worktree.ValidateAdoptedSource(ctx, source, entry.SourcePath); err != nil {
+			return "", fmt.Errorf("invalid recorded worktree source: %w", err)
+		}
+
+		return entry.SourcePath, nil
+	}
+
+	return source, nil
+}
+
+// worktreeTarget resolves the checkout that path or remove should act on.
+//
+// The conventional location wins: Locate returns the checkout registered under
+// "<source>.worktrees/<branch>". When there is none, a registry record for the
+// source supplies an adopted checkout's stored location, which is what makes a
+// checkout outside the conventional location addressable. A conventional
+// checkout is never overridden by a record, so removal's own branch check can
+// still refuse a conventional-name collision rather than silently choosing
+// some other checkout.
+//
+// Locate's "not found" is the only failure that falls through to the registry:
+// a permission or I/O failure is returned rather than mistaken for absence.
+func worktreeTarget(ctx context.Context, source, branch string) (string, error) {
+	derived, err := worktree.Locate(ctx, source, branch)
+	if err == nil {
+		return derived, nil
+	}
+
+	if !errors.Is(err, worktree.ErrWorktreeNotFound) {
+		return "", err
+	}
+
+	notFound := err
+
+	registry, err := worktree.NewRegistry()
+	if err != nil {
+		return "", notFound
+	}
+
+	entries, err := registry.ForSource(source)
+	if err != nil {
+		return "", notFound
+	}
+
+	seen := make(map[string]bool)
+
+	var matches []string
+
+	for _, entry := range entries {
+		if entry.Branch != branch {
+			continue
+		}
+
+		id := comparablePath(entry.WorktreePath)
+		if seen[id] {
+			continue
+		}
+
+		seen[id] = true
+
+		matches = append(matches, entry.WorktreePath)
+	}
+
+	switch len(matches) {
+	case 0:
+		return "", notFound
+	case 1:
+		return matches[0], nil
+	}
+
+	// Git permits two worktrees on the same branch, so more than one record is
+	// possible. Choosing one arbitrarily could act on the wrong checkout.
+	sort.Strings(matches)
+
+	return "", fmt.Errorf(
+		"several registered worktrees use the branch or workspace %q:\n  %s\nRun 'xf worktree prune' to drop stale entries, or correct the registry if an entry is wrong",
+		branch, strings.Join(matches, "\n  "),
+	)
+}
+
+// pathWithin reports whether target is base or lies inside it.
+//
+// Components are compared rather than a string prefix, so "/a/bc" is not
+// treated as inside "/a/b".
+func pathWithin(base, target string) bool {
+	rel, err := filepath.Rel(comparablePath(base), comparablePath(target))
+	if err != nil {
+		return false
+	}
+
+	if rel == "." {
+		return true
+	}
+
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// comparablePath resolves a path for identity comparison, falling back to the
+// cleaned path when it cannot be resolved. It mirrors the worktree package's
+// own identity rule so registry lookups agree with it.
+func comparablePath(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return filepath.Clean(resolved)
+	}
+
+	return filepath.Clean(path)
+}
+
+// printJSON writes v to stdout as indented JSON.
 func printJSON(v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

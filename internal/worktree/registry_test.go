@@ -443,3 +443,116 @@ func TestRegistryAddClearsPending(t *testing.T) {
 		t.Errorf("entries = %+v, want one entry that is no longer pending", entries)
 	}
 }
+
+// TestForWorktreeReturnsTheRecordedEntry covers the lookup that makes an
+// adopted checkout addressable at a non-conventional location.
+func TestForWorktreeReturnsTheRecordedEntry(t *testing.T) {
+	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
+
+	entry := Entry{
+		SourcePath:   "/Users/x/Sites/main",
+		SourceBranch: "main",
+		WorktreePath: "/Users/x/Sites/elsewhere",
+		Branch:       "feature",
+		Instance:     "feature",
+	}
+
+	if err := reg.Add(entry); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	got, ok, err := reg.ForWorktree(entry.WorktreePath)
+	if err != nil || !ok {
+		t.Fatalf("ForWorktree = %+v, %v, %v; want a match", got, ok, err)
+	}
+
+	if got.Branch != "feature" || got.SourcePath != entry.SourcePath {
+		t.Errorf("ForWorktree = %+v, want the recorded entry", got)
+	}
+}
+
+// TestForWorktreeIsNotAnErrorWhenAbsent covers the registry being a discovery
+// aid: no test for a path is simply no match.
+func TestForWorktreeIsNotAnErrorWhenAbsent(t *testing.T) {
+	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
+
+	if _, ok, err := reg.ForWorktree("/Users/x/Sites/absent"); err != nil || ok {
+		t.Fatalf("ForWorktree = ok %v, err %v; want no match and no error", ok, err)
+	}
+}
+
+// TestForWorktreeMatchesThroughASymlink covers path identity: an alias and the
+// directory it resolves to name the same record.
+func TestForWorktreeMatchesThroughASymlink(t *testing.T) {
+	dir := t.TempDir()
+
+	real := filepath.Join(dir, "real")
+	if err := os.MkdirAll(real, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	alias := filepath.Join(dir, "alias")
+	if err := os.Symlink(real, alias); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	reg := &Registry{path: filepath.Join(dir, "worktrees.json")}
+
+	if err := reg.Add(Entry{SourcePath: "/s/main", WorktreePath: real, Branch: "feature"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	got, ok, err := reg.ForWorktree(alias)
+	if err != nil || !ok {
+		t.Fatalf("ForWorktree(alias) = %+v, %v, %v; want a match", got, ok, err)
+	}
+
+	if got.WorktreePath != real {
+		t.Errorf("WorktreePath = %q, want %q", got.WorktreePath, real)
+	}
+}
+
+// TestForWorktreeReportsConflictingSources covers the ambiguity that a
+// hand-edited or merged registry can hold. Add collapses equivalent paths, so
+// the pair is written directly.
+func TestForWorktreeReportsConflictingSources(t *testing.T) {
+	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
+
+	checkout := filepath.Join(t.TempDir(), "checkout")
+
+	if err := reg.save([]Entry{
+		{SourcePath: "/Users/x/Sites/main", WorktreePath: checkout, Branch: "feature"},
+		{SourcePath: "/Users/x/Sites/other", WorktreePath: checkout, Branch: "feature"},
+	}); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	if _, _, err := reg.ForWorktree(checkout); !errors.Is(err, ErrRegistryAmbiguous) {
+		t.Fatalf("ForWorktree = %v, want ErrRegistryAmbiguous", err)
+	}
+}
+
+// TestForWorktreeToleratesAgreeingDuplicates covers an older xf leaving the
+// same record twice: equivalent records that agree about the source are one
+// record, not an ambiguity.
+func TestForWorktreeToleratesAgreeingDuplicates(t *testing.T) {
+	reg := &Registry{path: filepath.Join(t.TempDir(), "worktrees.json")}
+
+	checkout := filepath.Join(t.TempDir(), "checkout")
+
+	if err := reg.save([]Entry{
+		{SourcePath: "/Users/x/Sites/main", SourceBranch: "main", WorktreePath: checkout, Branch: "feature"},
+		{SourcePath: "/Users/x/Sites/main", SourceBranch: "other", WorktreePath: checkout, Branch: "feature"},
+	}); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	got, ok, err := reg.ForWorktree(checkout)
+	if err != nil || !ok {
+		t.Fatalf("ForWorktree = %+v, %v, %v; want a single match", got, ok, err)
+	}
+
+	if got.SourceBranch != "main" {
+		t.Errorf("SourceBranch = %q, want the first agreeing record", got.SourceBranch)
+	}
+}

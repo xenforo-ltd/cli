@@ -88,6 +88,21 @@ func markerExists(path string) (bool, error) {
 	return false, fmt.Errorf("failed to inspect %s: %w", path, err)
 }
 
+// checkoutInfo describes an existing registered checkout discovered read-only:
+// where it lives, the checkout that manages it, and the branch or workspace it
+// has checked out.
+type checkoutInfo struct {
+	// root is the checkout's own root directory.
+	root string
+
+	// source is the checkout that manages it. It equals root for a source or
+	// main checkout.
+	source string
+
+	// name is the Git branch or Jujutsu workspace checked out at root.
+	name string
+}
+
 // backend is the version control system seam behind worktree orchestration.
 //
 // Every method is a single VCS operation that creating, inspecting or removing
@@ -100,6 +115,12 @@ type backend interface {
 	// a linked checkout it returns the original checkout, so new checkouts are
 	// siblings of the source rather than nested inside the current one.
 	sourceCheckout(ctx context.Context, dir string) (string, error)
+
+	// linkedCheckout discovers the registered checkout containing dir without
+	// changing any state: its root, the checkout that manages it, and its
+	// branch or workspace name. It is the read-only counterpart to
+	// sourceCheckout used when adopting or validating an existing checkout.
+	linkedCheckout(ctx context.Context, dir string) (checkoutInfo, error)
 
 	// nameExists reports whether a branch (Git) or workspace (Jujutsu) named
 	// name already exists in the repository containing repoDir.
