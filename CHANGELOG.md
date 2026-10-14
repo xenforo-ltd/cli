@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-10-14
+
+### Features
+
+- *(build)* Build add-on releases
+- *(build)* Watch JavaScript inputs
+- *(cli)* Expose add-on build commands
+- *(devoutput)* Export release XML
+- *(install)* Support release-series selection
+
+### Bug fixes
+
+- *(docker)* Set the shared PHP working directory
+- *(docker)* Preserve command diagnostics
+
+### Refactor
+
+- *(composer)* Share environment selection
+
+### Miscellaneous
+
+- *(go)* Modernize test idioms
+
 ## [0.2.2] - 2026-10-12
 
 ### Features
@@ -437,6 +460,7 @@ All notable changes to this project will be documented in this file.
 - Include zip and unzip tools in image
 - Introduce XF CLI tool
 
+[0.3.0]: https://github.com/xenforo-ltd/cli/compare/v0.2.2..v0.3.0
 [0.2.2]: https://github.com/xenforo-ltd/cli/compare/v0.2.1..v0.2.2
 [0.2.1]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.7..v0.2.1
 [0.1.7-alpha.7]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.6..v0.1.7-alpha.7
