@@ -193,6 +193,8 @@ RUN set -eux; \
     echo "upload_max_filesize=128M" >> "${PHP_INI_DIR}/conf.d/xenforo.ini"; \
     echo "opcache.revalidate_freq=0" >> "${PHP_INI_DIR}/conf.d/docker-php-ext-opcache.ini";
 
+WORKDIR /var/www/html
+
 VOLUME /var/www/html
 
 FROM composer:${PHP_VERSION_COMPOSER} AS composer
