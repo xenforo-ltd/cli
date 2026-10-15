@@ -148,14 +148,13 @@ func loadJavaScriptWatch(ctx context.Context, installation *os.Root, addOnID str
 // affect the configured tasks. It retains matching paths when selection fails
 // so the watcher can detect recovery.
 func javascriptWatchPaths(ctx context.Context, root *os.Root, cfg *config) ([]string, []string, error) {
-	files, err := collectFiles(ctx, root)
-	if err != nil {
-		return nil, nil, fmt.Errorf("collecting JavaScript watch files: %w", err)
-	}
-
 	patterns := slices.Clone(cfg.minify)
 	for _, entry := range cfg.rollups {
 		patterns = append(patterns, entry.inputs...)
+	}
+	files, err := cfg.collectJavaScriptFiles(ctx, root, patterns)
+	if err != nil {
+		return nil, nil, fmt.Errorf("collecting JavaScript watch files: %w", err)
 	}
 
 	watchFiles := make(map[string]bool)

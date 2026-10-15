@@ -4,12 +4,14 @@ import (
 	"archive/zip"
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"maps"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -29,7 +31,12 @@ type zipTask struct {
 
 // run writes upload files and the hash manifest beneath "upload/", with
 // _no_upload contents at the archive root.
-func (t *zipTask) run(ctx context.Context, root *os.Root, collected []file) error {
+func (t *zipTask) run(ctx context.Context, root *os.Root) error {
+	collected, err := t.selection.collectNoUpload(ctx, root)
+	if err != nil {
+		return err
+	}
+
 	files := make(map[string]string, len(t.upload)+1)
 	for rel, source := range t.upload {
 		files[path.Join("upload", rel)] = source
@@ -38,10 +45,7 @@ func (t *zipTask) run(ctx context.Context, root *os.Root, collected []file) erro
 	manifest := path.Join("upload", t.selection.prefix, t.selection.addOnDir, "hashes.json")
 	files[manifest] = t.hashesPath
 	for _, f := range collected {
-		rel, ok := within(f.path, path.Join(t.selection.addOnDir, "_no_upload"))
-		if !ok || (isHiddenPath(rel) && !t.selection.matchesWhitelist(f.path, f.isDir() || f.err != nil)) {
-			continue
-		}
+		rel, _ := within(f.path, path.Join(t.selection.addOnDir, "_no_upload"))
 
 		if f.err != nil {
 			return fmt.Errorf("reading _no_upload: %w", f.err)
@@ -75,7 +79,7 @@ func (t *zipTask) run(ctx context.Context, root *os.Root, collected []file) erro
 
 	var count int
 	var total int64
-	err := atomicWrite(ctx, root, t.zipPath, func(out *os.File) error {
+	err = atomicWrite(ctx, root, t.zipPath, func(out *os.File) error {
 		output := bufio.NewWriterSize(out, ioBufferSize)
 		zw := zip.NewWriter(output)
 		sources := directoryOpener{root: root}
@@ -106,6 +110,21 @@ func (t *zipTask) run(ctx context.Context, root *os.Root, collected []file) erro
 
 	t.fileCount, t.totalSize = count, total
 	return nil
+}
+
+// collectNoUpload discovers implicit archive extras independently of upload
+// filters. Hidden paths still require an explicit whitelist pattern.
+func (s uploadSelection) collectNoUpload(ctx context.Context, root *os.Root) ([]file, error) {
+	base := path.Join(s.addOnDir, "_no_upload")
+	if _, err := root.Lstat(filepath.FromSlash(base)); errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("reading _no_upload: %w", err)
+	}
+	return collectFilesWhere(ctx, root, base, func(name string, isDir bool) bool {
+		rel, _ := within(name, base)
+		return !isHiddenPath(rel) || s.matchesWhitelist(name, isDir)
+	})
 }
 
 // addFileToArchive adds source as name with normalized permissions and the given

@@ -165,29 +165,15 @@ func writerOrDiscard(writer io.Writer) io.Writer {
 	return writer
 }
 
-// task is a build stage that operates on a snapshot of the build root.
+// task is a build stage that discovers its own inputs within the build root.
 type task interface {
-	run(context.Context, *os.Root, []file) error
+	run(context.Context, *os.Root) error
 }
 
 // runTasks runs tasks in order, stopping at the first error.
-// File-consuming tasks get fresh snapshots so they see earlier outputs.
-// Tasks that read their own inputs do not need snapshots.
 func runTasks(ctx context.Context, root *os.Root, tasks []task) error {
 	for _, task := range tasks {
-		var files []file
-		switch task.(type) {
-		case composerTask, exportDataTask, execTask:
-			// These tasks inspect or generate files themselves.
-		default:
-			var err error
-			files, err = collectFiles(ctx, root)
-			if err != nil {
-				return fmt.Errorf("collecting build files: %w", err)
-			}
-		}
-
-		if err := task.run(ctx, root, files); err != nil {
+		if err := task.run(ctx, root); err != nil {
 			return err
 		}
 	}

@@ -16,7 +16,11 @@ type minifyTask struct {
 }
 
 // run expands patterns and minifies each installation destination at most once.
-func (t minifyTask) run(ctx context.Context, root *os.Root, files []file) error {
+func (t minifyTask) run(ctx context.Context, root *os.Root) error {
+	files, err := t.collectJavaScriptFiles(ctx, root, t.patterns)
+	if err != nil {
+		return fmt.Errorf("collecting minify inputs: %w", err)
+	}
 	seen := make(map[string]bool)
 	for _, pattern := range t.patterns {
 		matches, err := t.minifyFiles(ctx, files, pattern, t.outputs)

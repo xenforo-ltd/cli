@@ -15,7 +15,7 @@ type execTask struct {
 }
 
 // run executes commands in declaration order and stops at the first error.
-func (t execTask) run(ctx context.Context, root *os.Root, _ []file) error {
+func (t execTask) run(ctx context.Context, root *os.Root) error {
 	for _, command := range t.commands {
 		if err := runCommand(ctx, root, t.streams, t.dir, command[0], command[1:]...); err != nil {
 			return fmt.Errorf("exec %s: %w", strings.Join(command, " "), err)

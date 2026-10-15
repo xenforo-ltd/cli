@@ -40,21 +40,29 @@ func (f file) regular() error {
 	return nil
 }
 
-// collectFiles returns root and its descendants in path order, following symlinks
-// that remain within root. Entry errors are recorded in each file so selection
-// can ignore unrelated paths. Cancellation stops collection.
-func collectFiles(ctx context.Context, root *os.Root) ([]file, error) {
+// collectFilesWhere collects start and selected descendants in path order,
+// following symlinks within root. Rejected directories are not traversed.
+// Entry errors are recorded for callers; cancellation stops collection.
+func collectFilesWhere(ctx context.Context, root *os.Root, start string, include func(string, bool) bool) ([]file, error) {
 	var files []file
 	var active []file
-	var walk func(string) error
-	walk = func(name string) error {
+	var walk func(string, fs.FileInfo) error
+	walk = func(name string, info fs.FileInfo) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 
-		info, err := root.Stat(filepath.FromSlash(name))
-		if err != nil {
-			files = append(files, file{path: name, err: err})
+		if info == nil {
+			var err error
+			info, err = root.Stat(filepath.FromSlash(name))
+			if err != nil {
+				files = append(files, file{path: name, err: err})
+				return nil
+			}
+		}
+
+		if !info.IsDir() {
+			files = append(files, file{path: name, info: info})
 			return nil
 		}
 
@@ -79,9 +87,20 @@ func collectFiles(ctx context.Context, root *os.Root) ([]file, error) {
 			}
 
 			child := path.Join(name, entry.Name())
-			info, err := root.Stat(filepath.FromSlash(child))
+			link := entry.Type()&os.ModeSymlink != 0
+			if !link && !include(child, entry.IsDir()) {
+				continue
+			}
+			info, err := entry.Info()
+			if err == nil && info.Mode()&os.ModeSymlink != 0 {
+				// Resolve links through the build root, not the entry's parent.
+				info, err = root.Stat(filepath.FromSlash(child))
+			}
+			if link && !include(child, err != nil || info.IsDir()) {
+				continue
+			}
 			if err == nil && info.IsDir() {
-				if err := walk(child); err != nil {
+				if err := walk(child, info); err != nil {
 					return err
 				}
 			} else {
@@ -92,7 +111,7 @@ func collectFiles(ctx context.Context, root *os.Root) ([]file, error) {
 		return nil
 	}
 
-	if err := walk("."); err != nil {
+	if err := walk(start, nil); err != nil {
 		return nil, err
 	}
 

@@ -52,6 +52,28 @@ func javascriptTasks(cfg *config) []task {
 	return tasks
 }
 
+// collectJavaScriptFiles discovers only matching inputs and their ancestors in
+// the build root and _files. Selection and precedence remain in scriptFiles.
+func (p addOnPaths) collectJavaScriptFiles(ctx context.Context, root *os.Root, patterns []filePattern) ([]file, error) {
+	return collectFilesWhere(ctx, root, ".", func(name string, _ bool) bool {
+		for _, base := range p.bases() {
+			rel, inside := within(name, base)
+			if !inside {
+				continue
+			}
+			if rel == "." {
+				return true
+			}
+			for _, pattern := range patterns {
+				if pattern.matches(rel, false) || pattern.mayContain(rel) {
+					return true
+				}
+			}
+		}
+		return false
+	})
+}
+
 // rollupOutputs returns output paths in declaration order.
 func rollupOutputs(entries []rollupEntry) []string {
 	outputs := make([]string, len(entries))

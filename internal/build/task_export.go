@@ -16,7 +16,7 @@ type exportDataTask struct {
 	stderr io.Writer
 }
 
-func (t exportDataTask) run(ctx context.Context, root *os.Root, _ []file) error {
+func (t exportDataTask) run(ctx context.Context, root *os.Root) error {
 	result, err := devoutput.Export(ctx, filepath.Join(root.Name(), filepath.FromSlash(t.dir)))
 	if err != nil {
 		return fmt.Errorf("exporting add-on data: %w", err)

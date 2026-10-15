@@ -24,8 +24,8 @@ type hashesTask struct {
 }
 
 // run hashes selected upload files and writes the manifest to destination.
-func (t *hashesTask) run(ctx context.Context, root *os.Root, collected []file) error {
-	files, err := t.selection.selectFiles(ctx, collected)
+func (t *hashesTask) run(ctx context.Context, root *os.Root) error {
+	files, err := t.selection.collectFiles(ctx, root)
 	if err != nil {
 		return fmt.Errorf("selecting files for hashes: %w", err)
 	}

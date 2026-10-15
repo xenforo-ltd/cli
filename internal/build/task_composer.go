@@ -18,7 +18,7 @@ type composerTask struct {
 
 // run invokes Composer only if root contains composer.json, using the
 // installation's environment when configured.
-func (t composerTask) run(ctx context.Context, root *os.Root, _ []file) error {
+func (t composerTask) run(ctx context.Context, root *os.Root) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

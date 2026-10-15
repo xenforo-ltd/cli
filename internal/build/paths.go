@@ -107,6 +107,11 @@ func (p filePattern) matches(rel string, isDir bool) bool {
 
 // mayContain reports whether dir could contain a path matched by p.
 func (p filePattern) mayContain(dir string) bool {
+	// Escaped glob prefixes cannot be compared directly with disk paths.
+	if strings.Contains(p.value, `\`) {
+		return true
+	}
+
 	if p.prefix != "." && dir != p.prefix && !strings.HasPrefix(p.prefix, dir+"/") && !strings.HasPrefix(dir, p.prefix+"/") {
 		return false
 	}
