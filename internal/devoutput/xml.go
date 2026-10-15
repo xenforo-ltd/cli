@@ -23,6 +23,7 @@ type xmlElement struct {
 // It returns nil if the content field's omission rule omits the element.
 func (rule element) convert(r record) (*xmlElement, error) {
 	node := &xmlElement{name: rule.name, cdata: rule.cdata}
+	node.attributes = make([]xml.Attr, 0, len(rule.attributes))
 	for _, field := range rule.attributes {
 		value, omitted, err := field.value(r)
 		if err != nil {

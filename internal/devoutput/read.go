@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -110,7 +111,7 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 		values []sortValue
 		node   xmlElement
 	}
-	var rows []row
+	rows := make([]row, 0, len(metadata))
 	allowed := make(map[string]bool)
 	d.element.sources(allowed)
 	if d.suffix != "" {
@@ -197,9 +198,13 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 // JSON files supply the record fields; text files use metadata and store their
 // contents as $text. Missing keys are derived from the filename.
 func (d definition) record(name string, contents []byte, metadata record) (record, error) {
-	digest := md5.Sum(bytes.ReplaceAll(contents, []byte{'\r'}, nil))
+	normalized := contents
+	if bytes.IndexByte(contents, '\r') >= 0 {
+		normalized = bytes.ReplaceAll(contents, []byte{'\r'}, nil)
+	}
+	digest := md5.Sum(normalized)
 	hash, _ := scalarValue(metadata["hash"])
-	if hash != fmt.Sprintf("%x", digest) {
+	if hash != hex.EncodeToString(digest[:]) {
 		return nil, errors.New("stale metadata; prepare development output with XenForo before exporting")
 	}
 	var r record
