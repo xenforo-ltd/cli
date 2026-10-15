@@ -264,7 +264,7 @@ func TestBuildConfiguredRoots(t *testing.T) {
 	}
 }
 
-// TestBuildWarnings checks configuration and export warnings and their write errors.
+// TestBuildWarnings checks that defaults are quiet and export warnings preserve write errors.
 func TestBuildWarnings(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t, `{}`)
@@ -280,8 +280,8 @@ func TestBuildWarnings(t *testing.T) {
 	if _, err := build.Build(t.Context(), f.root, addOnID, build.WithIO(nil, nil, &stderr)); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stderr.String(), "no whitelist") {
-		t.Fatalf("missing warning: %q", stderr.String())
+	if strings.Contains(stderr.String(), "no whitelist") {
+		t.Fatalf("unexpected whitelist warning: %q", stderr.String())
 	}
 	if !strings.Contains(stderr.String(), `warning: api_scopes: ignoring unknown field "custom"`) {
 		t.Fatalf("missing export warning: %q", stderr.String())

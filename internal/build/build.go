@@ -96,12 +96,6 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 
 	defer root.Close()
 
-	if cfg.includeAll {
-		if _, err := fmt.Fprintln(opts.stderr, "warning: no whitelist configured; including every eligible file in the build root"); err != nil {
-			return nil, fmt.Errorf("writing build warning: %w", err)
-		}
-	}
-
 	selection := uploadSelection{
 		addOnPaths:       cfg.addOnPaths,
 		whitelist:        cfg.whitelist,

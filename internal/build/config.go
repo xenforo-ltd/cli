@@ -36,7 +36,6 @@ type config struct {
 	minify           []filePattern
 	rollups          []rollupEntry
 	commands         [][]string
-	includeAll       bool
 }
 
 // rollupEntry describes an output script and its ordered input patterns.
@@ -125,8 +124,8 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 
 	addOnDir, _ := within(addOnPrefix, prefix)
 
-	cfg := &config{addOnDir: addOnDir, prefix: prefix, includeAll: len(raw.Whitelist) == 0}
-	if cfg.includeAll {
+	cfg := &config{addOnDir: addOnDir, prefix: prefix}
+	if len(raw.Whitelist) == 0 {
 		raw.Whitelist = []string{"**"}
 	}
 
