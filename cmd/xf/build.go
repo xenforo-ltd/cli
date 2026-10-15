@@ -86,7 +86,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 	ui.PrintSuccess("Built " + args[0])
 	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("Release", result.ZipPath),
+		ui.KV("Release", ui.FileLink(result.ZipPath, result.ZipPath)),
 		ui.KV("Hashes", result.HashesPath),
 		ui.KV("Contents", ui.Plural(result.FileCount, "file", "files")+", "+ui.FormatBytes(result.TotalSize)),
 	})

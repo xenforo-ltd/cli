@@ -4,7 +4,9 @@ package ui
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -149,8 +151,28 @@ func ShortHome(path string) string {
 	return path
 }
 
+// FileLink links text to an absolute file path using OSC 8 in interactive
+// terminals. Redirected output keeps the plain text.
+func FileLink(text, filename string) string {
+	if !isTTY {
+		return text
+	}
+
+	filename = filepath.ToSlash(filename)
+	target := url.URL{Scheme: "file", Path: filename}
+	switch {
+	case strings.HasPrefix(filename, "//"):
+		host, path, _ := strings.Cut(filename[2:], "/")
+		target.Host, target.Path = host, "/"+path
+	case !strings.HasPrefix(filename, "/"):
+		// Windows drive-letter paths need a leading slash in file URLs.
+		target.Path = "/" + filename
+	}
+	return Path.Hyperlink(target.String()).Render(text)
+}
+
 // isTTY records whether stdout is an interactive terminal, gating spinner
-// and progress-bar animation.
+// and progress-bar animation and terminal-only hyperlinks.
 var isTTY = IsTerminal(os.Stdout)
 
 // Step returns a formatted progress step indicator.
