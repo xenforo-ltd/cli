@@ -35,6 +35,7 @@ type Option func(*buildOptions)
 type buildOptions struct {
 	skipDependencyInstall bool
 	timestamp             time.Time
+	taskProgress          func(Task) func(error)
 	commandStreams
 }
 
@@ -108,7 +109,9 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 	zipPath := path.Join(cfg.addOnDir, "_releases", cfg.releaseName)
 	var tasks []task
 	if !opts.skipDependencyInstall {
-		tasks = append(tasks, composerTask{installationDir: installation.Name(), dir: cfg.prefix, streams: opts.commandStreams})
+		if _, err := root.Stat("composer.json"); !errors.Is(err, os.ErrNotExist) {
+			tasks = append(tasks, composerTask{installationDir: installation.Name(), dir: cfg.prefix, streams: opts.commandStreams})
+		}
 	}
 
 	tasks = append(tasks, exportDataTask{dir: cfg.addOnDir, stderr: opts.stderr})
@@ -119,12 +122,18 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 
 	hashes := &hashesTask{selection: selection, destination: hashesPath, exclude: cfg.hashExclude}
 	tasks = append(tasks, hashes)
-	if err := runTasks(ctx, root, tasks); err != nil {
+	if err := runTasks(ctx, root, tasks, opts.taskProgress); err != nil {
 		return nil, err
 	}
 
-	archive := &zipTask{selection: selection, upload: hashes.upload, hashesPath: hashesPath, zipPath: zipPath, timestamp: opts.timestamp}
-	if err := runTasks(ctx, root, []task{archive}); err != nil {
+	archive := &zipTask{
+		selection:  selection,
+		upload:     hashes.upload,
+		hashesPath: hashesPath,
+		zipPath:    zipPath,
+		timestamp:  opts.timestamp,
+	}
+	if err := runTasks(ctx, root, []task{archive}, opts.taskProgress); err != nil {
 		return nil, err
 	}
 
@@ -165,9 +174,24 @@ type task interface {
 }
 
 // runTasks runs tasks in order, stopping at the first error.
-func runTasks(ctx context.Context, root *os.Root, tasks []task) error {
+func runTasks(ctx context.Context, root *os.Root, tasks []task, progress func(Task) func(error)) error {
 	for _, task := range tasks {
-		if err := task.run(ctx, root); err != nil {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("build interrupted: %w", err)
+		}
+
+		var done func(error)
+		if progress != nil {
+			done = progress(taskKind(task))
+		}
+		err := task.run(ctx, root)
+		if err == nil && ctx.Err() != nil {
+			err = fmt.Errorf("build interrupted: %w", ctx.Err())
+		}
+		if done != nil {
+			done(err)
+		}
+		if err != nil {
 			return err
 		}
 	}

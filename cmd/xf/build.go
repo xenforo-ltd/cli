@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/build"
+	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -78,7 +79,17 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	options := []build.Option{build.WithIO(os.Stdin, os.Stdout, os.Stderr)}
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+	progress := &buildProgress{ctx: cmd.Context(), verbose: cfg.Verbose}
+	defer progress.stop()
+
+	options := []build.Option{
+		build.WithIO(os.Stdin, buildProgressWriter{progress, os.Stdout}, buildProgressWriter{progress, os.Stderr}),
+		build.WithTaskProgress(progress.start),
+	}
 	if buildDate, set := os.LookupEnv("BUILD_DATE"); set {
 		seconds, err := strconv.ParseInt(buildDate, 10, 64)
 		if err != nil {
@@ -113,17 +124,31 @@ func runBuildJavaScript(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	spinner := ui.NewSpinner("Building JavaScript")
+	defer spinner.Stop()
 	if flagBuildWatch {
 		ui.PrintInfo("Watching JavaScript for " + addOnID)
+		ui.Println()
+		spinner.UpdateMessage("Rebuilding JavaScript")
 		return build.WatchJavaScript(cmd.Context(), xfDir, addOnID, build.WatchOptions{
-			Stdout: os.Stdout,
 			Stderr: os.Stderr,
+			OnBuild: func() func(error) {
+				spinner.Start()
+				return func(err error) {
+					if err != nil {
+						spinner.Stop()
+					} else {
+						spinner.StopWithMessage("success", "JavaScript rebuilt")
+					}
+				}
+			},
 		})
 	}
+	spinner.Start()
 	if err := build.BuildJavaScript(cmd.Context(), xfDir, addOnID); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Built JavaScript for " + addOnID)
+	spinner.StopWithMessage("success", "Built JavaScript for "+addOnID)
 	return nil
 }
 

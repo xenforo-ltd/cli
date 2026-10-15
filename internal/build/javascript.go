@@ -31,7 +31,7 @@ func BuildJavaScript(ctx context.Context, rootDir, addOnID string) error {
 	}
 
 	defer root.Close()
-	return runTasks(ctx, root, javascriptTasks(cfg))
+	return runTasks(ctx, root, javascriptTasks(cfg), nil)
 }
 
 // javascriptTasks returns JavaScript build stages in execution order: rollups

@@ -2,6 +2,7 @@ package build
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -21,6 +22,11 @@ type WatchOptions struct {
 
 	// Stderr receives build errors.
 	Stderr io.Writer
+
+	// OnBuild runs before each build, including the initial build. Its optional
+	// completion callback receives the build error or nil on success. Callbacks
+	// run serially; cancellation is reported to the completion callback too.
+	OnBuild func() func(error)
 }
 
 // WatchJavaScript rebuilds the add-on's JavaScript when sources or configuration
@@ -53,6 +59,13 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 		Plugins: []api.Plugin{{
 			Name: "xf-javascript",
 			Setup: func(build api.PluginBuild) {
+				var done func(error)
+				build.OnStart(func() (api.OnStartResult, error) {
+					if ctx.Err() == nil && options.OnBuild != nil {
+						done = options.OnBuild()
+					}
+					return api.OnStartResult{}, nil
+				})
 				build.OnResolve(api.OnResolveOptions{Filter: "^xf-javascript$"}, func(api.OnResolveArgs) (api.OnResolveResult, error) {
 					return api.OnResolveResult{Path: "xf-javascript", Namespace: "xf-javascript"}, nil
 				})
@@ -60,6 +73,14 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 					return loadJavaScriptWatch(ctx, installation, addOnID), nil
 				})
 				build.OnEnd(func(result *api.BuildResult) (api.OnEndResult, error) {
+					buildErr := ctx.Err()
+					if buildErr == nil && len(result.Errors) > 0 {
+						buildErr = errors.New(result.Errors[0].Text)
+					}
+					if done != nil {
+						done(buildErr)
+						done = nil
+					}
 					if ctx.Err() != nil {
 						return api.OnEndResult{}, nil
 					}
@@ -131,7 +152,7 @@ func loadJavaScriptWatch(ctx context.Context, installation *os.Root, addOnID str
 	}
 
 	defer root.Close()
-	buildErr := runTasks(ctx, root, javascriptTasks(cfg))
+	buildErr := runTasks(ctx, root, javascriptTasks(cfg), nil)
 	files, dirs, err := javascriptWatchPaths(ctx, root, cfg)
 	result.WatchFiles = append(result.WatchFiles, files...)
 	result.WatchDirs = append(result.WatchDirs, dirs...)
