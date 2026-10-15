@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-10-15
+
+### Features
+
+- *(build)* Publish hashes beside add-on metadata
+- *(build)* Date archives at build time
+- *(build)* Infer the current add-on
+- *(build)* Show release archive sizes
+- *(build)* Report build progress
+- *(ui)* Group counts by numeric locale
+- *(ui)* Link local files in terminals
+
+### Bug fixes
+
+- *(build)* Accept legacy exec strings
+- *(build)* Always include required metadata
+- *(build)* Keep archive extras outside upload
+- *(build)* Keep default selection quiet
+- *(build)* Normalize release filenames
+
+### Performance
+
+- *(build)* Reuse release I/O buffers
+- *(build)* Prune excluded build paths
+- *(devoutput)* Reduce export allocations
+
 ## [0.3.0] - 2026-10-14
 
 ### Features
@@ -460,6 +486,7 @@ All notable changes to this project will be documented in this file.
 - Include zip and unzip tools in image
 - Introduce XF CLI tool
 
+[0.4.0]: https://github.com/xenforo-ltd/cli/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/xenforo-ltd/cli/compare/v0.2.2..v0.3.0
 [0.2.2]: https://github.com/xenforo-ltd/cli/compare/v0.2.1..v0.2.2
 [0.2.1]: https://github.com/xenforo-ltd/cli/compare/v0.1.7-alpha.7..v0.2.1
