@@ -2,6 +2,7 @@ package build
 
 import (
 	"archive/zip"
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -75,9 +76,13 @@ func (t *zipTask) run(ctx context.Context, root *os.Root, collected []file) erro
 	var count int
 	var total int64
 	err := atomicWrite(ctx, root, t.zipPath, func(out *os.File) error {
-		zw := zip.NewWriter(out)
+		output := bufio.NewWriterSize(out, ioBufferSize)
+		zw := zip.NewWriter(output)
+		sources := directoryOpener{root: root}
+		defer sources.Close()
+		buffer := make([]byte, 32*1024)
 		for _, rel := range keys {
-			size, err := addFileToArchive(ctx, root, zw, rel, files[rel], t.timestamp)
+			size, err := addFileToArchive(ctx, &sources, zw, rel, files[rel], t.timestamp, buffer)
 			if err != nil {
 				_ = zw.Close()
 				return err
@@ -89,7 +94,10 @@ func (t *zipTask) run(ctx context.Context, root *os.Root, collected []file) erro
 			}
 		}
 
-		return zw.Close()
+		if err := zw.Close(); err != nil {
+			return err
+		}
+		return output.Flush()
 	})
 
 	if err != nil {
@@ -102,17 +110,13 @@ func (t *zipTask) run(ctx context.Context, root *os.Root, collected []file) erro
 
 // addFileToArchive adds source as name with normalized permissions and the given
 // timestamp, and returns its uncompressed size.
-func addFileToArchive(ctx context.Context, root *os.Root, zw *zip.Writer, name, source string, timestamp time.Time) (int64, error) {
-	f, err := openRegular(ctx, root, source)
+func addFileToArchive(ctx context.Context, root fileSource, zw *zip.Writer, name, source string, timestamp time.Time, buffer []byte) (int64, error) {
+	f, info, err := openRegular(ctx, root, source)
 	if err != nil {
 		return 0, fmt.Errorf("opening %s: %w", source, err)
 	}
 
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return 0, fmt.Errorf("reading %s: %w", source, err)
-	}
 
 	header, err := zip.FileInfoHeader(info)
 	if err != nil {
@@ -132,7 +136,8 @@ func addFileToArchive(ctx context.Context, root *os.Root, zw *zip.Writer, name, 
 		return 0, fmt.Errorf("creating ZIP entry %s: %w", name, err)
 	}
 
-	n, err := io.Copy(w, f)
+	// Hide File.WriteTo so CopyBuffer uses the archive's shared buffer.
+	n, err := io.CopyBuffer(w, struct{ io.Reader }{f}, buffer)
 	if err != nil {
 		return 0, fmt.Errorf("writing ZIP entry %s: %w", name, err)
 	}

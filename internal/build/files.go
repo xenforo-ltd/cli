@@ -1,17 +1,21 @@
 package build
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
-	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 )
+
+// ioBufferSize bounds reusable hash-input and ZIP-output buffers.
+const ioBufferSize = 64 * 1024
 
 // file records a build-root-relative path and the result of inspecting it.
 type file struct {
@@ -117,15 +121,21 @@ func openInstallation(ctx context.Context, name string) (*os.Root, error) {
 }
 
 // readFile reads the contents of a regular file within root.
-func readFile(ctx context.Context, root *os.Root, name string) ([]byte, error) {
-	f, err := openRegular(ctx, root, name)
+func readFile(ctx context.Context, root fileSource, name string) ([]byte, error) {
+	f, info, err := openRegular(ctx, root, name)
 	if err != nil {
 		return nil, err
 	}
 
 	defer f.Close()
 
-	return io.ReadAll(f)
+	var buffer bytes.Buffer
+	// ReadFrom needs MinRead bytes of spare capacity for its final EOF read.
+	if size := info.Size(); size > 0 && size <= int64(math.MaxInt-bytes.MinRead) {
+		buffer.Grow(int(size) + bytes.MinRead)
+	}
+	_, err = buffer.ReadFrom(f)
+	return buffer.Bytes(), err
 }
 
 // writeFile replaces name with data using a temporary file.
@@ -181,33 +191,33 @@ func atomicWrite(ctx context.Context, root *os.Root, name string, write func(*os
 	return root.Rename(temporary, filepath.FromSlash(name))
 }
 
-// openRegular opens a regular file for reading within root.
+// openRegular opens a regular file for reading within root and returns its metadata.
 // name must be a slash-separated relative path. The caller must close the file.
-func openRegular(ctx context.Context, root *os.Root, name string) (*os.File, error) {
+func openRegular(ctx context.Context, root fileSource, name string) (*os.File, fs.FileInfo, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	native, err := filepath.Localize(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	f, err := root.Open(native)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	info, err := f.Stat()
 	if err != nil {
 		f.Close()
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !info.Mode().IsRegular() {
 		f.Close()
-		return nil, fmt.Errorf("selected path %s is not a regular file", name)
+		return nil, nil, fmt.Errorf("selected path %s is not a regular file", name)
 	}
 
-	return f, nil
+	return f, info, nil
 }

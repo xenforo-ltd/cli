@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
+	"io"
 	"maps"
 	"os"
 	"slices"
@@ -29,6 +31,10 @@ func (t *hashesTask) run(ctx context.Context, root *os.Root, collected []file) e
 	}
 
 	manifest := make(map[string]string, len(files))
+	sources := directoryOpener{root: root}
+	defer sources.Close()
+	buffer := make([]byte, ioBufferSize)
+	hasher := sha256.New()
 	for _, rel := range slices.Sorted(maps.Keys(files)) {
 		name, inside := within(rel, t.selection.prefix)
 		if !inside {
@@ -38,12 +44,12 @@ func (t *hashesTask) run(ctx context.Context, root *os.Root, collected []file) e
 			continue
 		}
 
-		data, err := readFile(ctx, root, files[rel])
+		digest, err := hashFile(ctx, &sources, files[rel], buffer, hasher)
 		if err != nil {
 			return fmt.Errorf("reading %s for hashing: %w", files[rel], err)
 		}
 
-		manifest[rel] = computeHash(data)
+		manifest[rel] = digest
 	}
 
 	data, err := json.MarshalIndent(manifest, "", "\t")
@@ -59,10 +65,45 @@ func (t *hashesTask) run(ctx context.Context, root *os.Root, collected []file) e
 	return nil
 }
 
-// computeHash returns the hexadecimal SHA-256 digest of data with carriage
-// returns removed, matching XenForo's hash normalization.
-func computeHash(data []byte) string {
-	data = bytes.ReplaceAll(data, []byte{'\r'}, nil)
-	digest := sha256.Sum256(data)
-	return hex.EncodeToString(digest[:])
+// hashFile streams a regular file through reusable storage, removing carriage
+// returns in place to match XenForo's hash normalization.
+func hashFile(ctx context.Context, source fileSource, name string, buffer []byte, hasher hash.Hash) (string, error) {
+	f, _, err := openRegular(ctx, source, name)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	hasher.Reset()
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		n, readErr := f.Read(buffer)
+		if n > 0 {
+			chunk := buffer[:n]
+			if bytes.IndexByte(chunk, '\r') >= 0 {
+				kept := 0
+				for _, b := range chunk {
+					if b != '\r' {
+						chunk[kept] = b
+						kept++
+					}
+				}
+				chunk = chunk[:kept]
+			}
+			if _, err := hasher.Write(chunk); err != nil {
+				return "", err
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return "", readErr
+		}
+	}
+
+	var digest [sha256.Size]byte
+	return hex.EncodeToString(hasher.Sum(digest[:0])), nil
 }
