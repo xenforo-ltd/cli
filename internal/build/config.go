@@ -92,14 +92,14 @@ func readConfig(ctx context.Context, installation *os.Root, addOnID string) (*co
 func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 	addOnPrefix := path.Join("src", "addons", addOnID)
 	raw := struct {
-		Root        string          `json:"root"`
-		Whitelist   []string        `json:"whitelist"`
-		Blacklist   []string        `json:"blacklist"`
-		HashExclude []string        `json:"hash_exclude"`
-		Additional  []string        `json:"additional_files"`
-		Minify      json.RawMessage `json:"minify"`
-		Rollup      json.RawMessage `json:"rollup"`
-		Exec        [][]string      `json:"exec"`
+		Root        string            `json:"root"`
+		Whitelist   []string          `json:"whitelist"`
+		Blacklist   []string          `json:"blacklist"`
+		HashExclude []string          `json:"hash_exclude"`
+		Additional  []string          `json:"additional_files"`
+		Minify      json.RawMessage   `json:"minify"`
+		Rollup      json.RawMessage   `json:"rollup"`
+		Exec        []json.RawMessage `json:"exec"`
 	}{Root: "."}
 
 	if err := json.Unmarshal(buildJSON, &raw); err != nil {
@@ -182,7 +182,16 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 	}
 
 	cfg.releaseName = strings.ReplaceAll(addOnID, "/", "-") + "-" + version + ".zip"
-	for _, command := range raw.Exec {
+	for i, entry := range raw.Exec {
+		var command []string
+		if err := json.Unmarshal(entry, &command); err != nil {
+			var line string
+			if err := json.Unmarshal(entry, &line); err != nil {
+				return nil, fmt.Errorf("build.json exec command %d must be a string or an array of strings", i+1)
+			}
+			command = strings.Fields(line)
+		}
+
 		if len(command) == 0 || strings.TrimSpace(command[0]) == "" {
 			return nil, errors.New("build.json exec commands must not be empty")
 		}

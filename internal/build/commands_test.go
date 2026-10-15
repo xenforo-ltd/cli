@@ -90,6 +90,43 @@ func TestBuildCommands(t *testing.T) {
 	}
 }
 
+// TestBuildExecForms checks string commands, argument arrays, and mixed lists.
+func TestBuildExecForms(t *testing.T) {
+	stringCommand := " \tbuild-helper  record\t{addon_id} \n"
+	arrayCommand := []string{"build-helper", "record", "two words"}
+	for _, tc := range []struct {
+		name string
+		exec []any
+		want [][]string
+	}{
+		{"strings", []any{stringCommand}, [][]string{{"record", addOnID}}},
+		{"arrays", []any{arrayCommand}, [][]string{{"record", "two words"}}},
+		{"mixed", []any{stringCommand, arrayCommand}, [][]string{{"record", addOnID}, {"record", "two words"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			executable, log := commandHelper(t)
+			installTool(t, executable, "build-helper")
+			config, err := json.Marshal(map[string]any{"exec": tc.exec})
+			if err != nil {
+				t.Fatal(err)
+			}
+			f := newFixture(t, string(config))
+			if _, err := build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall()); err != nil {
+				t.Fatal(err)
+			}
+			records := readCommands(t, log)
+			if len(records) != len(tc.want) {
+				t.Fatalf("commands = %+v, want %d invocations", records, len(tc.want))
+			}
+			for i, want := range tc.want {
+				if !slices.Equal(records[i].Args, want) {
+					t.Errorf("command %d arguments = %q, want %q", i, records[i].Args, want)
+				}
+			}
+		})
+	}
+}
+
 // TestBuildSkipsDependencyInstall checks that skipping Composer still runs
 // configured commands.
 func TestBuildSkipsDependencyInstall(t *testing.T) {
