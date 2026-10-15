@@ -20,7 +20,7 @@ import (
 )
 
 // TestBuildRelease checks archive selection, contents, permissions, hashes, and
-// result statistics, including a repeated build.
+// result statistics, consistent timestamps, and a repeated build.
 func TestBuildRelease(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t, `{
@@ -65,10 +65,12 @@ func TestBuildRelease(t *testing.T) {
 	if err := os.Chmod(filepath.Join(f.addon, "bin", "run"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	started := time.Now().UTC().Truncate(time.Second)
 	result, err := build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall())
 	if err != nil {
 		t.Fatal(err)
 	}
+	finished := time.Now().UTC().Truncate(time.Second)
 	realAddon, err := filepath.EvalSymlinks(f.addon)
 	if err != nil {
 		t.Fatal(err)
@@ -80,9 +82,13 @@ func TestBuildRelease(t *testing.T) {
 		t.Fatalf("ZipPath = %q, want %q", result.ZipPath, want)
 	}
 	entries := readArchive(t, result.ZipPath)
+	buildTime := entries["upload/"+addOnPath+"/addon.json"].modified
+	if buildTime.Before(started) || buildTime.After(finished) {
+		t.Fatalf("ZIP timestamp = %s, want between %s and %s", buildTime, started, finished)
+	}
 	for name, entry := range entries {
-		if !entry.modified.Equal(time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)) {
-			t.Errorf("%s has a non-default ZIP timestamp: %s", name, entry.modified)
+		if !entry.modified.Equal(buildTime) {
+			t.Errorf("%s timestamp = %s, want shared build time %s", name, entry.modified, buildTime)
 		}
 	}
 	upload := "upload/" + addOnPath + "/"
@@ -161,7 +167,7 @@ func TestBuildRelease(t *testing.T) {
 	if err := os.Chtimes(filepath.Join(f.addon, "Demo.php"), time.Unix(1000, 0), time.Unix(1000, 0)); err != nil {
 		t.Fatal(err)
 	}
-	second, err := build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall())
+	second, err := build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall(), build.WithTimestamp(buildTime))
 	if err != nil {
 		t.Fatal(err)
 	}

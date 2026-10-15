@@ -430,11 +430,10 @@ and listed files must match their recorded hashes. Unknown types, unknown JSON
 fields, and custom PHP export handlers are rejected. JavaScript-only builds do
 not export data or require `_output` or `_data`.
 
-Every ZIP entry uses `1980-01-01 00:00:00 UTC` by default, including generated
-files and instructions. Set `BUILD_DATE` to a Unix timestamp to override
-this date. The timestamp must fall between 1980-01-01 and
-2106-02-07 06:28:15 UTC. Source modification times do not affect the ZIP bytes;
-the same binary, inputs, and settings produce the same archive.
+Every ZIP entry uses the build start time by default, including generated files
+and instructions. Set `BUILD_DATE` to a Unix timestamp to override it and
+reproduce a previous archive. The timestamp must fall between 1980-01-01 and
+2106-02-07 06:28:15 UTC. Source modification times do not affect the ZIP bytes.
 
 `hash_exclude` is an optional array of paths or globs omitted from `hashes.json`
 without removing files from the ZIP. Patterns match upload destinations relative

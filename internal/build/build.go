@@ -59,7 +59,7 @@ func WithIO(stdin io.Reader, stdout, stderr io.Writer) Option {
 // WithTimestamp sets the modification time of every ZIP entry, including
 // generated files. The time is normalized to UTC with whole-second precision
 // and must fall between 1980-01-01 and 2106-02-07 06:28:15 UTC.
-// Without this option, Build uses 1980-01-01 00:00:00 UTC.
+// Without this option, Build captures the current time once at the start.
 func WithTimestamp(timestamp time.Time) Option {
 	return func(o *buildOptions) {
 		o.timestamp = timestamp
@@ -75,7 +75,7 @@ func WithTimestamp(timestamp time.Time) Option {
 // the host otherwise. Configured exec commands always run on the host.
 // Data is exported from prepared _output after Composer and before JavaScript
 // tasks. The export creates the add-on's _data directory if needed.
-// ZIP timestamps are fixed by default and do not use source modification times.
+// ZIP timestamps default to the build start time, not source modification times.
 func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*BuildResult, error) {
 	opts := applyOptions(options)
 	if opts.timestamp.Before(time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)) ||
@@ -138,7 +138,7 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 
 // applyOptions applies options in order and supplies default output streams.
 func applyOptions(options []Option) buildOptions {
-	opts := buildOptions{timestamp: time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)}
+	opts := buildOptions{timestamp: time.Now()}
 	for _, option := range options {
 		option(&opts)
 	}

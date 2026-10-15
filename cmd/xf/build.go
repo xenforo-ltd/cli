@@ -23,7 +23,7 @@ The XenForo installation is discovered from the current directory or XF_DIR.
 Composer uses the Docker environment when configured, or the host otherwise.
 Configured exec commands run on the host. Data is exported from prepared _output
 after Composer and before JavaScript tasks; _metadata.jsonl drives each data type.
-ZIP timestamps default to 1980-01-01 UTC; BUILD_DATE overrides them with
+ZIP timestamps use the build start time; BUILD_DATE overrides them with
 a Unix timestamp. Source modification times are not retained.`,
 	Example: `  xf build Vendor/AddOn
   xf build Vendor/AddOn --skip-composer`,
