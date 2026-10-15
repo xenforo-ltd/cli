@@ -2,9 +2,11 @@ package xf
 
 import (
 	"bufio"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -178,11 +180,15 @@ func ParseVersionID(versionID int) *Version {
 	return v
 }
 
-// DetectVersion parses src/XF.php for the version string and ID.
+// DetectVersion reads the core add-on version, checking it against src/XF.php.
+// If the core add-on manifest is absent, it uses src/XF.php alone.
 func DetectVersion(xfDir string) (*Version, error) {
-	xfPath := filepath.Join(xfDir, "src", "XF.php")
+	return DetectVersionFS(os.DirFS(xfDir))
+}
 
-	file, err := os.Open(xfPath)
+// DetectVersionFS is DetectVersion for a filesystem rooted at the installation.
+func DetectVersionFS(installation fs.FS) (*Version, error) {
+	file, err := installation.Open("src/XF.php")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("not a XenForo installation: src/XF.php not found: %w", err)
@@ -209,7 +215,10 @@ func DetectVersion(xfDir string) (*Version, error) {
 		}
 
 		if matches := versionIDPattern.FindStringSubmatch(line); len(matches) > 1 {
-			versionID, _ = strconv.Atoi(matches[1])
+			versionID, err = strconv.Atoi(matches[1])
+			if err != nil {
+				return nil, fmt.Errorf("parsing src/XF.php version ID: %w", err)
+			}
 		}
 
 		if versionStr != "" && versionID > 0 {
@@ -223,6 +232,28 @@ func DetectVersion(xfDir string) (*Version, error) {
 
 	if versionStr == "" && versionID == 0 {
 		return nil, fmt.Errorf("could not detect XenForo version from XF.php: %w", ErrInvalidInput)
+	}
+
+	data, err := fs.ReadFile(installation, "src/addons/XF/addon.json")
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("reading core addon.json: %w", err)
+	}
+	if err == nil {
+		var metadata struct {
+			VersionID     int    `json:"version_id"`
+			VersionString string `json:"version_string"`
+		}
+		if err := json.Unmarshal(data, &metadata); err != nil {
+			return nil, fmt.Errorf("parsing core addon.json: %w", err)
+		}
+		if metadata.VersionID <= 0 || metadata.VersionString == "" {
+			return nil, errors.New("core addon.json must contain a positive version_id and a nonempty version_string")
+		}
+		if metadata.VersionID != versionID || metadata.VersionString != versionStr {
+			return nil, fmt.Errorf("core version mismatch: src/XF.php reports %s [%d], but src/addons/XF/addon.json reports %s [%d]",
+				versionStr, versionID, metadata.VersionString, metadata.VersionID)
+		}
+		versionStr, versionID = metadata.VersionString, metadata.VersionID
 	}
 
 	// Prefer using the version ID as it's more precise

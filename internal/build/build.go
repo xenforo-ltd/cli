@@ -10,6 +10,8 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+
+	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 // BuildResult describes a completed release.
@@ -96,6 +98,12 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 	}
 
 	defer root.Close()
+
+	if addOnID == "XF" {
+		if _, err := xf.DetectVersionFS(installation.FS()); err != nil {
+			return nil, err
+		}
+	}
 
 	selection := uploadSelection{
 		addOnPaths:       cfg.addOnPaths,
