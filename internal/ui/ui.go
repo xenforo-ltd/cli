@@ -107,9 +107,9 @@ func StatusIcon(status string) string {
 // Plural returns the count with the correct singular/plural noun.
 func Plural(n int, singular, plural string) string {
 	if n == 1 {
-		return fmt.Sprintf("%d %s", n, singular)
+		return formatCount(n) + " " + singular
 	}
-	return fmt.Sprintf("%d %s", n, plural)
+	return formatCount(n) + " " + plural
 }
 
 // FormatDate renders a date for table cells.
