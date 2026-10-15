@@ -378,7 +378,9 @@ worktree with no database until you start it and install one yourself.
 ### Add-on Builds
 
 Run these commands from the XenForo installation or a directory beneath it,
-or set `XF_DIR` to the installation path.
+or set `XF_DIR` to the installation path. The add-on ID is optional: without it,
+the add-on is inferred from the enclosing directory under `src/addons`, falling
+back to `XF`.
 
 ```bash
 # Build a release ZIP and hash manifest

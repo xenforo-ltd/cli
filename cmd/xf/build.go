@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -14,37 +17,43 @@ import (
 
 // buildCmd builds an add-on release from its build.json configuration.
 var buildCmd = &cobra.Command{
-	Use:   "build <addon-id>",
+	Use:   "build [addon-id]",
 	Short: "Build an add-on release",
 	Long: `Export an add-on's data, build JavaScript, run configured commands, and create
 a release ZIP and hash manifest using build.json.
 
 The XenForo installation is discovered from the current directory or XF_DIR.
+When omitted, the add-on is inferred by searching upward for addon.json,
+falling back to XF.
 Composer uses the Docker environment when configured, or the host otherwise.
 Configured exec commands run on the host. Data is exported from prepared _output
 after Composer and before JavaScript tasks; _metadata.jsonl drives each data type.
 ZIP timestamps use the build start time; BUILD_DATE overrides them with
 a Unix timestamp. Source modification times are not retained.`,
-	Example: `  xf build Vendor/AddOn
+	Example: `  xf build
+  xf build Vendor/AddOn
   xf build Vendor/AddOn --skip-composer`,
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.MaximumNArgs(1),
 	GroupID: "run",
 	RunE:    runBuild,
 }
 
 // buildJavaScriptCmd builds or watches an add-on's JavaScript without a release.
 var buildJavaScriptCmd = &cobra.Command{
-	Use:   "build-js <addon-id>",
+	Use:   "build-js [addon-id]",
 	Short: "Build or watch an add-on's JavaScript",
 	Long: `Run the minify and rollup tasks configured in the add-on's build.json.
 Dependencies, exec commands, and release archives are not part of this command.
 
 The XenForo installation is discovered from the current directory or XF_DIR.
+When omitted, the add-on is inferred by searching upward for addon.json,
+falling back to XF.
 Use --watch to rebuild when sources or configuration change. Build errors are
 reported without stopping the watcher; press Ctrl-C to stop.`,
-	Example: `  xf build-js Vendor/AddOn
+	Example: `  xf build-js
+  xf build-js Vendor/AddOn
   xf build-js Vendor/AddOn --watch`,
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.MaximumNArgs(1),
 	GroupID: "run",
 	RunE:    runBuildJavaScript,
 }
@@ -65,7 +74,7 @@ func init() {
 
 // runBuild forwards the release build to the build package and reports its outputs.
 func runBuild(cmd *cobra.Command, args []string) error {
-	xfDir, err := getXenForoDir(nil)
+	xfDir, addOnID, err := getBuildTarget(args)
 	if err != nil {
 		return err
 	}
@@ -80,11 +89,11 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	if flagBuildSkipComposer {
 		options = append(options, build.WithoutDependencyInstall())
 	}
-	result, err := build.Build(cmd.Context(), xfDir, args[0], options...)
+	result, err := build.Build(cmd.Context(), xfDir, addOnID, options...)
 	if err != nil {
 		return err
 	}
-	ui.PrintSuccess("Built " + args[0])
+	ui.PrintSuccess("Built " + addOnID)
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("Release", ui.FileLink(result.ZipPath, result.ZipPath)),
 		ui.KV("Hashes", result.HashesPath),
@@ -95,20 +104,67 @@ func runBuild(cmd *cobra.Command, args []string) error {
 
 // runBuildJavaScript forwards a build or watch operation to the build package.
 func runBuildJavaScript(cmd *cobra.Command, args []string) error {
-	xfDir, err := getXenForoDir(nil)
+	xfDir, addOnID, err := getBuildTarget(args)
 	if err != nil {
 		return err
 	}
 	if flagBuildWatch {
-		ui.PrintInfo("Watching JavaScript for " + args[0])
-		return build.WatchJavaScript(cmd.Context(), xfDir, args[0], build.WatchOptions{
+		ui.PrintInfo("Watching JavaScript for " + addOnID)
+		return build.WatchJavaScript(cmd.Context(), xfDir, addOnID, build.WatchOptions{
 			Stdout: os.Stdout,
 			Stderr: os.Stderr,
 		})
 	}
-	if err := build.BuildJavaScript(cmd.Context(), xfDir, args[0]); err != nil {
+	if err := build.BuildJavaScript(cmd.Context(), xfDir, addOnID); err != nil {
 		return err
 	}
-	ui.PrintSuccess("Built JavaScript for " + args[0])
+	ui.PrintSuccess("Built JavaScript for " + addOnID)
 	return nil
+}
+
+// getBuildTarget resolves the installation and an explicit or enclosing add-on.
+// Without an enclosing addon.json under src/addons, the target defaults to XF.
+func getBuildTarget(args []string) (string, string, error) {
+	xfDir, err := getXenForoDir(nil)
+	if err != nil {
+		return "", "", err
+	}
+	xfDir, err = filepath.Abs(xfDir)
+	if err != nil {
+		return "", "", fmt.Errorf("resolving XenForo root: %w", err)
+	}
+	xfDir, err = filepath.EvalSymlinks(xfDir)
+	if err != nil {
+		return "", "", fmt.Errorf("resolving XenForo root: %w", err)
+	}
+	if len(args) > 0 {
+		return xfDir, args[0], nil
+	}
+
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", "", fmt.Errorf("reading current directory: %w", err)
+	}
+	dir, err = filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", "", fmt.Errorf("resolving current directory: %w", err)
+	}
+	addOnsDir := filepath.Join(xfDir, "src", "addons")
+	for {
+		rel, err := filepath.Rel(addOnsDir, dir)
+		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			break
+		}
+		metadataPath := filepath.Join(dir, "addon.json")
+		info, err := os.Stat(metadataPath)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", "", fmt.Errorf("reading %s: %w", metadataPath, err)
+		}
+		addOnID := filepath.ToSlash(rel)
+		if err == nil && info.Mode().IsRegular() && strings.Count(addOnID, "/") <= 1 {
+			return xfDir, addOnID, nil
+		}
+		dir = filepath.Dir(dir)
+	}
+	return xfDir, "XF", nil
 }
