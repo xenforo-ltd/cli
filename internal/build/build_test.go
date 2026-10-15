@@ -73,7 +73,7 @@ func TestBuildRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(realAddon, "_build", "hashes.json"); result.HashesPath != want {
+	if want := filepath.Join(realAddon, "hashes.json"); result.HashesPath != want {
 		t.Fatalf("HashesPath = %q, want %q", result.HashesPath, want)
 	}
 	if want := filepath.Join(realAddon, "_releases", "Vendor-Demo-1.0 beta.zip"); result.ZipPath != want {
@@ -117,7 +117,7 @@ func TestBuildRelease(t *testing.T) {
 	if !exists {
 		t.Fatal("ZIP is missing hashes.json")
 	}
-	if manifest.content != readFile(t, f.addon, "_build/hashes.json") {
+	if manifest.content != readFile(t, f.addon, "hashes.json") {
 		t.Fatal("ZIP manifest differs from the generated manifest")
 	}
 	delete(entries, manifestName)
@@ -168,7 +168,7 @@ func TestBuildRelease(t *testing.T) {
 	if *second != *result {
 		t.Fatalf("repeated build result = %+v, want %+v", second, result)
 	}
-	if got := readFile(t, f.addon, "_build/hashes.json"); got != manifest.content {
+	if got := readFile(t, f.addon, "hashes.json"); got != manifest.content {
 		t.Fatal("repeated build changed hashes")
 	}
 	if got := readFile(t, f.addon, "_releases/Vendor-Demo-1.0 beta.zip"); got != archiveBytes {
@@ -195,7 +195,7 @@ func TestBuildTimestamp(t *testing.T) {
 			result, err := build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall(), build.WithTimestamp(timestamp))
 			if timestamp.Year() < 1980 || timestamp.Unix() > 1<<32-1 {
 				requireError(t, err, "archive timestamp must be between")
-				requireMissing(t, f.addon, "_build/hashes.json")
+				requireMissing(t, f.addon, "hashes.json")
 				requireMissing(t, f.addon, "_releases/Vendor-Demo-1.0.zip")
 				return
 			}
@@ -344,7 +344,7 @@ func TestBuildSelectionErrors(t *testing.T) {
 			}
 			requireMissing(t, f.addon, "_releases/Vendor-Demo-1.0.zip")
 			if strings.HasPrefix(tc.name, "data ") {
-				requireMissing(t, f.addon, "_build/hashes.json")
+				requireMissing(t, f.addon, "hashes.json")
 			}
 		})
 	}
@@ -394,7 +394,7 @@ func TestBuildComposerAutoload(t *testing.T) {
 				result, err := build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall())
 				if kind != "selected" && kind != "additional" {
 					requireError(t, err, "composer_autoload requires "+addOnPath+"/vendor/composer/installed.json in the release")
-					requireMissing(t, f.addon, "_build/hashes.json")
+					requireMissing(t, f.addon, "hashes.json")
 					requireMissing(t, f.addon, "_releases/Vendor-Demo-1.0.zip")
 					return
 				}
@@ -414,7 +414,7 @@ func TestBuildComposerAutoload(t *testing.T) {
 // temporary files.
 func TestBuildOutputFailure(t *testing.T) {
 	t.Parallel()
-	for _, output := range []string{"_build/hashes.json", "_releases/Vendor-Demo-1.0.zip"} {
+	for _, output := range []string{"hashes.json", "_releases/Vendor-Demo-1.0.zip"} {
 		t.Run(output, func(t *testing.T) {
 			t.Parallel()
 			f := newFixture(t, `{"whitelist":["addon.json"]}`)

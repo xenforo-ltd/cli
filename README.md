@@ -440,10 +440,10 @@ to the build root; additional files mapped outside that root use their
 installation-relative destination. Use `**/index.html` to exclude that filename
 at any depth. A literal directory path also excludes its descendants.
 
-Releases are written to the add-on's `_releases` directory;
-the generated hash manifest is written to `_build/hashes.json`. Composer uses
-the Docker environment when configured, or the host otherwise. Configured
-`exec` commands run on the host.
+Releases are written to the add-on's `_releases` directory; the generated hash
+manifest is written to `hashes.json` in the add-on directory. Composer uses the
+Docker environment when configured, or the host otherwise. Configured `exec`
+commands run on the host.
 
 ### PHP / Composer / Debug
 

@@ -110,7 +110,7 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 		composerAutoload: cfg.composerAutoload,
 	}
 
-	hashesPath := path.Join(cfg.addOnDir, "_build", "hashes.json")
+	hashesPath := path.Join(cfg.addOnDir, "hashes.json")
 	zipPath := path.Join(cfg.addOnDir, "_releases", cfg.releaseName)
 	var tasks []task
 	if !opts.skipDependencyInstall {

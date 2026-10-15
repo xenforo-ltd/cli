@@ -170,7 +170,7 @@ func TestBuildCommandFailure(t *testing.T) {
 	}
 	requireError(t, err, "exec ")
 	requireMissing(t, f.addon, "generated.txt")
-	requireMissing(t, f.addon, "_build/hashes.json")
+	requireMissing(t, f.addon, "hashes.json")
 }
 
 // TestBuildComposerFailures checks an unavailable executable and an escaping
@@ -323,7 +323,7 @@ func TestBuildComposerEnvironmentFailures(t *testing.T) {
 				}
 			}
 			requireMissing(t, f.addon, "composer.txt")
-			requireMissing(t, f.addon, "_build/hashes.json")
+			requireMissing(t, f.addon, "hashes.json")
 		})
 	}
 }
