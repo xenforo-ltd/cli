@@ -63,8 +63,8 @@ func (t *zipTask) run(ctx context.Context, root *os.Root) error {
 			return err
 		}
 
-		if _, exists := files[rel]; exists {
-			return fmt.Errorf("_no_upload path %q conflicts with upload content", rel)
+		if rel == "upload" || strings.HasPrefix(rel, "upload/") {
+			return fmt.Errorf("_no_upload path %q must not be placed in upload/", rel)
 		}
 
 		files[rel] = f.path

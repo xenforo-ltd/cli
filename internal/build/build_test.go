@@ -310,7 +310,7 @@ func TestBuildSelectionErrors(t *testing.T) {
 	}{
 		{"missing additional file", `{"additional_files":["missing.txt"]}`, nil, "reading additional file missing.txt"},
 		{"no upload is a file", `{}`, map[string]string{"_no_upload": "bad"}, "_no_upload must be a directory"},
-		{"no upload conflict", `{}`, map[string]string{"_no_upload/upload/" + addOnPath + "/addon.json": "bad"}, "conflicts with upload content"},
+		{"no upload under upload", `{}`, map[string]string{"_no_upload/upload/extra.txt": "bad"}, "must not be placed in upload/"},
 		{"invalid archive name", `{}`, map[string]string{"bad:name.txt": "bad"}, "invalid archive path"},
 		{"data source missing", `{}`, nil, "reading development output"},
 		{"data is a file", `{}`, map[string]string{"_data": "bad"}, "_data must be a directory"},
