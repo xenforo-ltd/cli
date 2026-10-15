@@ -93,11 +93,16 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	archiveInfo, err := os.Stat(result.ZipPath)
+	if err != nil {
+		return fmt.Errorf("reading release archive: %w", err)
+	}
 	ui.PrintSuccess("Built " + addOnID)
+	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("Release", ui.FileLink(result.ZipPath, result.ZipPath)),
-		ui.KV("Hashes", result.HashesPath),
-		ui.KV("Contents", ui.Plural(result.FileCount, "file", "files")+", "+ui.FormatBytes(result.TotalSize)),
+		ui.KV("Contents", fmt.Sprintf("%s (%s uncompressed, %s)",
+			ui.FormatBytes(archiveInfo.Size()), ui.FormatBytes(result.TotalSize), ui.Plural(result.FileCount, "file", "files"))),
 	})
 	return nil
 }
