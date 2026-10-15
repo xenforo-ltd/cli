@@ -76,7 +76,7 @@ func TestBuildRelease(t *testing.T) {
 	if want := filepath.Join(realAddon, "hashes.json"); result.HashesPath != want {
 		t.Fatalf("HashesPath = %q, want %q", result.HashesPath, want)
 	}
-	if want := filepath.Join(realAddon, "_releases", "Vendor-Demo-1.0 beta.zip"); result.ZipPath != want {
+	if want := filepath.Join(realAddon, "_releases", "Vendor-Demo-1.0-beta.zip"); result.ZipPath != want {
 		t.Fatalf("ZipPath = %q, want %q", result.ZipPath, want)
 	}
 	entries := readArchive(t, result.ZipPath)
@@ -157,7 +157,7 @@ func TestBuildRelease(t *testing.T) {
 	if !reflect.DeepEqual(hashes, wantHashes) {
 		t.Fatalf("hashes = %#v, want %#v", hashes, wantHashes)
 	}
-	archiveBytes := readFile(t, f.addon, "_releases/Vendor-Demo-1.0 beta.zip")
+	archiveBytes := readFile(t, f.addon, "_releases/Vendor-Demo-1.0-beta.zip")
 	if err := os.Chtimes(filepath.Join(f.addon, "Demo.php"), time.Unix(1000, 0), time.Unix(1000, 0)); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestBuildRelease(t *testing.T) {
 	if got := readFile(t, f.addon, "hashes.json"); got != manifest.content {
 		t.Fatal("repeated build changed hashes")
 	}
-	if got := readFile(t, f.addon, "_releases/Vendor-Demo-1.0 beta.zip"); got != archiveBytes {
+	if got := readFile(t, f.addon, "_releases/Vendor-Demo-1.0-beta.zip"); got != archiveBytes {
 		t.Fatal("repeated build or changed source timestamps changed ZIP bytes")
 	}
 }

@@ -175,7 +175,7 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 	}
 
 	versionString, _ := metadata["version_string"].(string)
-	version := strings.Join(strings.Fields(releaseVersionPattern.ReplaceAllString(versionString, "")), " ")
+	version := strings.Join(strings.Fields(releaseVersionPattern.ReplaceAllString(versionString, "")), "-")
 	if version == "" {
 		return nil, errors.New("addon.json version_string must contain a usable release version")
 	}
