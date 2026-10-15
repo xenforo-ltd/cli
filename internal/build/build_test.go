@@ -225,7 +225,8 @@ func TestBuildConfiguredRoots(t *testing.T) {
 			}
 			config, err := json.Marshal(map[string]any{
 				"root":             root,
-				"whitelist":        []string{filepath.ToSlash(filepath.Join(addon, "addon.json"))},
+				"whitelist":        []string{"extra.txt"},
+				"blacklist":        []string{filepath.ToSlash(filepath.Join(addon, "addon.json"))},
 				"additional_files": []string{"extra.txt", "preferred.txt"},
 				"hash_exclude":     []string{"extra.txt", "preferred.txt"},
 			})
@@ -307,8 +308,6 @@ func TestBuildSelectionErrors(t *testing.T) {
 		files  map[string]string
 		want   string
 	}{
-		{"metadata not selected", `{"whitelist":["*.php"]}`, nil, "must be included"},
-		{"metadata blacklisted", `{"whitelist":["**"],"blacklist":["addon.json"]}`, nil, "must be included"},
 		{"missing additional file", `{"additional_files":["missing.txt"]}`, nil, "reading additional file missing.txt"},
 		{"no upload is a file", `{}`, map[string]string{"_no_upload": "bad"}, "_no_upload must be a directory"},
 		{"no upload conflict", `{}`, map[string]string{"_no_upload/upload/" + addOnPath + "/addon.json": "bad"}, "conflicts with upload content"},
@@ -351,7 +350,7 @@ func TestBuildSelectionErrors(t *testing.T) {
 }
 
 // TestBuildComposerAutoload checks that the declared Composer directory contains
-// an installed.json selected for the release, including additional-file overrides.
+// an installed.json included regardless of filters, including additional-file overrides.
 func TestBuildComposerAutoload(t *testing.T) {
 	t.Parallel()
 	for _, root := range []string{".", "../../../.."} {
@@ -392,8 +391,8 @@ func TestBuildComposerAutoload(t *testing.T) {
 					writeFile(t, f.addon, "vendor/composer/installed.json", "[]")
 				}
 				result, err := build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall())
-				if kind != "selected" && kind != "additional" {
-					requireError(t, err, "composer_autoload requires "+addOnPath+"/vendor/composer/installed.json in the release")
+				if kind == "missing" || kind == "directory" {
+					requireError(t, err, "including required release file")
 					requireMissing(t, f.addon, "hashes.json")
 					requireMissing(t, f.addon, "_releases/Vendor-Demo-1.0.zip")
 					return

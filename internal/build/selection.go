@@ -45,19 +45,29 @@ func (s uploadSelection) collectFiles(ctx context.Context, root *os.Root) (map[s
 		selected[path.Join(s.prefix, f.path)] = f.path
 	}
 
-	metadata := path.Join(s.prefix, s.addOnDir, "addon.json")
-	if _, ok := selected[metadata]; !ok {
-		return nil, fmt.Errorf("%s must be included by the whitelist and not excluded by the blacklist", metadata)
-	}
-
 	if err := s.addAdditionalFiles(ctx, root, selected); err != nil {
 		return nil, err
 	}
+
+	// Required metadata bypasses release filters. Explicit additional-file
+	// overrides still take precedence over the build-root copy.
+	required := []string{path.Join(s.addOnDir, "addon.json")}
 	if s.composerAutoload != "" {
-		installed := path.Join(s.prefix, s.addOnDir, s.composerAutoload, "installed.json")
-		if _, ok := selected[installed]; !ok {
-			return nil, fmt.Errorf("addon.json composer_autoload requires %s in the release; check installed dependencies and file selection", installed)
+		required = append(required, path.Join(s.addOnDir, s.composerAutoload, "installed.json"))
+	}
+	for _, name := range required {
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
+		key := path.Join(s.prefix, name)
+		if _, ok := selected[key]; ok {
+			continue
+		}
+		info, err := root.Stat(filepath.FromSlash(name))
+		if err := (file{path: name, info: info, err: err}).regular(); err != nil {
+			return nil, fmt.Errorf("including required release file: %w", err)
+		}
+		selected[key] = name
 	}
 
 	return selected, nil

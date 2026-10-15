@@ -420,8 +420,10 @@ at the readable bundle.
 
 Builds check only the `addon.json` fields they use: a usable `version_string`
 and a valid `composer_autoload` path when provided. Full metadata validation is
-deferred. A declared `composer_autoload` directory must have its `installed.json`
-included in the release, even with `--skip-composer`. Release builds export XML
+deferred. The add-on's `addon.json` and a declared Composer `installed.json` are
+always included, regardless of whitelist and blacklist rules; additional-file
+overrides still apply. The Composer file must be available even with
+`--skip-composer`. Release builds export XML
 from the add-on's prepared `_output` directory into `_data`, after Composer and
 before JavaScript tasks. Non-empty type directories require `_metadata.jsonl`,
 and listed files must match their recorded hashes. Unknown types, unknown JSON
