@@ -298,15 +298,16 @@ xf db shell -e 'show tables;'
 ### Worktrees
 
 A worktree is a second checkout of the same repository on its own branch or
-workspace, with its own Docker containers and database. Worktrees are created
+workspace, with its own Docker containers and database. `create` makes worktrees
 alongside the source checkout: `~/Sites/main` gains
 `~/Sites/main.worktrees/<name>`.
 
 The source repository decides the backend. A repository that uses Jujutsu —
 including one colocated with Git — gets a Jujutsu workspace named from
 `<branch>`; no bookmark is created or moved. A plain Git repository gets a Git
-worktree and branch. `--base` accepts the selected backend's revision syntax: a
-Git ref or a Jujutsu revset.
+worktree and branch. In Git the argument is a branch name; in Jujutsu it is a
+workspace name. `--base` accepts the selected backend's revision syntax: a Git
+ref or a Jujutsu revset.
 
 By default `create` clones the source environment — database, `data/` and
 `internal_data/` — and points the cloned board at its own URL, labelling its
@@ -329,6 +330,27 @@ stdout, which would corrupt the JSON document. It therefore requires
 `--no-setup`, and the accepted invocation writes exactly one JSON document to
 stdout.
 
+`adopt <path>` registers an existing linked worktree or Jujutsu workspace that
+xf did not create, so it appears in `list`, `list-all` and `prune`, and can be
+addressed by `path` and `remove` wherever it lives. Adoption is metadata-only:
+it reads the checkout's root, source and branch or workspace name and records
+them, and changes nothing in the checkout or its version-control state. The path
+may be the checkout root or any directory inside it, absolute or relative to
+your current directory. The checkout must be a XenForo checkout with a regular
+`src/XF.php`; the source or main checkout is refused, as is a Git checkout in a
+detached HEAD state. A Jujutsu workspace named `HEAD` is not detached and is
+accepted.
+
+Adoption stores canonical paths, so an alias and the directory it resolves to
+are one record. The instance name comes from `--instance`, otherwise from a
+non-empty `XF_INSTANCE` in the checkout's `.env`, otherwise it is derived from
+the branch or workspace name, without a collision suffix. The value is recorded
+only: adoption does not write
+`.env`, create an isolated Docker environment or move containers, so a later
+`remove` still reads the checkout's own configuration. Re-adopting a path
+refreshes its record, including the registration time and instance, and clears
+its cloned flag.
+
 ```bash
 # Create a worktree and set up its environment
 xf worktree create dev/24x/feature
@@ -347,6 +369,15 @@ xf worktree create dev/24x/feature --no-setup --json
 
 # Configure the environment but leave the containers stopped
 xf worktree create dev/24x/feature --no-up
+
+# Register an existing worktree or workspace at any location
+xf worktree adopt ../shared/feature
+
+# Record a Docker instance name for an adopted checkout
+xf worktree adopt ../shared/feature --instance my-feature
+
+# Print the registration as JSON
+xf worktree adopt ../shared/feature --json
 
 # List worktrees (this project / all known projects)
 xf worktree list
@@ -369,11 +400,22 @@ xf worktree remove dev/24x/feature --keep-containers
 xf worktree prune
 ```
 
+`list`, `path` and `remove` are project-scoped: run them from the source
+checkout or from one of its adopted workspaces. `adopt` and `list-all` do not
+need a repository, so they can run from anywhere. `path` prints the
+conventional location when that directory exists and otherwise falls back to a
+registered adopted path, so it can return the location of an adopted checkout
+that is not where the branch name would put it.
+
 `remove` refuses a worktree that holds uncommitted changes or commits that
 exist on no remote, and lists what would be lost. The files `create` generates
 (`compose*.yaml`, `.env`, `.dockerignore`) do not count as changes. Passing
 `--force` overrides both checks, so reach for it only once you have read what
-the refusal reported.
+the refusal reported. Removal is destructive for adopted checkouts just as for
+created ones, and it verifies that the target really is a registered, non-source
+checkout of the current repository before deleting anything — even with
+`--force`. An adopted record's instance name does not retarget containers:
+removal reads the checkout's own Docker configuration.
 
 Because cloning copies an installed database, `--no-up` and `--fresh` both skip
 it: `--fresh` installs a clean forum instead, while `--no-up` leaves the
