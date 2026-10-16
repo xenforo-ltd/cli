@@ -15,20 +15,20 @@ import (
 
 var errTestBoom = errors.New("boom")
 
-// TestPlannedInitSteps pins the fixed step plan: the Composer and XenForo
+// TestPlannedInitSteps pins the fixed step plan: the Composer, JavaScript and XenForo
 // install slots count toward the total whether they run or are printed as
 // skipped, so the only thing that changes the total is --skip-up, which makes
-// both unreachable.
+// all unreachable.
 func TestPlannedInitSteps(t *testing.T) {
 	tests := []struct {
 		name string
 		opts InitOptions
 		want int
 	}{
-		{name: "full run", opts: InitOptions{}, want: 8},
-		{name: "skip install", opts: InitOptions{SkipInstall: true}, want: 8},
-		{name: "skip composer", opts: InitOptions{SkipComposer: true}, want: 8},
-		{name: "skip install and composer", opts: InitOptions{SkipInstall: true, SkipComposer: true}, want: 8},
+		{name: "full run", opts: InitOptions{}, want: 9},
+		{name: "skip install", opts: InitOptions{SkipInstall: true}, want: 9},
+		{name: "skip composer", opts: InitOptions{SkipComposer: true}, want: 9},
+		{name: "skip install and composer", opts: InitOptions{SkipInstall: true, SkipComposer: true}, want: 9},
 		{name: "skip up", opts: InitOptions{SkipUp: true}, want: 6},
 		{name: "skip up and skip install", opts: InitOptions{SkipUp: true, SkipInstall: true}, want: 6},
 		{name: "skip up and skip composer", opts: InitOptions{SkipUp: true, SkipComposer: true}, want: 6},

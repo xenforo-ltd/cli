@@ -209,6 +209,10 @@ xf init ./my-project \
 # You can override either key via --env-file/--env.
 ```
 
+Init and worktree setup build JavaScript for XF and add-ons with a `build.json`,
+even without starting containers. Release packages omit this file and are skipped.
+Use `--skip-build-js` to skip these builds; normal `xf up` does not build JS.
+
 ### Upgrade
 
 ```bash

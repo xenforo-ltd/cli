@@ -36,9 +36,10 @@ Fresh Install Mode (default):
   3. Extracts XenForo files to the target directory
   4. Sets up Docker configuration
   5. Configures the .env file
-  6. Runs 'up' to start the containers
-  7. Runs 'composer install' if composer.json is present
-  8. Runs 'xf:install' to complete the installation
+  6. Builds JavaScript for XF and add-ons with build.json
+  7. Runs 'up' to start the containers
+  8. Runs 'composer install' if composer.json is present
+  9. Runs 'xf:install' to complete the installation
 
 Existing Directory Mode (--existing flag):
   For core developers who already have XenForo source files checked out.
@@ -47,12 +48,18 @@ Existing Directory Mode (--existing flag):
   1. Detects existing XenForo installation (src/XF.php)
   2. Extracts Docker configuration files
   3. Configures the .env file
-  4. Optionally starts containers (with --up flag)
+  4. Builds JavaScript for XF and add-ons with build.json
+  5. Optionally starts containers (with --up flag)
 
   Repository checkouts track composer.json, so dependencies are installed
   automatically once the containers are running, along with those of any
   add-on that keeps its own in a gitignored _vendor directory. Release
   packages ship vendor/ prebuilt and have no manifest, so they are skipped.
+
+  JavaScript is rebuilt for XF and each add-on with a build.json, even
+  without starting containers. Release packages omit this file and are unchanged.
+  Use --skip-build-js to skip these builds independently of Composer and
+  the XenForo installer.
 
 Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
 You can override either value via --env-file/--env.`,
@@ -94,6 +101,7 @@ type InitOptions struct {
 	SkipUp           bool
 	SkipInstall      bool
 	SkipComposer     bool
+	SkipBuildJS      bool
 	ExistingOnly     bool
 	Contexts         []string
 	StartContainers  bool
@@ -117,6 +125,7 @@ var (
 	flagInitSkipUp        bool
 	flagInitSkipInstall   bool
 	flagInitSkipComposer  bool
+	flagInitSkipBuildJS   bool
 	flagInitExisting      bool
 	flagInitContexts      []string
 	flagInitUp            bool
@@ -136,6 +145,7 @@ func init() {
 	initCmd.Flags().BoolVar(&flagInitSkipUp, "skip-up", false, "skip starting Docker containers")
 	initCmd.Flags().BoolVar(&flagInitSkipInstall, "skip-install", false, "skip running xf:install")
 	initCmd.Flags().BoolVar(&flagInitSkipComposer, "skip-composer", false, "skip running composer install")
+	initCmd.Flags().BoolVar(&flagInitSkipBuildJS, "skip-build-js", false, "skip building JavaScript for XF and add-ons")
 	initCmd.Flags().BoolVar(&flagInitExisting, "existing", false, "initialize Docker in an existing XenForo directory (skips download)")
 	initCmd.Flags().StringSliceVar(&flagInitContexts, "contexts", nil, "Docker contexts to enable (e.g., caddy,mysql,development,redis)")
 	initCmd.Flags().BoolVar(&flagInitUp, "up", false, "start containers after initialization (for --existing mode)")
@@ -172,6 +182,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		SkipUp:           flagInitSkipUp,
 		SkipInstall:      flagInitSkipInstall,
 		SkipComposer:     flagInitSkipComposer,
+		SkipBuildJS:      flagInitSkipBuildJS,
 		ExistingOnly:     flagInitExisting,
 		Contexts:         flagInitContexts,
 		StartContainers:  flagInitUp,
@@ -288,7 +299,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	}
 
 	step := 1
-	totalSteps := 3
+	totalSteps := 4
 
 	ui.PrintStep(step, totalSteps, "Setting up Docker configuration")
 	step++
@@ -319,6 +330,13 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 
 	ui.PrintSubstep("Configured instance: " + ui.Bold.Render(opts.InstanceName))
 
+	ui.Println()
+
+	if err := runInitJavaScript(ctx, opts, step, totalSteps); err != nil {
+		return err
+	}
+
+	step++
 	ui.Println()
 
 	// Detection can fail or return nothing, and installing --url= empty would

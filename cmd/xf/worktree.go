@@ -82,6 +82,8 @@ var worktreeCreateCmd = &cobra.Command{
 
 By default the new worktree's Docker environment is created and the source
 environment is cloned into it. Use --no-setup to create only the worktree.
+JavaScript is built for XF and add-ons with build.json, even with --no-up.
+Use --skip-build-js to skip these builds.
 
 --json requires --no-setup: setup writes progress to stdout, which would
 corrupt the JSON document. With both flags, exactly one JSON document is
@@ -156,6 +158,7 @@ var (
 	flagWorktreeForce          bool
 	flagWorktreeKeepContainers bool
 	flagWorktreeFresh          bool
+	flagWorktreeSkipBuildJS    bool
 )
 
 func init() {
@@ -163,6 +166,7 @@ func init() {
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeNoSetup, "no-setup", false, "create the worktree only, without setting up the environment")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeNoUp, "no-up", false, "configure the environment but do not start containers")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeFresh, "fresh", false, "install a clean forum instead of cloning the source environment")
+	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeSkipBuildJS, "skip-build-js", false, "skip building JavaScript for XF and add-ons")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeInstance, "instance", "", "Docker instance name")
 	// JSON must be the only thing on stdout, but setup writes progress there.
 	// Requiring --no-setup keeps the stream machine-readable without routing
@@ -374,6 +378,7 @@ func worktreeInitOptions(result *worktree.Result, cloning bool) *InitOptions {
 		SkipUp:           flagWorktreeNoUp,
 		StartContainers:  !flagWorktreeNoUp,
 		SkipInstall:      cloning,
+		SkipBuildJS:      flagWorktreeSkipBuildJS,
 		AdminUser:        defaultString(flagWorktreeAdminUser, defaultWorktreeAdminUser),
 		AdminPassword:    defaultString(flagWorktreeAdminPassword, defaultWorktreeAdminPassword),
 		AdminEmail:       defaultString(flagWorktreeAdminEmail, defaultWorktreeAdminEmail),
@@ -385,7 +390,7 @@ func worktreeInitOptions(result *worktree.Result, cloning bool) *InitOptions {
 }
 
 // setUpWorktree initialises the environment by delegating to init, which
-// already handles Docker configuration, containers, Composer and installation.
+// already handles Docker configuration, containers, Composer, JavaScript and installation.
 func setUpWorktree(ctx context.Context, result *worktree.Result, opts *InitOptions) error {
 	if err := initExisting(ctx, opts); err != nil {
 		return fmt.Errorf("worktree created at %s, but setting up its environment failed: %w", result.Path, err)

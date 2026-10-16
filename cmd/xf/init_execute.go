@@ -32,24 +32,22 @@ import (
 // reachable but skipped (and therefore printed via printSkippedStep), counts
 // toward the total.
 //
-// The Composer and install slots are fixed once containers will be started:
-// both are always printed, whether they run or are marked skipped, so the
-// total does not depend on what the downloaded package happens to contain.
-// Anything gated behind a skipped "Starting Docker environment" step is not
-// reachable, so --skip-up prints the six steps before it.
+// JavaScript always occupies a slot. Container startup, Composer and installation
+// only occupy slots when startup is requested, whether they run or are skipped.
+// The total does not depend on what the downloaded package contains.
 func plannedInitSteps(opts InitOptions) int {
 	// Preparing target directory, Downloading XenForo files, Extracting
 	// XenForo files, Setting up Docker configuration, Configuring
-	// environment, Starting Docker environment.
+	// environment, Building JavaScript.
 	const base = 6
 
 	if opts.SkipUp {
 		return base
 	}
 
-	// Installing Composer dependencies and Installing XenForo occupy a slot
-	// once containers can start, whether they run or are printed as skipped.
-	return base + 2
+	// Container startup, Composer and XenForo installation each occupy a slot
+	// when startup is requested, whether they run or are printed as skipped.
+	return base + 3
 }
 
 func executeInit(ctx context.Context, opts *InitOptions) error {
@@ -149,19 +147,25 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	ui.Println()
 
-	runner, err := dockercompose.NewRunner(opts.TargetPath)
-	if err != nil {
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
+	if err := runInitJavaScript(ctx, opts, step, totalSteps); err != nil {
+		return err
 	}
+
+	step++
+	ui.Println()
 
 	siteURL := fallbackBoardURL(opts.InstanceName)
 
 	if opts.SkipUp {
-		// No further steps run in this branch, so step is not advanced.
-		printSkippedStep(step, totalSteps, "Starting Docker environment", "use --up to start containers")
+		ui.PrintInfo("Docker containers not started (--skip-up)")
 	} else {
 		ui.PrintStep(step, totalSteps, "Starting Docker environment")
 		step++
+
+		runner, err := dockercompose.NewRunner(opts.TargetPath)
+		if err != nil {
+			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
+		}
 
 		if cfg.Verbose {
 			ui.PrintSubstep("Running docker compose up...")
