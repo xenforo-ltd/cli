@@ -19,6 +19,7 @@ linters:
         - (*os.Root).Close
         - (*os.Root).Remove
         - (io.Closer).Close
+        - (io/fs.File).Close
         - fmt.Fprint
         - fmt.Fprintf
         - strconv.Atoi
