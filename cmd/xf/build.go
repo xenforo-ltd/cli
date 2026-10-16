@@ -113,11 +113,30 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	ui.PrintSuccess("Built " + addOnID)
 	ui.Println()
 	ui.PrintKeyValuePadded([]ui.KVPair{
-		ui.KV("Release", ui.FileLink(result.ZipPath, result.ZipPath)),
-		ui.KV("Contents", fmt.Sprintf("%s (%s uncompressed, %s)",
-			ui.FormatBytes(archiveInfo.Size()), ui.FormatBytes(result.TotalSize), ui.Plural(result.FileCount, "file", "files"))),
+		ui.KV("Release", ui.FileLink(releaseDisplayPath(result.ZipPath), result.ZipPath)),
+		ui.KV("Contents", fmt.Sprintf("%s, %s (%s uncompressed)",
+			ui.Plural(result.FileCount, "file", "files"), ui.FormatBytes(archiveInfo.Size()), ui.FormatBytes(result.TotalSize))),
 	})
 	return nil
+}
+
+// releaseDisplayPath shows an archive relative to the current directory only
+// when it is beneath that directory. Otherwise it keeps the absolute path.
+func releaseDisplayPath(filename string) string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return filename
+	}
+	cwd, err = filepath.EvalSymlinks(cwd)
+	if err != nil {
+		return filename
+	}
+
+	rel, err := filepath.Rel(cwd, filename)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return filename
+	}
+	return rel
 }
 
 // runBuildJavaScript forwards a build or watch operation to the build package.
