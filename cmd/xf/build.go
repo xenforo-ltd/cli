@@ -33,7 +33,8 @@ ZIP timestamps use the build start time; BUILD_DATE overrides them with
 a Unix timestamp. Source modification times are not retained.`,
 	Example: `  xf build
   xf build Vendor/AddOn
-  xf build Vendor/AddOn --skip-composer`,
+  xf build Vendor/AddOn --skip-composer
+  xf build js --watch`,
 	Args:    cobra.MaximumNArgs(1),
 	GroupID: "run",
 	RunE:    runBuild,
@@ -41,7 +42,7 @@ a Unix timestamp. Source modification times are not retained.`,
 
 // buildJavaScriptCmd builds or watches an add-on's JavaScript without a release.
 var buildJavaScriptCmd = &cobra.Command{
-	Use:   "build-js [addon-id]",
+	Use:   "js [addon-id]",
 	Short: "Build or watch an add-on's JavaScript",
 	Long: `Run the minify and rollup tasks configured in the add-on's build.json.
 Dependencies, exec commands, and release archives are not part of this command.
@@ -51,12 +52,12 @@ When omitted, the add-on is inferred by searching upward for addon.json,
 falling back to XF.
 Use --watch to rebuild when sources or configuration change. Build errors are
 reported without stopping the watcher; press Ctrl-C to stop.`,
-	Example: `  xf build-js
-  xf build-js Vendor/AddOn
-  xf build-js Vendor/AddOn --watch`,
-	Args:    cobra.MaximumNArgs(1),
-	GroupID: "run",
-	RunE:    runBuildJavaScript,
+	Example: `  xf build js
+  xf build js --watch
+  xf build js Vendor/AddOn
+  xf build js Vendor/AddOn --watch`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runBuildJavaScript,
 }
 
 var (
@@ -70,7 +71,8 @@ var (
 func init() {
 	buildCmd.Flags().BoolVar(&flagBuildSkipComposer, "skip-composer", false, "skip Composer dependency installation")
 	buildJavaScriptCmd.Flags().BoolVar(&flagBuildWatch, "watch", false, "rebuild JavaScript when inputs change")
-	rootCmd.AddCommand(buildCmd, buildJavaScriptCmd)
+	buildCmd.AddCommand(buildJavaScriptCmd)
+	rootCmd.AddCommand(buildCmd)
 }
 
 // runBuild forwards the release build to the build package and reports its outputs.

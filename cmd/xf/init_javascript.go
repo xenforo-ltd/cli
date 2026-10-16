@@ -96,7 +96,7 @@ func runInitJavaScript(ctx context.Context, opts *InitOptions, step, totalSteps 
 			ui.PrintWarning(err.Error())
 			ui.PrintHint(fmt.Sprintf(
 				"%s may not work without its JavaScript. Fix it, then run %s",
-				project, ui.Command.Render("xf build-js "+project),
+				project, ui.Command.Render("xf build js "+project),
 			))
 			continue
 		}

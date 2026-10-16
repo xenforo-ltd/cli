@@ -397,10 +397,10 @@ xf build Vendor/AddOn --skip-composer
 BUILD_DATE=1767225600 xf build Vendor/AddOn
 
 # Build JavaScript without creating a release
-xf build-js Vendor/AddOn
+xf build js Vendor/AddOn
 
 # Rebuild JavaScript when inputs change
-xf build-js Vendor/AddOn --watch
+xf build js Vendor/AddOn --watch
 ```
 
 The add-on's optional `build.json` controls file selection, minification, rollups,
