@@ -196,7 +196,9 @@ func DetectVersionFS(installation fs.FS) (*Version, error) {
 
 		return nil, fmt.Errorf("failed to read XF.php: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	var (
 		versionStr string
