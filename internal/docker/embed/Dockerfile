@@ -4,11 +4,12 @@ ARG PHP_VERSION=8.5
 ARG PHP_VARIANT=fpm
 
 ARG PHP_VERSION_COMPOSER=2.10
-ARG PHP_VERSION_IGBINARY=3.2.17RC1@RC
-ARG PHP_VERSION_IMAGICK=3.8.1
-ARG PHP_VERSION_REDIS=6.3.0
-ARG PHP_VERSION_XDEBUG=3.5.3
-ARG PHP_VERSION_YAML=2.3.0
+ARG PHP_VERSION_IGBINARY=^3.2.17RC1@RC
+ARG PHP_VERSION_IMAGICK=^3.8.1
+ARG PHP_VERSION_REDIS=^6.3.0
+ARG PHP_VERSION_SQLSRV=^5.13.3
+ARG PHP_VERSION_XDEBUG=^3.5.3
+ARG PHP_VERSION_YAML=^2.3.0
 
 ARG PHP_BUILD_IMAGICK=0
 ARG PHP_BUILD_MYSQL=0
@@ -31,6 +32,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 ARG PHP_VERSION_IGBINARY
 ARG PHP_VERSION_IMAGICK
 ARG PHP_VERSION_REDIS
+ARG PHP_VERSION_SQLSRV
 ARG PHP_VERSION_XDEBUG
 ARG PHP_VERSION_YAML
 
@@ -187,8 +189,8 @@ RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin
             libtool \
             unixodbc-dev \
         ; \
-        pie install --no-interaction --no-cache microsoft/sqlsrv; \
-        pie install --no-interaction --no-cache microsoft/pdo_sqlsrv; \
+        pie install --no-interaction --no-cache "microsoft/sqlsrv:${PHP_VERSION_SQLSRV}"; \
+        pie install --no-interaction --no-cache "microsoft/pdo_sqlsrv:${PHP_VERSION_SQLSRV}"; \
         rm -rf /tmp/pie; \
         apk del .php-deps-sqlsrv-build; \
     fi;
