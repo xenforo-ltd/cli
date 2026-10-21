@@ -176,13 +176,16 @@ RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin
         apk del .php-deps-pgsql-build; \
     fi;
 
+ARG TARGETARCH
+
 RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin/pie \
     set -eux; \
     export PIE_WORKING_DIRECTORY=/tmp/pie; \
     if [ "${PHP_BUILD_SQLSRV}" -ne 0 ]; then \
-        curl -O https://download.microsoft.com/download/fae28b9a-d880-42fd-9b98-d779f0fdd77f/msodbcsql18_18.5.1.1-1_arm64.apk; \
-        apk add --allow-untrusted msodbcsql18_18.5.1.1-1_arm64.apk; \
-        rm msodbcsql18_18.5.1.1-1_arm64.apk; \
+        odbc_package="msodbcsql18_18.7.1.1-1_${TARGETARCH}.apk"; \
+        curl -fsSLO "https://download.microsoft.com/download/ade174b7-8cea-4543-91a6-c33ae320c2f0/${odbc_package}"; \
+        apk add --no-cache --allow-untrusted "${odbc_package}"; \
+        rm "${odbc_package}"; \
         apk add --no-cache --virtual .php-deps-sqlsrv unixodbc; \
         apk add --no-cache --virtual .php-deps-sqlsrv-build \
             ${PHPIZE_DEPS} \
