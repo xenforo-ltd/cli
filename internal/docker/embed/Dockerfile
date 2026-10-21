@@ -4,7 +4,7 @@ ARG PHP_VERSION=8.5
 ARG PHP_VARIANT=fpm
 
 ARG PHP_VERSION_COMPOSER=2.10
-ARG PHP_VERSION_IGBINARY=3.2.17RC1
+ARG PHP_VERSION_IGBINARY=3.2.17RC1@RC
 ARG PHP_VERSION_IMAGICK=3.8.1
 ARG PHP_VERSION_REDIS=6.3.0
 ARG PHP_VERSION_XDEBUG=3.5.3
@@ -116,7 +116,9 @@ RUN set -eux; \
         apk add --no-cache ffmpeg; \
     fi;
 
-RUN set -eux; \
+RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin/pie \
+    set -eux; \
+    export PIE_WORKING_DIRECTORY=/tmp/pie; \
     if [ "${PHP_BUILD_IMAGICK}" -ne 0 ]; then \
         apk add --no-cache --virtual .php-deps-imagick \
             imagemagick \
@@ -125,23 +127,23 @@ RUN set -eux; \
         apk add --no-cache --virtual .php-deps-imagick-build \
             ${PHPIZE_DEPS} \
             imagemagick-dev \
+            libtool \
         ; \
-        pecl install imagick-${PHP_VERSION_IMAGICK}; \
-        docker-php-ext-enable imagick; \
-        rm -rf /tmp/pear; \
+        pie install --no-interaction --no-cache "imagick/imagick:${PHP_VERSION_IMAGICK}"; \
+        rm -rf /tmp/pie; \
         apk del .php-deps-imagick-build; \
     fi;
 
-RUN set -eux; \
+RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin/pie \
+    set -eux; \
+    export PIE_WORKING_DIRECTORY=/tmp/pie; \
     if [ "${PHP_BUILD_REDIS}" -ne 0 ]; then \
-        apk add --no-cache --virtual .php-deps-redis-build ${PHPIZE_DEPS}; \
-        pecl install igbinary-${PHP_VERSION_IGBINARY}; \
-        pecl install \
-            --configureoptions 'enable-redis-igbinary="yes"' \
-            redis-${PHP_VERSION_REDIS}; \
-        docker-php-ext-enable igbinary; \
-        docker-php-ext-enable redis; \
-        rm -rf /tmp/pear; \
+        apk add --no-cache --virtual .php-deps-redis-build ${PHPIZE_DEPS} libtool; \
+        pie install --no-interaction --no-cache "igbinary/igbinary:${PHP_VERSION_IGBINARY}"; \
+        pie install --no-interaction --no-cache \
+            --enable-redis-igbinary \
+            "phpredis/phpredis:${PHP_VERSION_REDIS}"; \
+        rm -rf /tmp/pie; \
         apk del .php-deps-redis-build; \
     fi;
 
@@ -151,7 +153,9 @@ RUN set -eux; \
         docker-php-ext-install -j$(nproc) pdo_mysql; \
     fi;
 
-RUN set -eux; \
+RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin/pie \
+    set -eux; \
+    export PIE_WORKING_DIRECTORY=/tmp/pie; \
     if [ "${PHP_BUILD_PGSQL}" -ne 0 ]; then \
         apk add --no-cache --virtual .php-deps-pgsql \
             postgresql-libs \
@@ -159,18 +163,20 @@ RUN set -eux; \
         ; \
         apk add --no-cache --virtual .php-deps-pgsql-build \
             ${PHPIZE_DEPS} \
+            libtool \
             postgresql-dev \
             yaml-dev \
         ; \
         docker-php-ext-install -j$(nproc) pgsql; \
         docker-php-ext-install -j$(nproc) pdo_pgsql; \
-        pecl install yaml-${PHP_VERSION_YAML}; \
-        docker-php-ext-enable yaml; \
-        rm -rf /tmp/pear; \
+        pie install --no-interaction --no-cache "pecl/yaml:${PHP_VERSION_YAML}"; \
+        rm -rf /tmp/pie; \
         apk del .php-deps-pgsql-build; \
     fi;
 
-RUN set -eux; \
+RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin/pie \
+    set -eux; \
+    export PIE_WORKING_DIRECTORY=/tmp/pie; \
     if [ "${PHP_BUILD_SQLSRV}" -ne 0 ]; then \
         curl -O https://download.microsoft.com/download/fae28b9a-d880-42fd-9b98-d779f0fdd77f/msodbcsql18_18.5.1.1-1_arm64.apk; \
         apk add --allow-untrusted msodbcsql18_18.5.1.1-1_arm64.apk; \
@@ -178,13 +184,12 @@ RUN set -eux; \
         apk add --no-cache --virtual .php-deps-sqlsrv unixodbc; \
         apk add --no-cache --virtual .php-deps-sqlsrv-build \
             ${PHPIZE_DEPS} \
+            libtool \
             unixodbc-dev \
         ; \
-        pecl install sqlsrv; \
-        pecl install pdo_sqlsrv; \
-        docker-php-ext-enable sqlsrv; \
-        docker-php-ext-enable pdo_sqlsrv; \
-        rm -rf /tmp/pear; \
+        pie install --no-interaction --no-cache microsoft/sqlsrv; \
+        pie install --no-interaction --no-cache microsoft/pdo_sqlsrv; \
+        rm -rf /tmp/pie; \
         apk del .php-deps-sqlsrv-build; \
     fi;
 
@@ -203,14 +208,16 @@ FROM php AS development
 
 ARG PHP_VERSION_XDEBUG
 
-RUN set -eux; \
+RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin/pie \
+    set -eux; \
+    export PIE_WORKING_DIRECTORY=/tmp/pie; \
     apk add --no-cache --virtual .php-deps-xdebug-build \
         ${PHPIZE_DEPS} \
+        libtool \
         linux-headers \
     ; \
-    pecl install xdebug-${PHP_VERSION_XDEBUG}; \
-    docker-php-ext-enable xdebug; \
-    rm -rf /tmp/pear; \
+    pie install --no-interaction --no-cache "xdebug/xdebug:${PHP_VERSION_XDEBUG}"; \
+    rm -rf /tmp/pie; \
     apk del .php-deps-xdebug-build;
 
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
