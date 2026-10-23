@@ -32,7 +32,7 @@ type config struct {
 	whitelist        []filePattern
 	blacklist        []filePattern
 	hashExclude      []filePattern
-	additional       []string
+	additional       []filePattern
 	minify           []filePattern
 	rollups          []rollupEntry
 	commands         [][]string
@@ -148,13 +148,8 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 		return nil, err
 	}
 
-	for _, entry := range raw.Additional {
-		entry, err := relativePath(entry, literalPath)
-		if err != nil {
-			return nil, fmt.Errorf("invalid additional file: %w", err)
-		}
-
-		cfg.additional = append(cfg.additional, entry)
+	if cfg.additional, err = parseAdditional(raw.Additional); err != nil {
+		return nil, fmt.Errorf("invalid additional file: %w", err)
 	}
 
 	metadata, err := parseMetadata(addonJSON)
@@ -204,6 +199,30 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 	}
 
 	return cfg, nil
+}
+
+// parseAdditional parses additional_files entries as glob patterns. Literal
+// entries keep their previous path validation and cleaning.
+func parseAdditional(values []string) ([]filePattern, error) {
+	patterns, err := parsePatterns(values)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, pattern := range patterns {
+		if !isLiteral(pattern.value) {
+			continue
+		}
+
+		value, err := relativePath(pattern.value, literalPath)
+		if err != nil {
+			return nil, err
+		}
+
+		patterns[i] = filePattern{value: value}
+	}
+
+	return patterns, nil
 }
 
 // parseMinify decodes "*" or a list of glob patterns.

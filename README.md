@@ -412,6 +412,7 @@ includes that file, `.config/**` includes visible files under `.config`, and
 `**` alone does not include hidden paths. Blacklist rules and reserved build-file
 exclusions still apply. Additional files and JavaScript inputs are looked up in
 the build root's `_files` directory first, then in the build root itself.
+Additional entries may be literal file or directory paths, or glob patterns.
 
 Minifying a script writes its `*.min.js` companion and an external
 `*.min.js.map` source map, and links the map from the minified file. Maps do not
