@@ -18,7 +18,7 @@ env:
 jobs:
   clean-images:
     name: Clean images
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2604
     permissions:
       packages: write # required to clean old images
 
