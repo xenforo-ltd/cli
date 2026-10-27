@@ -27,8 +27,10 @@ The XenForo installation is discovered from the current directory or XF_DIR.
 When omitted, the add-on is inferred by searching upward for addon.json,
 falling back to XF.
 Composer uses the Docker environment when configured, or the host otherwise.
-Configured exec commands run on the host. Data is exported from prepared _output
-after Composer and before JavaScript tasks; _metadata.jsonl drives each data type.
+Exec commands run on the host unless they start with @php, @composer, or @xf,
+which use the environment when configured and the host otherwise.
+Data is exported from prepared _output after Composer and before JavaScript
+tasks; _metadata.jsonl drives each data type.
 ZIP timestamps use the build start time; BUILD_DATE overrides them with
 a Unix timestamp. Source modification times are not retained.`,
 	Example: `  xf build

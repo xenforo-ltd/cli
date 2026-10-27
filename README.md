@@ -450,8 +450,26 @@ at any depth. A literal directory path also excludes its descendants.
 
 Releases are written to the add-on's `_releases` directory; the generated hash
 manifest is written to `hashes.json` in the add-on directory. Composer uses the
-Docker environment when configured, or the host otherwise. Configured `exec`
-commands run on the host.
+Docker environment when configured, or the host otherwise.
+
+Configured `exec` commands run on the host unless the first argument is `@php`,
+`@composer`, or `@xf`. These aliases use the Docker environment when
+`compose.yaml` is present, running in the `xf` service or a one-off container,
+and run on the host otherwise. `@php` and `@composer` run in the add-on
+directory, like ordinary commands. `@xf` runs `php cmd.php` in the installation
+root and accepts XenForo command arguments, not `xf` CLI options. Aliases are
+recognized only as the exact first argument. Docker failures are reported and
+never retried on the host.
+
+```json
+{
+  "exec": [
+    ["@php", "build.php", "{version_string}"],
+    "@composer dump-autoload --no-dev",
+    ["@xf", "xf-dev:rebuild-caches"]
+  ]
+}
+```
 
 ### PHP / Composer / Debug
 

@@ -318,6 +318,10 @@ func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
 // writers behave the same whether the service is running or stopped. A TTY is
 // requested only when stdin is a terminal.
 func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
+	return r.ExecOrRunInDir(ctx, service, "", env, stdin, stdout, stderr, cmd...)
+}
+
+func (r *Runner) ExecOrRunInDir(ctx context.Context, service, workDir string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	running, err := r.IsServiceRunning(ctx, service)
 	if err != nil {
 		return err
@@ -330,12 +334,13 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]s
 			execArgs = append(execArgs, "-T")
 		}
 		execArgs = r.appendEnvVars(execArgs, env, "-e")
+		execArgs = appendWorkDir(execArgs, workDir)
 		execArgs = append(execArgs, service)
 		execArgs = append(execArgs, cmd...)
 
 		stderrOutput, err := r.runDockerCommandCaptureStderrWithEnv(ctx, env, stdin, stdout, execArgs...)
 		if err != nil && isNotRunningExecError(err, stderrOutput) {
-			return r.run(ctx, service, env, stdin, stdout, stderr, cmd...)
+			return r.run(ctx, service, workDir, env, stdin, stdout, stderr, cmd...)
 		}
 
 		// stderr is captured only to detect the not-running case above. For any
@@ -350,13 +355,14 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]s
 		return err
 	}
 
-	return r.run(ctx, service, env, stdin, stdout, stderr, cmd...)
+	return r.run(ctx, service, workDir, env, stdin, stdout, stderr, cmd...)
 }
 
-func (r *Runner) run(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
+func (r *Runner) run(ctx context.Context, service, workDir string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "run", "--rm")
 	args = r.appendEnvVars(args, env, "--env")
+	args = appendWorkDir(args, workDir)
 	args = append(args, service)
 	args = append(args, cmd...)
 
@@ -601,6 +607,14 @@ func (r *Runner) appendEnvVars(args []string, env map[string]string, flagFormat 
 	}
 
 	return args
+}
+
+func appendWorkDir(args []string, workDir string) []string {
+	if workDir == "" {
+		return args
+	}
+
+	return append(args, "--workdir", workDir)
 }
 
 // sortedEnvKeys returns the keys of env in a stable order, so the arguments a

@@ -75,7 +75,8 @@ func WithTimestamp(timestamp time.Time) Option {
 // The add-on's optional build.json determines the build root and file selection.
 // Without it, all eligible files beneath the add-on directory are included.
 // Composer uses the project's Docker environment when configured and runs on
-// the host otherwise. Configured exec commands always run on the host.
+// the host otherwise. Exec commands run on the host, except for the @php,
+// @composer, and @xf aliases, which use the environment when configured.
 // Data is exported from prepared _output after Composer and before JavaScript
 // tasks. The export creates the add-on's _data directory if needed.
 // ZIP timestamps default to the build start time, not source modification times.
@@ -125,7 +126,12 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 	tasks = append(tasks, exportDataTask{dir: cfg.addOnDir, stderr: opts.stderr})
 	tasks = append(tasks, javascriptTasks(cfg)...)
 	if len(cfg.commands) > 0 {
-		tasks = append(tasks, execTask{commands: cfg.commands, dir: cfg.addOnDir, streams: opts.commandStreams})
+		tasks = append(tasks, execTask{
+			addOnPaths:      cfg.addOnPaths,
+			commands:        cfg.commands,
+			installationDir: installation.Name(),
+			streams:         opts.commandStreams,
+		})
 	}
 
 	hashes := &hashesTask{selection: selection, destination: hashesPath, exclude: cfg.hashExclude}
