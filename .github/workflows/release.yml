@@ -23,19 +23,19 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version: stable
           cache: false
 
       - name: Generate changelog
-        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
+        uses: orhun/git-cliff-action@v4.9.1
         with:
           version: v2.13.0
           args: --verbose --current --strip all
@@ -47,7 +47,7 @@ jobs:
         run: tail -n +3 "$RUNNER_TEMP/RELEASE.md" > "$RUNNER_TEMP/release-notes.md"
 
       - name: Release
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        uses: goreleaser/goreleaser-action@v7.2.3
         with:
           version: '~> v2'
           args: release --clean --release-notes ${{ runner.temp }}/release-notes.md
@@ -60,6 +60,6 @@ jobs:
           MACOS_NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
 
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      - uses: actions/attest@v4.2.2
         with:
           subject-checksums: ./dist/checksums.txt
