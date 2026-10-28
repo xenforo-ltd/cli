@@ -161,14 +161,39 @@ func WorktreesDir(sourcePath string) string {
 // and the registry records, rather than as the VCS spells it, which may have
 // symlinks resolved.
 func Locate(ctx context.Context, sourcePath, ref string) (string, error) {
-	b, err := detectBackend(ctx, sourcePath)
+	match, err := LocateMatch(ctx, sourcePath, ref)
 	if err != nil {
 		return "", err
 	}
 
+	return match.Path, nil
+}
+
+// Match describes the checkout LocateMatch found.
+type Match struct {
+	// Path is the checkout's location under WorktreesDir(sourcePath).
+	Path string
+
+	// NameOnly reports that ref matched only the checkout's directory name.
+	// Such a checkout is not necessarily on the requested branch, so a caller
+	// resolving a branch can prefer an exact match from elsewhere.
+	NameOnly bool
+}
+
+// LocateMatch is Locate with the kind of match reported.
+//
+// A branch match still wins over a directory-name match within the worktrees
+// directory; NameOnly lets the caller weigh a directory-name match against an
+// exact branch match it knows about from the registry.
+func LocateMatch(ctx context.Context, sourcePath, ref string) (Match, error) {
+	b, err := detectBackend(ctx, sourcePath)
+	if err != nil {
+		return Match{}, err
+	}
+
 	checkouts, err := b.checkouts(ctx, sourcePath)
 	if err != nil {
-		return "", err
+		return Match{}, err
 	}
 
 	dir := resolveSymlinks(WorktreesDir(sourcePath))
@@ -186,13 +211,13 @@ func Locate(ctx context.Context, sourcePath, ref string) (string, error) {
 				continue
 			}
 
-			return "", fmt.Errorf("failed to inspect worktree %s: %w", path, err)
+			return Match{}, fmt.Errorf("failed to inspect worktree %s: %w", path, err)
 		}
 
 		name := filepath.Base(path)
 
 		if c.name == ref {
-			return filepath.Join(WorktreesDir(sourcePath), name), nil
+			return Match{Path: filepath.Join(WorktreesDir(sourcePath), name)}, nil
 		}
 
 		if name == ref && byName == "" {
@@ -201,8 +226,8 @@ func Locate(ctx context.Context, sourcePath, ref string) (string, error) {
 	}
 
 	if byName != "" {
-		return filepath.Join(WorktreesDir(sourcePath), byName), nil
+		return Match{Path: filepath.Join(WorktreesDir(sourcePath), byName), NameOnly: true}, nil
 	}
 
-	return "", fmt.Errorf("%w: no worktree for %q in %s", ErrWorktreeNotFound, ref, WorktreesDir(sourcePath))
+	return Match{}, fmt.Errorf("%w: no worktree for %q in %s", ErrWorktreeNotFound, ref, WorktreesDir(sourcePath))
 }

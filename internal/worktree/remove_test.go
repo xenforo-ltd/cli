@@ -257,3 +257,111 @@ func TestRemoveKeepsUnmergedBranchWithoutRemotes(t *testing.T) {
 		t.Error("removed a branch whose commits exist nowhere else")
 	}
 }
+
+// TestValidateRemovalTargetAcceptsAConventionalWorktree is the created case,
+// where the branch and the expected name agree.
+func TestValidateRemovalTargetAcceptsAConventionalWorktree(t *testing.T) {
+	repo, wt := createdWorktree(t)
+
+	if err := ValidateRemovalTarget(t.Context(), repo, wt, "feature"); err != nil {
+		t.Fatalf("ValidateRemovalTarget: %v", err)
+	}
+}
+
+// TestValidateRemovalTargetAcceptsALinkedWorktreeOutsideTheConvention covers an
+// adopted checkout at an arbitrary location: the target is confirmed from its
+// own repository rather than from where it sits.
+func TestValidateRemovalTargetAcceptsALinkedWorktreeOutsideTheConvention(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	wt := filepath.Join(t.TempDir(), "elsewhere")
+	runGit(t, repo, "worktree", "add", "-q", wt, "-b", "feature")
+
+	if err := ValidateRemovalTarget(t.Context(), repo, wt, "feature"); err != nil {
+		t.Fatalf("ValidateRemovalTarget: %v", err)
+	}
+}
+
+func TestValidateRemovalTargetRejectsAWrongExpectedName(t *testing.T) {
+	repo, wt := createdWorktree(t)
+
+	if err := ValidateRemovalTarget(t.Context(), repo, wt, "other"); err == nil {
+		t.Fatal("expected a mismatch between the target's branch and the expected name")
+	}
+}
+
+// TestValidateRemovalTargetRejectsAForeignRepository covers a stale record
+// naming a checkout of a different repository: the target is not registered
+// with the supplied source, so no branch is found for it there.
+func TestValidateRemovalTargetRejectsAForeignRepository(t *testing.T) {
+	repo, _ := createdWorktree(t)
+
+	otherRepo := newXenForoRepo(t)
+
+	otherWt := filepath.Join(t.TempDir(), "other")
+	runGit(t, otherRepo, "worktree", "add", "-q", otherWt, "-b", "feature")
+
+	if err := ValidateRemovalTarget(t.Context(), repo, otherWt, ""); err == nil {
+		t.Fatal("expected a checkout from another repository to be refused")
+	}
+}
+
+func TestValidateRemovalTargetRejectsTheSourceCheckout(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	if err := ValidateRemovalTarget(t.Context(), repo, repo, ""); err == nil {
+		t.Fatal("expected the source checkout to be refused")
+	}
+}
+
+// TestRemoveForceDoesNotBypassValidation is the guarantee that --force widens
+// what the version control system discards, never whose checkout is deleted.
+func TestRemoveForceDoesNotBypassValidation(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	if err := Remove(t.Context(), repo, repo, true); err == nil {
+		t.Fatal("forced removal must still refuse the source checkout")
+	}
+}
+
+func TestValidateRemovalTargetRejectsANonRootSubdirectory(t *testing.T) {
+	repo, wt := createdWorktree(t)
+
+	if err := ValidateRemovalTarget(t.Context(), repo, filepath.Join(wt, "src"), ""); err == nil {
+		t.Fatal("expected a target that is not the checkout root to be refused")
+	}
+}
+
+func TestValidateRemovalTargetRejectsANonDirectory(t *testing.T) {
+	repo := newXenForoRepo(t)
+
+	file := filepath.Join(t.TempDir(), "file.txt")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if err := ValidateRemovalTarget(t.Context(), repo, file, ""); err == nil {
+		t.Fatal("expected a non-directory target to be refused")
+	}
+}
+
+func TestValidateRemovalTargetAcceptsAJujutsuWorkspace(t *testing.T) {
+	source := newJJXenForoRepo(t)
+
+	created, err := Create(t.Context(), Options{SourcePath: source, Branch: "feature"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := ValidateRemovalTarget(t.Context(), source, created.Path, "feature"); err != nil {
+		t.Fatalf("ValidateRemovalTarget: %v", err)
+	}
+}
+
+func TestValidateRemovalTargetRejectsTheJujutsuHost(t *testing.T) {
+	source := newJJXenForoRepo(t)
+
+	if err := ValidateRemovalTarget(t.Context(), source, source, ""); err == nil {
+		t.Fatal("expected the repository host to be refused")
+	}
+}

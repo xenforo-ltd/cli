@@ -76,6 +76,12 @@ func NewRunner(xfDir string) (*Runner, error) {
 		if contextsStr != "" {
 			contexts = strings.Split(contextsStr, ":")
 		}
+	} else if !os.IsNotExist(err) {
+		// A missing .env is the normal unconfigured case and takes the default
+		// name. Any other failure means the file exists but could not be read,
+		// and falling back to "xf" would make Destroy run against the wrong
+		// project -- the source environment's, not this checkout's.
+		return nil, fmt.Errorf("failed to read %s: %w", envPath, err)
 	}
 
 	return &Runner{
@@ -96,6 +102,28 @@ func (r *Runner) Instance() string {
 // "redis").
 func (r *Runner) Contexts() []string {
 	return r.contexts
+}
+
+// ReadInstanceName reads the XF_INSTANCE value from a checkout's .env file.
+//
+// It is filesystem-only: it does not require compose.yaml, construct a runner,
+// inspect Docker, or write anything, and it does not apply NewRunner's "xf"
+// default. A missing .env, or one without a value for XF_INSTANCE, returns an
+// empty name so a caller can tell "no local name" from "the default name". Any
+// other read failure is returned rather than treated as an absent name.
+func ReadInstanceName(xfDir string) (string, error) {
+	envPath := filepath.Join(xfDir, ".env")
+
+	data, err := os.ReadFile(envPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("failed to read %s: %w", envPath, err)
+	}
+
+	return parseEnvValue(string(data), "XF_INSTANCE"), nil
 }
 
 // ExecOutput runs a command in a service, streaming its output to stdout.
