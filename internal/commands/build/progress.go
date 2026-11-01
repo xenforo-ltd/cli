@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/xenforo-ltd/cli/internal/build"
@@ -28,7 +29,7 @@ func (p *buildProgress) start(task build.Task) func(error) {
 	p.spinner = ui.NewSpinner(running)
 	p.spinner.Start()
 	if task == build.TaskComposer && !p.verbose {
-		rules := append(ui.ComposerPhaseRules(), ui.DockerStartPhaseRules()...)
+		rules := slices.Concat(ui.ComposerPhaseRules(), ui.DockerStartPhaseRules())
 		p.tracker = ui.NewPhaseTrackerWriter(p.spinner, running, rules)
 	}
 

@@ -8,6 +8,11 @@ import (
 	"io"
 )
 
+// hasTrailingData reports whether decoder has input remaining after its last value.
+func hasTrailingData(decoder *json.Decoder) bool {
+	return decoder.Decode(new(any)) != io.EOF
+}
+
 // parseMetadata decodes addon.json as an object, retaining fields and numeric
 // precision for command placeholders.
 func parseMetadata(data []byte) (map[string]any, error) {
@@ -17,7 +22,7 @@ func parseMetadata(data []byte) (map[string]any, error) {
 	if err := decoder.Decode(&metadata); err != nil {
 		return nil, fmt.Errorf("parsing addon.json: %w", err)
 	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
+	if hasTrailingData(decoder) {
 		return nil, errors.New("parsing addon.json: unexpected data after metadata")
 	}
 	if metadata == nil {

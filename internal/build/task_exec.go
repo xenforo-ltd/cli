@@ -22,7 +22,7 @@ type execTask struct {
 // run executes commands in declaration order and stops at the first error.
 func (t execTask) run(ctx context.Context, root *os.Root) error {
 	for _, command := range t.commands {
-		if err := t.runCommand(ctx, root, command); err != nil {
+		if err := t.runOne(ctx, root, command); err != nil {
 			return fmt.Errorf("exec %s: %w", strings.Join(command, " "), err)
 		}
 	}
@@ -30,11 +30,12 @@ func (t execTask) run(ctx context.Context, root *os.Root) error {
 	return nil
 }
 
-func (t execTask) runCommand(ctx context.Context, root *os.Root, command []string) error {
-	dir := path.Join(t.prefix, t.addOnDir)
+func (t execTask) runOne(ctx context.Context, root *os.Root, command []string) error {
+	var dir string
 	var argv []string
 	switch command[0] {
 	case "@php", "@composer":
+		dir = path.Join(t.prefix, t.addOnDir)
 		argv = append([]string{strings.TrimPrefix(command[0], "@")}, command[1:]...)
 	case "@xf":
 		dir = "."

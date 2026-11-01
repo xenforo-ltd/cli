@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -104,7 +105,7 @@ func (s uploadSelection) addAdditionalPath(ctx context.Context, root *os.Root, s
 		return nil
 	}
 
-	for _, base := range s.bases() {
+	for _, base := range lookupBases {
 		source := path.Join(base, entry)
 		if _, err := root.Lstat(filepath.FromSlash(source)); errors.Is(err, os.ErrNotExist) {
 			continue
@@ -141,7 +142,7 @@ func (s uploadSelection) addAdditionalPath(ctx context.Context, root *os.Root, s
 // takes precedence over a build-root source with the same relative path.
 func (s uploadSelection) addAdditionalPattern(ctx context.Context, root *os.Root, selected map[string]string, pattern filePattern) error {
 	found := make(map[string]string)
-	for _, base := range s.bases() {
+	for _, base := range lookupBases {
 		if _, err := root.Lstat(filepath.FromSlash(base)); errors.Is(err, os.ErrNotExist) {
 			continue
 		} else if err != nil {
@@ -209,14 +210,10 @@ func (s uploadSelection) includeAdditional(base string, pattern *filePattern) fu
 // naming its hidden components. Directories may be ancestors of selected files.
 func (s uploadSelection) matchesWhitelist(name string, isDir bool) bool {
 	hidden := isHiddenPath(name)
-	for _, pattern := range s.whitelist {
-		if (pattern.matches(name, isDir) || (isDir && pattern.mayContain(name))) &&
-			(!hidden || pattern.allowsHidden(name)) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(s.whitelist, func(pattern filePattern) bool {
+		return (pattern.matches(name, isDir) || (isDir && pattern.mayContain(name))) &&
+			(!hidden || pattern.allowsHidden(name))
+	})
 }
 
 // isIgnoredPath reports whether rel contains reserved build files or directories.

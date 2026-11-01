@@ -62,7 +62,7 @@ func (t *zipTask) run(ctx context.Context, root *os.Root) error {
 		zw := zip.NewWriter(output)
 		sources := directoryOpener{root: root}
 		defer sources.Close()
-		buffer := make([]byte, 32*1024)
+		buffer := make([]byte, ioBufferSize)
 		for _, rel := range keys {
 			size, err := addFileToArchive(ctx, &sources, zw, rel, files[rel], t.timestamp, buffer)
 			if err != nil {
@@ -101,7 +101,7 @@ func (t *zipTask) addNoUpload(files map[string]string, collected []file) error {
 		}
 
 		if rel == "." && !f.isDir() {
-			return fmt.Errorf("_no_upload must be a directory")
+			return errors.New("_no_upload must be a directory")
 		}
 
 		if f.isDir() {

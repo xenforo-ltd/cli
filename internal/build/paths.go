@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -87,13 +88,7 @@ func parsePatterns(values []string) ([]filePattern, error) {
 
 // matchesPatterns reports whether any pattern matches rel.
 func matchesPatterns(patterns []filePattern, rel string, isDir bool) bool {
-	for _, pattern := range patterns {
-		if pattern.matches(rel, isDir) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(patterns, func(pattern filePattern) bool { return pattern.matches(rel, isDir) })
 }
 
 // matches reports whether p matches rel, including a trailing slash for directories.
@@ -133,10 +128,11 @@ func (p filePattern) allowsHidden(name string) bool {
 			continue
 		}
 
+		name := strings.Join(parts[:i+1], "/")
 		allowed := false
 		for j, component := range pattern {
 			if isHiddenPath(strings.TrimPrefix(component, `\`)) &&
-				doublestar.MatchUnvalidated(strings.Join(pattern[:j+1], "/"), strings.Join(parts[:i+1], "/")) {
+				doublestar.MatchUnvalidated(strings.Join(pattern[:j+1], "/"), name) {
 				allowed = true
 				break
 			}
@@ -170,10 +166,9 @@ func (p addOnPaths) installationPath(name string) string {
 	return path.Join(p.prefix, name)
 }
 
-// bases returns lookup directories relative to the build root, in priority order.
-func (p addOnPaths) bases() []string {
-	return []string{"_files", "."}
-}
+// lookupBases lists lookup directories relative to the build root, in priority
+// order. _files takes precedence over the build root.
+var lookupBases = []string{"_files", "."}
 
 // within returns name relative to base and reports whether name is within base.
 // It expects cleaned, slash-separated relative paths.

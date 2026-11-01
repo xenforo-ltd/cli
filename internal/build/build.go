@@ -89,7 +89,7 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 
 	installation, err := openInstallation(ctx, rootDir)
 	if err != nil {
-		return nil, fmt.Errorf("opening XenForo root: %w", err)
+		return nil, err
 	}
 
 	defer installation.Close()

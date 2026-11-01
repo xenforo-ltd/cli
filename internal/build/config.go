@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -44,6 +43,9 @@ type rollupEntry struct {
 	inputs []filePattern
 }
 
+// addOnSourceDir returns the installation-relative directory of an add-on.
+func addOnSourceDir(addOnID string) string { return path.Join("src", "addons", addOnID) }
+
 // loadBuildRoot reads the add-on configuration and opens its build root.
 // The caller must close the returned root.
 func loadBuildRoot(ctx context.Context, installation *os.Root, addOnID string) (*config, *os.Root, error) {
@@ -66,7 +68,7 @@ func readConfig(ctx context.Context, installation *os.Root, addOnID string) (*co
 		return nil, fmt.Errorf("invalid add-on ID: %q", addOnID)
 	}
 
-	addOnPrefix := path.Join("src", "addons", addOnID)
+	addOnPrefix := addOnSourceDir(addOnID)
 	buildPath := path.Join(addOnPrefix, "build.json")
 	buildJSON, err := readFile(ctx, installation, buildPath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -78,18 +80,18 @@ func readConfig(ctx context.Context, installation *os.Root, addOnID string) (*co
 		return nil, fmt.Errorf("reading build.json: %w", err)
 	}
 
-	addonJSON, err := readFile(ctx, installation, path.Join(addOnPrefix, "addon.json"))
+	addOnJSON, err := readFile(ctx, installation, path.Join(addOnPrefix, "addon.json"))
 	if err != nil {
 		return nil, fmt.Errorf("reading addon.json: %w", err)
 	}
 
-	return parseConfig(buildJSON, addonJSON, addOnID)
+	return parseConfig(buildJSON, addOnJSON, addOnID)
 }
 
 // parseConfig validates build settings and metadata, resolves paths, and expands
 // command placeholders.
-func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
-	addOnPrefix := path.Join("src", "addons", addOnID)
+func parseConfig(buildJSON, addOnJSON []byte, addOnID string) (*config, error) {
+	addOnPrefix := addOnSourceDir(addOnID)
 	raw := struct {
 		Root        string            `json:"root"`
 		Whitelist   []string          `json:"whitelist"`
@@ -152,7 +154,7 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 		return nil, fmt.Errorf("invalid additional file: %w", err)
 	}
 
-	metadata, err := parseMetadata(addonJSON)
+	metadata, err := parseMetadata(addOnJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -236,11 +238,17 @@ func parseAdditional(values []string) ([]filePattern, error) {
 	return patterns, nil
 }
 
+// trimRaw trims whitespace from raw and reports whether it is absent or null.
+func trimRaw(raw json.RawMessage) (json.RawMessage, bool) {
+	raw = bytes.TrimSpace(raw)
+	return raw, len(raw) == 0 || bytes.Equal(raw, []byte("null"))
+}
+
 // parseMinify decodes "*" or a list of glob patterns.
 // An absent or null value disables minification.
 func parseMinify(raw json.RawMessage) ([]filePattern, error) {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+	raw, absent := trimRaw(raw)
+	if absent {
 		return nil, nil
 	}
 
@@ -264,8 +272,8 @@ func parseMinify(raw json.RawMessage) ([]filePattern, error) {
 // parseRollup decodes rollup entries in declaration order.
 // An absent or null value produces no entries.
 func parseRollup(raw json.RawMessage) ([]rollupEntry, error) {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+	raw, absent := trimRaw(raw)
+	if absent {
 		return nil, nil
 	}
 
@@ -328,7 +336,7 @@ func parseRollup(raw json.RawMessage) ([]rollupEntry, error) {
 		return nil, fmt.Errorf("parsing rollup: %w", err)
 	}
 
-	if err := decoder.Decode(new(any)); err != io.EOF {
+	if hasTrailingData(decoder) {
 		return nil, errors.New("unexpected data after rollup object")
 	}
 

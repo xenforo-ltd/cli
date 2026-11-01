@@ -45,7 +45,7 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 	stderr := writerOrDiscard(options.Stderr)
 	installation, err := openInstallation(ctx, rootDir)
 	if err != nil {
-		return fmt.Errorf("opening XenForo root: %w", err)
+		return err
 	}
 
 	defer installation.Close()
@@ -54,7 +54,6 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 		AbsWorkingDir: installation.Name(),
 		EntryPoints:   []string{"xf-javascript"},
 		Bundle:        true,
-		Write:         false,
 		LogLevel:      api.LogLevelSilent,
 		Plugins: []api.Plugin{{
 			Name: "xf-javascript",
@@ -127,9 +126,9 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 func loadJavaScriptWatch(ctx context.Context, installation *os.Root, addOnID string) api.OnLoadResult {
 	empty := ""
 	result := api.OnLoadResult{Contents: &empty, Loader: api.LoaderJS}
-	addOnDir := path.Join("src", "addons", addOnID)
-	for _, name := range []string{"build.json", "addon.json"} {
-		name = path.Join(addOnDir, name)
+	addOnDir := addOnSourceDir(addOnID)
+	for _, configName := range []string{"build.json", "addon.json"} {
+		name := path.Join(addOnDir, configName)
 		if info, err := installation.Stat(filepath.FromSlash(name)); err == nil && info.Mode().IsRegular() {
 			result.WatchFiles = append(result.WatchFiles, filepath.Join(installation.Name(), filepath.FromSlash(name)))
 		}
@@ -170,7 +169,7 @@ func loadJavaScriptWatch(ctx context.Context, installation *os.Root, addOnID str
 // so the watcher can detect recovery.
 func javascriptWatchPaths(ctx context.Context, root *os.Root, cfg *config) ([]string, []string, error) {
 	patterns := slices.Concat(cfg.minify, rollupInputs(cfg.rollups))
-	files, err := cfg.collectJavaScriptFiles(ctx, root, patterns)
+	files, err := collectJavaScriptFiles(ctx, root, patterns)
 	if err != nil {
 		return nil, nil, fmt.Errorf("collecting JavaScript watch files: %w", err)
 	}
@@ -213,7 +212,7 @@ func javascriptWatchPaths(ctx context.Context, root *os.Root, cfg *config) ([]st
 		}
 
 		name := absolute(f.path)
-		for _, base := range cfg.bases() {
+		for _, base := range lookupBases {
 			rel, inside := within(f.path, base)
 			_, ancestor := within(base, f.path)
 			for _, pattern := range patterns {

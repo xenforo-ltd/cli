@@ -17,7 +17,7 @@ type minifyTask struct {
 
 // run expands patterns and minifies each installation destination at most once.
 func (t minifyTask) run(ctx context.Context, root *os.Root) error {
-	files, err := t.collectJavaScriptFiles(ctx, root, t.patterns)
+	files, err := collectJavaScriptFiles(ctx, root, t.patterns)
 	if err != nil {
 		return fmt.Errorf("collecting minify inputs: %w", err)
 	}

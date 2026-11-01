@@ -20,7 +20,7 @@ type rollupTask struct {
 // run writes each rollup before expanding the next so later rollups can consume
 // earlier outputs.
 func (t rollupTask) run(ctx context.Context, root *os.Root) error {
-	files, err := t.collectJavaScriptFiles(ctx, root, rollupInputs(t.entries))
+	files, err := collectJavaScriptFiles(ctx, root, rollupInputs(t.entries))
 	if err != nil {
 		return fmt.Errorf("collecting rollup inputs: %w", err)
 	}
@@ -49,7 +49,7 @@ func (t rollupTask) run(ctx context.Context, root *os.Root) error {
 			}
 		}
 
-		if err := writeJavaScript(ctx, root, entry.output, bytes.TrimSpace(joined.Bytes())); err != nil {
+		if err := writeFileIfChanged(ctx, root, entry.output, bytes.TrimSpace(joined.Bytes())); err != nil {
 			return fmt.Errorf("writing rollup %s: %w", entry.output, err)
 		}
 

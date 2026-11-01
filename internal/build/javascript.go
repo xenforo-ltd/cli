@@ -1,7 +1,6 @@
 package build
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -21,7 +20,7 @@ import (
 func BuildJavaScript(ctx context.Context, rootDir, addOnID string) error {
 	installation, err := openInstallation(ctx, rootDir)
 	if err != nil {
-		return fmt.Errorf("opening XenForo root: %w", err)
+		return err
 	}
 
 	defer installation.Close()
@@ -54,9 +53,9 @@ func javascriptTasks(cfg *config) []task {
 
 // collectJavaScriptFiles discovers only matching inputs and their ancestors in
 // the build root and _files. Selection and precedence remain in scriptFiles.
-func (p addOnPaths) collectJavaScriptFiles(ctx context.Context, root *os.Root, patterns []filePattern) ([]file, error) {
+func collectJavaScriptFiles(ctx context.Context, root *os.Root, patterns []filePattern) ([]file, error) {
 	return collectFilesWhere(ctx, root, ".", func(name string, _ bool) bool {
-		for _, base := range p.bases() {
+		for _, base := range lookupBases {
 			rel, inside := within(name, base)
 			if !inside {
 				continue
@@ -100,13 +99,7 @@ func minifiedPath(name string) string { return strings.TrimSuffix(name, ".js") +
 // declaredOutput reports whether name maps to a declared rollup destination.
 func (p addOnPaths) declaredOutput(name string, outputs []string) bool {
 	key := p.installationPath(name)
-	for _, output := range outputs {
-		if key == p.installationPath(output) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(outputs, func(output string) bool { return key == p.installationPath(output) })
 }
 
 // minifyInput reports whether minification should write a companion for name.
@@ -147,7 +140,7 @@ func (p addOnPaths) scriptFiles(ctx context.Context, files []file, pattern fileP
 	found := make(map[string]file)
 	var candidates []file
 	var selectionErr error
-	for _, base := range p.bases() {
+	for _, base := range lookupBases {
 		for _, f := range files {
 			if err := ctx.Err(); err != nil {
 				return nil, err
@@ -217,12 +210,12 @@ func minifyFile(ctx context.Context, root *os.Root, source string) error {
 		code = linkSourceMap(name, code)
 	}
 
-	if err := writeJavaScript(ctx, root, name, code); err != nil {
+	if err := writeFileIfChanged(ctx, root, name, code); err != nil {
 		return fmt.Errorf("writing minified %s: %w", source, err)
 	}
 
 	if len(minified.sourceMap) > 0 {
-		if err := writeJavaScript(ctx, root, name+".map", minified.sourceMap); err != nil {
+		if err := writeFileIfChanged(ctx, root, name+".map", minified.sourceMap); err != nil {
 			return fmt.Errorf("writing source map for %s: %w", source, err)
 		}
 	}
@@ -289,18 +282,4 @@ func minifyJavaScript(ctx context.Context, sourcefile, code string) (javascriptO
 	}
 
 	return javascriptOutput{code: result.Code, sourceMap: result.Map}, nil
-}
-
-// writeJavaScript replaces name only if its contents differ from data.
-func writeJavaScript(ctx context.Context, root *os.Root, name string, data []byte) error {
-	previous, err := readFile(ctx, root, name)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-
-	if err == nil && bytes.Equal(previous, data) {
-		return nil
-	}
-
-	return writeFile(ctx, root, name, data)
 }

@@ -80,9 +80,7 @@ func hashFile(ctx context.Context, source fileSource, name string, buffer []byte
 		}
 		n, readErr := f.Read(buffer)
 		if n > 0 {
-			if _, err := hasher.Write(stripCarriageReturns(buffer[:n])); err != nil {
-				return "", err
-			}
+			hasher.Write(stripCarriageReturns(buffer[:n]))
 		}
 		if readErr == io.EOF {
 			break

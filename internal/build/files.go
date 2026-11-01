@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io/fs"
 	"math"
@@ -123,20 +124,25 @@ func collectFilesWhere(ctx context.Context, root *os.Root, start string, include
 // The caller must close the returned root.
 func openInstallation(ctx context.Context, name string) (*os.Root, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("opening XenForo root: %w", err)
 	}
 
 	abs, err := filepath.Abs(name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("opening XenForo root: %w", err)
 	}
 
-	real, err := filepath.EvalSymlinks(abs)
+	resolved, err := filepath.EvalSymlinks(abs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("opening XenForo root: %w", err)
 	}
 
-	return os.OpenRoot(real)
+	root, err := os.OpenRoot(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("opening XenForo root: %w", err)
+	}
+
+	return root, nil
 }
 
 // readFile reads the contents of a regular file within root.
@@ -164,6 +170,20 @@ func writeFile(ctx context.Context, root *os.Root, name string, data []byte) err
 		_, err := f.Write(data)
 		return err
 	})
+}
+
+// writeFileIfChanged replaces name only if its contents differ from data.
+func writeFileIfChanged(ctx context.Context, root *os.Root, name string, data []byte) error {
+	previous, err := readFile(ctx, root, name)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if err == nil && bytes.Equal(previous, data) {
+		return nil
+	}
+
+	return writeFile(ctx, root, name, data)
 }
 
 // atomicWrite calls write on a temporary file beside name, then closes and renames
@@ -233,9 +253,9 @@ func openRegular(ctx context.Context, root fileSource, name string) (*os.File, f
 		return nil, nil, err
 	}
 
-	if !info.Mode().IsRegular() {
+	if err := (file{path: name, info: info}).regular(); err != nil {
 		f.Close()
-		return nil, nil, fmt.Errorf("selected path %s is not a regular file", name)
+		return nil, nil, err
 	}
 
 	return f, info, nil
