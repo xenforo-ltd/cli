@@ -46,8 +46,8 @@ func Run(ctx context.Context) error {
 		ui.Println(line)
 
 		if result.Details != "" {
-			for line := range strings.SplitSeq(result.Details, "\n") {
-				ui.Printf("%s%s\n", ui.Indent1, ui.Dim.Render(line))
+			for detail := range strings.SplitSeq(result.Details, "\n") {
+				ui.Printf("%s%s\n", ui.Indent1, ui.Dim.Render(detail))
 			}
 		}
 

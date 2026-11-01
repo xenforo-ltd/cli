@@ -48,9 +48,7 @@ type doctor struct {
 
 // newDoctor creates a new doctor instance.
 func newDoctor() *doctor {
-	return &doctor{
-		results: make([]*checkResult, 0),
-	}
+	return &doctor{}
 }
 
 // runAll runs all health checks.
@@ -136,6 +134,10 @@ func (d *doctor) checkAuthentication(source string, token *auth.Token, err error
 	}
 }
 
+func trimNewline(output []byte) string {
+	return strings.TrimSuffix(string(output), "\n")
+}
+
 func (d *doctor) checkGit(ctx context.Context) {
 	result := &checkResult{
 		Name: "Git",
@@ -150,7 +152,7 @@ func (d *doctor) checkGit(ctx context.Context) {
 		result.Suggestion = "Install Git: https://git-scm.com/downloads"
 	} else {
 		result.Status = statusOK
-		result.Message = string(output)[:len(output)-1] // Remove trailing newline
+		result.Message = trimNewline(output)
 	}
 
 	d.results = append(d.results, result)
@@ -177,7 +179,7 @@ func (d *doctor) checkDocker(ctx context.Context) {
 	if err := infoCmd.Run(); err != nil {
 		result.Status = statusError
 		result.Message = "Docker daemon is not running"
-		result.Details = string(versionOutput)[:len(versionOutput)-1]
+		result.Details = trimNewline(versionOutput)
 		result.Suggestion = "Start Docker Desktop or the Docker daemon"
 		d.results = append(d.results, result)
 
@@ -185,7 +187,7 @@ func (d *doctor) checkDocker(ctx context.Context) {
 	}
 
 	result.Status = statusOK
-	result.Message = string(versionOutput)[:len(versionOutput)-1]
+	result.Message = trimNewline(versionOutput)
 
 	d.results = append(d.results, result)
 }
@@ -222,7 +224,9 @@ func (d *doctor) checkCacheDirectory() {
 		d.results = append(d.results, result)
 
 		return
-	} else if err != nil {
+	}
+
+	if err != nil {
 		result.Status = statusError
 		result.Message = "Failed to check cache directory"
 		result.Details = err.Error()
@@ -246,14 +250,17 @@ func (d *doctor) checkCacheDirectory() {
 		result.Message = "Cache directory is not writable"
 		result.Details = cacheDir
 		result.Suggestion = "Check directory permissions"
+		d.results = append(d.results, result)
+
+		return
+	}
+
+	if err := os.Remove(testFile); err != nil {
+		result.Status = statusWarning
+		result.Message = fmt.Sprintf("Cache directory writable but cleanup failed: %v", err)
 	} else {
-		if err := os.Remove(testFile); err != nil {
-			result.Status = statusWarning
-			result.Message = fmt.Sprintf("Cache directory writable but cleanup failed: %v", err)
-		} else {
-			result.Status = statusOK
-			result.Message = "Cache directory: " + cacheDir
-		}
+		result.Status = statusOK
+		result.Message = "Cache directory: " + cacheDir
 	}
 
 	d.results = append(d.results, result)
@@ -354,10 +361,6 @@ func (d *doctor) checkNetwork(ctx context.Context) {
 	var details []string
 
 	for _, target := range targets {
-		if target.url == "" {
-			continue
-		}
-
 		req, err := http.NewRequestWithContext(ctx, http.MethodHead, target.url, nil)
 		if err != nil {
 			details = append(details, target.name+": failed to create request")
