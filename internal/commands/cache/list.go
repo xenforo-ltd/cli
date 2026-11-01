@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/xenforo-ltd/cli/internal/cache"
 	"github.com/xenforo-ltd/cli/internal/config"
@@ -76,16 +77,16 @@ func List(_ context.Context, opts ListOptions) error {
 		return nil
 	}
 
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].LicenseKey != entries[j].LicenseKey {
-			return entries[i].LicenseKey < entries[j].LicenseKey
+	slices.SortFunc(entries, func(a, b *cache.Entry) int {
+		if c := strings.Compare(a.LicenseKey, b.LicenseKey); c != 0 {
+			return c
 		}
 
-		if entries[i].Metadata.DownloadID != entries[j].Metadata.DownloadID {
-			return entries[i].Metadata.DownloadID < entries[j].Metadata.DownloadID
+		if c := strings.Compare(a.Metadata.DownloadID, b.Metadata.DownloadID); c != 0 {
+			return c
 		}
 
-		return entries[i].Metadata.Version < entries[j].Metadata.Version
+		return strings.Compare(a.Metadata.Version, b.Metadata.Version)
 	})
 
 	var totalSize int64

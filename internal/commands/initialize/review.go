@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"sort"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -242,7 +242,7 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 		keys = append(keys, k)
 	}
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	if len(keys) > 0 {
 		ui.Println()
@@ -539,7 +539,7 @@ func editEnvValues(opts *InitOptions) error {
 			keys = append(keys, k)
 		}
 
-		sort.Strings(keys)
+		slices.Sort(keys)
 
 		keyWidth := 0
 		for _, k := range keys {

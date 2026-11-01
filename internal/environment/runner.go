@@ -10,7 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/x/term"
@@ -322,7 +322,7 @@ func sortedEnvKeys(env map[string]string) []string {
 		keys = append(keys, k)
 	}
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	return keys
 }

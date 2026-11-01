@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -92,7 +92,7 @@ func createEnvFile(path string, values map[string]string) error {
 		keys = append(keys, key)
 	}
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	for _, key := range keys {
 		value := values[key]

@@ -1,7 +1,8 @@
 package initialize
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,15 +17,12 @@ type displayVersion struct {
 
 // sortVersionsDesc sorts versions by release date in descending order.
 func sortVersionsDesc(versions []customerapi.Version) {
-	sort.Slice(versions, func(i, j int) bool {
-		ti := versions[i].ReleaseDate.Time
-
-		tj := versions[j].ReleaseDate.Time
-		if !ti.Equal(tj) {
-			return ti.After(tj)
+	slices.SortFunc(versions, func(a, b customerapi.Version) int {
+		if c := b.ReleaseDate.Compare(a.ReleaseDate.Time); c != 0 {
+			return c
 		}
 
-		return versions[i].VersionID > versions[j].VersionID
+		return cmp.Compare(b.VersionID, a.VersionID)
 	})
 }
 

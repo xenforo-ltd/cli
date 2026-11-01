@@ -2,11 +2,12 @@
 package downloads
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -214,15 +215,12 @@ func resolveAddonSelection(addonVersions []customerapi.Version, selectedCore, la
 }
 
 func sortVersions(v []customerapi.Version) {
-	sort.Slice(v, func(i, j int) bool {
-		ti := v[i].ReleaseDate.Time
-
-		tj := v[j].ReleaseDate.Time
-		if !ti.Equal(tj) {
-			return ti.After(tj)
+	slices.SortFunc(v, func(a, b customerapi.Version) int {
+		if c := b.ReleaseDate.Compare(a.ReleaseDate.Time); c != 0 {
+			return c
 		}
 
-		return v[i].VersionID > v[j].VersionID
+		return cmp.Compare(b.VersionID, a.VersionID)
 	})
 }
 
