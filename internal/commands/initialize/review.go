@@ -470,76 +470,74 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 			continue
 		}
 
-		versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, product)
-		if err != nil {
-			return fmt.Errorf("failed to fetch versions for %s: %w", product, err)
+		if err := chooseOverrideVersion(ctx, client, opts, product); err != nil {
+			return err
+		}
+	}
+}
+
+func chooseOverrideVersion(ctx context.Context, client *customerapi.Client, opts *InitOptions, product string) error {
+	versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, product)
+	if err != nil {
+		return fmt.Errorf("failed to fetch versions for %s: %w", product, err)
+	}
+
+	if len(versions.Versions) == 0 {
+		return fmt.Errorf("no versions available for %s: %w", product, clierror.ErrNotFound)
+	}
+
+	sortVersionsDesc(versions.Versions)
+	optsList := buildVersionOptions(versions.Versions, versionCount)
+
+	selectOptions := make([]huh.Option[int], 0, len(optsList)+1)
+	for _, d := range optsList {
+		selectOptions = append(selectOptions, huh.NewOption(d.Label, d.Value))
+	}
+
+	const manual = -1
+
+	selectOptions = append(selectOptions, huh.NewOption(manualVersionLabel, manual))
+
+	choice := selectOptions[0].Value
+	if err := huh.NewSelect[int]().
+		Title("Select version for " + product).
+		Description(fmt.Sprintf("Showing latest %d versions. Choose manual entry for older versions.", versionCount)).
+		Options(selectOptions...).
+		Value(&choice).Run(); err != nil {
+		return clierror.Prompt(err, "version selection for %s", product)
+	}
+
+	if choice != manual {
+		opts.productOverrides[product] = choice
+
+		return nil
+	}
+
+	for {
+		var input string
+		if err := huh.NewInput().
+			Title("Enter version string or version ID").
+			Description("Examples: 2.3.9, v2.3.9, 2030900").
+			Value(&input).Run(); err != nil {
+			return clierror.Prompt(err, "version input for %s", product)
 		}
 
-		if len(versions.Versions) == 0 {
-			return fmt.Errorf("no versions available for %s: %w", product, clierror.ErrNotFound)
-		}
-
-		sortVersionsDesc(versions.Versions)
-		optsList := buildVersionOptions(versions.Versions, versionCount)
-
-		selectOptions := make([]huh.Option[int], 0, len(optsList)+1)
-		for _, d := range optsList {
-			selectOptions = append(selectOptions, huh.NewOption(d.Label, d.Value))
-		}
-
-		const manual = -1
-
-		selectOptions = append(selectOptions, huh.NewOption(manualVersionLabel, manual))
-
-		choice := selectOptions[0].Value
-		if err := huh.NewSelect[int]().
-			Title("Select version for " + product).
-			Description(fmt.Sprintf("Showing latest %d versions. Choose manual entry for older versions.", versionCount)).
-			Options(selectOptions...).
-			Value(&choice).Run(); err != nil {
-			return clierror.Prompt(err, "version selection for %s", product)
-		}
-
-		if choice == manual {
-			for {
-				var input string
-				if err := huh.NewInput().
-					Title("Enter version string or version ID").
-					Description("Examples: 2.3.9, v2.3.9, 2030900").
-					Value(&input).Run(); err != nil {
-					return clierror.Prompt(err, "version input for %s", product)
-				}
-
-				v, ok := resolveVersionInput(input, versions.Versions)
-				if !ok {
-					ui.PrintWarning("Version not found. Try another version.")
-					continue
-				}
-
-				opts.productOverrides[product] = v.VersionID
-
-				break
-			}
-
+		v, ok := resolveVersionInput(input, versions.Versions)
+		if !ok {
+			ui.PrintWarning("Version not found. Try another version.")
 			continue
 		}
 
-		opts.productOverrides[product] = choice
+		opts.productOverrides[product] = v.VersionID
+
+		return nil
 	}
 }
 
 func editEnvValues(opts *InitOptions) error {
-	additionalEnvChoices := 2
-
 	for {
 		envVals := currentEnvPreview(opts)
-
-		keys := make([]string, 0, len(envVals)+additionalEnvChoices)
-		for k := range envVals {
-			keys = append(keys, k)
-		}
-
-		slices.Sort(keys)
+		keys := slices.Sorted(maps.Keys(envVals))
 
 		keyWidth := 0
 		for _, k := range keys {
@@ -548,7 +546,7 @@ func editEnvValues(opts *InitOptions) error {
 			}
 		}
 
-		options := make([]huh.Option[string], 0, len(keys)+additionalEnvChoices)
+		options := make([]huh.Option[string], 0, len(keys)+2)
 		for _, k := range keys {
 			options = append(options, huh.NewOption(fmt.Sprintf("%-*s %s", keyWidth, k, envVals[k]), k))
 		}
@@ -556,11 +554,7 @@ func editEnvValues(opts *InitOptions) error {
 		options = append(options, huh.NewOption("── Add new variable", "__add__"))
 		options = append(options, huh.NewOption("── Done", reviewDone))
 
-		choice := reviewDone
-		if len(options) > 0 {
-			choice = options[0].Value
-		}
-
+		choice := options[0].Value
 		if err := huh.NewSelect[string]().
 			Title("Edit environment values").
 			Options(options...).

@@ -162,25 +162,8 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}
 
-		if cfg.Verbose {
-			ui.PrintSubstep("Running docker compose up...")
-
-			if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "up", "--detach"); err != nil {
-				return fmt.Errorf("failed to start Docker environment: %w", err)
-			}
-		} else {
-			spinner := ui.NewSpinner("Starting Docker environment")
-			spinner.Start()
-
-			tracker := ui.NewPhaseTrackerWriter(spinner, "Starting Docker environment", ui.DockerStartPhaseRules())
-			if err := runner.Compose(ctx, os.Stdin, tracker, tracker, "up", "--detach"); err != nil {
-				spinner.StopWithMessage("error", "Failed to start containers")
-				ui.PrintHiddenOutputTail("Docker output", tracker.TailLines())
-
-				return fmt.Errorf("failed to start Docker environment: %w", err)
-			}
-
-			spinner.StopWithMessage("success", "Docker containers started")
+		if err := startContainers(ctx, runner, cfg.Verbose); err != nil {
+			return err
 		}
 
 		detectedURL, detectedErr := runner.GetURL(ctx)
@@ -214,66 +197,15 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 		step++
 
+		ui.Println()
+
 		if opts.SkipInstall {
-			ui.Println()
 			setup.PrintSkippedStep(step, totalSteps, "Installing XenForo", "--skip-install")
 		} else {
-			ui.Println()
 			ui.PrintStep(step, totalSteps, "Installing XenForo")
 
-			installArgs := make([]string, 0, 8)
-			installArgs = append(installArgs, "xf:install")
-			installArgs = append(installArgs, "--no-interaction")
-			installArgs = append(installArgs, "--clear")
-			installArgs = append(installArgs, "--user="+opts.AdminUser)
-			installArgs = append(installArgs, "--email="+opts.AdminEmail)
-			installArgs = append(installArgs, "--title="+opts.SiteTitle)
-			installArgs = append(installArgs, "--url="+siteURL)
-
-			installEnv := map[string]string{
-				"XF_INSTALL_PASSWORD": opts.AdminPassword,
-			}
-
-			shellInstallArgs := []string{"sh", "-c", setup.InstallShellCommand(installArgs)}
-
-			if cfg.Verbose {
-				ui.PrintSubstep("Waiting for the database to be ready...")
-
-				if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
-					return fmt.Errorf("failed waiting for database to become ready: %w", err)
-				}
-
-				ui.PrintSubstep("Running XenForo installation...")
-
-				if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, os.Stdout, os.Stderr, shellInstallArgs...); err != nil {
-					return printInstallFailure(ctx, err)
-				}
-			} else {
-				spinner := ui.NewSpinner("Waiting for the database")
-				spinner.Start()
-
-				if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
-					spinner.Stop()
-
-					return fmt.Errorf("failed waiting for database to become ready: %w", err)
-				}
-
-				spinner.UpdateMessage("Installing XenForo")
-
-				tracker := ui.NewPhaseTrackerWriter(spinner, "Installing XenForo", ui.InstallPhaseRules())
-				if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, tracker, tracker, shellInstallArgs...); err != nil {
-					spinner.Stop()
-
-					if ctxErr := ctx.Err(); ctxErr != nil {
-						return ctxErr
-					}
-
-					ui.PrintHiddenOutputTail("Installer output", tracker.TailLines())
-
-					return printInstallFailure(ctx, err)
-				}
-
-				spinner.StopWithMessage("success", "XenForo installed")
+			if err := installXenForo(ctx, runner, opts, siteURL, cfg.Verbose); err != nil {
+				return err
 			}
 		}
 	}
@@ -297,6 +229,95 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 
 	ui.Println()
 	setup.PrintUsefulCommands()
+
+	return nil
+}
+
+func startContainers(ctx context.Context, runner *environment.Runner, verbose bool) error {
+	if verbose {
+		ui.PrintSubstep("Running docker compose up...")
+
+		if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "up", "--detach"); err != nil {
+			return fmt.Errorf("failed to start Docker environment: %w", err)
+		}
+
+		return nil
+	}
+
+	spinner := ui.NewSpinner("Starting Docker environment")
+	spinner.Start()
+
+	tracker := ui.NewPhaseTrackerWriter(spinner, "Starting Docker environment", ui.DockerStartPhaseRules())
+	if err := runner.Compose(ctx, os.Stdin, tracker, tracker, "up", "--detach"); err != nil {
+		spinner.StopWithMessage("error", "Failed to start containers")
+		ui.PrintHiddenOutputTail("Docker output", tracker.TailLines())
+
+		return fmt.Errorf("failed to start Docker environment: %w", err)
+	}
+
+	spinner.StopWithMessage("success", "Docker containers started")
+
+	return nil
+}
+
+func installXenForo(ctx context.Context, runner *environment.Runner, opts *InitOptions, siteURL string, verbose bool) error {
+	installArgs := []string{
+		"xf:install",
+		"--no-interaction",
+		"--clear",
+		"--user=" + opts.AdminUser,
+		"--email=" + opts.AdminEmail,
+		"--title=" + opts.SiteTitle,
+		"--url=" + siteURL,
+	}
+
+	installEnv := map[string]string{
+		"XF_INSTALL_PASSWORD": opts.AdminPassword,
+	}
+
+	shellInstallArgs := []string{"sh", "-c", setup.InstallShellCommand(installArgs)}
+
+	if verbose {
+		ui.PrintSubstep("Waiting for the database to be ready...")
+
+		if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
+			return fmt.Errorf("failed waiting for database to become ready: %w", err)
+		}
+
+		ui.PrintSubstep("Running XenForo installation...")
+
+		if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, os.Stdout, os.Stderr, shellInstallArgs...); err != nil {
+			return printInstallFailure(ctx, err)
+		}
+
+		return nil
+	}
+
+	spinner := ui.NewSpinner("Waiting for the database")
+	spinner.Start()
+
+	if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
+		spinner.Stop()
+
+		return fmt.Errorf("failed waiting for database to become ready: %w", err)
+	}
+
+	spinner.UpdateMessage("Installing XenForo")
+
+	tracker := ui.NewPhaseTrackerWriter(spinner, "Installing XenForo", ui.InstallPhaseRules())
+	if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, tracker, tracker, shellInstallArgs...); err != nil {
+		spinner.Stop()
+
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		ui.PrintHiddenOutputTail("Installer output", tracker.TailLines())
+
+		return printInstallFailure(ctx, err)
+	}
+
+	spinner.StopWithMessage("success", "XenForo installed")
 
 	return nil
 }
@@ -375,23 +396,23 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 
 	cachedFiles := make(map[string]*cache.Entry)
 
-	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.versionString, opts.productOverrides, func(product string) {
-		name := titleMap[product]
-		if name == "" {
-			name = product
+	productTitle := func(product string) string {
+		if title := titleMap[product]; title != "" {
+			return title
 		}
 
-		ui.PrintWarning("No versions available for " + name + ", skipping")
+		return product
+	}
+
+	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.versionString, opts.productOverrides, func(product string) {
+		ui.PrintWarning("No versions available for " + productTitle(product) + ", skipping")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve product selections for license %s: %w", opts.LicenseKey, err)
 	}
 
 	for _, selection := range selections {
-		productName := titleMap[selection.Product]
-		if productName == "" {
-			productName = selection.Product
-		}
+		productName := productTitle(selection.Product)
 
 		var (
 			progressBar *ui.ProgressBar

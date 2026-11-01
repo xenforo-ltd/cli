@@ -165,6 +165,91 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 	return nil
 }
 
+func selectLicense(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
+	licenses, err := client.GetLicenses(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch licenses: %w", err)
+	}
+
+	if len(licenses) == 0 {
+		return clierror.MarkAs(clierror.ErrNotFound, "no licenses found for your account")
+	}
+
+	var licenseOptions []huh.Option[string]
+
+	for _, lic := range licenses {
+		if lic.CanDownload {
+			label := downloads.LicenseLabel(lic)
+			licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
+		}
+	}
+
+	if len(licenseOptions) == 0 {
+		return clierror.MarkAs(clierror.ErrForbidden, "no licenses with download access found")
+	}
+
+	err = huh.NewSelect[string]().
+		Title("Select a license").
+		Options(licenseOptions...).
+		Value(&opts.LicenseKey).
+		Run()
+	if err != nil {
+		return clierror.Prompt(err, "license selection")
+	}
+
+	return nil
+}
+
+func promptAdminCredentials(opts *InitOptions) error {
+	if opts.AdminUser == "" {
+		opts.AdminUser = "admin"
+	}
+
+	if opts.AdminEmail == "" {
+		opts.AdminEmail = "admin@example.com"
+	}
+
+	if opts.SiteTitle == "" {
+		opts.SiteTitle = "XenForo"
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Admin username").
+				Value(&opts.AdminUser).
+				Validate(validateAdminUsername),
+			huh.NewInput().
+				Title("Admin password").
+				Value(&opts.AdminPassword).
+				EchoMode(huh.EchoModePassword).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errPasswordRequired
+					}
+
+					return nil
+				}),
+			huh.NewInput().
+				Title("Admin email").
+				Value(&opts.AdminEmail).
+				Validate(func(s string) error {
+					if !strings.Contains(s, "@") {
+						return errInvalidEmail
+					}
+
+					return nil
+				}),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return clierror.Prompt(err, "credential input")
+	}
+
+	return nil
+}
+
 func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
@@ -176,35 +261,8 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.LicenseKey == "" {
-		licenses, err := client.GetLicenses(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to fetch licenses: %w", err)
-		}
-
-		if len(licenses) == 0 {
-			return clierror.MarkAs(clierror.ErrNotFound, "no licenses found for your account")
-		}
-
-		var licenseOptions []huh.Option[string]
-
-		for _, lic := range licenses {
-			if lic.CanDownload {
-				label := downloads.LicenseLabel(lic)
-				licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
-			}
-		}
-
-		if len(licenseOptions) == 0 {
-			return clierror.MarkAs(clierror.ErrForbidden, "no licenses with download access found")
-		}
-
-		err = huh.NewSelect[string]().
-			Title("Select a license").
-			Options(licenseOptions...).
-			Value(&opts.LicenseKey).
-			Run()
-		if err != nil {
-			return clierror.Prompt(err, "license selection")
+		if err := selectLicense(ctx, client, opts); err != nil {
+			return err
 		}
 	}
 
@@ -275,50 +333,8 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.AdminUser == "" || opts.AdminPassword == "" || opts.AdminEmail == "" {
-		if opts.AdminUser == "" {
-			opts.AdminUser = "admin"
-		}
-
-		if opts.AdminEmail == "" {
-			opts.AdminEmail = "admin@example.com"
-		}
-
-		if opts.SiteTitle == "" {
-			opts.SiteTitle = "XenForo"
-		}
-
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Admin username").
-					Value(&opts.AdminUser).
-					Validate(validateAdminUsername),
-				huh.NewInput().
-					Title("Admin password").
-					Value(&opts.AdminPassword).
-					EchoMode(huh.EchoModePassword).
-					Validate(func(s string) error {
-						if strings.TrimSpace(s) == "" {
-							return errPasswordRequired
-						}
-
-						return nil
-					}),
-				huh.NewInput().
-					Title("Admin email").
-					Value(&opts.AdminEmail).
-					Validate(func(s string) error {
-						if !strings.Contains(s, "@") {
-							return errInvalidEmail
-						}
-
-						return nil
-					}),
-			),
-		)
-
-		if err := form.Run(); err != nil {
-			return clierror.Prompt(err, "credential input")
+		if err := promptAdminCredentials(opts); err != nil {
+			return err
 		}
 	}
 
