@@ -12,23 +12,23 @@ import (
 )
 
 var (
-	// ErrInvalidBranch indicates a branch name that cannot be used.
+	// errInvalidBranch indicates a branch name that cannot be used.
 	errInvalidBranch = errors.New("invalid branch name")
 
-	// ErrBranchExists indicates the branch is already present.
+	// errBranchExists indicates the branch is already present.
 	errBranchExists = errors.New("branch already exists")
 
-	// ErrWorktreeExists indicates the target directory is already in use.
+	// errWorktreeExists indicates the target directory is already in use.
 	errWorktreeExists = errors.New("worktree already exists")
 
-	// ErrWorktreeNotFound indicates no worktree matches a branch or name.
+	// errWorktreeNotFound indicates no worktree matches a branch or name.
 	errWorktreeNotFound = errors.New("worktree not found")
 
-	// ErrNotXenForo indicates the source is not a XenForo installation.
+	// errNotXenForo indicates the source is not a XenForo installation.
 	errNotXenForo = errors.New("not a XenForo directory")
 )
 
-// Options describes a worktree to create.
+// backendOptions describes a worktree to create.
 type backendOptions struct {
 	// SourcePath is the checkout to branch from.
 	SourcePath string
@@ -37,7 +37,7 @@ type backendOptions struct {
 	// checkout.
 	Branch string
 
-	// Name names the new directory. Defaults to ChooseName's choice for
+	// Name names the new directory. Defaults to chooseName's choice for
 	// Branch.
 	Name string
 
@@ -49,7 +49,7 @@ type backendOptions struct {
 	Instance string
 }
 
-// Result describes a created worktree.
+// backendResult describes a created worktree.
 type backendResult struct {
 	// Path is the worktree location.
 	Path string
@@ -99,7 +99,7 @@ func preflight(ctx context.Context, b backend, sourcePath, branch, name string) 
 		return fmt.Errorf("%w: %q is not a usable worktree name", errInvalidBranch, name)
 	}
 
-	// ChooseName skips occupied directories, but a name supplied by the caller
+	// chooseName skips occupied directories, but a name supplied by the caller
 	// has not been checked, and something can appear between the two.
 	target := filepath.Join(worktreesDir(sourcePath), name)
 	if _, err := os.Lstat(target); err == nil {

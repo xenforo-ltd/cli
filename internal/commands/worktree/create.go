@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/xenforo-ltd/cli/internal/clierror"
+	"github.com/xenforo-ltd/cli/internal/setup"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -38,12 +39,12 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 		return err
 	}
 
-	registry, err := newRegistry()
+	reg, err := newRegistry()
 	if err != nil {
 		return err
 	}
 
-	reserved, err := reserveWorktreeName(ctx, registry, source, branch, opts.Instance, opts.NoSetup)
+	reserved, err := reserveWorktreeName(ctx, reg, source, branch, opts.Instance, opts.NoSetup)
 	if err != nil {
 		return err
 	}
@@ -61,7 +62,7 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 		// but only the reservation keeps another checkout from reusing the
 		// instance name.
 		if _, statErr := os.Lstat(reserved.WorktreePath); errors.Is(statErr, fs.ErrNotExist) {
-			if removeErr := registry.remove(reserved.WorktreePath); removeErr != nil {
+			if removeErr := reg.remove(reserved.WorktreePath); removeErr != nil {
 				warnRegistryUpdateFailed()
 			}
 		}
@@ -69,7 +70,7 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 		return err
 	}
 
-	entry := entry{
+	record := entry{
 		SourcePath:   result.SourcePath,
 		SourceBranch: result.SourceBranch,
 		WorktreePath: result.Path,
@@ -78,7 +79,7 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 		CreatedAt:    result.CreatedAt,
 	}
 
-	if err := recordWorktree(entry); err != nil {
+	if err := reg.add(record); err != nil {
 		// The worktree exists and is usable; a registry failure must not
 		// present itself as a failed creation.
 		warnRegistryUpdateFailed()
@@ -127,8 +128,8 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 	}
 
 	if !opts.NoSetup {
-		if err := setUpWorktree(ctx, result, worktreeInitOptions(result, cloning, opts)); err != nil {
-			return err
+		if err := setup.Existing(ctx, worktreeInitOptions(result, cloning, opts)); err != nil {
+			return fmt.Errorf("worktree created at %s, but setting up its environment failed: %w", result.Path, err)
 		}
 
 		if cloning {
@@ -136,9 +137,9 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 				return fmt.Errorf("worktree created at %s, but cloning the environment failed: %w", result.Path, err)
 			}
 
-			entry.Cloned = true
+			record.Cloned = true
 
-			if err := recordWorktree(entry); err != nil {
+			if err := reg.add(record); err != nil {
 				warnRegistryUpdateFailed()
 			}
 		}
@@ -162,7 +163,7 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 			SourcePath:   result.SourcePath,
 			SourceBranch: result.SourceBranch,
 			Instance:     result.Instance,
-			Cloned:       entry.Cloned,
+			Cloned:       record.Cloned,
 			CreatedAt:    result.CreatedAt,
 		})
 	}

@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// ErrNotADirectory indicates a copy source exists but is not a directory.
+// errNotADirectory indicates a copy source exists but is not a directory.
 var errNotADirectory = errors.New("not a directory")
 
 // progressFunc reports copy progress as files are written.

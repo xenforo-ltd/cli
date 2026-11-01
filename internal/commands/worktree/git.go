@@ -20,7 +20,7 @@ type gitBackend struct{}
 // failure here is a Git failure and is reported as one rather than as "not a
 // repository".
 func (gitBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
-	out, err := gitOutput(ctx, dir, "rev-parse", "--git-common-dir")
+	out, err := vcsOutput(ctx, "git", dir, "rev-parse", "--git-common-dir")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the source checkout: %w", err)
 	}
@@ -62,7 +62,7 @@ func (gitBackend) nameExists(ctx context.Context, repoDir, branch string) (bool,
 
 // currentName returns the branch checked out in repoDir.
 func (gitBackend) currentName(ctx context.Context, repoDir string) (string, error) {
-	out, err := gitOutput(ctx, repoDir, "rev-parse", "--abbrev-ref", "HEAD")
+	out, err := vcsOutput(ctx, "git", repoDir, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine current branch: %w", err)
 	}
@@ -73,7 +73,7 @@ func (gitBackend) currentName(ctx context.Context, repoDir string) (string, erro
 // checkouts lists the repository's worktrees with the branch each has checked
 // out.
 func (gitBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, error) {
-	out, err := gitOutput(ctx, repoDir, "worktree", "list", "--porcelain")
+	out, err := vcsOutput(ctx, "git", repoDir, "worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list worktrees: %w", err)
 	}
@@ -81,13 +81,15 @@ func (gitBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, er
 	var result []checkout
 
 	for line := range strings.SplitSeq(out, "\n") {
-		switch {
-		case strings.HasPrefix(line, "worktree "):
-			result = append(result, checkout{path: strings.TrimPrefix(line, "worktree ")})
+		if path, ok := strings.CutPrefix(line, "worktree "); ok {
+			result = append(result, checkout{path: path})
 
-		case strings.HasPrefix(line, "branch ") && len(result) > 0:
+			continue
+		}
+
+		if ref, ok := strings.CutPrefix(line, "branch "); ok && len(result) > 0 {
 			// Reported as a full ref, e.g. refs/heads/dev/xfs/feature.
-			result[len(result)-1].name = strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/")
+			result[len(result)-1].name = strings.TrimPrefix(ref, "refs/heads/")
 		}
 	}
 
@@ -104,19 +106,7 @@ func (gitBackend) create(ctx context.Context, source, branch, base, target strin
 		args = append(args, base)
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = source
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-
-		return fmt.Errorf("failed to create worktree: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	return nil
+	return vcsRun(ctx, "git", source, "create worktree", args...)
 }
 
 // status inspects a worktree for work that would be lost by removing it.
@@ -126,7 +116,7 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 	// --porcelain includes untracked files, which are easy to forget and just
 	// as easy to lose. -z terminates each entry with NUL so paths containing
 	// spaces or newlines survive parsing intact.
-	out, err := gitOutput(ctx, worktreePath, "status", "--porcelain", "-z")
+	out, err := vcsOutput(ctx, "git", worktreePath, "status", "--porcelain", "-z")
 	if err != nil {
 		return status, fmt.Errorf("failed to inspect worktree: %w", err)
 	}
@@ -152,7 +142,7 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 
 	// "git remote" with no configured remotes exits 0 with empty output, so a
 	// failure here is a real inspection problem, not the "no remotes" case.
-	remotes, err := gitOutput(ctx, worktreePath, "remote")
+	remotes, err := vcsOutput(ctx, "git", worktreePath, "remote")
 	if err != nil {
 		return status, fmt.Errorf("failed to list remotes: %w", err)
 	}
@@ -167,23 +157,19 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 	// An unborn branch (no commits yet) has no HEAD to inspect, and "git log"
 	// on one fails distinctly from a real command failure, so check for that
 	// case explicitly rather than treating every "log" error as "no commits".
-	if _, err := gitOutput(ctx, worktreePath, "rev-parse", "--verify", "HEAD"); err != nil {
+	if _, err := vcsOutput(ctx, "git", worktreePath, "rev-parse", "--verify", "HEAD"); err != nil {
 		return status, nil
 	}
 
 	// Commits reachable from HEAD but from no remote branch exist only here.
 	// HEAD must be named explicitly: "--not --remotes" alone gives git no
 	// starting point and silently lists nothing.
-	commits, err := gitOutput(ctx, worktreePath, "log", "--oneline", "HEAD", "--not", "--remotes")
+	commits, err := vcsOutput(ctx, "git", worktreePath, "log", "--oneline", "HEAD", "--not", "--remotes")
 	if err != nil {
 		return status, fmt.Errorf("failed to inspect commit history: %w", err)
 	}
 
-	for line := range strings.SplitSeq(commits, "\n") {
-		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			status.UnmergedCommits = append(status.UnmergedCommits, trimmed)
-		}
-	}
+	status.UnmergedCommits = nonEmptyLines(commits)
 
 	return status, nil
 }
@@ -200,15 +186,8 @@ func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, f
 		args = append(args, "--force")
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = sourcePath
-
-	if out, err := cmd.CombinedOutput(); err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-
-		return fmt.Errorf("failed to remove worktree: %w: %s", err, strings.TrimSpace(string(out)))
+	if err := vcsRun(ctx, "git", sourcePath, "remove worktree", args...); err != nil {
+		return err
 	}
 
 	if branch == "" || branch == "HEAD" {
@@ -233,23 +212,6 @@ func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, f
 	_ = del.Run()
 
 	return nil
-}
-
-// gitOutput runs git in dir and returns its trimmed standard output.
-func gitOutput(ctx context.Context, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
-
-	out, err := cmd.Output()
-	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return "", ctxErr
-		}
-
-		return "", err
-	}
-
-	return strings.TrimSpace(string(out)), nil
 }
 
 // porcelainEntry is one record from "git status --porcelain -z".
@@ -296,15 +258,4 @@ func parsePorcelain(out string) []porcelainEntry {
 	}
 
 	return entries
-}
-
-// resolveSymlinks resolves a path for comparison, falling back to the cleaned
-// path when it cannot be resolved. Temporary directories on macOS are symlinked
-// via /var, so comparing unresolved paths gives false mismatches.
-func resolveSymlinks(path string) string {
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		return filepath.Clean(resolved)
-	}
-
-	return filepath.Clean(path)
 }

@@ -56,11 +56,7 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 		return err
 	}
 
-	if err := retargetBoardIdentity(ctx, spinner, targetRunner, filepath.Base(worktreePath)); err != nil {
-		spinner.Stop()
-
-		return err
-	}
+	retargetBoardIdentity(ctx, spinner, targetRunner, filepath.Base(worktreePath))
 
 	message := fmt.Sprintf("Environment cloned (database %s)", ui.FormatBytes(dbSize))
 	if len(copiedDirs) > 0 {
@@ -82,13 +78,13 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 // OptionRepository::updateOptions is used rather than a direct UPDATE because
 // it also rebuilds the option cache. Writing the row alone would leave the old
 // URL in service until something else happened to rebuild it.
-func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *environment.Runner, label string) error {
+func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *environment.Runner, label string) {
 	url, err := target.GetURL(ctx)
 	if err != nil || url == "" {
 		spinner.Stop()
 		ui.PrintWarning("Could not determine the worktree's URL; the board URL still points at the source")
 
-		return nil
+		return
 	}
 
 	spinner.UpdateMessage("Updating board URL and title")
@@ -115,11 +111,7 @@ func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *env
 		spinner.Stop()
 		ui.PrintWarning("Could not update the board URL to " + url)
 		ui.PrintHint("Set it in the admin control panel under Options > Basic board information")
-
-		return nil
 	}
-
-	return nil
 }
 
 // phpQuote renders a string as a single-quoted PHP literal.

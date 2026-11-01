@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -47,7 +47,7 @@ type jjBackend struct{}
 // sibling source instead, which keeps new workspaces beside the original and
 // survives the source workspace being renamed.
 func (jjBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
-	out, err := jjOutput(ctx, dir, "workspace", "root")
+	out, err := vcsOutput(ctx, "jj", dir, "workspace", "root")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the current workspace: %w", err)
 	}
@@ -90,28 +90,17 @@ func (jjBackend) nameExists(ctx context.Context, repoDir, name string) (bool, er
 		return false, fmt.Errorf("failed to list workspaces: %w", err)
 	}
 
-	for _, ws := range workspaces {
-		if ws.name == name {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return slices.ContainsFunc(workspaces, func(ws jjWorkspace) bool { return ws.name == name }), nil
 }
 
 // currentName returns the name of the workspace checked out at checkoutPath.
 func (jjBackend) currentName(ctx context.Context, checkoutPath string) (string, error) {
-	root, err := jjOutput(ctx, checkoutPath, "workspace", "root")
+	root, err := vcsOutput(ctx, "jj", checkoutPath, "workspace", "root")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine current workspace: %w", err)
 	}
 
-	name, err := owner(ctx, jjBackend{}, checkoutPath, root)
-	if err != nil {
-		return "", err
-	}
-
-	return name, nil
+	return owner(ctx, jjBackend{}, checkoutPath, root)
 }
 
 // checkouts lists the repository's workspaces with their roots.
@@ -135,7 +124,7 @@ func (jjBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, err
 // --name= and --revision= keep a name or base that begins with a dash from being
 // read as an option, the same protection Git's "--" gives its target. Jujutsu's
 // default is to base a new workspace on the current commit's parents, so spell
-// out @ when no base was supplied to match Create's current-revision default.
+// out @ when no base was supplied to match create's current-revision default.
 func (jjBackend) create(ctx context.Context, source, name, base, target string) error {
 	args := []string{"workspace", "add", "--name=" + name}
 	if base == "" {
@@ -145,19 +134,7 @@ func (jjBackend) create(ctx context.Context, source, name, base, target string) 
 	args = append(args, "--revision="+base)
 	args = append(args, target)
 
-	cmd := exec.CommandContext(ctx, "jj", args...)
-	cmd.Dir = source
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-
-		return fmt.Errorf("failed to create workspace: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-
-	return nil
+	return vcsRun(ctx, "jj", source, "create workspace", args...)
 }
 
 // status inspects a workspace for work that would be lost by removing it.
@@ -167,7 +144,7 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatu
 	// jj tracks every file in the working copy, so a file Git would call
 	// untracked arrives here as an addition. Additions to the generated Docker
 	// environment are filtered below, mirroring Git's untracked-file treatment.
-	out, err := jjOutput(ctx, worktreePath, "diff", "--template", jjDiffTemplate)
+	out, err := vcsOutput(ctx, "jj", worktreePath, "diff", "--template", jjDiffTemplate)
 	if err != nil {
 		return status, fmt.Errorf("failed to inspect workspace: %w", err)
 	}
@@ -187,7 +164,7 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatu
 
 	// "jj git remote list" prints nothing when no remote is configured, so a
 	// failure here is a real inspection problem, not the "no remotes" case.
-	remotes, err := jjOutput(ctx, worktreePath, "git", "remote", "list")
+	remotes, err := vcsOutput(ctx, "jj", worktreePath, "git", "remote", "list")
 	if err != nil {
 		return status, fmt.Errorf("failed to list remotes: %w", err)
 	}
@@ -198,16 +175,12 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatu
 		return status, nil
 	}
 
-	commits, err := jjOutput(ctx, worktreePath, "log", "--no-graph", "-r", jjUnmergedRevset, "--template", jjCommitTemplate)
+	commits, err := vcsOutput(ctx, "jj", worktreePath, "log", "--no-graph", "-r", jjUnmergedRevset, "--template", jjCommitTemplate)
 	if err != nil {
 		return status, fmt.Errorf("failed to inspect commit history: %w", err)
 	}
 
-	for line := range strings.SplitSeq(commits, "\n") {
-		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			status.UnmergedCommits = append(status.UnmergedCommits, trimmed)
-		}
-	}
+	status.UnmergedCommits = nonEmptyLines(commits)
 
 	return status, nil
 }
@@ -249,15 +222,8 @@ func (jjBackend) remove(ctx context.Context, sourcePath, worktreePath string, _ 
 
 	// "--" makes a workspace name beginning with a dash a value rather than an
 	// option, matching the protection create gets from "--name=".
-	cmd := exec.CommandContext(ctx, "jj", "workspace", "forget", "--", name)
-	cmd.Dir = sourcePath
-
-	if out, err := cmd.CombinedOutput(); err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-
-		return fmt.Errorf("failed to forget workspace: %w: %s", err, strings.TrimSpace(string(out)))
+	if err := vcsRun(ctx, "jj", sourcePath, "forget workspace", "workspace", "forget", "--", name); err != nil {
+		return err
 	}
 
 	if err := os.RemoveAll(worktreePath); err != nil {
@@ -275,7 +241,7 @@ type jjWorkspace struct {
 
 // jjWorkspaces lists the repository's workspaces with their roots.
 func jjWorkspaces(ctx context.Context, dir string) ([]jjWorkspace, error) {
-	out, err := jjOutput(ctx, dir, "workspace", "list", "--template", jjWorkspaceTemplate)
+	out, err := vcsOutput(ctx, "jj", dir, "workspace", "list", "--template", jjWorkspaceTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -329,21 +295,4 @@ func parseJJDiff(out string) []jjDiffEntry {
 	}
 
 	return entries
-}
-
-// jjOutput runs jj in dir and returns its trimmed standard output.
-func jjOutput(ctx context.Context, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "jj", args...)
-	cmd.Dir = dir
-
-	out, err := cmd.Output()
-	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return "", ctxErr
-		}
-
-		return "", err
-	}
-
-	return strings.TrimSpace(string(out)), nil
 }

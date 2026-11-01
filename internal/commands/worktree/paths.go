@@ -44,7 +44,7 @@ const maxNameAttempts = 1000
 // branch name contains. An empty result means the branch yields no usable name.
 //
 // This is deliberately lossy: dev/xfs/slack-unfurl and dev/xf/slack-unfurl
-// both yield slack-unfurl. ChooseName resolves that by numbering.
+// both yield slack-unfurl. chooseName resolves that by numbering.
 func baseName(branch string) string {
 	// Take the last segment that yields a name, so a trailing slash or a
 	// segment of only punctuation does not produce an empty one.
@@ -93,7 +93,7 @@ func truncateName(name string, limit int) string {
 
 // chooseName picks the name for a new worktree of branch.
 //
-// The name is BaseName(branch), numbered -2, -3 and so on when that is taken.
+// The name is baseName(branch), numbered -2, -3 and so on when that is taken.
 // A name is taken when the checkout's worktrees directory already holds it or
 // when taken reports it in use, which lets the caller check state this package
 // does not own, such as Docker Compose projects. taken may be nil.
@@ -143,9 +143,7 @@ func chooseName(sourcePath, branch string, taken func(name string) (bool, error)
 // which matters for Docker bind mounts, and makes them discoverable without
 // knowing an xf-specific convention.
 func worktreesDir(sourcePath string) string {
-	cleaned := filepath.Clean(sourcePath)
-
-	return cleaned + worktreesSuffix
+	return filepath.Clean(sourcePath) + worktreesSuffix
 }
 
 // locate finds an existing worktree of the checkout at sourcePath.
@@ -157,7 +155,7 @@ func worktreesDir(sourcePath string) string {
 // checkout itself is never a match. Neither is a checkout whose directory was
 // deleted without telling the VCS, which Git still lists as prunable.
 //
-// The path is returned under WorktreesDir(sourcePath), the form Create reports
+// The path is returned under worktreesDir(sourcePath), the form create reports
 // and the registry records, rather than as the VCS spells it, which may have
 // symlinks resolved.
 func locate(ctx context.Context, sourcePath, ref string) (string, error) {
@@ -171,7 +169,8 @@ func locate(ctx context.Context, sourcePath, ref string) (string, error) {
 		return "", err
 	}
 
-	dir := resolveSymlinks(worktreesDir(sourcePath))
+	worktrees := worktreesDir(sourcePath)
+	dir := resolveSymlinks(worktrees)
 
 	var byName string
 
@@ -192,7 +191,7 @@ func locate(ctx context.Context, sourcePath, ref string) (string, error) {
 		name := filepath.Base(path)
 
 		if c.name == ref {
-			return filepath.Join(worktreesDir(sourcePath), name), nil
+			return filepath.Join(worktrees, name), nil
 		}
 
 		if name == ref && byName == "" {
@@ -201,8 +200,8 @@ func locate(ctx context.Context, sourcePath, ref string) (string, error) {
 	}
 
 	if byName != "" {
-		return filepath.Join(worktreesDir(sourcePath), byName), nil
+		return filepath.Join(worktrees, byName), nil
 	}
 
-	return "", fmt.Errorf("%w: no worktree for %q in %s", errWorktreeNotFound, ref, worktreesDir(sourcePath))
+	return "", fmt.Errorf("%w: no worktree for %q in %s", errWorktreeNotFound, ref, worktrees)
 }

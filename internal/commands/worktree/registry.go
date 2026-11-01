@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 )
@@ -21,19 +22,19 @@ const (
 	lockStaleAfter    = 30 * time.Second
 )
 
-// ErrRegistryCorrupt indicates the registry file exists but cannot be parsed.
+// errRegistryCorrupt indicates the registry file exists but cannot be parsed.
 //
 // Mutating calls tolerate this and rebuild from an empty registry, so a damaged
 // file never blocks cleanup. Read failures are not tolerated: they mean the
 // existing entries are unknown rather than absent.
 var errRegistryCorrupt = errors.New("worktree registry is corrupt")
 
-// ReservationTimeout is how long a pending reservation survives pruning
+// reservationTimeout is how long a pending reservation survives pruning
 // without its worktree appearing. Creating the checkout takes seconds, so a
 // reservation this old belongs to a creation that was interrupted.
 const reservationTimeout = time.Hour
 
-// ErrNameReserved indicates another entry already holds a worktree path or
+// errNameReserved indicates another entry already holds a worktree path or
 // instance name.
 var errNameReserved = errors.New("worktree name is already reserved")
 
@@ -61,7 +62,7 @@ type entry struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// Pending marks a reservation for a worktree that is still being created.
-	// Add clears it by replacing the entry once the worktree exists.
+	// add clears it by replacing the entry once the worktree exists.
 	Pending bool `json:"pending,omitempty"`
 }
 
@@ -73,9 +74,9 @@ type entry struct {
 // against reality rather than trusting the file.
 //
 // A missing registry reads as empty, and the operations that rewrite it --
-// Add and Remove -- recover from a damaged one by replacing it, so creating
+// add and remove -- recover from a damaged one by replacing it, so creating
 // and removing worktrees never fail on registry damage. Reading is the
-// exception: All reports a corrupt file rather than silently presenting an
+// exception: all reports a corrupt file rather than silently presenting an
 // empty list, because "no worktrees" and "the record is unreadable" call for
 // different responses from the user. Listing and pruning therefore surface the
 // error and say what to do about it.
@@ -136,7 +137,7 @@ func (r *registry) forSource(sourcePath string) ([]entry, error) {
 }
 
 // add records a worktree, replacing any existing entry for the same path.
-func (r *registry) add(entry entry) error {
+func (r *registry) add(e entry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -155,20 +156,12 @@ func (r *registry) add(entry entry) error {
 		return err
 	}
 
-	want := filepath.Clean(entry.WorktreePath)
-	replaced := false
+	want := filepath.Clean(e.WorktreePath)
 
-	for i, e := range entries {
-		if filepath.Clean(e.WorktreePath) == want {
-			entries[i] = entry
-			replaced = true
-
-			break
-		}
-	}
-
-	if !replaced {
-		entries = append(entries, entry)
+	if i := slices.IndexFunc(entries, func(x entry) bool { return filepath.Clean(x.WorktreePath) == want }); i >= 0 {
+		entries[i] = e
+	} else {
+		entries = append(entries, e)
 	}
 
 	return r.save(entries)
@@ -179,12 +172,12 @@ func (r *registry) add(entry entry) error {
 //
 // The check and the write happen under the registry lock, so two concurrent
 // creations cannot both claim a name: the second sees the first's entry and
-// gets ErrNameReserved. The caller replaces the entry with Add once the
-// worktree exists, or drops it with Remove if creation fails.
+// gets errNameReserved. The caller replaces the entry with add once the
+// worktree exists, or drops it with remove if creation fails.
 //
-// Unlike Add, a corrupt registry is an error here. Its entries are what keep
+// Unlike add, a corrupt registry is an error here. Its entries are what keep
 // names unique, so an unreadable one cannot be treated as empty.
-func (r *registry) reserve(entry entry) error {
+func (r *registry) reserve(e entry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -199,24 +192,24 @@ func (r *registry) reserve(entry entry) error {
 		return err
 	}
 
-	want := filepath.Clean(entry.WorktreePath)
+	want := filepath.Clean(e.WorktreePath)
 
-	for _, e := range entries {
-		if filepath.Clean(e.WorktreePath) == want || e.Instance == entry.Instance {
-			return fmt.Errorf("%w: %s", errNameReserved, entry.Instance)
-		}
+	if slices.ContainsFunc(entries, func(x entry) bool {
+		return filepath.Clean(x.WorktreePath) == want || x.Instance == e.Instance
+	}) {
+		return fmt.Errorf("%w: %s", errNameReserved, e.Instance)
 	}
 
-	entry.Pending = true
+	e.Pending = true
 
-	return r.save(append(entries, entry))
+	return r.save(append(entries, e))
 }
 
 // prune drops entries whose worktree directory no longer exists and returns
 // how many were dropped.
 //
 // A pending reservation has no directory yet by design, so it is kept until
-// ReservationTimeout has passed. The check runs under the registry lock, so a
+// reservationTimeout has passed. The check runs under the registry lock, so a
 // reservation made while pruning is either seen as pending or not seen at all,
 // never dropped as stale.
 func (r *registry) prune(now time.Time) (int, error) {
@@ -245,7 +238,7 @@ func (r *registry) prune(now time.Time) (int, error) {
 
 		// Only a confirmed absence is stale: a permission or I/O failure says
 		// nothing about whether the worktree is there.
-		if _, err := os.Stat(e.WorktreePath); errors.Is(err, os.ErrNotExist) {
+		if _, err := os.Stat(e.WorktreePath); errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 
@@ -274,7 +267,7 @@ func (r *registry) remove(worktreePath string) error {
 
 	// A damaged registry must not block cleanup: worktree removal and prune
 	// have to be able to proceed even when the file cannot be parsed, so a
-	// parse failure is treated the same as an empty registry, as in Add.
+	// parse failure is treated the same as an empty registry, as in add.
 	//
 	// Only a parse failure. A permission or I/O error means the existing
 	// entries could not be read at all, and saving over them would delete
@@ -285,13 +278,7 @@ func (r *registry) remove(worktreePath string) error {
 	}
 
 	want := filepath.Clean(worktreePath)
-	kept := make([]entry, 0, len(entries))
-
-	for _, e := range entries {
-		if filepath.Clean(e.WorktreePath) != want {
-			kept = append(kept, e)
-		}
-	}
+	kept := slices.DeleteFunc(entries, func(e entry) bool { return filepath.Clean(e.WorktreePath) == want })
 
 	return r.save(kept)
 }

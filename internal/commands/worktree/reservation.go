@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/environment"
@@ -24,7 +25,7 @@ const maxReserveAttempts = 10
 // The worktree's name doubles as its instance name unless --instance gave one.
 // An explicit instance is the user's choice, so a clash on it is reported
 // rather than numbered around. The directory is still numbered.
-func reserveWorktreeName(ctx context.Context, registry *registry, source, branch, instance string, noSetup bool) (entry, error) {
+func reserveWorktreeName(ctx context.Context, reg *registry, source, branch, instance string, noSetup bool) (entry, error) {
 	sourceInstance, err := configuredInstance(source)
 	if err != nil {
 		return entry{}, err
@@ -32,7 +33,7 @@ func reserveWorktreeName(ctx context.Context, registry *registry, source, branch
 
 	for range maxReserveAttempts {
 		if instance != "" {
-			taken, err := instanceTaken(ctx, registry, sourceInstance, instance, noSetup)
+			taken, err := instanceTaken(ctx, reg, sourceInstance, instance, noSetup)
 			if err != nil {
 				return entry{}, err
 			}
@@ -46,7 +47,7 @@ func reserveWorktreeName(ctx context.Context, registry *registry, source, branch
 		}
 
 		name, err := chooseName(source, branch, func(name string) (bool, error) {
-			reserved, err := directoryReserved(registry, source, name)
+			reserved, err := directoryReserved(reg, source, name)
 			if err != nil || reserved {
 				return reserved, err
 			}
@@ -57,7 +58,7 @@ func reserveWorktreeName(ctx context.Context, registry *registry, source, branch
 				return false, nil
 			}
 
-			return instanceTaken(ctx, registry, sourceInstance, name, noSetup)
+			return instanceTaken(ctx, reg, sourceInstance, name, noSetup)
 		})
 		if err != nil {
 			return entry{}, err
@@ -71,7 +72,7 @@ func reserveWorktreeName(ctx context.Context, registry *registry, source, branch
 			CreatedAt:    time.Now().UTC(),
 		}
 
-		err = registry.reserve(reserved)
+		err = reg.reserve(reserved)
 		if err == nil {
 			return reserved, nil
 		}
@@ -90,21 +91,15 @@ func reserveWorktreeName(ctx context.Context, registry *registry, source, branch
 // whose name differs from its instance, and the directory does not exist until
 // the creation finishes, so neither the instance check nor the filesystem
 // would see it.
-func directoryReserved(registry *registry, source, name string) (bool, error) {
-	entries, err := registry.all()
+func directoryReserved(reg *registry, source, name string) (bool, error) {
+	entries, err := reg.all()
 	if err != nil {
 		return false, registryReadError(err)
 	}
 
-	path := filepath.Clean(filepath.Join(worktreesDir(source), name))
+	path := filepath.Join(worktreesDir(source), name)
 
-	for _, entry := range entries {
-		if filepath.Clean(entry.WorktreePath) == path {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return slices.ContainsFunc(entries, func(e entry) bool { return filepath.Clean(e.WorktreePath) == path }), nil
 }
 
 // instanceTaken reports whether an instance name is already used by another
@@ -124,20 +119,18 @@ func directoryReserved(registry *registry, source, name string) (bool, error) {
 //
 // With --no-setup Docker need not be running, so failing to reach it is not
 // an error there.
-func instanceTaken(ctx context.Context, registry *registry, sourceInstance, name string, noSetup bool) (bool, error) {
+func instanceTaken(ctx context.Context, reg *registry, sourceInstance, name string, noSetup bool) (bool, error) {
 	if name == sourceInstance {
 		return true, nil
 	}
 
-	entries, err := registry.all()
+	entries, err := reg.all()
 	if err != nil {
 		return false, registryReadError(err)
 	}
 
-	for _, entry := range entries {
-		if entry.Instance == name {
-			return true, nil
-		}
+	if slices.ContainsFunc(entries, func(e entry) bool { return e.Instance == name }) {
+		return true, nil
 	}
 
 	exists, err := environment.ProjectExists(ctx, name)

@@ -46,16 +46,11 @@ func RemoveWorktree(ctx context.Context, name string, opts RemoveOptions) error 
 		return err
 	}
 
-	registry, regErr := newRegistry()
-	if regErr != nil {
+	if err := forgetWorktree(target); err != nil {
 		// Reported rather than ignored: the worktree is gone but the registry
 		// still lists it, and only this message tells the user why.
 		warnRegistryUpdateFailed()
-		if opts.Verbose {
-			ui.PrintDetail(regErr.Error())
-		}
-	} else if err := registry.remove(target); err != nil {
-		warnRegistryUpdateFailed()
+
 		if opts.Verbose {
 			ui.PrintDetail(err.Error())
 		}
@@ -64,4 +59,13 @@ func RemoveWorktree(ctx context.Context, name string, opts RemoveOptions) error 
 	ui.SuccessBox("Removed worktree "+ui.Path.Render(ui.ShortHome(target)), nil)
 
 	return nil
+}
+
+func forgetWorktree(path string) error {
+	reg, err := newRegistry()
+	if err != nil {
+		return err
+	}
+
+	return reg.remove(path)
 }

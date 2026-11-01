@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	// ErrDirtyWorktree indicates uncommitted changes would be lost.
+	// errDirtyWorktree indicates uncommitted changes would be lost.
 	errDirtyWorktree = errors.New("worktree has uncommitted changes")
 
-	// ErrUnmergedCommits indicates commits exist only in this worktree.
+	// errUnmergedCommits indicates commits exist only in this worktree.
 	errUnmergedCommits = errors.New("worktree has commits not present on any remote")
 )
 
@@ -29,7 +29,7 @@ type worktreeStatus struct {
 
 // checkRemovable reports whether a worktree can be removed without losing work.
 //
-// It is separate from Remove so callers can run the check before destroying
+// It is separate from remove so callers can run the check before destroying
 // anything the removal depends on. Tearing down containers and volumes first
 // and only then discovering that the worktree is dirty would refuse the
 // removal after the data it was protecting had already been deleted.

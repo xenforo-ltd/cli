@@ -32,12 +32,3 @@ func registryReadError(err error) error {
 func warnRegistryUpdateFailed() {
 	ui.PrintWarning("Could not update the worktree registry")
 }
-
-func recordWorktree(entry entry) error {
-	registry, err := newRegistry()
-	if err != nil {
-		return err
-	}
-
-	return registry.add(entry)
-}

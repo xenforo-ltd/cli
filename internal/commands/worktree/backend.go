@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
-// ErrNotARepository indicates a path is not inside a supported repository.
+// errNotARepository indicates a path is not inside a supported repository.
 var errNotARepository = errors.New("not a git or Jujutsu repository")
 
 // repositoryKind identifies the version control system a directory belongs to.
@@ -35,6 +38,14 @@ const (
 // The marker is matched as a file or a directory because a linked Git worktree
 // records .git as a file pointing at the shared repository.
 func repositoryMarker(ctx context.Context, dir string) (repositoryKind, error) {
+	markers := [...]struct {
+		name string
+		kind repositoryKind
+	}{
+		{".jj", repositoryJujutsu},
+		{".git", repositoryGit},
+	}
+
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return repositoryNone, fmt.Errorf("failed to resolve repository path %s: %w", dir, err)
@@ -45,22 +56,15 @@ func repositoryMarker(ctx context.Context, dir string) (repositoryKind, error) {
 			return repositoryNone, err
 		}
 
-		exists, err := markerExists(filepath.Join(abs, ".jj"))
-		if err != nil {
-			return repositoryNone, err
-		}
+		for _, m := range markers {
+			exists, err := markerExists(filepath.Join(abs, m.name))
+			if err != nil {
+				return repositoryNone, err
+			}
 
-		if exists {
-			return repositoryJujutsu, nil
-		}
-
-		exists, err = markerExists(filepath.Join(abs, ".git"))
-		if err != nil {
-			return repositoryNone, err
-		}
-
-		if exists {
-			return repositoryGit, nil
+			if exists {
+				return m.kind, nil
+			}
 		}
 
 		parent := filepath.Dir(abs)
@@ -81,7 +85,7 @@ func markerExists(path string) (bool, error) {
 		return true, nil
 	}
 
-	if errors.Is(err, os.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return false, nil
 	}
 
@@ -92,7 +96,7 @@ func markerExists(path string) (bool, error) {
 //
 // Every method is a single VCS operation that creating, inspecting or removing
 // a checkout needs. Keeping the interface private lets the package present one
-// stable, VCS-neutral API -- Create, Status, Remove and the rest -- while Git
+// stable, VCS-neutral API -- create, status, remove and the rest -- while Git
 // and Jujutsu each implement the operations in their own terms: a Git branch
 // and worktree, or a Jujutsu workspace.
 type backend interface {
@@ -168,10 +172,6 @@ func owner(ctx context.Context, b backend, repoDir, checkoutPath string) (string
 // of quietly falling through to the other VCS. A directory with neither marker
 // yields the repository error.
 func detectBackend(ctx context.Context, dir string) (backend, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
 	kind, err := repositoryMarker(ctx, dir)
 	if err != nil {
 		return nil, err
@@ -225,4 +225,65 @@ func currentBranch(ctx context.Context, repoDir string) (string, error) {
 	}
 
 	return b.currentName(ctx, repoDir)
+}
+
+// resolveSymlinks resolves a path for comparison, falling back to the cleaned
+// path when it cannot be resolved. Temporary directories on macOS are symlinked
+// via /var, so comparing unresolved paths gives false mismatches.
+func resolveSymlinks(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return filepath.Clean(resolved)
+	}
+
+	return filepath.Clean(path)
+}
+
+// vcsOutput runs a version control tool in dir and returns its trimmed
+// standard output. A cancelled context is reported in place of the exec error.
+func vcsOutput(ctx context.Context, tool, dir string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, tool, args...)
+	cmd.Dir = dir
+
+	out, err := cmd.Output()
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
+
+		return "", err
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// vcsRun runs a version control tool in dir for its side effects. On failure
+// the error names action and carries the tool's combined output; a cancelled
+// context is reported in place of both.
+func vcsRun(ctx context.Context, tool, dir, action string, args ...string) error {
+	cmd := exec.CommandContext(ctx, tool, args...)
+	cmd.Dir = dir
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		return fmt.Errorf("failed to %s: %w: %s", action, err, strings.TrimSpace(string(out)))
+	}
+
+	return nil
+}
+
+// nonEmptyLines returns the trimmed, non-blank lines of s.
+func nonEmptyLines(s string) []string {
+	var lines []string
+
+	for line := range strings.SplitSeq(s, "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			lines = append(lines, trimmed)
+		}
+	}
+
+	return lines
 }
