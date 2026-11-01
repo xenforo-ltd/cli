@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/customerapi"
@@ -262,4 +263,57 @@ func shellJoinArgs(args []string) string {
 // looks-dangerous test passes it to the shell verbatim.
 func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
+}
+
+func printUsefulCommands() {
+	commands := []ui.KVPair{
+		ui.KV("xf up", "Start the environment"),
+		ui.KV("xf down", "Stop the environment"),
+		ui.KV("xf reboot", "Restart the environment"),
+		ui.KV("xf ps", "Container status"),
+		ui.KV("xf logs", "Show logs"),
+		ui.KV("xf composer", "Run Composer"),
+		ui.KV("xf php", "Run PHP"),
+	}
+
+	width := 0
+	for _, c := range commands {
+		if w := lipgloss.Width(c.Key); w > width {
+			width = w
+		}
+	}
+
+	ui.Println(ui.Bold.Render("Useful commands:"))
+
+	for _, c := range commands {
+		ui.Printf("%s%s  %s\n", ui.Indent1, ui.Command.Render(padRight(c.Key, width)), ui.Muted.Render(c.Value))
+	}
+}
+
+// padRight pads s with trailing spaces to the given display width.
+func padRight(s string, width int) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+
+	return s + strings.Repeat(" ", width-w)
+}
+
+func formatProductNames(products []string, titleMap map[string]string) string {
+	if len(products) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(products))
+	for _, product := range products {
+		if name := strings.TrimSpace(titleMap[product]); name != "" {
+			names = append(names, name)
+			continue
+		}
+
+		names = append(names, product)
+	}
+
+	return strings.Join(names, ", ")
 }
