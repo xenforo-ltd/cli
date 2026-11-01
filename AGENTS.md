@@ -62,34 +62,31 @@ Two distinct routes exist, with different flag semantics. This is intentional.
 1. **Wrapper commands** (`php`, `composer`, …) are cobra commands that forward
    their arguments. They follow the rule above.
 2. **Direct XenForo commands** (`xf xf-dev:import`, `xf list`) are routed in
-   `Execute` before cobra parses anything, and are forwarded verbatim.
+   `execute` before cobra parses anything, and are forwarded verbatim.
 
 Known limitation: the direct route is only taken when the first argument is not
 a flag, so a global flag cannot be combined with it.
 
 ```bash
 xf xf-dev:import                    # works
-xf -v xf-dev:import                 # prints xf's help, exits 0, runs nothing
+xf -v xf-dev:import                 # fails with a usage error and a hint
 xf --verbose debug xf-dev:import    # use a wrapper command instead
 ```
-
-The silent success in the second form is a real trap: it looks like the command
-ran. Treat it as a known bug to fix separately, not as intended behaviour.
 
 ## Error reporting
 
 `execute` owns error output; cobra's own printing is silenced.
 
 - Usage is printed **only** for invocation mistakes, which are marked with
-  `usageError`.
+  `clierror.Usage`.
 - Runtime failures (Docker not reachable, a script failing) print one concise
   line with no usage block.
 - When adding a validation check inside `RunE` that means "the command was typed
-  incorrectly", wrap it with `newUsageError(...)` so usage is shown.
+  incorrectly", wrap it with `clierror.Usage(...)` so usage is shown.
 
-Do not classify errors as usage errors by sentinel alone. `ErrInvalidInput` also
-covers user cancellation and environment state, where usage output is unhelpful
-or misleading. Audit each site individually.
+Do not classify errors as usage errors by sentinel alone.
+`clierror.ErrInvalidInput` also covers user cancellation and environment state,
+where usage output is unhelpful or misleading. Audit each site individually.
 
 ## Conventions
 
