@@ -76,12 +76,12 @@ func TestDetect(t *testing.T) {
 func TestInfoURL(t *testing.T) {
 	tests := []struct {
 		name string
-		info info
+		info connection
 		want string
 	}{
 		{
 			name: "mysql",
-			info: info{
+			info: connection{
 				Driver:   driverMySQL,
 				Host:     "mysql.main.orb.local",
 				Port:     3306,
@@ -93,7 +93,7 @@ func TestInfoURL(t *testing.T) {
 		},
 		{
 			name: "postgres uses the postgresql scheme",
-			info: info{
+			info: connection{
 				Driver:   driverPostgres,
 				Host:     "postgres.main.orb.local",
 				Port:     5432,
@@ -105,7 +105,7 @@ func TestInfoURL(t *testing.T) {
 		},
 		{
 			name: "credentials are percent-encoded",
-			info: info{
+			info: connection{
 				Driver:   driverMySQL,
 				Host:     "mysql.main.orb.local",
 				Port:     3306,
@@ -117,7 +117,7 @@ func TestInfoURL(t *testing.T) {
 		},
 		{
 			name: "sqlite is a file path",
-			info: info{
+			info: connection{
 				Driver:   driverSQLite,
 				FilePath: "/var/www/html/internal_data/xf.sqlite",
 			},

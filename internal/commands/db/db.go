@@ -68,7 +68,7 @@ func requireOrbStack(ctx context.Context) error {
 // openInTablePlus launches TablePlus with the connection URL. It relies on
 // OrbStack, which makes the container's orb.local hostname resolvable from
 // macOS without publishing a port.
-func openInTablePlus(ctx context.Context, info info) error {
+func openInTablePlus(ctx context.Context, info connection) error {
 	if runtime.GOOS != "darwin" {
 		return clierror.WithHint(
 			errors.New("opening a database client is currently supported on macOS only"),

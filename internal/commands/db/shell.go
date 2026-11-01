@@ -40,7 +40,7 @@ func Shell(ctx context.Context, args []string) error {
 // The client needs the server in the running container, so a stopped
 // environment is reported rather than falling back to a one-off container
 // that has no server to connect to.
-func openDatabaseShell(ctx context.Context, runner *environment.Runner, info info, args []string) error {
+func openDatabaseShell(ctx context.Context, runner *environment.Runner, info connection, args []string) error {
 	running, err := runner.IsServiceRunning(ctx, databaseService)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func openDatabaseShell(ctx context.Context, runner *environment.Runner, info inf
 // databaseShellArgs builds the in-container client command. Extra arguments are
 // appended verbatim, so callers can run a one-off query or pass any other
 // client option.
-func databaseShellArgs(info info, extra []string) []string {
+func databaseShellArgs(info connection, extra []string) []string {
 	args := []string{"mariadb", "--user=" + info.User, "--database=" + info.Name}
 
 	return append(args, extra...)

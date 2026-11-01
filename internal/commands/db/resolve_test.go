@@ -92,7 +92,7 @@ func TestResolveDatabaseInfoRequiresDatabaseContext(t *testing.T) {
 // TestDatabaseShellArgs covers the in-container client command and the
 // forwarding of extra arguments.
 func TestDatabaseShellArgs(t *testing.T) {
-	info := info{User: "xf", Name: "xf"}
+	info := connection{User: "xf", Name: "xf"}
 
 	tests := []struct {
 		name  string
@@ -141,7 +141,7 @@ func TestOpenDatabaseShellRequiresRunningDatabase(t *testing.T) {
 
 	runner := newRunnerForDB(t, "XF_CONTEXTS=mysql\n")
 
-	err := openDatabaseShell(t.Context(), runner, info{User: "xf", Name: "xf"}, nil)
+	err := openDatabaseShell(t.Context(), runner, connection{User: "xf", Name: "xf"}, nil)
 	if err == nil {
 		t.Fatal("expected an error when the database is not running")
 	}

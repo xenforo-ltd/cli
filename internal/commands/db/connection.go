@@ -56,8 +56,8 @@ func (d driver) scheme() string {
 // anywhere else the host can read, so the context is the source of truth until
 // XenForo itself can be asked.
 func detect(contexts []string) (driver, error) {
-	for _, ctx := range contexts {
-		switch strings.TrimSpace(ctx) {
+	for _, name := range contexts {
+		switch strings.TrimSpace(name) {
 		case string(driverMySQL), "mysql-replication":
 			return driverMySQL, nil
 		case string(driverPostgres):
@@ -72,8 +72,8 @@ func detect(contexts []string) (driver, error) {
 	return "", fmt.Errorf("no supported database context in %q", strings.Join(contexts, ":"))
 }
 
-// info describes a resolved database connection.
-type info struct {
+// connection describes a resolved database connection.
+type connection struct {
 	Driver   driver
 	Host     string
 	Port     int
@@ -85,7 +85,7 @@ type info struct {
 
 // urlString renders the connection URL used to open the database in a GUI or CLI
 // client. SQLite is file-based, so its "URL" is the file path.
-func (i info) urlString() string {
+func (i connection) urlString() string {
 	if i.Driver == driverSQLite {
 		return i.FilePath
 	}
