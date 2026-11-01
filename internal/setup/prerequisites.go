@@ -17,10 +17,11 @@ func CheckPrerequisites(ctx context.Context) error {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
+		msg, hint := "Docker does not appear to be running", "Start Docker Desktop and try again"
 		if errors.Is(err, exec.ErrNotFound) {
-			return clierror.WithHint(clierror.MarkAs(err, "Docker is not installed or not in your PATH"), "Install Docker and try again")
+			msg, hint = "Docker is not installed or not in your PATH", "Install Docker and try again"
 		}
-		return clierror.WithHint(clierror.MarkAs(err, "Docker does not appear to be running"), "Start Docker Desktop and try again")
+		return clierror.WithHint(clierror.MarkAs(err, "%s", msg), hint)
 	}
 	ui.PrintSuccess("Docker is running")
 	if err := environment.CheckDockerComposeAvailable(ctx); err != nil {

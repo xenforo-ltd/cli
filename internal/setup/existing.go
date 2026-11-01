@@ -33,7 +33,6 @@ type Options struct {
 func Existing(ctx context.Context, opts *Options) error {
 	ui.Println(ui.Header.Render("Initializing Docker environment"))
 	ui.Println()
-	xfDir := opts.TargetPath
 	if err := CheckPrerequisites(ctx); err != nil {
 		return err
 	}
@@ -46,7 +45,7 @@ func Existing(ctx context.Context, opts *Options) error {
 	ui.PrintStep(step, totalSteps, "Setting up Docker configuration")
 	step++
 	environmentOpts := environment.InitOptions{OverwriteExisting: true, Contexts: opts.Contexts}
-	writtenDefaults, err := environment.Init(xfDir, environmentOpts)
+	writtenDefaults, err := environment.Init(opts.TargetPath, environmentOpts)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker files in existing XenForo directory: %w", err)
 	}
@@ -71,40 +70,14 @@ func Existing(ctx context.Context, opts *Options) error {
 	urlDetected := false
 	if opts.StartContainers {
 		ui.PrintStep(step, totalSteps, "Starting environment")
-		runner, err := environment.NewRunner(xfDir)
+		siteURL, urlDetected, err = startAndInstall(ctx, opts, cfg.Verbose)
 		if err != nil {
-			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
-		}
-		if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "up", "--detach"); err != nil {
-			return fmt.Errorf("failed to start Docker environment: %w", err)
-		}
-		detectedURL, detectedErr := runner.GetURL(ctx)
-		siteURL, urlDetected = ChooseBoardURL(opts.InstanceName, detectedURL, detectedErr)
-		if ShouldRunComposer(xfDir) && !opts.SkipComposer {
-			ui.Println()
-			if err := RunComposerInstall(ctx, runner, xfDir, cfg.Verbose); err != nil {
-				return err
-			}
-		}
-		if !opts.SkipInstall && opts.AdminUser != "" {
-			if opts.SiteTitle == "" {
-				opts.SiteTitle = opts.EnvResolved["XF_TITLE"]
-			}
-			if opts.SiteTitle == "" {
-				opts.SiteTitle = fmt.Sprintf("XenForo [%s]", opts.InstanceName)
-			}
-			if err := validateAdminDetails(opts); err != nil {
-				return err
-			}
-			ui.Println()
-			if err := installExistingXenForo(ctx, runner, opts, siteURL, cfg.Verbose); err != nil {
-				return err
-			}
+			return err
 		}
 	} else {
 		PrintSkippedStep(step, totalSteps, "Starting environment", "use --up to start containers")
 	}
-	details := []ui.KVPair{ui.KV("Location", ui.Path.Render(ui.ShortHome(xfDir))), ui.KV("Instance", opts.InstanceName)}
+	details := []ui.KVPair{ui.KV("Location", ui.Path.Render(ui.ShortHome(opts.TargetPath))), ui.KV("Instance", opts.InstanceName)}
 	if urlDetected {
 		details = append(details, ui.KV("URL", ui.URL.Render(siteURL)))
 	}
@@ -112,11 +85,45 @@ func Existing(ctx context.Context, opts *Options) error {
 	ui.SuccessBox("Docker environment initialized", details)
 	if !opts.StartContainers {
 		ui.Println()
-		PrintStartHint(xfDir)
+		PrintStartHint(opts.TargetPath)
 	}
 	ui.Println()
 	PrintUsefulCommands()
 	return nil
+}
+
+func startAndInstall(ctx context.Context, opts *Options, verbose bool) (string, bool, error) {
+	runner, err := environment.NewRunner(opts.TargetPath)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
+	}
+	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "up", "--detach"); err != nil {
+		return "", false, fmt.Errorf("failed to start Docker environment: %w", err)
+	}
+	detectedURL, detectedErr := runner.GetURL(ctx)
+	siteURL, urlDetected := ChooseBoardURL(opts.InstanceName, detectedURL, detectedErr)
+	if ShouldRunComposer(opts.TargetPath) && !opts.SkipComposer {
+		ui.Println()
+		if err := RunComposerInstall(ctx, runner, opts.TargetPath, verbose); err != nil {
+			return "", false, err
+		}
+	}
+	if !opts.SkipInstall && opts.AdminUser != "" {
+		if opts.SiteTitle == "" {
+			opts.SiteTitle = opts.EnvResolved["XF_TITLE"]
+		}
+		if opts.SiteTitle == "" {
+			opts.SiteTitle = InstanceTitle("", opts.InstanceName)
+		}
+		if err := validateAdminDetails(opts); err != nil {
+			return "", false, err
+		}
+		ui.Println()
+		if err := installExistingXenForo(ctx, runner, opts, siteURL, verbose); err != nil {
+			return "", false, err
+		}
+	}
+	return siteURL, urlDetected, nil
 }
 
 func configureExistingEnv(opts *Options) error {
@@ -132,7 +139,7 @@ func configureExistingEnv(opts *Options) error {
 	updates := map[string]string{
 		"XF_INSTANCE":    opts.InstanceName,
 		"XF_CONTEXTS":    strings.Join(contexts, ":"),
-		"XF_TITLE":       fmt.Sprintf("XenForo [%s]", opts.InstanceName),
+		"XF_TITLE":       InstanceTitle("", opts.InstanceName),
 		"XF_EMAIL":       "admin@example.com",
 		"XF_DEBUG":       "1",
 		"XF_DEVELOPMENT": "1",
@@ -165,9 +172,7 @@ func installExistingXenForo(ctx context.Context, runner *environment.Runner, opt
 	if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
 		return fmt.Errorf("failed waiting for database to become ready: %w", err)
 	}
-	installArgs := []string{"xf:install", "--no-interaction", "--clear", "--user=" + opts.AdminUser, "--email=" + opts.AdminEmail, "--title=" + opts.SiteTitle, "--url=" + siteURL}
-	installEnv := map[string]string{"XF_INSTALL_PASSWORD": opts.AdminPassword}
-	shellInstallArgs := []string{"sh", "-c", InstallShellCommand(installArgs)}
+	shellInstallArgs, installEnv := InstallInvocation(opts.AdminUser, opts.AdminEmail, opts.SiteTitle, siteURL, opts.AdminPassword)
 	if verbose {
 		ui.PrintSubstep("Running XenForo installation...")
 		if err := runner.ExecOrRun(ctx, "xf", installEnv, os.Stdin, os.Stdout, os.Stderr, shellInstallArgs...); err != nil {

@@ -22,6 +22,10 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
+// downloadSpinnerStep is the byte interval between spinner updates when the
+// download size is unknown.
+const downloadSpinnerStep = 100 * 1024
+
 // plannedInitSteps returns the number of steps that will be printed for a
 // fresh install run with the given options. Every step that runs, or that is
 // reachable but skipped (and therefore printed via printSkippedStep), counts
@@ -40,8 +44,6 @@ func plannedInitSteps(opts InitOptions) int {
 		return base
 	}
 
-	// Container startup, Composer and XenForo installation each occupy a slot
-	// when startup is requested, whether they run or are printed as skipped.
 	return base + 3
 }
 
@@ -261,21 +263,7 @@ func startContainers(ctx context.Context, runner *environment.Runner, verbose bo
 }
 
 func installXenForo(ctx context.Context, runner *environment.Runner, opts *InitOptions, siteURL string, verbose bool) error {
-	installArgs := []string{
-		"xf:install",
-		"--no-interaction",
-		"--clear",
-		"--user=" + opts.AdminUser,
-		"--email=" + opts.AdminEmail,
-		"--title=" + opts.SiteTitle,
-		"--url=" + siteURL,
-	}
-
-	installEnv := map[string]string{
-		"XF_INSTALL_PASSWORD": opts.AdminPassword,
-	}
-
-	shellInstallArgs := []string{"sh", "-c", setup.InstallShellCommand(installArgs)}
+	shellInstallArgs, installEnv := setup.InstallInvocation(opts.AdminUser, opts.AdminEmail, opts.SiteTitle, siteURL, opts.AdminPassword)
 
 	if verbose {
 		ui.PrintSubstep("Waiting for the database to be ready...")
@@ -416,11 +404,10 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 
 		var (
 			progressBar *ui.ProgressBar
-			spinner     *ui.Spinner
 			lastUpdate  int64
 		)
 
-		spinner = ui.NewSpinner(fmt.Sprintf("Downloading %s %s", productName, selection.VersionString))
+		spinner := ui.NewSpinner(fmt.Sprintf("Downloading %s %s", productName, selection.VersionString))
 		spinner.Start()
 
 		progress := func(current, total int64) {
@@ -436,7 +423,7 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 				}
 
 				progressBar.Update(current)
-			} else if current-lastUpdate >= 102400 || lastUpdate == 0 {
+			} else if current-lastUpdate >= downloadSpinnerStep || lastUpdate == 0 {
 				lastUpdate = current
 
 				msg := fmt.Sprintf("Downloading %s %s (%s)", productName, selection.VersionString, ui.FormatBytes(current))
@@ -546,7 +533,7 @@ func configureEnvironment(opts *InitOptions) error {
 	}
 
 	if opts.SiteTitle != "" {
-		updates["XF_TITLE"] = fmt.Sprintf("%s [%s]", opts.SiteTitle, opts.InstanceName)
+		updates["XF_TITLE"] = setup.InstanceTitle(opts.SiteTitle, opts.InstanceName)
 	}
 
 	if len(opts.Contexts) > 0 {

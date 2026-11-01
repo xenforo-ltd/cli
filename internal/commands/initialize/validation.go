@@ -3,6 +3,7 @@ package initialize
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -19,5 +20,21 @@ func validateAdminUsername(s string) error {
 	if utf8.RuneCountInString(s) < minimumUsernameLength {
 		return errUsernameTooShort
 	}
+	return nil
+}
+
+func validatePassword(s string) error {
+	if strings.TrimSpace(s) == "" {
+		return errPasswordRequired
+	}
+
+	return nil
+}
+
+func validateEmail(s string) error {
+	if !strings.Contains(strings.TrimSpace(s), "@") {
+		return errInvalidEmail
+	}
+
 	return nil
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/xenforo-ltd/cli/internal/clierror"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
-	"github.com/xenforo-ltd/cli/internal/downloads"
 	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/setup"
 )
@@ -101,14 +100,14 @@ func Run(ctx context.Context, opts *InitOptions) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	if !cfg.NoInteraction {
-		if err := runInteractiveSetup(ctx, opts); err != nil {
-			return err
-		}
+	if cfg.NoInteraction {
+		err = validateNonInteractiveFlags(opts)
 	} else {
-		if err := validateNonInteractiveFlags(opts); err != nil {
-			return err
-		}
+		err = runInteractiveSetup(ctx, opts)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	return executeInit(ctx, opts)
@@ -175,25 +174,17 @@ func selectLicense(ctx context.Context, client *customerapi.Client, opts *InitOp
 		return clierror.MarkAs(clierror.ErrNotFound, "no licenses found for your account")
 	}
 
-	var licenseOptions []huh.Option[string]
-
-	for _, lic := range licenses {
-		if lic.CanDownload {
-			label := downloads.LicenseLabel(lic)
-			licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
-		}
-	}
+	licenseOptions := downloadableLicenseOptions(licenses)
 
 	if len(licenseOptions) == 0 {
 		return clierror.MarkAs(clierror.ErrForbidden, "no licenses with download access found")
 	}
 
-	err = huh.NewSelect[string]().
+	if err := huh.NewSelect[string]().
 		Title("Select a license").
 		Options(licenseOptions...).
 		Value(&opts.LicenseKey).
-		Run()
-	if err != nil {
+		Run(); err != nil {
 		return clierror.Prompt(err, "license selection")
 	}
 
@@ -223,23 +214,11 @@ func promptAdminCredentials(opts *InitOptions) error {
 				Title("Admin password").
 				Value(&opts.AdminPassword).
 				EchoMode(huh.EchoModePassword).
-				Validate(func(s string) error {
-					if strings.TrimSpace(s) == "" {
-						return errPasswordRequired
-					}
-
-					return nil
-				}),
+				Validate(validatePassword),
 			huh.NewInput().
 				Title("Admin email").
 				Value(&opts.AdminEmail).
-				Validate(func(s string) error {
-					if !strings.Contains(s, "@") {
-						return errInvalidEmail
-					}
-
-					return nil
-				}),
+				Validate(validateEmail),
 		),
 	)
 
@@ -272,29 +251,12 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 			return fmt.Errorf("failed to fetch available downloads for license %s: %w", opts.LicenseKey, err)
 		}
 
-		var productOptions []huh.Option[string]
-
-		for _, d := range downloadables.Downloadables {
-			if d.DownloadID == "xenforo" {
-				continue
-			}
-
-			productOptions = append(productOptions, huh.NewOption(d.Title, d.DownloadID))
-		}
-
-		var selectedProducts []string
-
-		err = huh.NewMultiSelect[string]().
-			Title("What additional products should be installed?").
-			Description("XenForo core is always installed. Use ↑/↓ to move, Space to select, Enter to continue.").
-			Options(productOptions...).
-			Value(&selectedProducts).
-			Run()
+		products, err := promptProducts(downloadables, nil)
 		if err != nil {
-			return clierror.Prompt(err, "product selection")
+			return err
 		}
 
-		opts.Products = ensureCoreFirstUnique(append([]string{"xenforo"}, selectedProducts...))
+		opts.Products = products
 	}
 
 	if len(opts.Products) > 0 {
@@ -342,9 +304,5 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		opts.InstanceName = environment.GenerateInstanceName(filepath.Base(opts.TargetPath))
 	}
 
-	if err := runInteractiveReview(ctx, client, opts); err != nil {
-		return err
-	}
-
-	return nil
+	return runInteractiveReview(ctx, client, opts)
 }

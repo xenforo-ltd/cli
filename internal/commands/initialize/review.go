@@ -14,6 +14,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/downloads"
 	"github.com/xenforo-ltd/cli/internal/environment"
+	"github.com/xenforo-ltd/cli/internal/setup"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -45,19 +46,31 @@ const (
 	modeOverride
 )
 
-func (m overrideMode) String() string {
-	switch m {
-	case modeInferred:
-		return "inferred"
-	case modeOverride:
-		return "override"
-	default:
-		return ""
+func chooseCoreVersionInteractively(opts *InitOptions) error {
+	v, err := promptVersion(opts.coreVersions, versionPrompt{
+		selectTitle: "Select XenForo version",
+		inputTitle:  "Enter XenForo version string or ID",
+		notFound:    "Version not found for this license. Try another version.",
+	})
+	if err != nil {
+		return err
 	}
+
+	opts.VersionID = v.VersionID
+	opts.versionString = v.VersionStr
+
+	return nil
 }
 
-func chooseCoreVersionInteractively(opts *InitOptions) error {
-	display := buildVersionOptions(opts.coreVersions, versionCount)
+type versionPrompt struct {
+	selectTitle string
+	inputTitle  string
+	notFound    string
+	errSuffix   string
+}
+
+func promptVersion(versions []customerapi.Version, p versionPrompt) (customerapi.Version, error) {
+	display := buildVersionOptions(versions, versionCount)
 
 	versionOptions := make([]huh.Option[int], 0, len(display)+1)
 	for _, d := range display {
@@ -68,53 +81,42 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 
 	versionOptions = append(versionOptions, huh.NewOption(manualVersionLabel, manual))
 
-	selection := 0
-	if len(versionOptions) > 0 {
-		selection = versionOptions[0].Value
-	}
-
+	selection := versionOptions[0].Value
 	if err := huh.NewSelect[int]().
-		Title("Select XenForo version").
+		Title(p.selectTitle).
 		Description(fmt.Sprintf("Showing latest %d versions. Choose manual entry for older versions.", versionCount)).
 		Options(versionOptions...).
 		Value(&selection).
 		Run(); err != nil {
-		return clierror.Prompt(err, "version selection")
+		return customerapi.Version{}, clierror.Prompt(err, "version selection%s", p.errSuffix)
 	}
 
-	if selection == manual {
-		for {
-			var manualInput string
-			if err := huh.NewInput().
-				Title("Enter XenForo version string or ID").
-				Description("Examples: 2.3.9, v2.3.9, 2030900").
-				Value(&manualInput).
-				Run(); err != nil {
-				return clierror.Prompt(err, "version input")
+	if selection != manual {
+		for _, v := range versions {
+			if v.VersionID == selection {
+				return v, nil
 			}
-
-			v, ok := resolveVersionInput(manualInput, opts.coreVersions)
-			if !ok {
-				ui.PrintWarning("Version not found for this license. Try another version.")
-				continue
-			}
-
-			opts.VersionID = v.VersionID
-			opts.versionString = v.VersionStr
-
-			return nil
 		}
+
+		return customerapi.Version{VersionID: selection}, nil
 	}
 
-	opts.VersionID = selection
-	for _, v := range opts.coreVersions {
-		if v.VersionID == selection {
-			opts.versionString = v.VersionStr
-			break
+	for {
+		var input string
+		if err := huh.NewInput().
+			Title(p.inputTitle).
+			Description("Examples: 2.3.9, v2.3.9, 2030900").
+			Value(&input).
+			Run(); err != nil {
+			return customerapi.Version{}, clierror.Prompt(err, "version input%s", p.errSuffix)
 		}
-	}
 
-	return nil
+		if v, ok := resolveVersionInput(input, versions); ok {
+			return v, nil
+		}
+
+		ui.PrintWarning(p.notFound)
+	}
 }
 
 func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
@@ -237,12 +239,7 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 
 	envVals := currentEnvPreview(opts)
 
-	keys := make([]string, 0, len(envVals))
-	for k := range envVals {
-		keys = append(keys, k)
-	}
-
-	slices.Sort(keys)
+	keys := slices.Sorted(maps.Keys(envVals))
 
 	if len(keys) > 0 {
 		ui.Println()
@@ -278,31 +275,16 @@ func editCoreSetup(ctx context.Context, client *customerapi.Client, opts *InitOp
 	sortVersionsDesc(versions.Versions)
 
 	opts.coreVersions = versions.Versions
-	if err := chooseCoreVersionInteractively(opts); err != nil {
-		return err
-	}
 
-	return nil
+	return chooseCoreVersionInteractively(opts)
 }
 
 func editAdminSite(opts *InitOptions) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Title("Admin username").Value(&opts.AdminUser).Validate(validateAdminUsername),
-			huh.NewInput().Title("Admin password").EchoMode(huh.EchoModePassword).Value(&opts.AdminPassword).Validate(func(s string) error {
-				if strings.TrimSpace(s) == "" {
-					return errPasswordRequired
-				}
-
-				return nil
-			}),
-			huh.NewInput().Title("Admin email").Value(&opts.AdminEmail).Validate(func(s string) error {
-				if !strings.Contains(strings.TrimSpace(s), "@") {
-					return errInvalidEmail
-				}
-
-				return nil
-			}),
+			huh.NewInput().Title("Admin password").EchoMode(huh.EchoModePassword).Value(&opts.AdminPassword).Validate(validatePassword),
+			huh.NewInput().Title("Admin email").Value(&opts.AdminEmail).Validate(validateEmail),
 			huh.NewInput().Title("Instance name").Value(&opts.InstanceName),
 		),
 	)
@@ -319,16 +301,7 @@ func editLicense(ctx context.Context, client *customerapi.Client, opts *InitOpti
 		return fmt.Errorf("failed to fetch licenses: %w", err)
 	}
 
-	var options []huh.Option[string]
-
-	for _, lic := range licenses {
-		if !lic.CanDownload {
-			continue
-		}
-
-		label := downloads.LicenseLabel(lic)
-		options = append(options, huh.NewOption(label, lic.LicenseKey))
-	}
+	options := downloadableLicenseOptions(licenses)
 
 	if len(options) == 0 {
 		return fmt.Errorf("no licenses with download access found: %w", clierror.ErrForbidden)
@@ -350,39 +323,12 @@ func editProducts(ctx context.Context, client *customerapi.Client, opts *InitOpt
 		return fmt.Errorf("failed to fetch available downloads for license %s: %w", opts.LicenseKey, err)
 	}
 
-	var options []huh.Option[string]
-
-	selected := map[string]bool{}
-
-	for _, p := range opts.Products {
-		if p != "xenforo" {
-			selected[p] = true
-		}
+	products, err := promptProducts(downloadables, opts.Products)
+	if err != nil {
+		return err
 	}
 
-	for _, d := range downloadables.Downloadables {
-		if d.DownloadID == "xenforo" {
-			continue
-		}
-
-		o := huh.NewOption(d.Title, d.DownloadID)
-		if selected[d.DownloadID] {
-			o = o.Selected(true)
-		}
-
-		options = append(options, o)
-	}
-
-	var picked []string
-	if err := huh.NewMultiSelect[string]().
-		Title("What additional products should be installed?").
-		Description("XenForo core is always installed. Use ↑/↓ to move, Space to select, Enter to continue.").
-		Options(options...).
-		Value(&picked).Run(); err != nil {
-		return clierror.Prompt(err, "product selection")
-	}
-
-	opts.Products = ensureCoreFirstUnique(append([]string{"xenforo"}, picked...))
+	opts.Products = products
 
 	return nil
 }
@@ -487,51 +433,20 @@ func chooseOverrideVersion(ctx context.Context, client *customerapi.Client, opts
 	}
 
 	sortVersionsDesc(versions.Versions)
-	optsList := buildVersionOptions(versions.Versions, versionCount)
 
-	selectOptions := make([]huh.Option[int], 0, len(optsList)+1)
-	for _, d := range optsList {
-		selectOptions = append(selectOptions, huh.NewOption(d.Label, d.Value))
+	v, err := promptVersion(versions.Versions, versionPrompt{
+		selectTitle: "Select version for " + product,
+		inputTitle:  "Enter version string or version ID",
+		notFound:    "Version not found. Try another version.",
+		errSuffix:   " for " + product,
+	})
+	if err != nil {
+		return err
 	}
 
-	const manual = -1
+	opts.productOverrides[product] = v.VersionID
 
-	selectOptions = append(selectOptions, huh.NewOption(manualVersionLabel, manual))
-
-	choice := selectOptions[0].Value
-	if err := huh.NewSelect[int]().
-		Title("Select version for " + product).
-		Description(fmt.Sprintf("Showing latest %d versions. Choose manual entry for older versions.", versionCount)).
-		Options(selectOptions...).
-		Value(&choice).Run(); err != nil {
-		return clierror.Prompt(err, "version selection for %s", product)
-	}
-
-	if choice != manual {
-		opts.productOverrides[product] = choice
-
-		return nil
-	}
-
-	for {
-		var input string
-		if err := huh.NewInput().
-			Title("Enter version string or version ID").
-			Description("Examples: 2.3.9, v2.3.9, 2030900").
-			Value(&input).Run(); err != nil {
-			return clierror.Prompt(err, "version input for %s", product)
-		}
-
-		v, ok := resolveVersionInput(input, versions.Versions)
-		if !ok {
-			ui.PrintWarning("Version not found. Try another version.")
-			continue
-		}
-
-		opts.productOverrides[product] = v.VersionID
-
-		return nil
-	}
+	return nil
 }
 
 func editEnvValues(opts *InitOptions) error {
@@ -541,9 +456,7 @@ func editEnvValues(opts *InitOptions) error {
 
 		keyWidth := 0
 		for _, k := range keys {
-			if len(k) > keyWidth {
-				keyWidth = len(k)
-			}
+			keyWidth = max(keyWidth, len(k))
 		}
 
 		options := make([]huh.Option[string], 0, len(keys)+2)
@@ -624,11 +537,7 @@ func currentEnvPreview(opts *InitOptions) map[string]string {
 		"XF_EMAIL":    opts.AdminEmail,
 		"PHP_VERSION": defaultPHPVersion(),
 	}
-	if opts.SiteTitle != "" {
-		base["XF_TITLE"] = fmt.Sprintf("%s [%s]", opts.SiteTitle, opts.InstanceName)
-	} else {
-		base["XF_TITLE"] = fmt.Sprintf("XenForo [%s]", opts.InstanceName)
-	}
+	base["XF_TITLE"] = setup.InstanceTitle(opts.SiteTitle, opts.InstanceName)
 
 	merged := map[string]string{}
 

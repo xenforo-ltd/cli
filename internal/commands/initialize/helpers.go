@@ -3,8 +3,10 @@ package initialize
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
+	"charm.land/huh/v2"
 	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/clierror"
@@ -89,12 +91,12 @@ func inferSiteTitleFromEnv(opts *InitOptions) string {
 }
 
 func validateReviewInputs(opts *InitOptions) error {
-	if strings.TrimSpace(opts.AdminPassword) == "" {
-		return errPasswordRequired
+	if err := validatePassword(opts.AdminPassword); err != nil {
+		return err
 	}
 
-	if !strings.Contains(strings.TrimSpace(opts.AdminEmail), "@") {
-		return errInvalidEmail
+	if err := validateEmail(opts.AdminEmail); err != nil {
+		return err
 	}
 
 	if strings.TrimSpace(opts.AdminUser) == "" {
@@ -129,10 +131,6 @@ func ensureCoreFirstUnique(products []string) []string {
 			continue
 		}
 
-		if p == "xenforo" {
-			continue
-		}
-
 		seen[p] = true
 		out = append(out, p)
 	}
@@ -156,4 +154,39 @@ func formatProductNames(products []string, titleMap map[string]string) string {
 	}
 
 	return strings.Join(names, ", ")
+}
+
+func downloadableLicenseOptions(licenses []customerapi.License) []huh.Option[string] {
+	var options []huh.Option[string]
+
+	for _, lic := range licenses {
+		if lic.CanDownload {
+			options = append(options, huh.NewOption(downloads.LicenseLabel(lic), lic.LicenseKey))
+		}
+	}
+
+	return options
+}
+
+func promptProducts(downloadables *customerapi.LicenseDownloadables, current []string) ([]string, error) {
+	var options []huh.Option[string]
+
+	for _, d := range downloadables.Downloadables {
+		if d.DownloadID == "xenforo" {
+			continue
+		}
+
+		options = append(options, huh.NewOption(d.Title, d.DownloadID).Selected(slices.Contains(current, d.DownloadID)))
+	}
+
+	var picked []string
+	if err := huh.NewMultiSelect[string]().
+		Title("What additional products should be installed?").
+		Description("XenForo core is always installed. Use ↑/↓ to move, Space to select, Enter to continue.").
+		Options(options...).
+		Value(&picked).Run(); err != nil {
+		return nil, clierror.Prompt(err, "product selection")
+	}
+
+	return ensureCoreFirstUnique(picked), nil
 }

@@ -37,15 +37,8 @@ func parseEnvFile(path string) (map[string]string, error) {
 			continue
 		}
 
-		key, value, ok := strings.Cut(raw, "=")
-		if !ok {
-			return nil, fmt.Errorf("invalid env line %d: %w", line, errInvalidEnvFormat)
-		}
-
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-
-		if err := validateEnvKey(key); err != nil {
+		key, value, err := parseEnvAssignment(raw)
+		if err != nil {
 			return nil, fmt.Errorf("invalid env line %d: %w", line, err)
 		}
 
@@ -64,15 +57,8 @@ func parseEnvFlags(entries []string) (map[string]string, error) {
 	values := map[string]string{}
 
 	for _, entry := range entries {
-		key, value, ok := strings.Cut(strings.TrimSpace(entry), "=")
-		if !ok {
-			return nil, fmt.Errorf("invalid --env %q: %w", entry, errInvalidEnvFormat)
-		}
-
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-
-		if err := validateEnvKey(key); err != nil {
+		key, value, err := parseEnvAssignment(strings.TrimSpace(entry))
+		if err != nil {
 			return nil, fmt.Errorf("invalid --env %q: %w", entry, err)
 		}
 
@@ -80,6 +66,20 @@ func parseEnvFlags(entries []string) (map[string]string, error) {
 	}
 
 	return values, nil
+}
+
+func parseEnvAssignment(s string) (key, value string, err error) {
+	key, value, ok := strings.Cut(s, "=")
+	if !ok {
+		return "", "", errInvalidEnvFormat
+	}
+
+	key = strings.TrimSpace(key)
+	if err := validateEnvKey(key); err != nil {
+		return "", "", err
+	}
+
+	return key, strings.TrimSpace(value), nil
 }
 
 // validateEnvKey checks if an environment variable key is valid.

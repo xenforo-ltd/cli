@@ -16,6 +16,16 @@ func PrintStartHint(dir string) {
 	ui.PrintHint("Run " + ui.Command.Render("xf up") + " in " + ui.Path.Render(ui.ShortHome(dir)) + " to start the environment")
 }
 
+// InstanceTitle formats a site title with its instance name. An empty title
+// defaults to "XenForo".
+func InstanceTitle(title, instanceName string) string {
+	if title == "" {
+		title = "XenForo"
+	}
+
+	return fmt.Sprintf("%s [%s]", title, instanceName)
+}
+
 func FallbackBoardURL(instanceName string) string {
 	return fmt.Sprintf("https://%s.xf.local", instanceName)
 }
@@ -52,6 +62,21 @@ func InstallShellCommand(installArgs []string) string {
 	// substitution strips trailing newlines, so a password ending in one would
 	// reach the installer altered.
 	return command + ` --password="$XF_INSTALL_PASSWORD"`
+}
+
+// InstallInvocation returns the sh arguments and environment that run xf:install.
+func InstallInvocation(user, email, title, siteURL, password string) ([]string, map[string]string) {
+	installArgs := []string{
+		"xf:install",
+		"--no-interaction",
+		"--clear",
+		"--user=" + user,
+		"--email=" + email,
+		"--title=" + title,
+		"--url=" + siteURL,
+	}
+
+	return []string{"sh", "-c", InstallShellCommand(installArgs)}, map[string]string{"XF_INSTALL_PASSWORD": password}
 }
 
 func shellJoinArgs(args []string) string {
