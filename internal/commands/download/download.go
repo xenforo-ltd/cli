@@ -206,19 +206,16 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 		dlSpinner.Stop()
 	}
 
+	title := "Download complete"
 	if result.WasCached {
-		ui.SuccessBox("Already cached", []ui.KVPair{
-			ui.KV("File", ui.Path.Render(ui.ShortHome(result.Entry.FilePath))),
-			ui.KV("Version", ui.Version.Render(info.VersionString)),
-			ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),
-		})
-	} else {
-		ui.SuccessBox("Download complete", []ui.KVPair{
-			ui.KV("File", ui.Path.Render(ui.ShortHome(result.Entry.FilePath))),
-			ui.KV("Version", ui.Version.Render(info.VersionString)),
-			ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),
-		})
+		title = "Already cached"
 	}
+
+	ui.SuccessBox(title, []ui.KVPair{
+		ui.KV("File", ui.Path.Render(ui.ShortHome(result.Entry.FilePath))),
+		ui.KV("Version", ui.Version.Render(info.VersionString)),
+		ui.KV("Size", ui.FormatBytes(result.Entry.Metadata.Size)),
+	})
 
 	return nil
 }
