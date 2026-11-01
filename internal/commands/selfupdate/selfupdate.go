@@ -8,12 +8,12 @@ import (
 )
 
 func Run(ctx context.Context, checkOnly bool) error {
-	updater := newUpdater()
+	u := newUpdater()
 
 	spinner := ui.NewSpinner("Checking for updates...")
 	spinner.Start()
 
-	info, err := updater.checkForUpdate(ctx)
+	info, err := u.checkForUpdate(ctx)
 	if err != nil {
 		spinner.StopWithMessage("error", "Failed to check for updates")
 		return fmt.Errorf("failed to check for updates: %w", err)
@@ -44,12 +44,16 @@ func Run(ctx context.Context, checkOnly bool) error {
 		dlSpinner   *ui.Spinner
 	)
 
-	err = updater.update(ctx, info, func(downloaded, total int64) {
+	stopSpinner := func() {
+		if dlSpinner != nil {
+			dlSpinner.Stop()
+			dlSpinner = nil
+		}
+	}
+
+	err = u.update(ctx, info, func(downloaded, total int64) {
 		if total > 0 {
-			if dlSpinner != nil {
-				dlSpinner.Stop()
-				dlSpinner = nil
-			}
+			stopSpinner()
 
 			if progressBar == nil {
 				progressBar = ui.NewProgressBar(total, info.AssetName)
@@ -66,9 +70,7 @@ func Run(ctx context.Context, checkOnly bool) error {
 			progressBar.Abandon()
 		}
 
-		if dlSpinner != nil {
-			dlSpinner.Stop()
-		}
+		stopSpinner()
 
 		return fmt.Errorf("failed to install self-update: %w", err)
 	}
@@ -77,9 +79,7 @@ func Run(ctx context.Context, checkOnly bool) error {
 		progressBar.Finish()
 	}
 
-	if dlSpinner != nil {
-		dlSpinner.Stop()
-	}
+	stopSpinner()
 
 	ui.Println()
 	ui.SuccessBox("Updated to "+ui.Version.Render(info.LatestVersion), []ui.KVPair{

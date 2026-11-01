@@ -76,17 +76,17 @@ type updateInfo struct {
 
 // updater handles checking for and applying updates.
 type updater struct {
-	GitHubOwner string
-	GitHubRepo  string
-	HTTPClient  *http.Client
+	githubOwner string
+	githubRepo  string
+	httpClient  *http.Client
 }
 
 // newUpdater creates a new updater with default GitHub repository settings.
 func newUpdater() *updater {
 	return &updater{
-		GitHubOwner: defaultGitHubOwner,
-		GitHubRepo:  defaultGitHubRepo,
-		HTTPClient: &http.Client{
+		githubOwner: defaultGitHubOwner,
+		githubRepo:  defaultGitHubRepo,
+		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
@@ -94,18 +94,18 @@ func newUpdater() *updater {
 
 // checkForUpdate checks if an update is available on GitHub.
 func (u *updater) checkForUpdate(ctx context.Context) (*updateInfo, error) {
-	release, err := u.getLatestRelease(ctx)
+	rel, err := u.getLatestRelease(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	currentVersion := version.Get().Version
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
+	latestVersion := strings.TrimPrefix(rel.TagName, "v")
 
 	info := &updateInfo{
 		CurrentVersion: currentVersion,
 		LatestVersion:  latestVersion,
-		ReleaseURL:     release.HTMLURL,
+		ReleaseURL:     rel.HTMLURL,
 		HasUpdate:      false,
 	}
 
@@ -113,14 +113,14 @@ func (u *updater) checkForUpdate(ctx context.Context) (*updateInfo, error) {
 		info.HasUpdate = true
 
 		assetName := getArchiveAssetNameForPlatform(runtime.GOOS, runtime.GOARCH)
-		for _, asset := range release.Assets {
-			if asset.Name == assetName {
-				info.AssetURL = asset.BrowserDownloadURL
-				info.AssetName = asset.Name
+		for _, a := range rel.Assets {
+			if a.Name == assetName {
+				info.AssetURL = a.BrowserDownloadURL
+				info.AssetName = a.Name
 			}
 
-			if asset.Name == "checksums.txt" || asset.Name == assetName+".sha256" {
-				info.ChecksumURL = asset.BrowserDownloadURL
+			if a.Name == "checksums.txt" || a.Name == assetName+".sha256" {
+				info.ChecksumURL = a.BrowserDownloadURL
 			}
 		}
 
@@ -193,41 +193,41 @@ func (u *updater) updateAtPath(ctx context.Context, execPath string, info *updat
 		return err
 	}
 
-	if runtime.GOOS != windowsOS {
-		if err := os.Chmod(newBinaryPath, 0o700); err != nil {
-			return fmt.Errorf("failed to set permissions on new binary: %w", err)
-		}
+	if runtime.GOOS == windowsOS {
+		return replaceBinaryWindows(newBinaryPath, execPath)
 	}
 
-	// Perform atomic replacement.
-	// On Unix, we can rename over the existing file.
-	// On Windows, we need to move the old file first.
-	if runtime.GOOS == windowsOS {
-		oldPath := execPath + ".old"
+	if err := os.Chmod(newBinaryPath, 0o700); err != nil {
+		return fmt.Errorf("failed to set permissions on new binary: %w", err)
+	}
 
-		// Remove any existing .old file; ignore "not exist" since that's expected.
-		if err := os.Remove(oldPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to remove stale backup: %w", err)
-		}
+	if err := os.Rename(newBinaryPath, execPath); err != nil {
+		return fmt.Errorf("failed to replace binary: %w", err)
+	}
 
-		if err := os.Rename(execPath, oldPath); err != nil {
-			return fmt.Errorf("failed to backup old binary: %w", err)
-		}
+	return nil
+}
 
-		if err := os.Rename(newBinaryPath, execPath); err != nil {
-			// Try to restore the old binary.
-			restoreErr := os.Rename(oldPath, execPath)
-			return errors.Join(fmt.Errorf("failed to replace binary: %w", err), restoreErr)
-		}
+// replaceBinaryWindows moves the running binary aside first, because Windows
+// cannot rename over it.
+func replaceBinaryWindows(newPath, execPath string) error {
+	oldPath := execPath + ".old"
 
-		// Clean up the old binary; ignore "not exist" errors.
-		if err := os.Remove(oldPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to remove old binary: %w", err)
-		}
-	} else {
-		if err := os.Rename(newBinaryPath, execPath); err != nil {
-			return fmt.Errorf("failed to replace binary: %w", err)
-		}
+	if err := os.Remove(oldPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove stale backup: %w", err)
+	}
+
+	if err := os.Rename(execPath, oldPath); err != nil {
+		return fmt.Errorf("failed to backup old binary: %w", err)
+	}
+
+	if err := os.Rename(newPath, execPath); err != nil {
+		restoreErr := os.Rename(oldPath, execPath)
+		return errors.Join(fmt.Errorf("failed to replace binary: %w", err), restoreErr)
+	}
+
+	if err := os.Remove(oldPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove old binary: %w", err)
 	}
 
 	return nil
@@ -475,7 +475,7 @@ func parseChecksumForAsset(data []byte, assetName string) (string, bool) {
 
 // getLatestRelease fetches the latest non-prerelease release from GitHub.
 func (u *updater) getLatestRelease(ctx context.Context) (*release, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/releases/latest", gitHubAPIBase, u.GitHubOwner, u.GitHubRepo)
+	url := fmt.Sprintf("%s/repos/%s/%s/releases/latest", gitHubAPIBase, u.githubOwner, u.githubRepo)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -483,9 +483,9 @@ func (u *updater) getLatestRelease(ctx context.Context) (*release, error) {
 	}
 
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
+	setUserAgent(req)
 
-	resp, err := u.HTTPClient.Do(req)
+	resp, err := u.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -499,12 +499,16 @@ func (u *updater) getLatestRelease(ctx context.Context) (*release, error) {
 		return nil, fmt.Errorf("GitHub API returned status %d: %w", resp.StatusCode, errUpdateFailed)
 	}
 
-	var release release
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	var rel release
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
 		return nil, fmt.Errorf("failed to parse release info: %w", err)
 	}
 
-	return &release, nil
+	return &rel, nil
+}
+
+func setUserAgent(req *http.Request) {
+	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 }
 
 // downloadFile downloads a file from the given URL.
@@ -517,9 +521,9 @@ func (u *updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 		return fmt.Errorf("failed to create download request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
+	setUserAgent(req)
 
-	resp, err := u.HTTPClient.Do(req)
+	resp, err := u.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
 	}
@@ -553,9 +557,9 @@ func (u *updater) verifyChecksum(ctx context.Context, filePath string, info *upd
 		return fmt.Errorf("failed to create checksum request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
+	setUserAgent(req)
 
-	resp, err := u.HTTPClient.Do(req)
+	resp, err := u.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download checksum: %w", err)
 	}
@@ -626,25 +630,21 @@ func isNewerVersion(latest, current string) bool {
 	maxLen := max(len(currentParts), len(latestParts))
 
 	for i := range maxLen {
-		var l, c int
-		if i < len(latestParts) {
-			l = latestParts[i]
-		}
-
-		if i < len(currentParts) {
-			c = currentParts[i]
-		}
-
-		if l > c {
-			return true
-		}
-
-		if l < c {
-			return false
+		l, c := partAt(latestParts, i), partAt(currentParts, i)
+		if l != c {
+			return l > c
 		}
 	}
 
 	return false
+}
+
+func partAt(parts []int, i int) int {
+	if i < len(parts) {
+		return parts[i]
+	}
+
+	return 0
 }
 
 // parseVersion parses a semantic version string into numeric parts.

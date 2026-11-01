@@ -256,7 +256,7 @@ func TestVerifyChecksumFailsWhenAssetEntryMissing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	updater := &updater{HTTPClient: server.Client()}
+	updater := &updater{httpClient: server.Client()}
 
 	err := updater.verifyChecksum(t.Context(), archive, &updateInfo{
 		AssetName:   "wanted-file.tar.gz",
@@ -282,7 +282,7 @@ func TestVerifyChecksumFailsWhenChecksumUnavailable(t *testing.T) {
 	}))
 	defer server.Close()
 
-	updater := &updater{HTTPClient: server.Client()}
+	updater := &updater{httpClient: server.Client()}
 
 	err := updater.verifyChecksum(t.Context(), archive, &updateInfo{
 		AssetName:   "wanted-file.tar.gz",
@@ -330,9 +330,9 @@ func TestCheckForUpdateSelectsReleaseArchive(t *testing.T) {
 	}}
 
 	updater := &updater{
-		GitHubOwner: "o",
-		GitHubRepo:  "r",
-		HTTPClient:  client,
+		githubOwner: "o",
+		githubRepo:  "r",
+		httpClient:  client,
 	}
 
 	info, err := updater.checkForUpdate(t.Context())
@@ -381,7 +381,7 @@ func TestUpdateWithArchiveReplacesExecutable(t *testing.T) {
 	}))
 	defer server.Close()
 
-	updater := &updater{HTTPClient: server.Client()}
+	updater := &updater{httpClient: server.Client()}
 
 	err := updater.updateAtPath(t.Context(), execPath, &updateInfo{
 		HasUpdate:   true,
