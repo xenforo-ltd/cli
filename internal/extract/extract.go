@@ -63,46 +63,33 @@ func extractFile(file *zip.File, destPath string) error {
 // sanitizePath ensures the path is safe and within the destination directory.
 // This prevents "zip slip" directory traversal attacks.
 func sanitizePath(destDir, name string) (string, error) {
-	if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") {
-		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
-	}
-
-	if strings.Contains(name, "\\") {
-		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
-	}
-
-	if len(name) >= 2 {
-		c := name[0]
-		if name[1] == ':' && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-			return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
-		}
-	}
-
-	if filepath.IsAbs(name) {
+	if strings.HasPrefix(name, "/") || strings.Contains(name, "\\") || hasDriveLetter(name) || filepath.IsAbs(name) {
 		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
 	name = filepath.Clean(name)
-
 	destPath := filepath.Join(destDir, name)
 
-	cleanDestDir := filepath.Clean(destDir)
-	cleanDestPath := filepath.Clean(destPath)
-
-	rel, err := filepath.Rel(cleanDestDir, cleanDestPath)
+	rel, err := filepath.Rel(filepath.Clean(destDir), destPath)
 	if err != nil {
 		return "", fmt.Errorf("invalid path in archive: %w", err)
 	}
 
-	if rel == "." {
-		return cleanDestPath, nil
-	}
-
-	if strings.HasPrefix(rel, "..") || rel == "" {
+	if strings.HasPrefix(rel, "..") {
 		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
 	return destPath, nil
+}
+
+func hasDriveLetter(name string) bool {
+	if len(name) < 2 || name[1] != ':' {
+		return false
+	}
+
+	c := name[0]
+
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 func isSymlink(file *zip.File) bool {
@@ -127,18 +114,14 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 	var uploadFiles []*zip.File
 
 	for _, file := range reader.File {
-		name := filepath.ToSlash(file.Name)
-		if strings.HasPrefix(name, "upload/") {
+		if strings.HasPrefix(filepath.ToSlash(file.Name), "upload/") {
 			uploadFiles = append(uploadFiles, file)
 		}
 	}
 
 	total := len(uploadFiles)
-	current := 0
 
-	for _, file := range uploadFiles {
-		current++
-
+	for i, file := range uploadFiles {
 		if isSymlink(file) {
 			return fmt.Errorf("symlink entries are not allowed in archive: %s: %w", file.Name, errInvalidArchive)
 		}
@@ -154,7 +137,7 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 		}
 
 		if onProgress != nil {
-			onProgress(current, total, name)
+			onProgress(i+1, total, name)
 		}
 
 		if file.FileInfo().IsDir() {

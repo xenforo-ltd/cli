@@ -51,24 +51,9 @@ func LicenseLabel(lic customerapi.License) string {
 
 func ExtractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, titleMap map[string]string, verb string) error {
 	if entry, ok := cachedFiles["xenforo"]; ok {
-		spinner := ui.NewSpinner("Extracting XenForo core")
-		spinner.Start()
-
-		fileCount := 0
-		progress := func(current, total int, filename string) {
-			fileCount = current
-			if total > 0 {
-				spinner.UpdateMessage(fmt.Sprintf("Extracting files (%d/%d)", current, total))
-			}
+		if err := extractEntry(entry, targetPath, "xenforo", "XenForo core", verb); err != nil {
+			return err
 		}
-
-		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			spinner.Stop()
-
-			return fmt.Errorf("failed to extract XenForo: %w", err)
-		}
-
-		spinner.StopWithMessage("success", fmt.Sprintf("%s XenForo core (%s)", verb, ui.Plural(fileCount, "file", "files")))
 	}
 
 	for product, entry := range cachedFiles {
@@ -76,32 +61,48 @@ func ExtractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 			continue
 		}
 
-		productName := product
-		if titleMap != nil {
-			if name := titleMap[product]; name != "" {
-				productName = name
-			}
+		title := product
+		if name := titleMap[product]; name != "" {
+			title = name
 		}
 
-		spinner := ui.NewSpinner("Extracting " + productName)
-		spinner.Start()
-
-		fileCount := 0
-		progress := func(current, total int, filename string) {
-			fileCount = current
-			if total > 0 {
-				spinner.UpdateMessage(fmt.Sprintf("Extracting %s (%d/%d)", productName, current, total))
-			}
+		if err := extractEntry(entry, targetPath, product, title, verb); err != nil {
+			return err
 		}
-
-		if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
-			spinner.Stop()
-
-			return fmt.Errorf("failed to extract %s: %w", product, err)
-		}
-
-		spinner.StopWithMessage("success", fmt.Sprintf("%s %s (%s)", verb, productName, ui.Plural(fileCount, "file", "files")))
 	}
+
+	return nil
+}
+
+func extractEntry(entry *cache.Entry, targetPath, product, title, verb string) error {
+	startMessage := "Extracting " + title
+	progressLabel := startMessage
+	doneLabel := verb + " " + title
+	errorName := product
+
+	if product == "xenforo" {
+		progressLabel = "Extracting files"
+		errorName = "XenForo"
+	}
+
+	spinner := ui.NewSpinner(startMessage)
+	spinner.Start()
+
+	fileCount := 0
+	progress := func(current, total int, filename string) {
+		fileCount = current
+		if total > 0 {
+			spinner.UpdateMessage(fmt.Sprintf("%s (%d/%d)", progressLabel, current, total))
+		}
+	}
+
+	if err := extract.XenForoZip(entry.FilePath, targetPath, progress); err != nil {
+		spinner.Stop()
+
+		return fmt.Errorf("failed to extract %s: %w", errorName, err)
+	}
+
+	spinner.StopWithMessage("success", fmt.Sprintf("%s (%s)", doneLabel, ui.Plural(fileCount, "file", "files")))
 
 	return nil
 }
