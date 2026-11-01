@@ -1,7 +1,6 @@
 package build
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -81,18 +80,7 @@ func hashFile(ctx context.Context, source fileSource, name string, buffer []byte
 		}
 		n, readErr := f.Read(buffer)
 		if n > 0 {
-			chunk := buffer[:n]
-			if bytes.IndexByte(chunk, '\r') >= 0 {
-				kept := 0
-				for _, b := range chunk {
-					if b != '\r' {
-						chunk[kept] = b
-						kept++
-					}
-				}
-				chunk = chunk[:kept]
-			}
-			if _, err := hasher.Write(chunk); err != nil {
+			if _, err := hasher.Write(stripCarriageReturns(buffer[:n])); err != nil {
 				return "", err
 			}
 		}
@@ -106,4 +94,16 @@ func hashFile(ctx context.Context, source fileSource, name string, buffer []byte
 
 	var digest [sha256.Size]byte
 	return hex.EncodeToString(hasher.Sum(digest[:0])), nil
+}
+
+// stripCarriageReturns removes '\r' bytes from chunk in place.
+func stripCarriageReturns(chunk []byte) []byte {
+	kept := 0
+	for _, b := range chunk {
+		if b != '\r' {
+			chunk[kept] = b
+			kept++
+		}
+	}
+	return chunk[:kept]
 }

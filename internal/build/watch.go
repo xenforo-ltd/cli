@@ -169,13 +169,14 @@ func loadJavaScriptWatch(ctx context.Context, installation *os.Root, addOnID str
 // affect the configured tasks. It retains matching paths when selection fails
 // so the watcher can detect recovery.
 func javascriptWatchPaths(ctx context.Context, root *os.Root, cfg *config) ([]string, []string, error) {
-	patterns := slices.Clone(cfg.minify)
-	for _, entry := range cfg.rollups {
-		patterns = append(patterns, entry.inputs...)
-	}
+	patterns := slices.Concat(cfg.minify, rollupInputs(cfg.rollups))
 	files, err := cfg.collectJavaScriptFiles(ctx, root, patterns)
 	if err != nil {
 		return nil, nil, fmt.Errorf("collecting JavaScript watch files: %w", err)
+	}
+
+	absolute := func(name string) string {
+		return filepath.Join(root.Name(), filepath.FromSlash(name))
 	}
 
 	watchFiles := make(map[string]bool)
@@ -193,7 +194,7 @@ func javascriptWatchPaths(ctx context.Context, root *os.Root, cfg *config) ([]st
 	for _, pattern := range cfg.minify {
 		for _, f := range recordSelection(cfg.minifyFiles(ctx, files, pattern, outputs)) {
 			if !cfg.declaredOutput(f.path, outputs) {
-				watchFiles[filepath.Join(root.Name(), filepath.FromSlash(f.path))] = true
+				watchFiles[absolute(f.path)] = true
 			}
 		}
 	}
@@ -201,7 +202,7 @@ func javascriptWatchPaths(ctx context.Context, root *os.Root, cfg *config) ([]st
 	for i, entry := range cfg.rollups {
 		for _, pattern := range entry.inputs {
 			for _, f := range recordSelection(cfg.rollupFiles(ctx, files, pattern, outputs, i)) {
-				watchFiles[filepath.Join(root.Name(), filepath.FromSlash(f.path))] = true
+				watchFiles[absolute(f.path)] = true
 			}
 		}
 	}
@@ -211,7 +212,7 @@ func javascriptWatchPaths(ctx context.Context, root *os.Root, cfg *config) ([]st
 			continue
 		}
 
-		name := filepath.Join(root.Name(), filepath.FromSlash(f.path))
+		name := absolute(f.path)
 		for _, base := range cfg.bases() {
 			rel, inside := within(f.path, base)
 			_, ancestor := within(base, f.path)

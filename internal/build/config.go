@@ -177,17 +177,9 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 
 	cfg.releaseName = strings.ReplaceAll(addOnID, "/", "-") + "-" + version + ".zip"
 	for i, entry := range raw.Exec {
-		var command []string
-		if err := json.Unmarshal(entry, &command); err != nil {
-			var line string
-			if err := json.Unmarshal(entry, &line); err != nil {
-				return nil, fmt.Errorf("build.json exec command %d must be a string or an array of strings", i+1)
-			}
-			command = strings.Fields(line)
-		}
-
-		if len(command) == 0 || strings.TrimSpace(command[0]) == "" {
-			return nil, errors.New("build.json exec commands must not be empty")
+		command, err := parseCommand(entry, i+1)
+		if err != nil {
+			return nil, err
 		}
 
 		expanded := make([]string, len(command))
@@ -199,6 +191,25 @@ func parseConfig(buildJSON, addonJSON []byte, addOnID string) (*config, error) {
 	}
 
 	return cfg, nil
+}
+
+// parseCommand decodes an exec entry given as a string or an array of strings.
+// number is the entry's 1-based position, used in errors.
+func parseCommand(entry json.RawMessage, number int) ([]string, error) {
+	var command []string
+	if err := json.Unmarshal(entry, &command); err != nil {
+		var line string
+		if err := json.Unmarshal(entry, &line); err != nil {
+			return nil, fmt.Errorf("build.json exec command %d must be a string or an array of strings", number)
+		}
+		command = strings.Fields(line)
+	}
+
+	if len(command) == 0 || strings.TrimSpace(command[0]) == "" {
+		return nil, errors.New("build.json exec commands must not be empty")
+	}
+
+	return command, nil
 }
 
 // parseAdditional parses additional_files entries as glob patterns. Literal

@@ -84,6 +84,16 @@ func rollupOutputs(entries []rollupEntry) []string {
 	return outputs
 }
 
+// rollupInputs returns every entry's input patterns in declaration order.
+func rollupInputs(entries []rollupEntry) []filePattern {
+	var patterns []filePattern
+	for _, entry := range entries {
+		patterns = append(patterns, entry.inputs...)
+	}
+
+	return patterns
+}
+
 // minifiedPath returns the companion ".min.js" path for a ".js" path.
 func minifiedPath(name string) string { return strings.TrimSuffix(name, ".js") + ".min.js" }
 

@@ -44,30 +44,8 @@ func (t *zipTask) run(ctx context.Context, root *os.Root) error {
 
 	manifest := path.Join("upload", t.selection.prefix, t.selection.addOnDir, "hashes.json")
 	files[manifest] = t.hashesPath
-	for _, f := range collected {
-		rel, _ := within(f.path, path.Join(t.selection.addOnDir, "_no_upload"))
-
-		if f.err != nil {
-			return fmt.Errorf("reading _no_upload: %w", f.err)
-		}
-
-		if rel == "." && !f.isDir() {
-			return fmt.Errorf("_no_upload must be a directory")
-		}
-
-		if f.isDir() {
-			continue
-		}
-
-		if err := f.regular(); err != nil {
-			return err
-		}
-
-		if rel == "upload" || strings.HasPrefix(rel, "upload/") {
-			return fmt.Errorf("_no_upload path %q must not be placed in upload/", rel)
-		}
-
-		files[rel] = f.path
+	if err := t.addNoUpload(files, collected); err != nil {
+		return err
 	}
 
 	keys := slices.Sorted(maps.Keys(files))
@@ -109,6 +87,38 @@ func (t *zipTask) run(ctx context.Context, root *os.Root) error {
 	}
 
 	t.fileCount, t.totalSize = count, total
+	return nil
+}
+
+// addNoUpload validates collected _no_upload entries and adds their files to
+// files at archive-root paths.
+func (t *zipTask) addNoUpload(files map[string]string, collected []file) error {
+	for _, f := range collected {
+		rel, _ := within(f.path, path.Join(t.selection.addOnDir, "_no_upload"))
+
+		if f.err != nil {
+			return fmt.Errorf("reading _no_upload: %w", f.err)
+		}
+
+		if rel == "." && !f.isDir() {
+			return fmt.Errorf("_no_upload must be a directory")
+		}
+
+		if f.isDir() {
+			continue
+		}
+
+		if err := f.regular(); err != nil {
+			return err
+		}
+
+		if rel == "upload" || strings.HasPrefix(rel, "upload/") {
+			return fmt.Errorf("_no_upload path %q must not be placed in upload/", rel)
+		}
+
+		files[rel] = f.path
+	}
+
 	return nil
 }
 

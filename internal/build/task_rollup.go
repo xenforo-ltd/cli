@@ -20,11 +20,7 @@ type rollupTask struct {
 // run writes each rollup before expanding the next so later rollups can consume
 // earlier outputs.
 func (t rollupTask) run(ctx context.Context, root *os.Root) error {
-	var patterns []filePattern
-	for _, entry := range t.entries {
-		patterns = append(patterns, entry.inputs...)
-	}
-	files, err := t.collectJavaScriptFiles(ctx, root, patterns)
+	files, err := t.collectJavaScriptFiles(ctx, root, rollupInputs(t.entries))
 	if err != nil {
 		return fmt.Errorf("collecting rollup inputs: %w", err)
 	}
