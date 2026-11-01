@@ -4,12 +4,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
 )
 
 const (
-	// PKCE code verifier length (43-128 characters allowed, we use 64).
-	codeVerifierLength = 64
+	// codeVerifierBytes of entropy encode to an 86-character verifier (43-128 allowed).
+	codeVerifierBytes = 64
 )
 
 // PKCEParams contains the PKCE parameters for an OAuth flow.
@@ -29,10 +28,8 @@ type PKCEParams struct {
 
 // GeneratePKCE generates new PKCE parameters for an OAuth flow.
 func GeneratePKCE() (*PKCEParams, error) {
-	verifierBytes := make([]byte, codeVerifierLength)
-	if _, err := rand.Read(verifierBytes); err != nil {
-		return nil, fmt.Errorf("failed to generate code verifier: %w", err)
-	}
+	verifierBytes := make([]byte, codeVerifierBytes)
+	rand.Read(verifierBytes)
 
 	codeVerifier := base64URLEncode(verifierBytes)
 
@@ -41,9 +38,7 @@ func GeneratePKCE() (*PKCEParams, error) {
 	codeChallenge := base64URLEncode(hash[:])
 
 	stateBytes := make([]byte, 32)
-	if _, err := rand.Read(stateBytes); err != nil {
-		return nil, fmt.Errorf("failed to generate state: %w", err)
-	}
+	rand.Read(stateBytes)
 
 	state := base64URLEncode(stateBytes)
 

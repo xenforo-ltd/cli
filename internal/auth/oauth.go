@@ -68,16 +68,9 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	data.Set("redirect_uri", redirectURI)
 	data.Set("code_verifier", pkce.CodeVerifier)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Token, strings.NewReader(data.Encode()))
+	resp, err := c.postForm(ctx, endpoints.Token, data, "token request", "exchange code for token")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create token request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -87,7 +80,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token exchange failed (status %d): %s: %w", resp.StatusCode, string(body), errAuthFailed)
+		return nil, fmt.Errorf("token exchange failed (status %d): %s: %w", resp.StatusCode, body, errAuthFailed)
 	}
 
 	var tokenResp tokenResponse
@@ -107,16 +100,9 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 	data.Set("client_id", c.config.ClientID)
 	data.Set("refresh_token", refreshToken)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Token, strings.NewReader(data.Encode()))
+	resp, err := c.postForm(ctx, endpoints.Token, data, "refresh request", "refresh token")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create refresh request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to refresh token: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -126,7 +112,7 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token refresh failed (status %d): %s: %w", resp.StatusCode, string(body), errAuthExpired)
+		return nil, fmt.Errorf("token refresh failed (status %d): %s: %w", resp.StatusCode, body, errAuthExpired)
 	}
 
 	var tokenResp tokenResponse
@@ -161,16 +147,9 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	data.Set("token", accessToken)
 	data.Set("client_id", c.config.ClientID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Introspect, strings.NewReader(data.Encode()))
+	resp, err := c.postForm(ctx, endpoints.Introspect, data, "introspect request", "introspect token")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create introspect request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to introspect token: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -180,7 +159,7 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token introspection failed (status %d): %s: %w", resp.StatusCode, string(body), errAuthFailed)
+		return nil, fmt.Errorf("token introspection failed (status %d): %s: %w", resp.StatusCode, body, errAuthFailed)
 	}
 
 	var introspectResp IntrospectResponse
@@ -199,16 +178,9 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	data.Set("token", token)
 	data.Set("client_id", c.config.ClientID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoints.Revoke, strings.NewReader(data.Encode()))
+	resp, err := c.postForm(ctx, endpoints.Revoke, data, "revoke request", "revoke token")
 	if err != nil {
-		return fmt.Errorf("failed to create revoke request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to revoke token: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -223,6 +195,22 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	}
 
 	return nil
+}
+
+func (c *OAuthClient) postForm(ctx context.Context, endpoint string, data url.Values, request, action string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create %s: %w", request, err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to %s: %w", action, err)
+	}
+
+	return resp, nil
 }
 
 func (c *OAuthClient) tokenFromResponse(resp *tokenResponse) *Token {
@@ -289,7 +277,7 @@ func NewCallbackServer(ctx context.Context, path string) (*CallbackServer, error
 
 // RedirectURI returns the callback server's redirect URI.
 func (cs *CallbackServer) RedirectURI() string {
-	return fmt.Sprintf("http://%s%s", cs.listener.Addr().String(), cs.path)
+	return fmt.Sprintf("http://%s%s", cs.listener.Addr(), cs.path)
 }
 
 // Start begins listening for the OAuth callback.

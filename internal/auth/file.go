@@ -27,9 +27,13 @@ func (s *FileStore) checkFile(checkPermissions bool) error {
 	}
 	// Windows permissions are governed by the containing directory's ACL.
 	if checkPermissions && runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
-		return fmt.Errorf("authentication file permissions are insecure; run chmod 600 on %s: %w", s.path, ErrInvalidInput)
+		return s.insecurePermissions()
 	}
 	return nil
+}
+
+func (s *FileStore) insecurePermissions() error {
+	return fmt.Errorf("authentication file permissions are insecure; run chmod 600 on %s: %w", s.path, ErrInvalidInput)
 }
 
 func (s *FileStore) LoadToken() (*Token, error) { return s.loadToken(true) }
@@ -61,7 +65,7 @@ func (s *FileStore) loadToken(checkPermissions bool) (*Token, error) {
 		return nil, fmt.Errorf("authentication file changed while opening: %w", ErrInvalidInput)
 	}
 	if checkPermissions && runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("authentication file permissions are insecure; run chmod 600 on %s: %w", s.path, ErrInvalidInput)
+		return nil, s.insecurePermissions()
 	}
 	data, err := io.ReadAll(file)
 	if err != nil {

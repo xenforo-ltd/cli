@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/zalando/go-keyring"
 )
@@ -16,35 +15,6 @@ const (
 	// keyringUser is the user/account name used in the system keychain.
 	keyringUser = "oauth-token"
 )
-
-// Token represents an OAuth token with expiry information.
-type Token struct {
-	// External tokens have no local expiry or refresh metadata.
-	External     bool      `json:"-"`
-	AccessToken  string    `json:"access_token"`
-	RefreshToken string    `json:"refresh_token,omitempty"`
-	TokenType    string    `json:"token_type"`
-	ExpiresAt    time.Time `json:"expires_at"`
-	Scope        string    `json:"scope,omitempty"`
-	IssuedAt     time.Time `json:"issued_at"`
-	BaseURL      string    `json:"base_url"`
-}
-
-// IsExpired checks if the token has expired, accounting for clock skew.
-func (t *Token) IsExpired() bool {
-	// Consider expired 30 seconds early to account for clock skew
-	return time.Now().Add(30 * time.Second).After(t.ExpiresAt)
-}
-
-// IsExpiringSoon checks if the token will expire within the given duration.
-func (t *Token) IsExpiringSoon(within time.Duration) bool {
-	return time.Now().Add(within).After(t.ExpiresAt)
-}
-
-// TimeUntilExpiry returns the duration until the token expires.
-func (t *Token) TimeUntilExpiry() time.Duration {
-	return time.Until(t.ExpiresAt)
-}
 
 // keychain manages secure token storage in the system keychain.
 type keychain struct{}
@@ -60,15 +30,8 @@ func (k *keychain) isAvailable() bool {
 	// If we get ErrNotFound, the keychain is available
 	// If we get a different error, it's unavailable
 	_, err := keyring.Get(keyringService, "__test_availability__")
-	if errors.Is(err, keyring.ErrNotFound) {
-		return true
-	}
-	// If no error, somehow this key exists (unlikely but fine)
-	if err == nil {
-		return true
-	}
 
-	return false
+	return err == nil || errors.Is(err, keyring.ErrNotFound)
 }
 
 // SaveToken stores a token in the keychain.
@@ -111,11 +74,7 @@ func (k *keychain) LoadToken() (*Token, error) {
 // DeleteToken removes the token from the keychain.
 func (k *keychain) DeleteToken() error {
 	err := keyring.Delete(keyringService, keyringUser)
-	if err != nil {
-		if errors.Is(err, keyring.ErrNotFound) {
-			return nil
-		}
-
+	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 		return fmt.Errorf("failed to delete token from keychain: %w", err)
 	}
 

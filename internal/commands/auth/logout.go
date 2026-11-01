@@ -39,17 +39,14 @@ func Logout(ctx context.Context) error {
 		return fmt.Errorf("failed to load auth configuration: %w", err)
 	}
 
-	if err := client.RevokeToken(ctx, token.AccessToken); err != nil {
-		if cfg.Verbose {
-			ui.PrintWarning(fmt.Sprintf("Could not revoke token on server: %v", err))
-		}
+	revocations := []struct{ label, token string }{{"token", token.AccessToken}}
+	if token.RefreshToken != "" {
+		revocations = append(revocations, struct{ label, token string }{"refresh token", token.RefreshToken})
 	}
 
-	if token.RefreshToken != "" {
-		if err := client.RevokeToken(ctx, token.RefreshToken); err != nil {
-			if cfg.Verbose {
-				ui.PrintWarning(fmt.Sprintf("Could not revoke refresh token on server: %v", err))
-			}
+	for _, r := range revocations {
+		if err := client.RevokeToken(ctx, r.token); err != nil && cfg.Verbose {
+			ui.PrintWarning(fmt.Sprintf("Could not revoke %s on server: %v", r.label, err))
 		}
 	}
 

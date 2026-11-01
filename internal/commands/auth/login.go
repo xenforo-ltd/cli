@@ -112,10 +112,7 @@ func Login(commandCtx context.Context, opts LoginOptions) error {
 
 	message := "Authentication complete"
 
-	ctx2, cancel2 := context.WithTimeout(commandCtx, 10*time.Second)
-	defer cancel2()
-
-	if introspect, err := client.IntrospectToken(ctx2, token.AccessToken); err == nil && introspect.Username != "" {
+	if introspect, err := introspectAuthToken(commandCtx, token); err == nil && introspect.Username != "" {
 		message = "Authenticated as " + ui.Bold.Render(introspect.Username)
 	}
 

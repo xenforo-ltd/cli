@@ -28,7 +28,7 @@ func NewStore() (Store, error) {
 	})
 }
 
-func selectStore(cfg config.Config, raw string, filePath func() (string, error), keychain func() (Store, error)) (Store, error) {
+func selectStore(cfg config.Config, raw string, filePath func() (string, error), keychainStore func() (Store, error)) (Store, error) {
 	if raw != "" {
 		if strings.ContainsFunc(raw, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
 			return nil, fmt.Errorf("XF_TOKEN must be a raw access token without whitespace or control characters: %w", ErrInvalidInput)
@@ -37,7 +37,7 @@ func selectStore(cfg config.Config, raw string, filePath func() (string, error),
 	}
 	switch cfg.Auth.Storage {
 	case "", "keychain":
-		return keychain()
+		return keychainStore()
 	case "file":
 		path, err := filePath()
 		if err != nil {

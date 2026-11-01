@@ -128,7 +128,7 @@ func Status(ctx context.Context, opts StatusOptions) error {
 	if expired {
 		expiresValue = ui.Warning.Render(ui.FormatDateTime(token.ExpiresAt) + " (expired)")
 	} else {
-		remaining := time.Until(token.ExpiresAt).Round(time.Minute)
+		remaining := token.TimeUntilExpiry().Round(time.Minute)
 		expiresValue = fmt.Sprintf("%s (in %s)", ui.FormatDateTime(token.ExpiresAt), remaining)
 	}
 
