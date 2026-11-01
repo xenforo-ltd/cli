@@ -220,11 +220,7 @@ func (d definition) sortValues(r record, order []string, filename string) ([]sor
 // JSON files supply the record fields; text files use metadata and store their
 // contents as $text. Missing keys are derived from the filename.
 func (d definition) record(name string, contents []byte, metadata record) (record, error) {
-	normalized := contents
-	if bytes.IndexByte(contents, '\r') >= 0 {
-		normalized = bytes.ReplaceAll(contents, []byte{'\r'}, nil)
-	}
-	digest := md5.Sum(normalized)
+	digest := md5.Sum(bytes.ReplaceAll(contents, []byte{'\r'}, nil))
 	hash, _ := scalarValue(metadata["hash"])
 	if hash != hex.EncodeToString(digest[:]) {
 		return nil, errors.New("stale metadata; prepare development output with XenForo before exporting")
@@ -253,10 +249,7 @@ func (d definition) record(name string, contents []byte, metadata record) (recor
 		}
 	}
 	if len(d.keys) > 0 {
-		parts := []string{stem}
-		if len(d.keys) > 1 {
-			parts = strings.SplitN(stem, d.separator, len(d.keys))
-		}
+		parts := strings.SplitN(stem, d.separator, len(d.keys))
 		if len(parts) != len(d.keys) {
 			return nil, fmt.Errorf("filename %q must contain %s", name, strings.Join(d.keys, " and "))
 		}

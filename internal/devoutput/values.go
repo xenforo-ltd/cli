@@ -53,8 +53,9 @@ func (f field) value(r record) (string, bool, error) {
 	if err != nil {
 		return "", false, fmt.Errorf("field %q: %w", f.source, err)
 	}
+	handler := strings.ToLower(strings.TrimLeft(value, `\`))
 	for _, prefix := range f.forbiddenPrefixes {
-		if strings.HasPrefix(strings.ToLower(strings.TrimLeft(value, `\`)), strings.ToLower(prefix)) {
+		if strings.HasPrefix(handler, strings.ToLower(prefix)) {
 			return "", false, fmt.Errorf("field %q: custom export handler %q is not supported", f.source, value)
 		}
 	}

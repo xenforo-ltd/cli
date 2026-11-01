@@ -24,8 +24,8 @@ type xmlElement struct {
 func (rule element) convert(r record) (*xmlElement, error) {
 	node := &xmlElement{name: rule.name, cdata: rule.cdata}
 	node.attributes = make([]xml.Attr, 0, len(rule.attributes))
-	for _, field := range rule.attributes {
-		value, omitted, err := field.value(r)
+	for _, attr := range rule.attributes {
+		value, omitted, err := attr.value(r)
 		if err != nil {
 			return nil, err
 		}
@@ -33,9 +33,9 @@ func (rule element) convert(r record) (*xmlElement, error) {
 			continue
 		}
 		if err := validateText(value); err != nil {
-			return nil, fmt.Errorf("attribute %s: %w", field.name, err)
+			return nil, fmt.Errorf("attribute %s: %w", attr.name, err)
 		}
-		node.attributes = append(node.attributes, xml.Attr{Name: xml.Name{Local: field.name}, Value: value})
+		node.attributes = append(node.attributes, xml.Attr{Name: xml.Name{Local: attr.name}, Value: value})
 	}
 	if rule.content.source != "" {
 		value, omitted, err := rule.content.value(r)
@@ -51,23 +51,9 @@ func (rule element) convert(r record) (*xmlElement, error) {
 		node.content = value
 	}
 	for _, childRule := range rule.children {
-		rows := []record{r}
-		if childRule.repeat != "" {
-			raw, ok := r[childRule.repeat]
-			if !ok {
-				return nil, fmt.Errorf("missing field %q", childRule.repeat)
-			}
-			var values record
-			if !isEmpty(raw) {
-				if err := json.Unmarshal(raw, &values); err != nil {
-					return nil, fmt.Errorf("field %q: %w", childRule.repeat, err)
-				}
-			}
-			rows = nil
-			for _, name := range slices.Sorted(maps.Keys(values)) {
-				key, _ := json.Marshal(name)
-				rows = append(rows, record{"$key": key, "$value": values[name]})
-			}
+		rows, err := childRows(childRule, r)
+		if err != nil {
+			return nil, err
 		}
 		for _, row := range rows {
 			child, err := childRule.convert(row)
@@ -80,6 +66,30 @@ func (rule element) convert(r record) (*xmlElement, error) {
 		}
 	}
 	return node, nil
+}
+
+// childRows returns the records childRule is converted against: r itself, or
+// one record per entry of its repeated collection, in key order.
+func childRows(childRule element, r record) ([]record, error) {
+	if childRule.repeat == "" {
+		return []record{r}, nil
+	}
+	raw, ok := r[childRule.repeat]
+	if !ok {
+		return nil, fmt.Errorf("missing field %q", childRule.repeat)
+	}
+	var values record
+	if !isEmpty(raw) {
+		if err := json.Unmarshal(raw, &values); err != nil {
+			return nil, fmt.Errorf("field %q: %w", childRule.repeat, err)
+		}
+	}
+	var rows []record
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		key, _ := json.Marshal(name)
+		rows = append(rows, record{"$key": key, "$value": values[name]})
+	}
+	return rows, nil
 }
 
 // MarshalXML encodes node using its name, attributes, content, and children,
