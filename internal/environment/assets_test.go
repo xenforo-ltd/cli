@@ -1,4 +1,4 @@
-package docker
+package environment
 
 import (
 	"os"
@@ -17,7 +17,7 @@ func TestExtractDockerFilesWithOptions_NoOverwriteBaseFiles(t *testing.T) {
 		t.Fatalf("write custom compose: %v", err)
 	}
 
-	written, err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false})
+	written, err := extractDockerFilesWithOptions(tmp, extractOptions{OverwriteBaseFiles: false})
 	if err != nil {
 		t.Fatalf("extract docker files: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestExtractDockerFilesWithOptions_OverwriteBaseFiles(t *testing.T) {
 		t.Fatalf("write custom compose: %v", err)
 	}
 
-	if _, err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: true}); err != nil {
+	if _, err := extractDockerFilesWithOptions(tmp, extractOptions{OverwriteBaseFiles: true}); err != nil {
 		t.Fatalf("extract docker files: %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestExtractDockerFilesWithOptions_DefaultFileBehaviorUnchanged(t *testing.T
 		t.Fatalf("write custom env: %v", err)
 	}
 
-	written, err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false})
+	written, err := extractDockerFilesWithOptions(tmp, extractOptions{OverwriteBaseFiles: false})
 	if err != nil {
 		t.Fatalf("extract docker files: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestExtractDockerFilesWithOptions_Permissions(t *testing.T) {
 
 	tmp := t.TempDir()
 
-	if _, err := ExtractDockerFilesWithOptions(tmp, ExtractOptions{OverwriteBaseFiles: false}); err != nil {
+	if _, err := extractDockerFilesWithOptions(tmp, extractOptions{OverwriteBaseFiles: false}); err != nil {
 		t.Fatalf("extract docker files: %v", err)
 	}
 

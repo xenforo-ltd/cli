@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -94,7 +94,7 @@ func pendingAddOnComposerProjects(root string) []string {
 // the add-on is installed, and an add-on's manifest can stop resolving on its
 // own, such as when Composer starts blocking a pinned version with a security
 // advisory. Failing here would make every new environment unusable.
-func runComposerInstall(ctx context.Context, runner *dockercompose.Runner, root string, verbose bool) error {
+func runComposerInstall(ctx context.Context, runner *environment.Runner, root string, verbose bool) error {
 	if err := runComposerProject(ctx, runner, "", verbose); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func runComposerInstall(ctx context.Context, runner *dockercompose.Runner, root 
 // runComposerProject runs composer install for one project. An empty project
 // is the root; otherwise it is a slash-separated path relative to the root,
 // which is also the container's working directory.
-func runComposerProject(ctx context.Context, runner *dockercompose.Runner, project string, verbose bool) error {
+func runComposerProject(ctx context.Context, runner *environment.Runner, project string, verbose bool) error {
 	args := []string{"composer", "install", "--no-interaction"}
 	label := "Composer dependencies"
 

@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 // worktreesSuffix is appended to a checkout's directory name to form the
@@ -51,7 +51,7 @@ func BaseName(branch string) string {
 	for _, segment := range slices.Backward(strings.Split(branch, "/")) {
 		name := strings.Trim(unsafeChars.ReplaceAllString(strings.ToLower(segment), "-"), "-")
 		if name != "" {
-			return truncateName(name, xf.MaxInstanceNameLength)
+			return truncateName(name, environment.MaxInstanceNameLength)
 		}
 	}
 
@@ -68,7 +68,7 @@ func numberedName(base string, n int) string {
 
 	suffix := "-" + strconv.Itoa(n)
 
-	return truncateName(base, xf.MaxInstanceNameLength-len(suffix)) + suffix
+	return truncateName(base, environment.MaxInstanceNameLength-len(suffix)) + suffix
 }
 
 // truncateName shortens name to at most limit characters, cutting at a word

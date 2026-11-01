@@ -8,14 +8,14 @@ multi-ecosystem-groups:
 updates:
   - package-ecosystem: "docker"
     multi-ecosystem-group: "docker"
-    directory: "/internal/docker/embed"
+    directory: "/internal/environment/embed"
     patterns: ["*"]
     cooldown:
       default-days: 7
 
   - package-ecosystem: "docker-compose"
     multi-ecosystem-group: "docker"
-    directory: "/internal/docker/embed"
+    directory: "/internal/environment/embed"
     patterns: ["*"]
     cooldown:
       default-days: 7

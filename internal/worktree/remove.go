@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/docker"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 var (
@@ -92,7 +92,7 @@ func Remove(ctx context.Context, sourcePath, worktreePath string, force bool) er
 // quietly fall out of date. Both backends treat these as generated rather than
 // as work the user would lose.
 func generatedPaths() (map[string]bool, error) {
-	files, err := docker.ListEmbeddedFiles()
+	files, err := environment.ListEmbeddedFiles()
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine generated files: %w", err)
 	}

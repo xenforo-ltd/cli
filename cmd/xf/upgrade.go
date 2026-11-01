@@ -15,8 +15,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/cache"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/downloads"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
@@ -319,7 +319,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 		ui.Println()
 		ui.PrintStep(step, totalSteps, "Running XenForo upgrade")
 
-		runner, err := dockercompose.NewRunner(opts.TargetPath)
+		runner, err := environment.NewRunner(opts.TargetPath)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}

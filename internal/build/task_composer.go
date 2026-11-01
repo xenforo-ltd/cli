@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xenforo-ltd/cli/internal/xfcmd"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 // composerTask installs production dependencies in the build root.
@@ -35,7 +35,7 @@ func (t composerTask) run(ctx context.Context, root *os.Root) error {
 	if t.dir != "." {
 		args = append(args, "--working-dir="+t.dir)
 	}
-	if err := xfcmd.RunComposer(ctx, t.installationDir, t.streams.stdin, t.streams.stdout, t.streams.stderr, args...); err != nil {
+	if err := environment.RunComposer(ctx, t.installationDir, t.streams.stdin, t.streams.stdout, t.streams.stderr, args...); err != nil {
 		return fmt.Errorf("composer install: %w", err)
 	}
 

@@ -1,25 +1,18 @@
-// Package dockercompose provides Docker Compose CLI operations for XenForo.
-package dockercompose
+package environment
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/x/term"
-
-	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 var (
@@ -125,24 +118,6 @@ func (r *Runner) ExecInput(ctx context.Context, service string, env map[string]s
 	return r.runDockerCommandWithEnvAndIO(ctx, env, stdin, os.Stdout, os.Stderr, args...)
 }
 
-// DatabaseCredentials returns the configured database user and password.
-//
-// The names must match what the compose files read, since those are the keys
-// that end up in .env: XF_DB_USER and XF_DB_PASSWORD (compose.mysql.yaml,
-// compose.postgres.yaml). The defaults mirror the fallbacks declared there.
-//
-// Resolution order matches docker compose: process environment, then .env, then
-// the built-in default.
-func (r *Runner) DatabaseCredentials() (string, string) {
-	return r.resolveEnvValue("XF_DB_USER", "xf"),
-		r.resolveEnvValue("XF_DB_PASSWORD", "password")
-}
-
-// DatabaseName returns the configured database name.
-func (r *Runner) DatabaseName() string {
-	return r.resolveEnvValue("XF_DB_DATABASE", "xf")
-}
-
 // Destroy stops the environment and removes its volumes.
 //
 // This is permanent: the database and any other volume data are deleted. It is
@@ -153,162 +128,6 @@ func (r *Runner) Destroy(ctx context.Context) error {
 	args = append(args, "down", "--volumes", "--remove-orphans")
 
 	return r.runDockerCommandWithEnvAndIO(ctx, nil, os.Stdin, os.Stdout, os.Stderr, args...)
-}
-
-// ContainerInfo describes a single container as rendered by `xf ps`.
-//
-// Status and Ports are display strings derived from the Compose record rather
-// than wire fields: `docker compose ps --format json` reports State, Health,
-// ExitCode and Publishers, not the combined Status/Ports strings.
-type ContainerInfo struct {
-	Service string
-	Name    string
-	State   string
-	Status  string
-	Ports   string
-}
-
-// composeContainerRecord mirrors the fields of the official
-// `docker compose ps --format json` schema that `xf ps` renders. Only the
-// fields the table needs are decoded; unknown fields are ignored.
-type composeContainerRecord struct {
-	Service    string                 `json:"Service"`
-	Name       string                 `json:"Name"`
-	State      string                 `json:"State"`
-	Health     string                 `json:"Health"`
-	ExitCode   int                    `json:"ExitCode"`
-	Publishers []composePortPublisher `json:"Publishers"`
-}
-
-// composePortPublisher mirrors one entry of the Compose Publishers array.
-type composePortPublisher struct {
-	URL           string `json:"URL"`
-	TargetPort    int    `json:"TargetPort"`
-	PublishedPort int    `json:"PublishedPort"`
-	Protocol      string `json:"Protocol"`
-}
-
-// unknownValue stands in for a value Compose does not report, so a table cell
-// is visibly unknown rather than blank.
-const unknownValue = "—"
-
-// normalize converts a wire record into the display model used by `xf ps`.
-func (rec composeContainerRecord) normalize() ContainerInfo {
-	return ContainerInfo{
-		Service: rec.Service,
-		Name:    rec.Name,
-		State:   rec.State,
-		Status:  rec.statusText(),
-		Ports:   rec.portsText(),
-	}
-}
-
-// statusText renders a container's status from the fields Compose supplies.
-// Health is the most specific signal; an exited or dead container reports how
-// it ended; anything else has no status beyond its state.
-func (rec composeContainerRecord) statusText() string {
-	if rec.Health != "" {
-		return rec.Health
-	}
-
-	if rec.State == "exited" || rec.State == "dead" {
-		return fmt.Sprintf("exit %d", rec.ExitCode)
-	}
-
-	return unknownValue
-}
-
-// portsText renders the container's published ports in Docker's familiar
-// "host:published->target/proto" form, joining multiple mappings with commas.
-func (rec composeContainerRecord) portsText() string {
-	if len(rec.Publishers) == 0 {
-		return unknownValue
-	}
-
-	mappings := make([]string, 0, len(rec.Publishers))
-	for _, publisher := range rec.Publishers {
-		mappings = append(mappings, publisher.text())
-	}
-
-	return strings.Join(mappings, ", ")
-}
-
-// text renders a single port mapping. A mapping with no published port is
-// exposed but not forwarded to the host.
-func (pub composePortPublisher) text() string {
-	target := strconv.Itoa(pub.TargetPort) + "/" + pub.Protocol
-	if pub.PublishedPort == 0 {
-		return target
-	}
-
-	return net.JoinHostPort(pub.URL, strconv.Itoa(pub.PublishedPort)) + "->" + target
-}
-
-// PSInfo returns container status parsed from `docker compose ps --format json`.
-func (r *Runner) PSInfo(ctx context.Context) ([]ContainerInfo, error) {
-	cmd := r.buildDockerCommand(ctx, "ps", "--format", "json")
-
-	var stdout, stderr bytes.Buffer
-
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		// stderr carries the useful diagnosis (bad compose file, daemon not
-		// running); without it the caller only sees "exit status N".
-		if detail := bytes.TrimSpace(stderr.Bytes()); len(detail) > 0 {
-			return nil, contextError(ctx, fmt.Errorf("docker command failed: %w: %s", err, detail))
-		}
-
-		return nil, contextError(ctx, fmt.Errorf("docker command failed: %w", err))
-	}
-
-	return parseContainerInfo(stdout.Bytes())
-}
-
-// parseContainerInfo decodes `docker compose ps --format json` output.
-//
-// Compose has emitted two top-level shapes: a single JSON array in older
-// releases, and JSON Lines (one container per line) in newer ones. Both are
-// accepted; the records themselves use the official schema, whose status and
-// port information lives in Health, ExitCode and Publishers.
-func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
-	trimmed := bytes.TrimSpace(data)
-	if len(trimmed) == 0 {
-		return []ContainerInfo{}, nil
-	}
-
-	var records []composeContainerRecord
-
-	if trimmed[0] == '[' {
-		if err := json.Unmarshal(trimmed, &records); err != nil {
-			return nil, fmt.Errorf("failed to parse container status: %w", err)
-		}
-	} else {
-		decoder := json.NewDecoder(bytes.NewReader(trimmed))
-
-		for {
-			var record composeContainerRecord
-
-			err := decoder.Decode(&record)
-			if errors.Is(err, io.EOF) {
-				break
-			}
-
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse container status: %w", err)
-			}
-
-			records = append(records, record)
-		}
-	}
-
-	containers := make([]ContainerInfo, 0, len(records))
-	for _, record := range records {
-		containers = append(containers, record.normalize())
-	}
-
-	return containers, nil
 }
 
 // ExecOrRun uses exec for running services and falls back to run for stopped services.
@@ -375,129 +194,6 @@ func (r *Runner) Compose(ctx context.Context, stdin io.Reader, stdout, stderr io
 	composeArgs = append(composeArgs, args...)
 
 	return r.runDockerCommandWithEnvAndIO(ctx, nil, stdin, stdout, stderr, composeArgs...)
-}
-
-// IsOrbStack reports whether the Docker engine is OrbStack, which exposes
-// container services to the host at <service>.<project>.orb.local without
-// publishing ports.
-func IsOrbStack(ctx context.Context) (bool, error) {
-	info, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.OperatingSystem}}").Output()
-	if err != nil {
-		return false, contextError(ctx, fmt.Errorf("docker info failed: %w", err))
-	}
-
-	return strings.TrimSpace(string(info)) == "OrbStack", nil
-}
-
-// GetURL returns the URL for accessing the XenForo site.
-// It detects OrbStack vs standard Docker.
-func (r *Runner) GetURL(ctx context.Context) (string, error) {
-	isOrbStack, err := IsOrbStack(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	if isOrbStack {
-		return fmt.Sprintf("https://%s.xf.local", r.instance), nil
-	}
-
-	port, err := r.getServicePort(ctx, "caddy", "80")
-	if err != nil {
-		return "", err
-	}
-
-	return "http://localhost:" + port, nil
-}
-
-// WaitForDatabase waits for the database to be ready.
-func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duration) error {
-	user, password := r.DatabaseCredentials()
-	testScript := fmt.Sprintf(
-		"try { new PDO('mysql:host=mysql', '%s', '%s'); echo 'OK'; } catch (Exception $e) { exit(1); }",
-		escapePHPString(user),
-		escapePHPString(password),
-	)
-
-	maxAttempts := 30
-	for range maxAttempts {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting for database: %w", ctx.Err())
-		default:
-			args := r.buildComposeArgs()
-			args = append(args, "exec", "-T", "xf", "php", "-r", testScript)
-
-			cmd := exec.CommandContext(ctx, "docker", args...)
-			cmd.Dir = r.xfDir
-
-			output, err := cmd.Output()
-			if err == nil && strings.Contains(string(output), "OK") {
-				return nil
-			}
-
-			time.Sleep(checkInterval)
-		}
-	}
-
-	return fmt.Errorf("timed out waiting for database to be ready: %w", ErrTimeout)
-}
-
-func escapePHPString(value string) string {
-	value = strings.ReplaceAll(value, "\\", "\\\\")
-	return strings.ReplaceAll(value, "'", "\\'")
-}
-
-// composeProjectLabel is the label Docker Compose stamps on every container and
-// volume it creates for a project.
-const composeProjectLabel = "com.docker.compose.project"
-
-// ProjectExists reports whether a Compose project already owns containers or
-// volumes under the given instance name.
-//
-// Compose derives container and volume names from the project name, so a second
-// environment reusing one would adopt the first's resources. Volumes are checked
-// as well as containers because `docker compose down` leaves volumes behind: an
-// environment can be stopped with no containers at all and still collide.
-//
-// A failed Docker command is returned as an error rather than reported as an
-// absent project. Treating an unreachable Docker as "free" would let creation
-// proceed onto a name that may already be in use.
-func ProjectExists(ctx context.Context, instance string) (bool, error) {
-	probes := [][]string{
-		{"ps", "--all", "--filter", "label=" + composeProjectLabel + "=" + instance, "--format", "{{.ID}}"},
-		{"volume", "ls", "--filter", "label=" + composeProjectLabel + "=" + instance, "--format", "{{.Name}}"},
-	}
-
-	for _, args := range probes {
-		cmd := exec.CommandContext(ctx, "docker", args...)
-
-		out, err := cmd.Output()
-		if err != nil {
-			return false, contextError(ctx, fmt.Errorf("failed to inspect Docker Compose project %q: %w", instance, err))
-		}
-
-		if strings.TrimSpace(string(out)) != "" {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-// resolveEnvValue returns the value for key from the process environment, then
-// the project's .env file, falling back to def.
-func (r *Runner) resolveEnvValue(key, def string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-
-	if envData, err := os.ReadFile(r.envPath); err == nil {
-		if value := parseEnvValue(string(envData), key); value != "" {
-			return value
-		}
-	}
-
-	return def
 }
 
 // runDockerCommandWithEnvAndIO executes a docker command with explicit streams,
@@ -703,30 +399,10 @@ func parseEnvValue(content, key string) string {
 			continue
 		}
 
-		value := xf.StripQuotes(line[len(prefix):])
+		value := stripQuotes(line[len(prefix):])
 
 		return value
 	}
 
 	return ""
-}
-
-// CheckDockerRunning checks if Docker is running.
-func CheckDockerRunning(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "docker", "info")
-	if err := cmd.Run(); err != nil {
-		return contextError(ctx, fmt.Errorf("docker not running: %w", err))
-	}
-
-	return nil
-}
-
-// CheckDockerComposeAvailable checks if Docker Compose is available.
-func CheckDockerComposeAvailable(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "version")
-	if err := cmd.Run(); err != nil {
-		return contextError(ctx, fmt.Errorf("docker compose not available: %w", err))
-	}
-
-	return nil
 }

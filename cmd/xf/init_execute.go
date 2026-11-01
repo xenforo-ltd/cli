@@ -13,11 +13,10 @@ import (
 	"github.com/xenforo-ltd/cli/internal/cache"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
 	"github.com/xenforo-ltd/cli/internal/downloads"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
-	"github.com/xenforo-ltd/cli/internal/xfcmd"
 )
 
 // plannedInitSteps returns the number of steps that will be printed for a
@@ -50,7 +49,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.InstanceName == "" {
-		opts.InstanceName = xf.GenerateInstanceName(filepath.Base(opts.TargetPath))
+		opts.InstanceName = environment.GenerateInstanceName(filepath.Base(opts.TargetPath))
 	}
 
 	if opts.SiteTitle == "" {
@@ -101,11 +100,11 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	ui.PrintStep(step, totalSteps, "Setting up Docker configuration")
 	step++
 
-	xfcmdOpts := xfcmd.InitOptions{
+	environmentOpts := environment.InitOptions{
 		OverwriteExisting: true,
 		Contexts:          opts.Contexts,
 	}
-	writtenDefaults, err := xfcmd.Init(opts.TargetPath, xfcmdOpts)
+	writtenDefaults, err := environment.Init(opts.TargetPath, environmentOpts)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker configuration: %w", err)
 	}
@@ -155,7 +154,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		ui.PrintStep(step, totalSteps, "Starting Docker environment")
 		step++
 
-		runner, err := dockercompose.NewRunner(opts.TargetPath)
+		runner, err := environment.NewRunner(opts.TargetPath)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}
@@ -511,7 +510,7 @@ func normalizeRuntimeTree(root string) error {
 func configureEnvironment(opts *InitOptions) error {
 	envPath := filepath.Join(opts.TargetPath, ".env")
 
-	if _, err := xf.ReadEnvFile(envPath); err != nil {
+	if _, err := environment.ReadEnvFile(envPath); err != nil {
 		return fmt.Errorf(".env file not found after xf init: %w", err)
 	}
 
@@ -533,7 +532,7 @@ func configureEnvironment(opts *InitOptions) error {
 	updates["XF_COOKIE_PREFIX"] = opts.InstanceName + "_"
 	maps.Copy(updates, opts.EnvResolved)
 
-	if err := xf.WriteEnvFile(envPath, updates); err != nil {
+	if err := environment.WriteEnvFile(envPath, updates); err != nil {
 		return fmt.Errorf("failed to write environment configuration: %w", err)
 	}
 

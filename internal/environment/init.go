@@ -1,14 +1,10 @@
-// Package xfcmd provides high-level commands for managing XenForo installations.
-package xfcmd
+package environment
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/xenforo-ltd/cli/internal/docker"
-	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 // InitOptions contains options for initializing a Docker environment.
@@ -26,19 +22,19 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 		return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", statErr)
 	}
 
-	extractOpts := docker.ExtractOptions{
+	extractOpts := extractOptions{
 		OverwriteBaseFiles: opts.OverwriteExisting,
 		Contexts:           opts.Contexts,
 	}
 
-	written, err = docker.ExtractDockerFilesWithOptions(xfDir, extractOpts)
+	written, err = extractDockerFilesWithOptions(xfDir, extractOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract Docker files: %w", err)
 	}
 
 	envPath := filepath.Join(xfDir, ".env")
 	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
-		envDefault, err := docker.GetDockerFile(".env.default")
+		envDefault, err := GetDockerFile(".env.default")
 		if err != nil {
 			return nil, fmt.Errorf("failed to read default env: %w", err)
 		}
@@ -48,7 +44,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 		}
 
 		dirName := filepath.Base(xfDir)
-		instanceName := xf.GenerateInstanceName(dirName)
+		instanceName := GenerateInstanceName(dirName)
 
 		updates := map[string]string{
 			"XF_INSTANCE": instanceName,
@@ -57,14 +53,14 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 			updates["XF_CONTEXTS"] = strings.Join(opts.Contexts, ":")
 		}
 
-		if err := xf.WriteEnvFile(envPath, updates); err != nil {
+		if err := WriteEnvFile(envPath, updates); err != nil {
 			return nil, fmt.Errorf("failed to update generated .env file: %w", err)
 		}
 	}
 
 	dockerignorePath := filepath.Join(xfDir, ".dockerignore")
 	if _, statErr := os.Stat(dockerignorePath); os.IsNotExist(statErr) {
-		ignoreDefault, err := docker.GetDockerFile(".dockerignore.default")
+		ignoreDefault, err := GetDockerFile(".dockerignore.default")
 		if err != nil {
 			return nil, fmt.Errorf("failed to read default dockerignore: %w", err)
 		}

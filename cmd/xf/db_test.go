@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/xenforo-ltd/cli/internal/database"
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 // newRunnerForDB builds a Runner from a minimal XenForo directory whose .env
 // contains the given contents.
-func newRunnerForDB(t *testing.T, env string) *dockercompose.Runner {
+func newRunnerForDB(t *testing.T, env string) *environment.Runner {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -35,7 +35,7 @@ func newRunnerForDB(t *testing.T, env string) *dockercompose.Runner {
 		t.Fatalf("write .env: %v", err)
 	}
 
-	runner, err := dockercompose.NewRunner(dir)
+	runner, err := environment.NewRunner(dir)
 	if err != nil {
 		t.Fatalf("NewRunner: %v", err)
 	}

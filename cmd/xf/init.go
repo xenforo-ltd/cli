@@ -16,10 +16,8 @@ import (
 
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
-	"github.com/xenforo-ltd/cli/internal/xf"
-	"github.com/xenforo-ltd/cli/internal/xfcmd"
 )
 
 var initCmd = &cobra.Command{
@@ -303,12 +301,12 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	ui.PrintStep(step, totalSteps, "Setting up Docker configuration")
 	step++
 
-	xfcmdOpts := xfcmd.InitOptions{
+	environmentOpts := environment.InitOptions{
 		OverwriteExisting: true,
 		Contexts:          opts.Contexts,
 	}
 
-	writtenDefaults, err := xfcmd.Init(xfDir, xfcmdOpts)
+	writtenDefaults, err := environment.Init(xfDir, environmentOpts)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker files in existing XenForo directory: %w", err)
 	}
@@ -348,7 +346,7 @@ func initExisting(ctx context.Context, opts *InitOptions) error {
 	if opts.StartContainers {
 		ui.PrintStep(step, totalSteps, "Starting environment")
 
-		runner, err := dockercompose.NewRunner(xfDir)
+		runner, err := environment.NewRunner(xfDir)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 		}
@@ -424,7 +422,7 @@ func configureExistingEnv(opts *InitOptions) error {
 
 	if opts.InstanceName == "" {
 		dirName := filepath.Base(opts.TargetPath)
-		opts.InstanceName = xf.GenerateInstanceName(dirName)
+		opts.InstanceName = environment.GenerateInstanceName(dirName)
 	}
 
 	contexts := opts.Contexts
@@ -442,7 +440,7 @@ func configureExistingEnv(opts *InitOptions) error {
 	}
 	maps.Copy(updates, opts.EnvResolved)
 
-	if err := xf.WriteEnvFile(envPath, updates); err != nil {
+	if err := environment.WriteEnvFile(envPath, updates); err != nil {
 		return fmt.Errorf("failed to write environment configuration: %w", err)
 	}
 
@@ -452,7 +450,7 @@ func configureExistingEnv(opts *InitOptions) error {
 func checkPrerequisites(ctx context.Context) error {
 	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 
-	if err := dockercompose.CheckDockerRunning(ctx); err != nil {
+	if err := environment.CheckDockerRunning(ctx); err != nil {
 		// Cancellation must stay recognisable, or Ctrl-C during the check is
 		// reported as a Docker failure and exits 1 instead of 130.
 		if ctxErr := ctx.Err(); ctxErr != nil {
@@ -476,7 +474,7 @@ func checkPrerequisites(ctx context.Context) error {
 
 	ui.PrintSuccess("Docker is running")
 
-	if err := dockercompose.CheckDockerComposeAvailable(ctx); err != nil {
+	if err := environment.CheckDockerComposeAvailable(ctx); err != nil {
 		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
 	}
 
@@ -681,7 +679,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if opts.InstanceName == "" {
-		opts.InstanceName = xf.GenerateInstanceName(filepath.Base(opts.TargetPath))
+		opts.InstanceName = environment.GenerateInstanceName(filepath.Base(opts.TargetPath))
 	}
 
 	if err := runInteractiveReview(ctx, client, opts); err != nil {
@@ -697,7 +695,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 // so it does not appear in the container's process list.
 func installExistingXenForo(
 	ctx context.Context,
-	runner *dockercompose.Runner,
+	runner *environment.Runner,
 	opts *InitOptions,
 	siteURL string,
 	verbose bool,

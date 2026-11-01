@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xenforo-ltd/cli/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 func TestBaseName(t *testing.T) {
@@ -83,8 +83,8 @@ func TestBaseNameTruncatesAtAWordBoundary(t *testing.T) {
 
 	got := BaseName(branch)
 
-	if len(got) > xf.MaxInstanceNameLength {
-		t.Fatalf("BaseName = %q, %d characters, want at most %d", got, len(got), xf.MaxInstanceNameLength)
+	if len(got) > environment.MaxInstanceNameLength {
+		t.Fatalf("BaseName = %q, %d characters, want at most %d", got, len(got), environment.MaxInstanceNameLength)
 	}
 
 	if want := strings.TrimSuffix(strings.Repeat("segment-", 6), "-"); got != want {
@@ -125,10 +125,10 @@ func TestNumberedName(t *testing.T) {
 	}
 
 	// The suffix must fit even when the base already uses the whole limit.
-	long := strings.Repeat("a", xf.MaxInstanceNameLength)
+	long := strings.Repeat("a", environment.MaxInstanceNameLength)
 
 	got := numberedName(long, 12)
-	if len(got) > xf.MaxInstanceNameLength || !strings.HasSuffix(got, "-12") {
+	if len(got) > environment.MaxInstanceNameLength || !strings.HasSuffix(got, "-12") {
 		t.Errorf("numberedName(long, 12) = %q, want a suffixed name within the limit", got)
 	}
 }

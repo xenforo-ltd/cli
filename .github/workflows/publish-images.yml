@@ -10,14 +10,14 @@ on:
     branches:
       - "main"
     paths:
-      - "internal/docker/embed/Dockerfile"
+      - "internal/environment/embed/Dockerfile"
       - ".github/workflows/publish-images.yml"
 
   pull_request:
     branches:
       - "main"
     paths:
-      - "internal/docker/embed/Dockerfile"
+      - "internal/environment/embed/Dockerfile"
       - ".github/workflows/publish-images.yml"
 
 concurrency:
@@ -80,7 +80,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v7.4.0
         with:
-          context: internal/docker/embed
+          context: internal/environment/embed
           target: ${{ env.IMAGE_TARGET }}
           build-args: |
             PHP_VERSION=${{ matrix.php-version }}

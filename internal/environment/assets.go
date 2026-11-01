@@ -1,5 +1,5 @@
-// Package docker contains embedded Docker files and extraction utilities.
-package docker
+// Package environment provides Docker environment setup and execution.
+package environment
 
 import (
 	"embed"
@@ -14,20 +14,20 @@ import (
 //go:embed embed/*
 var dockerFS embed.FS
 
-// EmbedDir is the directory containing embedded Docker configuration files.
-const EmbedDir = "embed"
+// embedDir is the directory containing embedded Docker configuration files.
+const embedDir = "embed"
 
-// ExtractOptions specifies options for extracting Docker files.
-type ExtractOptions struct {
+// extractOptions specifies options for extracting Docker files.
+type extractOptions struct {
 	OverwriteBaseFiles bool
 	Contexts           []string
 }
 
-// ExtractDockerFilesWithOptions extracts Docker files with custom options.
+// extractDockerFilesWithOptions extracts Docker files with custom options.
 // It returns the paths of any ".default" files written alongside existing,
 // user-modified files so callers can notify the user.
-func ExtractDockerFilesWithOptions(targetDir string, opts ExtractOptions) (written []string, err error) {
-	written, err = extractDir(EmbedDir, targetDir, "", opts.OverwriteBaseFiles)
+func extractDockerFilesWithOptions(targetDir string, opts extractOptions) (written []string, err error) {
+	written, err = extractDir(embedDir, targetDir, "", opts.OverwriteBaseFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func defaultFileMode(targetPath string) os.FileMode {
 
 // GetDockerFile returns the contents of an embedded Docker file.
 func GetDockerFile(name string) ([]byte, error) {
-	embeddedPath := path.Join(EmbedDir, name)
+	embeddedPath := path.Join(embedDir, name)
 
 	data, err := dockerFS.ReadFile(embeddedPath)
 	if err != nil {
@@ -181,7 +181,7 @@ func GetDockerFile(name string) ([]byte, error) {
 func ListEmbeddedFiles() ([]string, error) {
 	var paths []string
 
-	err := fs.WalkDir(dockerFS, EmbedDir, func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(dockerFS, embedDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func ListEmbeddedFiles() ([]string, error) {
 			return nil
 		}
 
-		rel, err := filepath.Rel(EmbedDir, filepath.FromSlash(p))
+		rel, err := filepath.Rel(embedDir, filepath.FromSlash(p))
 		if err != nil {
 			return fmt.Errorf("failed to resolve embedded path %s: %w", p, err)
 		}

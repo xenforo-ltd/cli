@@ -1,4 +1,4 @@
-package xfcmd
+package environment
 
 import (
 	"context"
@@ -9,8 +9,6 @@ import (
 	"path"
 	"path/filepath"
 	"time"
-
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
 )
 
 func RunInDir(ctx context.Context, installationDir, workDir string, stdin io.Reader, stdout, stderr io.Writer, argv ...string) error {
@@ -22,7 +20,7 @@ func RunInDir(ctx context.Context, installationDir, workDir string, stdin io.Rea
 		return errors.New("no command specified")
 	}
 
-	runner, err := dockercompose.NewRunner(installationDir)
+	runner, err := NewRunner(installationDir)
 	if err == nil {
 		containerDir := ""
 		if workDir != "." {
@@ -30,7 +28,7 @@ func RunInDir(ctx context.Context, installationDir, workDir string, stdin io.Rea
 		}
 		return runner.ExecOrRunInDir(ctx, "xf", containerDir, nil, stdin, stdout, stderr, argv...)
 	}
-	if !errors.Is(err, dockercompose.ErrEnvNotInitialized) {
+	if !errors.Is(err, ErrEnvNotInitialized) {
 		return fmt.Errorf("initializing Docker Compose runner: %w", err)
 	}
 

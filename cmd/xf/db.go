@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/database"
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -80,7 +80,7 @@ func runDB(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	runner, err := dockercompose.NewRunner(xfDir)
+	runner, err := environment.NewRunner(xfDir)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
@@ -113,7 +113,7 @@ func runDBShell(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	runner, err := dockercompose.NewRunner(xfDir)
+	runner, err := environment.NewRunner(xfDir)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
@@ -129,7 +129,7 @@ func runDBShell(cmd *cobra.Command, args []string) error {
 // resolveDatabaseInfo turns the environment's contexts and credentials into a
 // connection description. Only MySQL is supported for now; the driver is
 // detected so the unsupported case can say which engine it found.
-func resolveDatabaseInfo(runner *dockercompose.Runner) (database.Info, error) {
+func resolveDatabaseInfo(runner *environment.Runner) (database.Info, error) {
 	driver, err := database.Detect(runner.Contexts())
 	if err != nil {
 		return database.Info{}, withHint(err, "Set XF_CONTEXTS to include a database, for example "+ui.Command.Render("mysql"))
@@ -161,7 +161,7 @@ func resolveDatabaseInfo(runner *dockercompose.Runner) (database.Info, error) {
 // The client needs the server in the running container, so a stopped
 // environment is reported rather than falling back to a one-off container
 // that has no server to connect to.
-func openDatabaseShell(ctx context.Context, runner *dockercompose.Runner, info database.Info, args []string) error {
+func openDatabaseShell(ctx context.Context, runner *environment.Runner, info database.Info, args []string) error {
 	running, err := runner.IsServiceRunning(ctx, databaseService)
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func databaseShellArgs(info database.Info, extra []string) []string {
 // container hostnames as <service>.<instance>.orb.local from the host without
 // publishing a port.
 func requireOrbStack(ctx context.Context) error {
-	isOrbStack, err := dockercompose.IsOrbStack(ctx)
+	isOrbStack, err := environment.IsOrbStack(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to detect OrbStack: %w", err)
 	}

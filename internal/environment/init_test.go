@@ -1,4 +1,4 @@
-package xfcmd
+package environment
 
 import (
 	"os"

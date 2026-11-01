@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/config"
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/version"
 	"github.com/xenforo-ltd/cli/internal/xf"
@@ -363,9 +363,9 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) 
 		)
 	}
 
-	runner, err := dockercompose.NewRunner(xfDir)
+	runner, err := environment.NewRunner(xfDir)
 	if err != nil {
-		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
+		if errors.Is(err, environment.ErrEnvNotInitialized) {
 			return runAsLocalXenForoCommand(ctx, xfDir, args, cmdFn)
 		}
 

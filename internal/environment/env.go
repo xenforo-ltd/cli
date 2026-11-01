@@ -1,11 +1,9 @@
-// Package xf provides utilities for XenForo installation detection and management.
-package xf
+package environment
 
 import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -41,7 +39,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 		}
 
 		key := strings.TrimSpace(before)
-		value := StripQuotes(after)
+		value := stripQuotes(after)
 
 		env[key] = value
 	}
@@ -53,8 +51,8 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	return env, nil
 }
 
-// StripQuotes removes surrounding single or double quotes from a string.
-func StripQuotes(s string) string {
+// stripQuotes removes surrounding single or double quotes from a string.
+func stripQuotes(s string) string {
 	value := strings.TrimSpace(s)
 
 	slen := len(value)
@@ -179,33 +177,6 @@ func needsQuoting(value string) bool {
 	}
 
 	return strings.ContainsAny(value, " \t\n\"'`$\\")
-}
-
-// GetXenForoDir finds the XenForo root directory by traversing up from startDir.
-// It also checks the XF_DIR environment variable as a fallback.
-func GetXenForoDir(startDir string) (string, error) {
-	dir := filepath.Clean(startDir)
-	for {
-		xfPath := filepath.Join(dir, "src", "XF.php")
-		if _, err := os.Stat(xfPath); err == nil {
-			return dir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-
-		dir = parent
-	}
-
-	if xfDir := filepath.Clean(os.Getenv("XF_DIR")); xfDir != "." {
-		if _, err := os.Stat(filepath.Join(xfDir, "src", "XF.php")); err == nil {
-			return xfDir, nil
-		}
-	}
-
-	return "", fmt.Errorf("not in a XenForo directory and XF_DIR not set: %w", ErrInvalidInput)
 }
 
 // MaxInstanceNameLength bounds every generated Docker instance name.

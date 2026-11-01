@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/worktree"
 )
@@ -28,12 +28,12 @@ var clonedDirectories = []string{"data", "internal_data"}
 // The whole operation narrates through a single spinner, so success or failure
 // is reported exactly once.
 func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) error {
-	sourceRunner, err := dockercompose.NewRunner(sourcePath)
+	sourceRunner, err := environment.NewRunner(sourcePath)
 	if err != nil {
 		return fmt.Errorf("cannot clone from %s: %w", sourcePath, err)
 	}
 
-	targetRunner, err := dockercompose.NewRunner(worktreePath)
+	targetRunner, err := environment.NewRunner(worktreePath)
 	if err != nil {
 		return fmt.Errorf("cannot clone into %s: %w", worktreePath, err)
 	}
@@ -81,7 +81,7 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 // OptionRepository::updateOptions is used rather than a direct UPDATE because
 // it also rebuilds the option cache. Writing the row alone would leave the old
 // URL in service until something else happened to rebuild it.
-func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *dockercompose.Runner, label string) error {
+func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *environment.Runner, label string) error {
 	url, err := target.GetURL(ctx)
 	if err != nil || url == "" {
 		spinner.Stop()
@@ -131,7 +131,7 @@ func phpQuote(value string) string {
 
 // cloneDatabase streams a dump from the source instance into the target's,
 // narrating progress through spinner. It returns the size of the dump.
-func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *dockercompose.Runner) (int64, error) {
+func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *environment.Runner) (int64, error) {
 	user, password := source.DatabaseCredentials()
 	database := source.DatabaseName()
 

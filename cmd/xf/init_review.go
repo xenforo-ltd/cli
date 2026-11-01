@@ -11,8 +11,8 @@ import (
 	"charm.land/huh/v2"
 
 	"github.com/xenforo-ltd/cli/internal/customerapi"
-	"github.com/xenforo-ltd/cli/internal/docker"
 	"github.com/xenforo-ltd/cli/internal/downloads"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -608,7 +608,7 @@ const defaultPHPVersionFallback = "8.5"
 // The line is commented out there (`#PHP_VERSION=8.5`) because Docker's
 // own default (compose.yaml's `${PHP_VERSION:-8.5}`) takes over when unset.
 func defaultPHPVersion() string {
-	data, err := docker.GetDockerFile(".env.default")
+	data, err := environment.GetDockerFile(".env.default")
 	if err != nil {
 		return defaultPHPVersionFallback
 	}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/xfcmd"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 var composerCmd = &cobra.Command{
@@ -47,7 +47,7 @@ func runComposer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := xfcmd.RunComposer(cmd.Context(), xfDir, os.Stdin, os.Stdout, os.Stderr, composerArgs...); err != nil {
+	if err := environment.RunComposer(cmd.Context(), xfDir, os.Stdin, os.Stdout, os.Stderr, composerArgs...); err != nil {
 		return passthroughError(err, "failed to run Composer")
 	}
 

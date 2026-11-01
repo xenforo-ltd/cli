@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xenforo-ltd/cli/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 var errTestFailed = errors.New("failed")
@@ -60,7 +60,7 @@ func TestConfigureEnvironmentSetsContextsWhenProvided(t *testing.T) {
 		t.Fatalf("configureEnvironment: %v", err)
 	}
 
-	env, err := xf.ReadEnvFile(envPath)
+	env, err := environment.ReadEnvFile(envPath)
 	if err != nil {
 		t.Fatalf("read .env: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestConfigureEnvironmentPreservesContextsWhenNotProvided(t *testing.T) {
 		t.Fatalf("configureEnvironment: %v", err)
 	}
 
-	env, err := xf.ReadEnvFile(envPath)
+	env, err := environment.ReadEnvFile(envPath)
 	if err != nil {
 		t.Fatalf("read .env: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestConfigureEnvironmentAppliesEnvOverrides(t *testing.T) {
 		t.Fatalf("configureEnvironment: %v", err)
 	}
 
-	env, err := xf.ReadEnvFile(envPath)
+	env, err := environment.ReadEnvFile(envPath)
 	if err != nil {
 		t.Fatalf("read .env: %v", err)
 	}

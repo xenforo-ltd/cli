@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/xenforo-ltd/cli/internal/xfcmd"
+	"github.com/xenforo-ltd/cli/internal/environment"
 )
 
 // execTask runs configured argument vectors in the add-on environment without
@@ -43,5 +43,5 @@ func (t execTask) runCommand(ctx context.Context, root *os.Root, command []strin
 		return runCommand(ctx, root, t.streams, t.addOnDir, command[0], command[1:]...)
 	}
 
-	return xfcmd.RunInDir(ctx, t.installationDir, dir, t.streams.stdin, t.streams.stdout, t.streams.stderr, argv...)
+	return environment.RunInDir(ctx, t.installationDir, dir, t.streams.stdin, t.streams.stdout, t.streams.stderr, argv...)
 }

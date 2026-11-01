@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/worktree"
 )
@@ -831,7 +831,7 @@ func instanceTaken(ctx context.Context, registry *worktree.Registry, sourceInsta
 		}
 	}
 
-	exists, err := dockercompose.ProjectExists(ctx, name)
+	exists, err := environment.ProjectExists(ctx, name)
 	if err != nil {
 		if flagWorktreeNoSetup {
 			return false, nil
@@ -846,9 +846,9 @@ func instanceTaken(ctx context.Context, registry *worktree.Registry, sourceInsta
 // configuredInstance returns the instance name the checkout at dir is
 // configured to use, or an empty string when it has no environment.
 func configuredInstance(dir string) (string, error) {
-	runner, err := dockercompose.NewRunner(dir)
+	runner, err := environment.NewRunner(dir)
 	if err != nil {
-		if errors.Is(err, dockercompose.ErrEnvNotInitialized) {
+		if errors.Is(err, environment.ErrEnvNotInitialized) {
 			return "", nil
 		}
 
@@ -863,11 +863,11 @@ func configuredInstance(dir string) (string, error) {
 // A worktree that was never set up has no compose configuration, which is not
 // an error: there is simply nothing to tear down.
 func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error {
-	runner, err := dockercompose.NewRunner(worktreePath)
+	runner, err := environment.NewRunner(worktreePath)
 	if err != nil {
 		// A worktree that was never set up has nothing to tear down, and a
 		// directory that is already gone cannot have running containers.
-		if errors.Is(err, dockercompose.ErrEnvNotInitialized) || errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, environment.ErrEnvNotInitialized) || errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 

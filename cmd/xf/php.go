@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/dockercompose"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -71,7 +71,7 @@ func runPHP(ctx context.Context, args []string, debug bool) error {
 		return err
 	}
 
-	runner, err := dockercompose.NewRunner(xfDir)
+	runner, err := environment.NewRunner(xfDir)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
