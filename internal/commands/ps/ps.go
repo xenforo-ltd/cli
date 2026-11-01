@@ -32,21 +32,21 @@ func Run(ctx context.Context, args []string) error {
 
 	rows := make([][]string, 0, len(containers))
 	for _, c := range containers {
-		var state string
-
-		switch c.State {
-		case "running":
-			state = ui.Success.Render("running")
-		case "exited", "dead":
-			state = ui.Error.Render(c.State)
-		default:
-			state = ui.Warning.Render(c.State)
-		}
-
-		rows = append(rows, []string{c.Service, c.Name, state, c.Status, c.Ports})
+		rows = append(rows, []string{c.Service, c.Name, renderState(c.State), c.Status, c.Ports})
 	}
 
 	ui.PrintTable([]string{"SERVICE", "CONTAINER", "STATE", "STATUS", "PORTS"}, rows)
 
 	return nil
+}
+
+func renderState(state string) string {
+	switch state {
+	case "running":
+		return ui.Success.Render(state)
+	case "exited", "dead":
+		return ui.Error.Render(state)
+	default:
+		return ui.Warning.Render(state)
+	}
 }
