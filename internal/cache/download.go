@@ -254,37 +254,35 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, 
 }
 
 func parseFilenameFromResponse(resp *http.Response, url string) string {
-	cd := resp.Header.Get("Content-Disposition")
-	if cd != "" {
-		for part := range strings.SplitSeq(cd, ";") {
-			part = strings.TrimSpace(part)
-			if after, ok := strings.CutPrefix(part, "filename="); ok {
-				filename := after
-
-				filename = strings.Trim(filename, "\"")
-				if filename != "" {
-					if safe := sanitizeFilename(filename); safe != "" {
-						return safe
-					}
-
-					break
-				}
-			}
+	for part := range strings.SplitSeq(resp.Header.Get("Content-Disposition"), ";") {
+		after, ok := strings.CutPrefix(strings.TrimSpace(part), "filename=")
+		if !ok {
+			continue
 		}
+
+		filename := strings.Trim(after, "\"")
+		if filename == "" {
+			continue
+		}
+
+		if safe := sanitizeFilename(filename); safe != "" {
+			return safe
+		}
+
+		break
 	}
 
-	parts := strings.Split(url, "/")
-	for _, part := range slices.Backward(parts) {
-		if part != "" {
-			name, _, _ := strings.Cut(part, "?")
-			if name != "" {
-				if safe := sanitizeFilename(name); safe != "" {
-					return safe
-				}
-
-				break
-			}
+	for _, part := range slices.Backward(strings.Split(url, "/")) {
+		name, _, _ := strings.Cut(part, "?")
+		if name == "" {
+			continue
 		}
+
+		if safe := sanitizeFilename(name); safe != "" {
+			return safe
+		}
+
+		break
 	}
 
 	return "download.zip"
