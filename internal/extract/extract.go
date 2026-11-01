@@ -11,18 +11,18 @@ import (
 	"strings"
 )
 
-// ErrInvalidArchive indicates the archive is invalid or contains unsafe entries.
-var ErrInvalidArchive = errors.New("invalid archive")
+// errInvalidArchive indicates the archive is invalid or contains unsafe entries.
+var errInvalidArchive = errors.New("invalid archive")
 
 const maxFileSize = 32 * 1024 * 1024 // 32 MB
 
 func extractFile(file *zip.File, destPath string) error {
 	if file.UncompressedSize64 > maxFileSize {
-		return fmt.Errorf("file %s is too large to extract: %w", file.Name, ErrInvalidArchive)
+		return fmt.Errorf("file %s is too large to extract: %w", file.Name, errInvalidArchive)
 	}
 
 	if isSymlink(file) {
-		return fmt.Errorf("symlink entries are not allowed in archive: %s: %w", file.Name, ErrInvalidArchive)
+		return fmt.Errorf("symlink entries are not allowed in archive: %s: %w", file.Name, errInvalidArchive)
 	}
 
 	parentDir := filepath.Dir(destPath)
@@ -50,7 +50,7 @@ func extractFile(file *zip.File, destPath string) error {
 	}
 
 	if written > maxFileSize {
-		return fmt.Errorf("file %s is too large to extract: %w", file.Name, ErrInvalidArchive)
+		return fmt.Errorf("file %s is too large to extract: %w", file.Name, errInvalidArchive)
 	}
 
 	if err := destFile.Close(); err != nil {
@@ -64,22 +64,22 @@ func extractFile(file *zip.File, destPath string) error {
 // This prevents "zip slip" directory traversal attacks.
 func sanitizePath(destDir, name string) (string, error) {
 	if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") {
-		return "", fmt.Errorf("invalid path in archive: %s: %w", name, ErrInvalidArchive)
+		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
 	if strings.Contains(name, "\\") {
-		return "", fmt.Errorf("invalid path in archive: %s: %w", name, ErrInvalidArchive)
+		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
 	if len(name) >= 2 {
 		c := name[0]
 		if name[1] == ':' && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-			return "", fmt.Errorf("invalid path in archive: %s: %w", name, ErrInvalidArchive)
+			return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 		}
 	}
 
 	if filepath.IsAbs(name) {
-		return "", fmt.Errorf("invalid path in archive: %s: %w", name, ErrInvalidArchive)
+		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
 	name = filepath.Clean(name)
@@ -99,7 +99,7 @@ func sanitizePath(destDir, name string) (string, error) {
 	}
 
 	if strings.HasPrefix(rel, "..") || rel == "" {
-		return "", fmt.Errorf("invalid path in archive: %s: %w", name, ErrInvalidArchive)
+		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
 	return destPath, nil
@@ -140,7 +140,7 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 		current++
 
 		if isSymlink(file) {
-			return fmt.Errorf("symlink entries are not allowed in archive: %s: %w", file.Name, ErrInvalidArchive)
+			return fmt.Errorf("symlink entries are not allowed in archive: %s: %w", file.Name, errInvalidArchive)
 		}
 
 		name := strings.TrimPrefix(filepath.ToSlash(file.Name), "upload/")

@@ -31,5 +31,5 @@ func GetXenForoDir(startDir string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("not in a XenForo directory and XF_DIR not set: %w", ErrInvalidInput)
+	return "", fmt.Errorf("not in a XenForo directory and XF_DIR not set: %w", errInvalidInput)
 }

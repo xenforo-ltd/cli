@@ -29,7 +29,7 @@ func OpenBrowser(ctx context.Context, urlStr string) error {
 	case "windows":
 		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", u.String())
 	default:
-		return fmt.Errorf("unsupported platform %s: %w", runtime.GOOS, ErrUnsupported)
+		return fmt.Errorf("unsupported platform %s: %w", runtime.GOOS, errUnsupported)
 	}
 
 	if err := cmd.Start(); err != nil {

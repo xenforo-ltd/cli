@@ -77,7 +77,7 @@ func TestDoRetriesWithBody(t *testing.T) {
 		return store.SaveToken(&auth.Token{AccessToken: "new", RefreshToken: "refresh"})
 	}
 
-	resp, err := client.Do(t.Context(), http.MethodPost, "/retry", bytes.NewReader(body))
+	resp, err := client.do(t.Context(), http.MethodPost, "/retry", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("Do error: %v", err)
 	}

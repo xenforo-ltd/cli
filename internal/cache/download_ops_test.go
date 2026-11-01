@@ -83,7 +83,7 @@ func TestDownloadWithChecksumMismatch(t *testing.T) {
 		t.Fatal("expected checksum mismatch")
 	}
 
-	if !errors.Is(err, ErrChecksumMismatch) {
+	if !errors.Is(err, errChecksumMismatch) {
 		t.Fatalf("expected checksum mismatch error, got: %v", err)
 	}
 }
@@ -106,7 +106,7 @@ func TestDownloadUnauthorized(t *testing.T) {
 		t.Fatal("expected unauthorized error")
 	}
 
-	if !errors.Is(err, ErrAuthExpired) {
+	if !errors.Is(err, errAuthExpired) {
 		t.Fatalf("expected auth expired error, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "replace XF_TOKEN") {
@@ -147,7 +147,7 @@ func TestDownloadAuthenticatedSuccessAndBodyErrorMessage(t *testing.T) {
 		t.Fatal("expected forbidden error")
 	}
 
-	if !errors.Is(err, ErrDownloadFailed) {
+	if !errors.Is(err, errDownloadFailed) {
 		t.Fatalf("expected download failed error, got: %v", err)
 	}
 
@@ -184,7 +184,7 @@ func TestAuthenticatedDownloadUsesCache(t *testing.T) {
 		DownloadedAt: time.Now(),
 	}
 
-	dir, err := m.EntryPath("LIC1", meta.DownloadID, meta.Version)
+	dir, err := m.entryPath("LIC1", meta.DownloadID, meta.Version)
 	if err != nil {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestAuthenticatedDownloadUsesCache(t *testing.T) {
 		t.Fatalf("write cached file failed: %v", err)
 	}
 
-	sum, err := CalculateChecksum(filePath)
+	sum, err := calculateChecksum(filePath)
 	if err != nil {
 		t.Fatalf("checksum failed: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestAuthenticatedDownloadUsesCache(t *testing.T) {
 	meta.Checksum = sum
 
 	meta.Size = 6
-	if err := m.SaveMetadata("LIC1", meta); err != nil {
+	if err := m.saveMetadata("LIC1", meta); err != nil {
 		t.Fatalf("SaveMetadata failed: %v", err)
 	}
 

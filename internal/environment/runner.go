@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	// ErrUnexpectedOutput indicates that an operation produced unexpected output.
-	ErrUnexpectedOutput = errors.New("unexpected output")
+	// errUnexpectedOutput indicates that an operation produced unexpected output.
+	errUnexpectedOutput = errors.New("unexpected output")
 
-	// ErrTimeout indicates an operation timed out.
-	ErrTimeout = errors.New("operation timed out")
+	// errTimeout indicates an operation timed out.
+	errTimeout = errors.New("operation timed out")
 
 	// ErrEnvNotInitialized indicates the Docker environment is not initialized.
 	ErrEnvNotInitialized = errors.New("environment not initialized")
@@ -137,10 +137,10 @@ func (r *Runner) Destroy(ctx context.Context) error {
 // writers behave the same whether the service is running or stopped. A TTY is
 // requested only when stdin is a terminal.
 func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
-	return r.ExecOrRunInDir(ctx, service, "", env, stdin, stdout, stderr, cmd...)
+	return r.execOrRunInDir(ctx, service, "", env, stdin, stdout, stderr, cmd...)
 }
 
-func (r *Runner) ExecOrRunInDir(ctx context.Context, service, workDir string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
+func (r *Runner) execOrRunInDir(ctx context.Context, service, workDir string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	running, err := r.IsServiceRunning(ctx, service)
 	if err != nil {
 		return err
@@ -354,7 +354,7 @@ func (r *Runner) getServicePort(ctx context.Context, service, internalPort strin
 		return parts[len(parts)-1], nil
 	}
 
-	return "", fmt.Errorf("unexpected port output: %s: %w", output, ErrUnexpectedOutput)
+	return "", fmt.Errorf("unexpected port output: %s: %w", output, errUnexpectedOutput)
 }
 
 // IsServiceRunning reports whether the given compose service has a running

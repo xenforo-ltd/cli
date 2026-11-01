@@ -6,15 +6,15 @@ var (
 	// ErrCacheMiss is returned when a requested cache entry does not exist.
 	ErrCacheMiss = errors.New("cache miss")
 
-	// ErrChecksumMismatch indicates a checksum verification failure.
-	ErrChecksumMismatch = errors.New("checksum mismatch")
+	// errChecksumMismatch indicates a checksum verification failure.
+	errChecksumMismatch = errors.New("checksum mismatch")
 
-	// ErrInvalidInput indicates invalid input to a cache operation.
-	ErrInvalidInput = errors.New("invalid input")
+	// errInvalidInput indicates invalid input to a cache operation.
+	errInvalidInput = errors.New("invalid input")
 
-	// ErrAuthExpired indicates the authentication token has expired.
-	ErrAuthExpired = errors.New("authentication expired")
+	// errAuthExpired indicates the authentication token has expired.
+	errAuthExpired = errors.New("authentication expired")
 
-	// ErrDownloadFailed indicates a download operation failed.
-	ErrDownloadFailed = errors.New("download failed")
+	// errDownloadFailed indicates a download operation failed.
+	errDownloadFailed = errors.New("download failed")
 )

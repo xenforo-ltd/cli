@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	// KeyringService is the service name used in the system keychain.
-	KeyringService = "xf"
+	// keyringService is the service name used in the system keychain.
+	keyringService = "xf"
 
-	// KeyringUser is the user/account name used in the system keychain.
-	KeyringUser = "oauth-token"
+	// keyringUser is the user/account name used in the system keychain.
+	keyringUser = "oauth-token"
 )
 
 // Token represents an OAuth token with expiry information.
@@ -46,20 +46,20 @@ func (t *Token) TimeUntilExpiry() time.Duration {
 	return time.Until(t.ExpiresAt)
 }
 
-// Keychain manages secure token storage in the system keychain.
-type Keychain struct{}
+// keychain manages secure token storage in the system keychain.
+type keychain struct{}
 
-// NewKeychain creates a new Keychain instance.
-func NewKeychain() *Keychain {
-	return &Keychain{}
+// newKeychain creates a new keychain instance.
+func newKeychain() *keychain {
+	return &keychain{}
 }
 
-// IsAvailable checks if the system keychain is accessible.
-func (k *Keychain) IsAvailable() bool {
+// isAvailable checks if the system keychain is accessible.
+func (k *keychain) isAvailable() bool {
 	// Try to access the keychain by getting a non-existent key
 	// If we get ErrNotFound, the keychain is available
 	// If we get a different error, it's unavailable
-	_, err := keyring.Get(KeyringService, "__test_availability__")
+	_, err := keyring.Get(keyringService, "__test_availability__")
 	if errors.Is(err, keyring.ErrNotFound) {
 		return true
 	}
@@ -72,7 +72,7 @@ func (k *Keychain) IsAvailable() bool {
 }
 
 // SaveToken stores a token in the keychain.
-func (k *Keychain) SaveToken(token *Token) error {
+func (k *keychain) SaveToken(token *Token) error {
 	if token == nil || token.External {
 		return fmt.Errorf("invalid token for keychain storage: %w", ErrInvalidInput)
 	}
@@ -82,7 +82,7 @@ func (k *Keychain) SaveToken(token *Token) error {
 		return fmt.Errorf("failed to marshal token: %w", err)
 	}
 
-	if err := keyring.Set(KeyringService, KeyringUser, string(data)); err != nil {
+	if err := keyring.Set(keyringService, keyringUser, string(data)); err != nil {
 		return fmt.Errorf("failed to save token to keychain: %w", err)
 	}
 
@@ -90,8 +90,8 @@ func (k *Keychain) SaveToken(token *Token) error {
 }
 
 // LoadToken retrieves the stored token from the keychain.
-func (k *Keychain) LoadToken() (*Token, error) {
-	data, err := keyring.Get(KeyringService, KeyringUser)
+func (k *keychain) LoadToken() (*Token, error) {
+	data, err := keyring.Get(keyringService, keyringUser)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return nil, fmt.Errorf("not authenticated - run 'xf auth login': %w", ErrAuthRequired)
@@ -109,8 +109,8 @@ func (k *Keychain) LoadToken() (*Token, error) {
 }
 
 // DeleteToken removes the token from the keychain.
-func (k *Keychain) DeleteToken() error {
-	err := keyring.Delete(KeyringService, KeyringUser)
+func (k *keychain) DeleteToken() error {
+	err := keyring.Delete(keyringService, keyringUser)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return nil
@@ -122,7 +122,7 @@ func (k *Keychain) DeleteToken() error {
 	return nil
 }
 
-func (k *Keychain) Source() string { return "keychain" }
+func (k *keychain) Source() string { return "keychain" }
 
 func keychainUnavailable(cause error) error {
 	if cause != nil {
@@ -131,11 +131,11 @@ func keychainUnavailable(cause error) error {
 	return fmt.Errorf("system keychain is unavailable (Linux requires a running, unlocked Secret Service); select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", ErrStoreUnavailable)
 }
 
-func (k *Keychain) PrepareLogin() error {
-	if !k.IsAvailable() {
+func (k *keychain) PrepareLogin() error {
+	if !k.isAvailable() {
 		return keychainUnavailable(nil)
 	}
 	return nil
 }
 
-func (k *Keychain) LoadTokenForLogout() (*Token, error) { return k.LoadToken() }
+func (k *keychain) LoadTokenForLogout() (*Token, error) { return k.LoadToken() }

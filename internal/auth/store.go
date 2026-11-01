@@ -24,7 +24,7 @@ func NewStore() (Store, error) {
 		return nil, fmt.Errorf("failed to load authentication configuration: %w", err)
 	}
 	return selectStore(cfg, os.Getenv("XF_TOKEN"), config.AuthFilePath, func() (Store, error) {
-		return NewKeychain(), nil
+		return newKeychain(), nil
 	})
 }
 
@@ -57,7 +57,7 @@ type WritableStore interface {
 	LoadTokenForLogout() (*Token, error)
 }
 
-var errExternallyManaged = fmt.Errorf("XF_TOKEN manages authentication externally; unset XF_TOKEN to manage stored credentials, or replace it with a new access token: %w", ErrUnsupported)
+var errExternallyManaged = fmt.Errorf("XF_TOKEN manages authentication externally; unset XF_TOKEN to manage stored credentials, or replace it with a new access token: %w", errUnsupported)
 
 // NewWritableStore selects persistent storage without relying on display labels.
 func NewWritableStore() (WritableStore, error) {

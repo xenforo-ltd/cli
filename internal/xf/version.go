@@ -17,12 +17,12 @@ type Stability string
 
 // Stability constants represent different release stages.
 const (
-	StabilityAlpha   Stability = "alpha"
-	StabilityBeta    Stability = "beta"
-	StabilityRC      Stability = "rc"
-	StabilityStable  Stability = "stable"
-	StabilityPL      Stability = "pl"
-	StabilityUnknown Stability = "unknown"
+	stabilityAlpha   Stability = "alpha"
+	stabilityBeta    Stability = "beta"
+	stabilityRC      Stability = "rc"
+	stabilityStable  Stability = "stable"
+	stabilityPL      Stability = "pl"
+	stabilityUnknown Stability = "unknown"
 
 	stabilityAlphaNumber  = 1
 	stabilityBetaNumber   = 3
@@ -43,20 +43,20 @@ type Version struct {
 	PLLevel   int       // patch level (0-9)
 }
 
-// ParseVersionString parses a version string into a Version structure.
-func ParseVersionString(versionStr string) (*Version, error) {
+// parseVersionString parses a version string into a Version structure.
+func parseVersionString(versionStr string) (*Version, error) {
 	v := &Version{String: versionStr}
 
 	versionStr = strings.TrimSpace(versionStr)
 
-	v.Stability = StabilityStable
+	v.Stability = stabilityStable
 	v.StabNum = stabilityStableNumber
 	v.PLLevel = 1
 
 	lowerStr := strings.ToLower(versionStr)
 	switch {
-	case strings.Contains(lowerStr, string(StabilityAlpha)):
-		v.Stability = StabilityAlpha
+	case strings.Contains(lowerStr, string(stabilityAlpha)):
+		v.Stability = stabilityAlpha
 		v.StabNum = stabilityAlphaNumber
 		// Extract alpha number if present
 		if matches := regexp.MustCompile(`alpha\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
@@ -64,8 +64,8 @@ func ParseVersionString(versionStr string) (*Version, error) {
 		}
 
 		versionStr = regexp.MustCompile(`(?i)\s*alpha\s*\d*`).ReplaceAllString(versionStr, "")
-	case strings.Contains(lowerStr, string(StabilityBeta)):
-		v.Stability = StabilityBeta
+	case strings.Contains(lowerStr, string(stabilityBeta)):
+		v.Stability = stabilityBeta
 
 		v.StabNum = stabilityBetaNumber
 		if matches := regexp.MustCompile(`beta\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
@@ -73,8 +73,8 @@ func ParseVersionString(versionStr string) (*Version, error) {
 		}
 
 		versionStr = regexp.MustCompile(`(?i)\s*beta\s*\d*`).ReplaceAllString(versionStr, "")
-	case strings.Contains(lowerStr, string(StabilityRC)) || strings.Contains(lowerStr, "release candidate"):
-		v.Stability = StabilityRC
+	case strings.Contains(lowerStr, string(stabilityRC)) || strings.Contains(lowerStr, "release candidate"):
+		v.Stability = stabilityRC
 
 		v.StabNum = stabilityRCNumber
 		if matches := regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
@@ -82,8 +82,8 @@ func ParseVersionString(versionStr string) (*Version, error) {
 		}
 
 		versionStr = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`).ReplaceAllString(versionStr, "")
-	case strings.Contains(lowerStr, string(StabilityPL)) || strings.Contains(lowerStr, "patch level"):
-		v.Stability = StabilityPL
+	case strings.Contains(lowerStr, string(stabilityPL)) || strings.Contains(lowerStr, "patch level"):
+		v.Stability = stabilityPL
 
 		v.StabNum = stabilityPLNumber
 		if matches := regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
@@ -97,7 +97,7 @@ func ParseVersionString(versionStr string) (*Version, error) {
 
 	parts := strings.Split(versionStr, ".")
 	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid version format %s: %w", v.String, ErrInvalidInput)
+		return nil, fmt.Errorf("invalid version format %s: %w", v.String, errInvalidInput)
 	}
 
 	var err error
@@ -146,33 +146,33 @@ func ParseVersionID(versionID int) *Version {
 
 	switch v.StabNum {
 	case stabilityAlphaNumber:
-		v.Stability = StabilityAlpha
+		v.Stability = stabilityAlpha
 	case stabilityBetaNumber:
-		v.Stability = StabilityBeta
+		v.Stability = stabilityBeta
 	case stabilityRCNumber:
-		v.Stability = StabilityRC
+		v.Stability = stabilityRC
 	case stabilityStableNumber:
-		v.Stability = StabilityStable
+		v.Stability = stabilityStable
 	case stabilityPLNumber:
-		v.Stability = StabilityPL
+		v.Stability = stabilityPL
 	default:
-		v.Stability = StabilityUnknown
+		v.Stability = stabilityUnknown
 	}
 
 	v.String = fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-	if v.Stability != StabilityStable {
+	if v.Stability != stabilityStable {
 		switch v.Stability {
-		case StabilityAlpha:
+		case stabilityAlpha:
 			v.String += fmt.Sprintf(" Alpha %d", v.PLLevel)
-		case StabilityBeta:
+		case stabilityBeta:
 			v.String += fmt.Sprintf(" Beta %d", v.PLLevel)
-		case StabilityRC:
+		case stabilityRC:
 			v.String += fmt.Sprintf(" RC %d", v.PLLevel)
-		case StabilityPL:
+		case stabilityPL:
 			v.String += fmt.Sprintf(" PL %d", v.PLLevel)
-		case StabilityUnknown:
+		case stabilityUnknown:
 			v.String += fmt.Sprintf(" (unknown %d)", v.StabNum)
-		case StabilityStable:
+		case stabilityStable:
 			break
 		}
 	}
@@ -231,7 +231,7 @@ func DetectVersionFS(installation fs.FS) (*Version, error) {
 	}
 
 	if versionStr == "" && versionID == 0 {
-		return nil, fmt.Errorf("could not detect XenForo version from XF.php: %w", ErrInvalidInput)
+		return nil, fmt.Errorf("could not detect XenForo version from XF.php: %w", errInvalidInput)
 	}
 
 	data, err := fs.ReadFile(installation, "src/addons/XF/addon.json")
@@ -267,5 +267,5 @@ func DetectVersionFS(installation fs.FS) (*Version, error) {
 	}
 
 	// Fall back to parsing the version string
-	return ParseVersionString(versionStr)
+	return parseVersionString(versionStr)
 }

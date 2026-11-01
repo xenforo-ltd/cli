@@ -23,7 +23,7 @@ func TestManagerSaveGetVerify(t *testing.T) {
 		DownloadedAt: time.Now(),
 	}
 
-	entryPath, err := m.EntryPath(license, meta.DownloadID, meta.Version)
+	entryPath, err := m.entryPath(license, meta.DownloadID, meta.Version)
 	if err != nil {
 		t.Fatalf("EntryPath failed: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestManagerSaveGetVerify(t *testing.T) {
 		t.Fatalf("write file failed: %v", err)
 	}
 
-	checksum, err := CalculateChecksum(filePath)
+	checksum, err := calculateChecksum(filePath)
 	if err != nil {
 		t.Fatalf("CalculateChecksum failed: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestManagerSaveGetVerify(t *testing.T) {
 	meta.Checksum = checksum
 	meta.Size = int64(len("archive"))
 
-	if err := m.SaveMetadata(license, meta); err != nil {
+	if err := m.saveMetadata(license, meta); err != nil {
 		t.Fatalf("SaveMetadata failed: %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestManagerList(t *testing.T) {
 			license = "LIC2"
 		}
 
-		dir, err := m.EntryPath(license, meta.DownloadID, meta.Version)
+		dir, err := m.entryPath(license, meta.DownloadID, meta.Version)
 		if err != nil {
 			t.Fatalf("EntryPath failed: %v", err)
 		}
@@ -95,7 +95,7 @@ func TestManagerList(t *testing.T) {
 			t.Fatalf("write file failed: %v", err)
 		}
 
-		if err := m.SaveMetadata(license, new(meta)); err != nil {
+		if err := m.saveMetadata(license, new(meta)); err != nil {
 			t.Fatalf("SaveMetadata failed: %v", err)
 		}
 	}
@@ -123,7 +123,7 @@ func TestManagerList(t *testing.T) {
 func TestManagerPurge(t *testing.T) {
 	m := newTestManager(t)
 
-	dir, err := m.EntryPath("LIC1", "xenforo", "1")
+	dir, err := m.entryPath("LIC1", "xenforo", "1")
 	if err != nil {
 		t.Fatalf("EntryPath failed: %v", err)
 	}

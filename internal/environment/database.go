@@ -57,7 +57,7 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 		}
 	}
 
-	return fmt.Errorf("timed out waiting for database to be ready: %w", ErrTimeout)
+	return fmt.Errorf("timed out waiting for database to be ready: %w", errTimeout)
 }
 
 func escapePHPString(value string) string {

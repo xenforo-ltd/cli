@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseVersionStringAndIDRoundTrip(t *testing.T) {
-	v, err := ParseVersionString("2.3.8")
+	v, err := parseVersionString("2.3.8")
 	if err != nil {
 		t.Fatalf("ParseVersionString failed: %v", err)
 	}
@@ -27,14 +27,14 @@ func TestParseVersionStringStabilityVariants(t *testing.T) {
 		in        string
 		stability Stability
 	}{
-		{"2.3.8 Alpha 2", StabilityAlpha},
-		{"2.3.8 Beta 1", StabilityBeta},
-		{"2.3.8 RC 3", StabilityRC},
-		{"2.3.8 PL 2", StabilityPL},
+		{"2.3.8 Alpha 2", stabilityAlpha},
+		{"2.3.8 Beta 1", stabilityBeta},
+		{"2.3.8 RC 3", stabilityRC},
+		{"2.3.8 PL 2", stabilityPL},
 	}
 
 	for _, tc := range cases {
-		v, err := ParseVersionString(tc.in)
+		v, err := parseVersionString(tc.in)
 		if err != nil {
 			t.Fatalf("ParseVersionString(%q) failed: %v", tc.in, err)
 		}

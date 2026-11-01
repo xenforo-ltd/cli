@@ -28,7 +28,7 @@ func TestCredentialSelection(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var keyCalls, fileCalls int
 			cfg := config.Config{Auth: config.AuthConfig{Storage: tc.storage}, OAuth: config.OAuthConfig{BaseURL: "https://example.com"}}
-			store, err := selectStore(cfg, tc.raw, func() (string, error) { fileCalls++; return "unused", nil }, func() (Store, error) { keyCalls++; return NewKeychain(), nil })
+			store, err := selectStore(cfg, tc.raw, func() (string, error) { fileCalls++; return "unused", nil }, func() (Store, error) { keyCalls++; return newKeychain(), nil })
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("selection error = %v", err)
 			}
@@ -53,7 +53,7 @@ func TestCredentialSelection(t *testing.T) {
 					t.Fatal("environment store exposes writable lifecycle")
 				}
 				for _, err := range []error{store.SaveToken(token), store.DeleteToken()} {
-					if !errors.Is(err, ErrUnsupported) {
+					if !errors.Is(err, errUnsupported) {
 						t.Fatalf("expected externally managed error: %v", err)
 					}
 				}

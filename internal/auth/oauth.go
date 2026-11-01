@@ -48,8 +48,8 @@ func (c *OAuthClient) AuthorizationURL(pkce *PKCEParams, redirectURI string) str
 	return endpoints.Auth + "?" + params.Encode()
 }
 
-// TokenResponse represents the OAuth token response.
-type TokenResponse struct {
+// tokenResponse represents the OAuth token response.
+type tokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
@@ -87,10 +87,10 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token exchange failed (status %d): %s: %w", resp.StatusCode, string(body), ErrAuthFailed)
+		return nil, fmt.Errorf("token exchange failed (status %d): %s: %w", resp.StatusCode, string(body), errAuthFailed)
 	}
 
-	var tokenResp TokenResponse
+	var tokenResp tokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to parse token response: %w", err)
 	}
@@ -126,10 +126,10 @@ func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token refresh failed (status %d): %s: %w", resp.StatusCode, string(body), ErrAuthExpired)
+		return nil, fmt.Errorf("token refresh failed (status %d): %s: %w", resp.StatusCode, string(body), errAuthExpired)
 	}
 
-	var tokenResp TokenResponse
+	var tokenResp tokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to parse refresh response: %w", err)
 	}
@@ -180,7 +180,7 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token introspection failed (status %d): %s: %w", resp.StatusCode, string(body), ErrAuthFailed)
+		return nil, fmt.Errorf("token introspection failed (status %d): %s: %w", resp.StatusCode, string(body), errAuthFailed)
 	}
 
 	var introspectResp IntrospectResponse
@@ -219,13 +219,13 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 			return fmt.Errorf("token revocation failed (status %d; body unreadable): %w", resp.StatusCode, err)
 		}
 
-		return fmt.Errorf("token revocation failed (status %d): %s: %w", resp.StatusCode, body, ErrAuthFailed)
+		return fmt.Errorf("token revocation failed (status %d): %s: %w", resp.StatusCode, body, errAuthFailed)
 	}
 
 	return nil
 }
 
-func (c *OAuthClient) tokenFromResponse(resp *TokenResponse) *Token {
+func (c *OAuthClient) tokenFromResponse(resp *tokenResponse) *Token {
 	now := time.Now()
 
 	return &Token{

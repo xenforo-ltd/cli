@@ -49,27 +49,27 @@ func NewManager() (*Manager, error) {
 	return &Manager{basePath: cfg.CachePath}, nil
 }
 
-// EntryPath returns the directory path for a cache entry.
-func (m *Manager) EntryPath(licenseKey string, downloadID, version string) (string, error) {
+// entryPath returns the directory path for a cache entry.
+func (m *Manager) entryPath(licenseKey string, downloadID, version string) (string, error) {
 	p := filepath.Clean(filepath.Join(m.basePath, licenseKey, downloadID, version))
 	if !strings.HasPrefix(p, m.basePath+string(filepath.Separator)) {
-		return "", fmt.Errorf("invalid cache path components: %w", ErrInvalidInput)
+		return "", fmt.Errorf("invalid cache path components: %w", errInvalidInput)
 	}
 
 	return p, nil
 }
 
-// MetadataFilename is the name of the metadata file for each cache entry.
-const MetadataFilename = ".metadata.json"
+// metadataFilename is the name of the metadata file for each cache entry.
+const metadataFilename = ".metadata.json"
 
 // GetEntry retrieves a cache entry by license, download ID, and version.
 func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entry, error) {
-	entryPath, err := m.EntryPath(licenseKey, downloadID, version)
+	entryPath, err := m.entryPath(licenseKey, downloadID, version)
 	if err != nil {
 		return nil, err
 	}
 
-	metadataPath := filepath.Join(entryPath, MetadataFilename)
+	metadataPath := filepath.Join(entryPath, metadataFilename)
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
@@ -94,9 +94,9 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 	}, nil
 }
 
-// SaveMetadata saves cache entry metadata to disk.
-func (m *Manager) SaveMetadata(licenseKey string, metadata *EntryMetadata) error {
-	entryPath, err := m.EntryPath(licenseKey, metadata.DownloadID, metadata.Version)
+// saveMetadata saves cache entry metadata to disk.
+func (m *Manager) saveMetadata(licenseKey string, metadata *EntryMetadata) error {
+	entryPath, err := m.entryPath(licenseKey, metadata.DownloadID, metadata.Version)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (m *Manager) SaveMetadata(licenseKey string, metadata *EntryMetadata) error
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	metadataPath := filepath.Join(entryPath, MetadataFilename)
+	metadataPath := filepath.Join(entryPath, metadataFilename)
 
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
@@ -125,7 +125,7 @@ func (m *Manager) Verify(entry *Entry) (bool, error) {
 		return true, nil
 	}
 
-	checksum, err := CalculateChecksum(entry.FilePath)
+	checksum, err := calculateChecksum(entry.FilePath)
 	if err != nil {
 		return false, err
 	}
@@ -146,7 +146,7 @@ func (m *Manager) PurgeAll() error {
 func (m *Manager) PurgeLicense(licenseKey string) error {
 	licensePath := filepath.Clean(filepath.Join(m.basePath, licenseKey))
 	if !strings.HasPrefix(licensePath, m.basePath+string(filepath.Separator)) {
-		return fmt.Errorf("invalid license key: %w", ErrInvalidInput)
+		return fmt.Errorf("invalid license key: %w", errInvalidInput)
 	}
 
 	if err := os.RemoveAll(licensePath); err != nil && !os.IsNotExist(err) {
@@ -169,7 +169,7 @@ func (m *Manager) List() ([]*Entry, error) {
 			return err
 		}
 
-		if d.Name() == MetadataFilename {
+		if d.Name() == metadataFilename {
 			entry, err := m.loadEntryFromMetadata(path)
 			if err != nil {
 				return err
@@ -195,7 +195,7 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 
 	licensePath := filepath.Clean(filepath.Join(m.basePath, licenseKey))
 	if !strings.HasPrefix(licensePath, m.basePath+string(filepath.Separator)) {
-		return nil, fmt.Errorf("invalid license key: %w", ErrInvalidInput)
+		return nil, fmt.Errorf("invalid license key: %w", errInvalidInput)
 	}
 
 	if _, err := os.Stat(licensePath); os.IsNotExist(err) {
@@ -207,7 +207,7 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 			return err
 		}
 
-		if d.Name() == MetadataFilename {
+		if d.Name() == metadataFilename {
 			entry, err := m.loadEntryFromMetadata(path)
 			if err != nil {
 				return err
@@ -240,7 +240,7 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 
 	safeFilename := sanitizeFilename(metadata.Filename)
 	if safeFilename == "" {
-		return nil, fmt.Errorf("invalid cached filename %s: %w", metadata.Filename, ErrInvalidInput)
+		return nil, fmt.Errorf("invalid cached filename %s: %w", metadata.Filename, errInvalidInput)
 	}
 
 	_, err = filepath.Rel(m.basePath, metadataPath)
@@ -275,8 +275,8 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	}, nil
 }
 
-// CalculateChecksum computes a file's SHA-256 checksum.
-func CalculateChecksum(filePath string) (string, error) {
+// calculateChecksum computes a file's SHA-256 checksum.
+func calculateChecksum(filePath string) (string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file for checksum: %w", err)

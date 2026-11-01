@@ -65,15 +65,15 @@ type License struct {
 	Extras         []LicenseExtra `json:"extras,omitempty"`
 }
 
-// LicensesResponse represents the API response for listing licenses.
-type LicensesResponse struct {
+// licensesResponse represents the API response for listing licenses.
+type licensesResponse struct {
 	Licenses []License `json:"licenses"`
 }
 
 // GetLicenses retrieves all licenses for the authenticated user.
 func (c *Client) GetLicenses(ctx context.Context) ([]License, error) {
-	var result LicensesResponse
-	if err := c.GetJSON(ctx, "/api/customer-oauth2/licenses", &result); err != nil {
+	var result licensesResponse
+	if err := c.getJSON(ctx, "/api/customer-oauth2/licenses", &result); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +111,7 @@ func (c *Client) GetLicenseDownloadables(ctx context.Context, licenseKey string)
 	path := "/api/customer-oauth2/license-downloadables?" + params.Encode()
 
 	var result LicenseDownloadables
-	if err := c.GetJSON(ctx, path, &result); err != nil {
+	if err := c.getJSON(ctx, path, &result); err != nil {
 		return nil, err
 	}
 
@@ -126,7 +126,7 @@ func (c *Client) GetLicenseVersions(ctx context.Context, licenseKey string, down
 	path := "/api/customer-oauth2/license-versions?" + params.Encode()
 
 	var result LicenseVersions
-	if err := c.GetJSON(ctx, path, &result); err != nil {
+	if err := c.getJSON(ctx, path, &result); err != nil {
 		return nil, err
 	}
 
@@ -139,8 +139,8 @@ type DownloadInfo struct {
 	Filename      string `json:"filename"`
 }
 
-// DownloadInfoResponse is the API response for download information.
-type DownloadInfoResponse struct {
+// downloadInfoResponse is the API response for download information.
+type downloadInfoResponse struct {
 	Download DownloadInfo `json:"download"`
 }
 
@@ -152,8 +152,8 @@ func (c *Client) GetDownloadInfo(ctx context.Context, licenseKey string, downloa
 	params.Set("version_id", strconv.Itoa(versionID))
 	path := "/api/customer-oauth2/license-download-info?" + params.Encode()
 
-	var result DownloadInfoResponse
-	if err := c.GetJSON(ctx, path, &result); err != nil {
+	var result downloadInfoResponse
+	if err := c.getJSON(ctx, path, &result); err != nil {
 		return nil, err
 	}
 

@@ -19,11 +19,11 @@ import (
 )
 
 var (
-	// ErrAPIError indicates the API returned an error response.
-	ErrAPIError = errors.New("API error")
+	// errAPIError indicates the API returned an error response.
+	errAPIError = errors.New("API error")
 
-	// ErrAuthExpired indicates the authentication token has expired.
-	ErrAuthExpired = errors.New("authentication expired")
+	// errAuthExpired indicates the authentication token has expired.
+	errAuthExpired = errors.New("authentication expired")
 )
 
 // Client is an authenticated HTTP client for the XenForo Customer API.
@@ -76,8 +76,8 @@ func userAgent() string {
 	return fmt.Sprintf("xenforo-cli/%s (%s/%s)", v.Version, v.OS, v.Arch)
 }
 
-// Do sends an HTTP request and returns the response.
-func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+// do sends an HTTP request and returns the response.
+func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	var bodyBytes []byte
 
 	if body != nil {
@@ -92,15 +92,15 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	return c.doWithRetry(ctx, method, path, bodyBytes, true)
 }
 
-// GetJSON performs a GET request and decodes the JSON response into result.
-func (c *Client) GetJSON(ctx context.Context, path string, result any) error {
-	resp, err := c.Do(ctx, http.MethodGet, path, nil)
+// getJSON performs a GET request and decodes the JSON response into result.
+func (c *Client) getJSON(ctx context.Context, path string, result any) error {
+	resp, err := c.do(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	if err := CheckResponse(resp); err != nil {
+	if err := checkResponse(resp); err != nil {
 		return err
 	}
 
@@ -145,7 +145,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 	if resp.StatusCode == http.StatusUnauthorized && allowRetry {
 		resp.Body.Close()
 		if token.External {
-			return nil, fmt.Errorf("XF_TOKEN was rejected; replace it with a valid access token: %w", ErrAuthExpired)
+			return nil, fmt.Errorf("XF_TOKEN was rejected; replace it with a valid access token: %w", errAuthExpired)
 		}
 
 		refresh := c.refreshFn
@@ -177,10 +177,10 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	}
 
 	if token.External {
-		return fmt.Errorf("replace XF_TOKEN with a valid access token: %w", ErrAuthExpired)
+		return fmt.Errorf("replace XF_TOKEN with a valid access token: %w", errAuthExpired)
 	}
 	if token.RefreshToken == "" {
-		return fmt.Errorf("no refresh token available: %w", ErrAuthExpired)
+		return fmt.Errorf("no refresh token available: %w", errAuthExpired)
 	}
 
 	oauthClient := auth.NewOAuthClient(c.oauthCfg)
@@ -197,19 +197,19 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	return nil
 }
 
-// Error represents an error response from the API.
-type Error struct {
+// apiError represents an error response from the API.
+type apiError struct {
 	Message string `json:"message"`
 }
 
-// ErrorResponse represents the error response structure from XenForo API.
-type ErrorResponse struct {
-	Errors []Error `json:"errors"`
+// errorResponse represents the error response structure from XenForo API.
+type errorResponse struct {
+	Errors []apiError `json:"errors"`
 }
 
-// ParseError parses an API error response.
-func ParseError(body []byte) (*ErrorResponse, error) {
-	var errResp ErrorResponse
+// parseError parses an API error response.
+func parseError(body []byte) (*errorResponse, error) {
+	var errResp errorResponse
 	if err := json.Unmarshal(body, &errResp); err != nil {
 		return nil, fmt.Errorf("failed to parse API error response: %w", err)
 	}
@@ -217,8 +217,8 @@ func ParseError(body []byte) (*ErrorResponse, error) {
 	return &errResp, nil
 }
 
-// CheckResponse checks if an HTTP response indicates an error and returns a formatted error.
-func CheckResponse(resp *http.Response) error {
+// checkResponse checks if an HTTP response indicates an error and returns a formatted error.
+func checkResponse(resp *http.Response) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
@@ -228,10 +228,10 @@ func CheckResponse(resp *http.Response) error {
 		return fmt.Errorf("API error (status %d): failed to read response: %w", resp.StatusCode, err)
 	}
 
-	errResp, parseErr := ParseError(body)
+	errResp, parseErr := parseError(body)
 	if parseErr != nil || len(errResp.Errors) == 0 {
 		return fmt.Errorf("API error (status %d): %s: %w", resp.StatusCode, string(body), parseErr)
 	}
 
-	return fmt.Errorf("API error: %s: %w", errResp.Errors[0].Message, ErrAPIError)
+	return fmt.Errorf("API error: %s: %w", errResp.Errors[0].Message, errAPIError)
 }

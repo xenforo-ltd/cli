@@ -67,7 +67,7 @@ func (m *Manager) Download(ctx context.Context, opts DownloadOptions, authToken 
 		totalSize = opts.ExpectedSize
 	}
 
-	entryPath, err := m.EntryPath(opts.LicenseKey, opts.DownloadID, opts.Version)
+	entryPath, err := m.entryPath(opts.LicenseKey, opts.DownloadID, opts.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) 
 
 func checkResponseStatus(resp *http.Response, authToken string) error {
 	if authToken != "" && resp.StatusCode == http.StatusUnauthorized {
-		return fmt.Errorf("authentication expired - replace XF_TOKEN if set, otherwise run 'xf auth login': %w", ErrAuthExpired)
+		return fmt.Errorf("authentication expired - replace XF_TOKEN if set, otherwise run 'xf auth login': %w", errAuthExpired)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -154,7 +154,7 @@ func checkResponseStatus(resp *http.Response, authToken string) error {
 			}
 		}
 
-		return fmt.Errorf("download failed with status %d: %w", resp.StatusCode, ErrDownloadFailed)
+		return fmt.Errorf("download failed with status %d: %w", resp.StatusCode, errDownloadFailed)
 	}
 
 	return nil
@@ -203,13 +203,13 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 	}
 
 	if expectedChecksum != "" {
-		checksum, err := CalculateChecksum(tmpPath)
+		checksum, err := calculateChecksum(tmpPath)
 		if err != nil {
 			return fail(fmt.Errorf("failed to calculate checksum: %w", err))
 		}
 
 		if checksum != expectedChecksum {
-			return fail(fmt.Errorf("checksum mismatch: expected %s, got %s: %w", expectedChecksum, checksum, ErrChecksumMismatch))
+			return fail(fmt.Errorf("checksum mismatch: expected %s, got %s: %w", expectedChecksum, checksum, errChecksumMismatch))
 		}
 	}
 
@@ -226,7 +226,7 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, 
 		return nil, fmt.Errorf("failed to stat downloaded file: %w", err)
 	}
 
-	checksum, err := CalculateChecksum(filePath)
+	checksum, err := calculateChecksum(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, 
 		SourceURL:    opts.URL,
 	}
 
-	if err := m.SaveMetadata(opts.LicenseKey, metadata); err != nil {
+	if err := m.saveMetadata(opts.LicenseKey, metadata); err != nil {
 		return nil, err
 	}
 

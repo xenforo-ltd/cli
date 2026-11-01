@@ -62,7 +62,7 @@ func TestUpdateMetadataVersionCreatesFile(t *testing.T) {
 		t.Fatalf("unexpected metadata: %#v", meta)
 	}
 
-	if _, err := os.Stat(MetadataPath(dir)); err != nil {
+	if _, err := os.Stat(metadataPath(dir)); err != nil {
 		t.Fatalf("expected metadata file: %v", err)
 	}
 }

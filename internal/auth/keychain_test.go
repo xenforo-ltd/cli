@@ -103,7 +103,7 @@ func TestToken_TimeUntilExpiry(t *testing.T) {
 // 3. Test manually on the target platforms
 
 func TestKeychain_NewKeychain(t *testing.T) {
-	kc := NewKeychain()
+	kc := newKeychain()
 	if kc == nil {
 		t.Error("NewKeychain() returned nil")
 	}
@@ -112,7 +112,7 @@ func TestKeychain_NewKeychain(t *testing.T) {
 func TestKeychainDistinguishesMissingCredentialsFromUnavailableStorage(t *testing.T) {
 	keyring.MockInit()
 	t.Cleanup(keyring.MockInit)
-	store := NewKeychain()
+	store := newKeychain()
 	if err := store.PrepareLogin(); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestKeychainDistinguishesMissingCredentialsFromUnavailableStorage(t *testin
 func TestKeychainRejectsExternallyManagedTokens(t *testing.T) {
 	keyring.MockInit()
 	t.Cleanup(keyring.MockInit)
-	store := NewKeychain()
+	store := newKeychain()
 	token := fileToken()
 	token.External = true
 	if err := store.SaveToken(token); !errors.Is(err, ErrInvalidInput) {

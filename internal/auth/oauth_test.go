@@ -111,7 +111,7 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 			t.Errorf("Expected /api/customer-oauth2/token, got %s", r.URL.Path)
 		}
 
-		resp := TokenResponse{
+		resp := tokenResponse{
 			AccessToken:  "access123",
 			TokenType:    "Bearer",
 			ExpiresIn:    3600,
@@ -156,7 +156,7 @@ func TestOAuthClient_ExchangeCode(t *testing.T) {
 
 func TestOAuthClient_RefreshToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := TokenResponse{
+		resp := tokenResponse{
 			AccessToken:  "new-access-token",
 			TokenType:    "Bearer",
 			ExpiresIn:    3600,
