@@ -57,7 +57,7 @@ func initJavaScriptProjects(root string) ([]string, error) {
 	return projects, nil
 }
 
-// runInitJavaScript builds only JavaScript, never release tasks or configured
+// RunJavaScript builds only JavaScript, never release tasks or configured
 // commands. Add-on failures warn and continue; core failures and cancellation
 // stop setup. Both init modes call this before any container startup.
 func RunJavaScript(ctx context.Context, opts *Options, step, totalSteps int) error {

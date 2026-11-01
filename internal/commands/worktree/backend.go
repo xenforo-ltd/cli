@@ -203,7 +203,7 @@ func resolveSource(ctx context.Context, dir string) (backend, string, error) {
 	return b, source, nil
 }
 
-// SourceCheckout returns the main checkout for the repository containing dir.
+// sourceCheckout returns the main checkout for the repository containing dir.
 //
 // When dir is inside a linked worktree or workspace this returns the *original*
 // checkout, not the linked one. That keeps new checkouts siblings of the source
@@ -215,7 +215,7 @@ func sourceCheckout(ctx context.Context, dir string) (string, error) {
 	return source, err
 }
 
-// CurrentBranch returns the branch checked out in repoDir.
+// currentBranch returns the branch checked out in repoDir.
 //
 // For a Jujutsu repository this returns the workspace name.
 func currentBranch(ctx context.Context, repoDir string) (string, error) {

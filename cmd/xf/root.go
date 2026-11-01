@@ -57,7 +57,7 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
   xf xf-dev:import`,
 	// Without a Run, cobra answers unknown positional arguments with the root
 	// help and exit 0. That happens when a global flag precedes a forwarded
-	// XenForo command (`xf -v xf-dev:import`): Execute only takes the direct
+	// XenForo command (`xf -v xf-dev:import`): execute only takes the direct
 	// route when the first argument is not a flag, so cobra receives the
 	// command name and finds no subcommand. Fail loudly instead, so scripts
 	// do not see a false success.
@@ -81,10 +81,10 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
 // and flag errors, where it is the helpful response.
 func configureErrorHandling(cmd *cobra.Command) {
 	cmd.SilenceUsage = true
-	// Execute prints errors itself; without this cobra prints them too.
+	// execute prints errors itself; without this cobra prints them too.
 	cmd.SilenceErrors = true
 
-	// Execute may be called more than once by tests or an embedding program. Do
+	// execute may be called more than once by tests or an embedding program. Do
 	// not stack another usageError wrapper on every invocation.
 	if cmd.Args != nil && (cmd.Annotations == nil || cmd.Annotations[usageConfiguredAnnotation] != "true") {
 		args := cmd.Args

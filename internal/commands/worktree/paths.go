@@ -31,7 +31,7 @@ var unsafeChars = regexp.MustCompile(`[^a-z0-9]+`)
 // a thousand worktrees for one branch name.
 const maxNameAttempts = 1000
 
-// BaseName converts a branch name into the preferred name for its worktree.
+// baseName converts a branch name into the preferred name for its worktree.
 //
 // Only the last segment is used, so dev/xfs/slack-unfurl becomes slack-unfurl.
 // The prefix in a conventional branch name describes where the work belongs
@@ -91,7 +91,7 @@ func truncateName(name string, limit int) string {
 	return strings.Trim(cut, "-")
 }
 
-// ChooseName picks the name for a new worktree of branch.
+// chooseName picks the name for a new worktree of branch.
 //
 // The name is BaseName(branch), numbered -2, -3 and so on when that is taken.
 // A name is taken when the checkout's worktrees directory already holds it or
@@ -136,7 +136,7 @@ func chooseName(sourcePath, branch string, taken func(name string) (bool, error)
 	return "", fmt.Errorf("%w: no free name for %q after %d attempts", errWorktreeExists, base, maxNameAttempts)
 }
 
-// WorktreesDir returns the directory holding the worktrees for a checkout.
+// worktreesDir returns the directory holding the worktrees for a checkout.
 //
 // Worktrees are siblings of the source checkout, so ~/Sites/main yields
 // ~/Sites/main.worktrees. This keeps them on the same filesystem as the source,
@@ -148,7 +148,7 @@ func worktreesDir(sourcePath string) string {
 	return cleaned + worktreesSuffix
 }
 
-// Locate finds an existing worktree of the checkout at sourcePath.
+// locate finds an existing worktree of the checkout at sourcePath.
 //
 // ref may be the worktree's branch (or Jujutsu workspace) or its name, the
 // directory it lives in. A branch match wins, so a branch that happens to be

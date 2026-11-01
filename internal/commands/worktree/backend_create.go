@@ -111,7 +111,7 @@ func preflight(ctx context.Context, b backend, sourcePath, branch, name string) 
 	return nil
 }
 
-// Create makes a worktree on a new branch.
+// create makes a worktree on a new branch.
 //
 // It does not configure Docker or install anything; that is the caller's job.
 // Pre-flight runs first, so a failure here leaves the source checkout untouched.

@@ -15,7 +15,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
-// shouldRunComposer reports whether a directory is a Composer project.
+// ShouldRunComposer reports whether a directory is a Composer project.
 //
 // Repository checkouts track composer.json, so a fresh worktree has one and its
 // dependencies must be installed. Release packages ship vendor/ prebuilt and
@@ -87,7 +87,7 @@ func pendingAddOnComposerProjects(root string) []string {
 	return pending
 }
 
-// runComposerInstall installs Composer dependencies inside the container: the
+// RunComposerInstall installs Composer dependencies inside the container: the
 // root project's, then those of any add-on that still lacks them.
 //
 // A failing add-on is reported but not fatal. Its dependencies only matter once

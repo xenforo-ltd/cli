@@ -15,10 +15,10 @@ import (
 // ErrNotADirectory indicates a copy source exists but is not a directory.
 var errNotADirectory = errors.New("not a directory")
 
-// ProgressFunc reports copy progress as files are written.
+// progressFunc reports copy progress as files are written.
 type progressFunc func(copied, total int)
 
-// CopyTree recursively copies src to dst, preserving file modes.
+// copyTree recursively copies src to dst, preserving file modes.
 //
 // A missing source is not an error: a XenForo installation may legitimately
 // have no data/ or internal_data/ yet.

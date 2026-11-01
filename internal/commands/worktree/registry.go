@@ -37,7 +37,7 @@ const reservationTimeout = time.Hour
 // instance name.
 var errNameReserved = errors.New("worktree name is already reserved")
 
-// Entry records a worktree created by xf.
+// entry records a worktree created by xf.
 type entry struct {
 	// SourcePath is the checkout the worktree was created from.
 	SourcePath string `json:"source_path"`
@@ -65,7 +65,7 @@ type entry struct {
 	Pending bool `json:"pending,omitempty"`
 }
 
-// Registry is the on-disk record of worktrees xf has created.
+// registry is the on-disk record of worktrees xf has created.
 //
 // It exists so that worktrees can be listed across projects, which git alone
 // cannot do. It is deliberately *not* the source of truth: git and Docker are.
@@ -84,7 +84,7 @@ type registry struct {
 	path string
 }
 
-// NewRegistry opens the registry in the user's configuration directory.
+// newRegistry opens the registry in the user's configuration directory.
 func newRegistry() (*registry, error) {
 	path, err := registryPath()
 	if err != nil {
@@ -94,7 +94,7 @@ func newRegistry() (*registry, error) {
 	return &registry{path: path}, nil
 }
 
-// RegistryPath returns where the registry is stored, so callers can name the
+// registryPath returns where the registry is stored, so callers can name the
 // file when telling the user how to deal with a damaged one.
 func registryPath() (string, error) {
 	dir, err := os.UserConfigDir()
@@ -105,7 +105,7 @@ func registryPath() (string, error) {
 	return filepath.Join(dir, "xf", "worktrees.json"), nil
 }
 
-// All returns every recorded entry.
+// all returns every recorded entry.
 //
 // A missing registry returns no entries and no error.
 func (r *registry) all() ([]entry, error) {
@@ -115,7 +115,7 @@ func (r *registry) all() ([]entry, error) {
 	return r.load()
 }
 
-// ForSource returns the entries belonging to a single checkout.
+// forSource returns the entries belonging to a single checkout.
 func (r *registry) forSource(sourcePath string) ([]entry, error) {
 	entries, err := r.all()
 	if err != nil {
@@ -135,7 +135,7 @@ func (r *registry) forSource(sourcePath string) ([]entry, error) {
 	return matched, nil
 }
 
-// Add records a worktree, replacing any existing entry for the same path.
+// add records a worktree, replacing any existing entry for the same path.
 func (r *registry) add(entry entry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -174,7 +174,7 @@ func (r *registry) add(entry entry) error {
 	return r.save(entries)
 }
 
-// Reserve records entry before its worktree exists, unless another entry
+// reserve records entry before its worktree exists, unless another entry
 // already holds its path or instance name.
 //
 // The check and the write happen under the registry lock, so two concurrent
@@ -212,7 +212,7 @@ func (r *registry) reserve(entry entry) error {
 	return r.save(append(entries, entry))
 }
 
-// Prune drops entries whose worktree directory no longer exists and returns
+// prune drops entries whose worktree directory no longer exists and returns
 // how many were dropped.
 //
 // A pending reservation has no directory yet by design, so it is kept until
@@ -260,7 +260,7 @@ func (r *registry) prune(now time.Time) (int, error) {
 	return pruned, r.save(kept)
 }
 
-// Remove drops the entry for a worktree path. Removing an absent entry is not
+// remove drops the entry for a worktree path. Removing an absent entry is not
 // an error, so cleanup is idempotent.
 func (r *registry) remove(worktreePath string) error {
 	r.mu.Lock()

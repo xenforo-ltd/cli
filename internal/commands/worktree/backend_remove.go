@@ -18,7 +18,7 @@ var (
 	errUnmergedCommits = errors.New("worktree has commits not present on any remote")
 )
 
-// WorktreeStatus describes the state of a worktree's working tree and branch.
+// worktreeStatus describes the state of a worktree's working tree and branch.
 type worktreeStatus struct {
 	// Modified lists paths with uncommitted changes, including untracked files.
 	Modified []string
@@ -27,7 +27,7 @@ type worktreeStatus struct {
 	UnmergedCommits []string
 }
 
-// CheckRemovable reports whether a worktree can be removed without losing work.
+// checkRemovable reports whether a worktree can be removed without losing work.
 //
 // It is separate from Remove so callers can run the check before destroying
 // anything the removal depends on. Tearing down containers and volumes first
@@ -60,7 +60,7 @@ func removableError(status worktreeStatus) error {
 	return nil
 }
 
-// Remove deletes a worktree and its branch.
+// remove deletes a worktree and its branch.
 //
 // Unless force is set, it refuses when the worktree holds uncommitted changes
 // or commits that exist nowhere else, listing what would be lost. Removing

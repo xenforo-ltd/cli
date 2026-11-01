@@ -27,7 +27,7 @@ func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string
 	return detectedURL, true
 }
 
-// installShellCommand builds the shell command that runs xf:install.
+// InstallShellCommand builds the shell command that runs xf:install.
 //
 // Every argument is shell-quoted, so installer values such as the site title
 // cannot inject shell syntax. The password substitution is quoted too, so a
