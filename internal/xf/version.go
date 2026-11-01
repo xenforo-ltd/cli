@@ -31,6 +31,19 @@ const (
 	stabilityPLNumber     = 9
 )
 
+var (
+	alphaNumberPattern = regexp.MustCompile(`alpha\s*(\d+)`)
+	alphaStripPattern  = regexp.MustCompile(`(?i)\s*alpha\s*\d*`)
+	betaNumberPattern  = regexp.MustCompile(`beta\s*(\d+)`)
+	betaStripPattern   = regexp.MustCompile(`(?i)\s*beta\s*\d*`)
+	rcNumberPattern    = regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`)
+	rcStripPattern     = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`)
+	plNumberPattern    = regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`)
+	plStripPattern     = regexp.MustCompile(`(?i)\s*(?:pl|patch level)\s*\d*`)
+	versionStrPattern  = regexp.MustCompile(`public\s+static\s+\$version\s*=\s*['"]([^'"]+)['"]`)
+	versionIDPattern   = regexp.MustCompile(`public\s+static\s+\$versionId\s*=\s*(\d+)`)
+)
+
 // Version represents a XenForo version with both string and ID representations.
 type Version struct {
 	String    string    // e.g., "2.3.8"
@@ -59,38 +72,38 @@ func parseVersionString(versionStr string) (*Version, error) {
 		v.Stability = stabilityAlpha
 		v.StabNum = stabilityAlphaNumber
 		// Extract alpha number if present
-		if matches := regexp.MustCompile(`alpha\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
+		if matches := alphaNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 
-		versionStr = regexp.MustCompile(`(?i)\s*alpha\s*\d*`).ReplaceAllString(versionStr, "")
+		versionStr = alphaStripPattern.ReplaceAllString(versionStr, "")
 	case strings.Contains(lowerStr, string(stabilityBeta)):
 		v.Stability = stabilityBeta
 
 		v.StabNum = stabilityBetaNumber
-		if matches := regexp.MustCompile(`beta\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
+		if matches := betaNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 
-		versionStr = regexp.MustCompile(`(?i)\s*beta\s*\d*`).ReplaceAllString(versionStr, "")
+		versionStr = betaStripPattern.ReplaceAllString(versionStr, "")
 	case strings.Contains(lowerStr, string(stabilityRC)) || strings.Contains(lowerStr, "release candidate"):
 		v.Stability = stabilityRC
 
 		v.StabNum = stabilityRCNumber
-		if matches := regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
+		if matches := rcNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 
-		versionStr = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`).ReplaceAllString(versionStr, "")
+		versionStr = rcStripPattern.ReplaceAllString(versionStr, "")
 	case strings.Contains(lowerStr, string(stabilityPL)) || strings.Contains(lowerStr, "patch level"):
 		v.Stability = stabilityPL
 
 		v.StabNum = stabilityPLNumber
-		if matches := regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`).FindStringSubmatch(lowerStr); len(matches) > 1 {
+		if matches := plNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 
-		versionStr = regexp.MustCompile(`(?i)\s*(?:pl|patch level)\s*\d*`).ReplaceAllString(versionStr, "")
+		versionStr = plStripPattern.ReplaceAllString(versionStr, "")
 	}
 
 	versionStr = strings.TrimSpace(versionStr)
@@ -172,8 +185,6 @@ func ParseVersionID(versionID int) *Version {
 			v.String += fmt.Sprintf(" PL %d", v.PLLevel)
 		case stabilityUnknown:
 			v.String += fmt.Sprintf(" (unknown %d)", v.StabNum)
-		case stabilityStable:
-			break
 		}
 	}
 
@@ -202,9 +213,6 @@ func DetectVersionFS(installation fs.FS) (*Version, error) {
 		versionStr string
 		versionID  int
 	)
-
-	versionStrPattern := regexp.MustCompile(`public\s+static\s+\$version\s*=\s*['"]([^'"]+)['"]`)
-	versionIDPattern := regexp.MustCompile(`public\s+static\s+\$versionId\s*=\s*(\d+)`)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

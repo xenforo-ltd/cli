@@ -42,7 +42,7 @@ func metadataPath(xfDir string) string {
 	return filepath.Join(xfDir, metadataFilename)
 }
 
-// ReadMetadata reads the metadata file. Returns nil (not an error) if the file doesn't exist.
+// ReadMetadata reads the metadata file. Returns ErrMetadataNotFound if the file doesn't exist.
 func ReadMetadata(xfDir string) (*Metadata, error) {
 	metaPath := metadataPath(xfDir)
 
