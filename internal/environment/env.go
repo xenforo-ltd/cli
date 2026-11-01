@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"regexp"
 	"slices"
@@ -25,10 +26,8 @@ func ReadEnvFile(path string) (map[string]string, error) {
 
 	env := make(map[string]string)
 	scanner := bufio.NewScanner(file)
-	lineNum := 0
 
 	for scanner.Scan() {
-		lineNum++
 		line := strings.TrimSpace(scanner.Text())
 
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -87,14 +86,7 @@ func createEnvFile(path string, values map[string]string) error {
 	}
 	defer file.Close()
 
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-
-	slices.Sort(keys)
-
-	for _, key := range keys {
+	for _, key := range slices.Sorted(maps.Keys(values)) {
 		if _, err := fmt.Fprintf(file, "%s=%s\n", key, quoteEnvValue(values[key])); err != nil {
 			return fmt.Errorf("failed to write to .env file: %w", err)
 		}
@@ -157,10 +149,6 @@ func quoteEnvValue(value string) string {
 }
 
 func needsQuoting(value string) bool {
-	if strings.HasPrefix(value, "${") && strings.HasSuffix(value, "}") {
-		return false
-	}
-
 	if strings.Contains(value, "${") {
 		return false
 	}
@@ -176,12 +164,13 @@ func needsQuoting(value string) bool {
 // short enough to read.
 const MaxInstanceNameLength = 48
 
+var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
+
 // GenerateInstanceName generates a Docker-safe instance name from a directory name.
 func GenerateInstanceName(dirName string) string {
 	name := strings.ToLower(dirName)
 
-	reg := regexp.MustCompile(`[^a-z0-9]+`)
-	name = reg.ReplaceAllString(name, "-")
+	name = nonAlphanumeric.ReplaceAllString(name, "-")
 
 	name = strings.Trim(name, "-")
 

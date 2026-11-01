@@ -103,7 +103,7 @@ func (pub composePortPublisher) text() string {
 
 // PSInfo returns container status parsed from `docker compose ps --format json`.
 func (r *Runner) PSInfo(ctx context.Context) ([]ContainerInfo, error) {
-	cmd := r.buildDockerCommand(ctx, "ps", "--format", "json")
+	cmd := r.composeCommand(ctx, "ps", "--format", "json")
 
 	var stdout, stderr bytes.Buffer
 

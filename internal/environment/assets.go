@@ -2,6 +2,7 @@
 package environment
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -17,10 +18,11 @@ var dockerFS embed.FS
 // embedDir is the directory containing embedded Docker configuration files.
 const embedDir = "embed"
 
+const defaultSuffix = ".default"
+
 // extractOptions specifies options for extracting Docker files.
 type extractOptions struct {
 	OverwriteBaseFiles bool
-	Contexts           []string
 }
 
 // extractDockerFilesWithOptions extracts Docker files with custom options.
@@ -108,7 +110,7 @@ func extractFile(srcPath, targetPath string) error {
 }
 
 func isDefaultFile(name string) bool {
-	return strings.HasSuffix(name, ".default")
+	return strings.HasSuffix(name, defaultSuffix)
 }
 
 // extractDefaultFile writes the embedded default alongside an existing,
@@ -116,7 +118,7 @@ func isDefaultFile(name string) bool {
 // written (either the target didn't exist yet and was created directly, or
 // the existing file matches the embedded content).
 func extractDefaultFile(srcPath, targetPath string) (string, error) {
-	targetBase := strings.TrimSuffix(targetPath, ".default")
+	targetBase := strings.TrimSuffix(targetPath, defaultSuffix)
 
 	data, err := dockerFS.ReadFile(srcPath)
 	if err != nil {
@@ -129,8 +131,8 @@ func extractDefaultFile(srcPath, targetPath string) (string, error) {
 	}
 
 	if existingData, err := os.ReadFile(targetBase); err == nil {
-		if string(existingData) != string(data) {
-			defaultPath := targetBase + ".default"
+		if !bytes.Equal(existingData, data) {
+			defaultPath := targetBase + defaultSuffix
 			if err := os.WriteFile(defaultPath, data, 0o644); err != nil {
 				return "", fmt.Errorf("failed to write %s: %w", defaultPath, err)
 			}
@@ -195,7 +197,7 @@ func ListEmbeddedFiles() ([]string, error) {
 			return fmt.Errorf("failed to resolve embedded path %s: %w", p, err)
 		}
 
-		paths = append(paths, strings.TrimSuffix(rel, ".default"))
+		paths = append(paths, strings.TrimSuffix(rel, defaultSuffix))
 
 		return nil
 	})

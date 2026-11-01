@@ -46,8 +46,7 @@ func XenForoDir(args []string) (string, error) {
 
 func Resolve(args []string) (string, []string, error) {
 	if len(args) > 0 {
-		potentialPath := args[0]
-		if dir, err := XenForoDir([]string{potentialPath}); err == nil {
+		if dir, err := XenForoDir(args[:1]); err == nil {
 			return dir, stripSeparator(args[1:]), nil
 		}
 	}

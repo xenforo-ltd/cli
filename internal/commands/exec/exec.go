@@ -25,11 +25,8 @@ func Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	service := execArgs[0]
-	cmdArgs := execArgs[1:]
-
-	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, append([]string{"exec", service}, cmdArgs...)...); err != nil {
-		return clierror.Passthrough(err, "failed to execute command in service "+service)
+	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, append([]string{"exec"}, execArgs...)...); err != nil {
+		return clierror.Passthrough(err, "failed to execute command in service "+execArgs[0])
 	}
 
 	return nil

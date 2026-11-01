@@ -21,6 +21,8 @@ func PHP(ctx context.Context, args []string, debug bool) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
+	var env map[string]string
+
 	if debug {
 		// Only the first argument is echoed. The remainder routinely carries
 		// inline code (-r) or tokens, and this line ends up in terminal
@@ -32,16 +34,10 @@ func PHP(ctx context.Context, args []string, debug bool) error {
 
 		ui.PrintInfo(label)
 
-		if err := runner.ExecOrRun(ctx, "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, append([]string{"php"}, phpArgs...)...); err != nil {
-			return clierror.Passthrough(err, "failed to run PHP")
-		}
-
-		return nil
+		env = map[string]string{"XDEBUG_SESSION": "1"}
 	}
 
-	if err := runner.ExecOrRun(ctx, "xf", nil, os.Stdin, os.Stdout, os.Stderr, append([]string{"php"}, phpArgs...)...); err != nil {
-		return clierror.Passthrough(err, "failed to run PHP")
-	}
+	err = runner.ExecOrRun(ctx, "xf", env, os.Stdin, os.Stdout, os.Stderr, append([]string{"php"}, phpArgs...)...)
 
-	return nil
+	return clierror.Passthrough(err, "failed to run PHP")
 }

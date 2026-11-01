@@ -38,23 +38,22 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 
 	maxAttempts := 30
 	for range maxAttempts {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting for database: %w", ctx.Err())
-		default:
-			args := r.buildComposeArgs()
-			args = append(args, "exec", "-T", "xf", "php", "-r", testScript)
-
-			cmd := exec.CommandContext(ctx, "docker", args...)
-			cmd.Dir = r.xfDir
-
-			output, err := cmd.Output()
-			if err == nil && strings.Contains(string(output), "OK") {
-				return nil
-			}
-
-			time.Sleep(checkInterval)
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("timed out waiting for database: %w", err)
 		}
+
+		args := r.buildComposeArgs()
+		args = append(args, "exec", "-T", "xf", "php", "-r", testScript)
+
+		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd.Dir = r.xfDir
+
+		output, err := cmd.Output()
+		if err == nil && strings.Contains(string(output), "OK") {
+			return nil
+		}
+
+		time.Sleep(checkInterval)
 	}
 
 	return fmt.Errorf("timed out waiting for database to be ready: %w", errTimeout)
