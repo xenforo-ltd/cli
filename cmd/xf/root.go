@@ -150,45 +150,19 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 func execute(ctx context.Context) {
 	configureErrorHandling(rootCmd)
 
-	if len(os.Args) > 1 {
-		firstArg := os.Args[1]
-
-		if takesDirectXenForoRoute(firstArg) {
-			if !isKnownCommand(firstArg) {
-				if err := rootcommand.Run(ctx, os.Args[1:]); err != nil {
-					if isInterrupted(err) {
-						os.Exit(interruptExitCode())
-					}
-
-					if errors.Is(err, clierror.ErrCancelled) {
-						os.Exit(0)
-					}
-					if code, ok := clierror.ExitCode(err); ok {
-						os.Exit(code)
-					}
-					handleError(err)
-					os.Exit(1)
-				}
-
-				return
-			}
+	if len(os.Args) > 1 && takesDirectXenForoRoute(os.Args[1]) && !isKnownCommand(os.Args[1]) {
+		if err := rootcommand.Run(ctx, os.Args[1:]); err != nil {
+			exitForQuietErrors(err)
+			handleError(err)
+			os.Exit(1)
 		}
+
+		return
 	}
 
 	executed, err := rootCmd.ExecuteContextC(ctx)
 	if err != nil {
-		// Ctrl-C is a deliberate user action, not a failure. Exit quietly with
-		// the conventional signal status rather than reporting an error.
-		if isInterrupted(err) {
-			os.Exit(interruptExitCode())
-		}
-
-		if errors.Is(err, clierror.ErrCancelled) {
-			os.Exit(0)
-		}
-		if code, ok := clierror.ExitCode(err); ok {
-			os.Exit(code)
-		}
+		exitForQuietErrors(err)
 		handleError(err)
 
 		if clierror.IsUsage(err) && executed != nil {
@@ -197,6 +171,25 @@ func execute(ctx context.Context) {
 		}
 
 		os.Exit(1)
+	}
+}
+
+// exitForQuietErrors exits without reporting when err is not a failure to
+// show: an interrupt, a cancellation, or a child's own exit status.
+//
+// Ctrl-C is a deliberate user action, so it exits with the conventional signal
+// status rather than reporting an error.
+func exitForQuietErrors(err error) {
+	if isInterrupted(err) {
+		os.Exit(interruptExitCode())
+	}
+
+	if errors.Is(err, clierror.ErrCancelled) {
+		os.Exit(0)
+	}
+
+	if code, ok := clierror.ExitCode(err); ok {
+		os.Exit(code)
 	}
 }
 
