@@ -128,39 +128,8 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 	}
 
 	if opts.LicenseKey == "" {
-		licenses, err := client.GetLicenses(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to fetch licenses: %w", err)
-		}
-
-		if len(licenses) == 0 {
-			return fmt.Errorf("no licenses found for your account: %w", clierror.ErrNotFound)
-		}
-
-		var licenseOptions []huh.Option[string]
-
-		for _, lic := range licenses {
-			if lic.CanDownload {
-				label := fmt.Sprintf("%s - %s", lic.LicenseKey, lic.ProductTitle)
-				if lic.SiteTitle != "" {
-					label = fmt.Sprintf("%s (%s)", label, lic.SiteTitle)
-				}
-
-				licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
-			}
-		}
-
-		if len(licenseOptions) == 0 {
-			return fmt.Errorf("no licenses with download access found: %w", clierror.ErrForbidden)
-		}
-
-		err = huh.NewSelect[string]().
-			Title("Select a license").
-			Options(licenseOptions...).
-			Value(&opts.LicenseKey).
-			Run()
-		if err != nil {
-			return clierror.Prompt(err, "license selection")
+		if err := selectLicense(ctx, client, opts); err != nil {
+			return err
 		}
 	}
 
@@ -169,50 +138,95 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 	}
 
 	if opts.TargetVersionID == 0 {
-		versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, "xenforo")
-		if err != nil {
-			return fmt.Errorf("failed to fetch XenForo versions for license %s: %w", opts.LicenseKey, err)
-		}
+		return selectTargetVersion(ctx, client, opts)
+	}
 
-		if len(versions.Versions) == 0 {
-			return fmt.Errorf("no versions available: %w", clierror.ErrNotFound)
-		}
+	return nil
+}
 
-		var versionOptions []huh.Option[int]
+func selectLicense(ctx context.Context, client *customerapi.Client, opts *UpgradeOptions) error {
+	licenses, err := client.GetLicenses(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch licenses: %w", err)
+	}
 
-		for _, v := range versions.Versions {
-			if v.VersionID > opts.currentVersion.ID {
-				label := v.VersionStr
-				if v.Stable {
-					label += " (stable)"
-				}
+	if len(licenses) == 0 {
+		return fmt.Errorf("no licenses found for your account: %w", clierror.ErrNotFound)
+	}
 
-				versionOptions = append(versionOptions, huh.NewOption(label, v.VersionID))
+	var licenseOptions []huh.Option[string]
+
+	for _, lic := range licenses {
+		if lic.CanDownload {
+			label := fmt.Sprintf("%s - %s", lic.LicenseKey, lic.ProductTitle)
+			if lic.SiteTitle != "" {
+				label = fmt.Sprintf("%s (%s)", label, lic.SiteTitle)
 			}
+
+			licenseOptions = append(licenseOptions, huh.NewOption(label, lic.LicenseKey))
 		}
+	}
 
-		if len(versionOptions) == 0 {
-			ui.Println()
-			ui.PrintSuccess("Already on the latest version")
+	if len(licenseOptions) == 0 {
+		return fmt.Errorf("no licenses with download access found: %w", clierror.ErrForbidden)
+	}
 
-			return nil
-		}
+	err = huh.NewSelect[string]().
+		Title("Select a license").
+		Options(licenseOptions...).
+		Value(&opts.LicenseKey).
+		Run()
+	if err != nil {
+		return clierror.Prompt(err, "license selection")
+	}
 
-		err = huh.NewSelect[int]().
-			Title("Select target version").
-			Description("Current: " + opts.currentVersion.String).
-			Options(versionOptions...).
-			Value(&opts.TargetVersionID).
-			Run()
-		if err != nil {
-			return clierror.Prompt(err, "version selection")
-		}
+	return nil
+}
 
-		for _, v := range versions.Versions {
-			if v.VersionID == opts.TargetVersionID {
-				opts.targetVersionString = v.VersionStr
-				break
+func selectTargetVersion(ctx context.Context, client *customerapi.Client, opts *UpgradeOptions) error {
+	versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, "xenforo")
+	if err != nil {
+		return fmt.Errorf("failed to fetch XenForo versions for license %s: %w", opts.LicenseKey, err)
+	}
+
+	if len(versions.Versions) == 0 {
+		return fmt.Errorf("no versions available: %w", clierror.ErrNotFound)
+	}
+
+	var versionOptions []huh.Option[int]
+
+	for _, v := range versions.Versions {
+		if v.VersionID > opts.currentVersion.ID {
+			label := v.VersionStr
+			if v.Stable {
+				label += " (stable)"
 			}
+
+			versionOptions = append(versionOptions, huh.NewOption(label, v.VersionID))
+		}
+	}
+
+	if len(versionOptions) == 0 {
+		ui.Println()
+		ui.PrintSuccess("Already on the latest version")
+
+		return nil
+	}
+
+	err = huh.NewSelect[int]().
+		Title("Select target version").
+		Description("Current: " + opts.currentVersion.String).
+		Options(versionOptions...).
+		Value(&opts.TargetVersionID).
+		Run()
+	if err != nil {
+		return clierror.Prompt(err, "version selection")
+	}
+
+	for _, v := range versions.Versions {
+		if v.VersionID == opts.TargetVersionID {
+			opts.targetVersionString = v.VersionStr
+			break
 		}
 	}
 
@@ -323,23 +337,23 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 
 	cachedFiles := make(map[string]*cache.Entry)
 
-	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.products, opts.TargetVersionID, opts.targetVersionString, nil, func(product string) {
-		name := titleMap[product]
-		if name == "" {
-			name = product
+	productTitle := func(product string) string {
+		if title := titleMap[product]; title != "" {
+			return title
 		}
 
-		ui.PrintWarning("No versions available for " + name + "; skipping")
+		return product
+	}
+
+	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.products, opts.TargetVersionID, opts.targetVersionString, nil, func(product string) {
+		ui.PrintWarning("No versions available for " + productTitle(product) + "; skipping")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve upgrade selections for license %s: %w", opts.LicenseKey, err)
 	}
 
 	for _, selection := range selections {
-		productName := titleMap[selection.Product]
-		if productName == "" {
-			productName = selection.Product
-		}
+		productName := productTitle(selection.Product)
 
 		var lastUpdate int64
 
