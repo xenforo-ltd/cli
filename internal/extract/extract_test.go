@@ -3,7 +3,9 @@ package extract
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -154,7 +156,7 @@ func TestExtractXenForoZipUploadOnly(t *testing.T) {
 		t.Fatalf("expected js/app.js: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(outDir, "README.txt")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(outDir, "README.txt")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("expected root README not extracted, err=%v", err)
 	}
 

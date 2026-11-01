@@ -2,7 +2,9 @@ package customerapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -94,7 +96,7 @@ func TestClientCredentialSources(t *testing.T) {
 			if refreshCalls.Load() != 0 {
 				t.Fatal("environment token attempted refresh")
 			}
-			if _, err := os.Stat(filepath.Join(dir, "auth.json")); !os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(dir, "auth.json")); !errors.Is(err, fs.ErrNotExist) {
 				t.Fatal("environment token persisted")
 			}
 		})

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -47,7 +48,7 @@ func ReadMetadata(xfDir string) (*Metadata, error) {
 
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, ErrMetadataNotFound
 		}
 

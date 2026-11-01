@@ -2,7 +2,9 @@ package worktree
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -214,7 +216,7 @@ func cloneFiles(ctx context.Context, spinner *ui.Spinner, sourcePath, worktreePa
 	for _, dir := range clonedDirectories {
 		src := filepath.Join(sourcePath, dir)
 
-		if _, err := os.Stat(src); os.IsNotExist(err) {
+		if _, err := os.Stat(src); errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
 

@@ -2,7 +2,9 @@ package environment
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"regexp"
 	"sort"
@@ -13,7 +15,7 @@ import (
 func ReadEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf(".env file not found: %w", err)
 		}
 

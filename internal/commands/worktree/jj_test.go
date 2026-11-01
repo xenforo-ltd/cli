@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -202,7 +203,7 @@ func TestJujutsuRemoveRefusesDirtyWorkspaceAndForcesCleanup(t *testing.T) {
 		t.Fatalf("forced Remove: %v", err)
 	}
 
-	if _, err := os.Stat(result.Path); !os.IsNotExist(err) {
+	if _, err := os.Stat(result.Path); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("forced removal left the workspace directory behind: %v", err)
 	}
 

@@ -5,7 +5,9 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -81,7 +83,7 @@ func requireError(t *testing.T, err error, want string) {
 // requireMissing fails t unless name does not exist beneath root.
 func requireMissing(t *testing.T, root, name string) {
 	t.Helper()
-	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(name))); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(name))); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("%s: expected missing file, got %v", name, err)
 	}
 }

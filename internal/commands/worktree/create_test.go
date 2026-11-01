@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -148,7 +149,7 @@ func TestCreateLeavesNoPartialStateOnFailure(t *testing.T) {
 		t.Fatal("expected Create to fail")
 	}
 
-	if _, err := os.Stat(worktreesDir(repo)); !os.IsNotExist(err) {
+	if _, err := os.Stat(worktreesDir(repo)); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("a failed Create left a worktrees directory behind")
 	}
 }

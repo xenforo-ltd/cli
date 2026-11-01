@@ -2,7 +2,9 @@ package worktree
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,7 +30,7 @@ type worktreeOutput struct {
 // colours it for the table.
 func worktreeState(worktreePath string) string {
 	if _, err := os.Stat(worktreePath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return "missing"
 		}
 

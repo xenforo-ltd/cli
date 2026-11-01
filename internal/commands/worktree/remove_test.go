@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +29,7 @@ func TestRemoveDeletesACleanWorktree(t *testing.T) {
 		t.Fatalf("Remove: %v", err)
 	}
 
-	if _, err := os.Stat(wt); !os.IsNotExist(err) {
+	if _, err := os.Stat(wt); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("worktree directory still exists")
 	}
 
@@ -71,7 +72,7 @@ func TestRemoveForceDiscardsChanges(t *testing.T) {
 		t.Fatalf("forced Remove: %v", err)
 	}
 
-	if _, err := os.Stat(wt); !os.IsNotExist(err) {
+	if _, err := os.Stat(wt); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("forced removal did not delete the worktree")
 	}
 }

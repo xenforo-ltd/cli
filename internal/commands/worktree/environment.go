@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -59,7 +60,7 @@ func sourceIsInstalled(sourcePath string) (bool, error) {
 
 	for _, marker := range markers {
 		if _, err := os.Stat(marker); err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				return false, nil
 			}
 

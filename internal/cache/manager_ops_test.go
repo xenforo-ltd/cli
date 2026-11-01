@@ -2,6 +2,7 @@ package cache
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -136,7 +137,7 @@ func TestManagerPurge(t *testing.T) {
 		t.Fatalf("PurgeLicense failed: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(m.basePath, "LIC1")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(m.basePath, "LIC1")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("expected license path removed, err=%v", err)
 	}
 
@@ -144,7 +145,7 @@ func TestManagerPurge(t *testing.T) {
 		t.Fatalf("PurgeAll failed: %v", err)
 	}
 
-	if _, err := os.Stat(m.basePath); !os.IsNotExist(err) {
+	if _, err := os.Stat(m.basePath); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("expected base path removed, err=%v", err)
 	}
 }

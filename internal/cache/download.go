@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -107,7 +108,7 @@ func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 	}
 
 	if _, err := os.Stat(entry.FilePath); err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("failed to stat cached file %s: %w", entry.FilePath, err)
 		}
 

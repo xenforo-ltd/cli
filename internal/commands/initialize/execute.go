@@ -2,6 +2,7 @@ package initialize
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -308,7 +309,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 // any package is downloaded, so a doomed run fails before paying for one.
 func prepareTargetDirectory(targetPath string) error {
 	info, err := os.Stat(targetPath)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		if err := os.MkdirAll(targetPath, 0o755); err != nil {
 			return fmt.Errorf("failed to create target directory: %w", err)
 		}

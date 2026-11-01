@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -165,7 +167,7 @@ func TestFileAuthCommands(t *testing.T) {
 	}
 	for _, command := range []string{"status", "refresh", "status", "logout", "logout"} {
 		if command == "logout" && runtime.GOOS != "windows" {
-			if err := os.Chmod(tokenPath, 0o644); err != nil && !os.IsNotExist(err) {
+			if err := os.Chmod(tokenPath, 0o644); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				t.Fatal(err)
 			}
 		}
@@ -198,7 +200,7 @@ func TestFileAuthCommands(t *testing.T) {
 	if strings.Join(revoked, ",") != "new-access,new-refresh" {
 		t.Fatalf("revocations=%v", revoked)
 	}
-	if _, err := os.Stat(tokenPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(tokenPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("logout left file: %v", err)
 	}
 }

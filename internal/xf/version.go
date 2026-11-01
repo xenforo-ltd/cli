@@ -190,7 +190,7 @@ func DetectVersion(xfDir string) (*Version, error) {
 func DetectVersionFS(installation fs.FS) (*Version, error) {
 	file, err := installation.Open("src/XF.php")
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("not a XenForo installation: src/XF.php not found: %w", err)
 		}
 

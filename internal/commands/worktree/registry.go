@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -352,7 +353,7 @@ func (r *registry) lock() (func(), error) {
 			}, nil
 		}
 
-		if !os.IsExist(err) {
+		if !errors.Is(err, fs.ErrExist) {
 			return nil, fmt.Errorf("failed to lock worktree registry: %w", err)
 		}
 
@@ -389,7 +390,7 @@ func (r *registry) lock() (func(), error) {
 func (r *registry) load() ([]entry, error) {
 	data, err := os.ReadFile(r.path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
 		}
 

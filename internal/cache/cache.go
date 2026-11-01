@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -73,7 +74,7 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, ErrCacheMiss
 		}
 
@@ -135,7 +136,7 @@ func (m *Manager) Verify(entry *Entry) (bool, error) {
 
 // PurgeAll removes all cached files.
 func (m *Manager) PurgeAll() error {
-	if err := os.RemoveAll(m.basePath); err != nil && !os.IsNotExist(err) {
+	if err := os.RemoveAll(m.basePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("failed to purge cache: %w", err)
 	}
 
@@ -149,7 +150,7 @@ func (m *Manager) PurgeLicense(licenseKey string) error {
 		return fmt.Errorf("invalid license key: %w", errInvalidInput)
 	}
 
-	if err := os.RemoveAll(licensePath); err != nil && !os.IsNotExist(err) {
+	if err := os.RemoveAll(licensePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("failed to purge license cache: %w", err)
 	}
 
@@ -160,7 +161,7 @@ func (m *Manager) PurgeLicense(licenseKey string) error {
 func (m *Manager) List() ([]*Entry, error) {
 	var entries []*Entry
 
-	if _, err := os.Stat(m.basePath); os.IsNotExist(err) {
+	if _, err := os.Stat(m.basePath); errors.Is(err, fs.ErrNotExist) {
 		return entries, nil
 	}
 
@@ -198,7 +199,7 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 		return nil, fmt.Errorf("invalid license key: %w", errInvalidInput)
 	}
 
-	if _, err := os.Stat(licensePath); os.IsNotExist(err) {
+	if _, err := os.Stat(licensePath); errors.Is(err, fs.ErrNotExist) {
 		return entries, nil
 	}
 

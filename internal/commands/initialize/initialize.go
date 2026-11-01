@@ -2,7 +2,9 @@ package initialize
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,7 +122,7 @@ func detectXenForo(path string) (bool, error) {
 		return true, nil
 	}
 
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return false, nil
 	}
 

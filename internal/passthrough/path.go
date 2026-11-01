@@ -1,7 +1,9 @@
 package passthrough
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -19,7 +21,7 @@ func XenForoDir(args []string) (string, error) {
 
 		xfPath := filepath.Join(absPath, "src", "XF.php")
 		if _, err := os.Stat(xfPath); err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				return "", clierror.MarkAs(os.ErrNotExist, "not a XenForo installation: %s (no src/XF.php found)", absPath)
 			}
 

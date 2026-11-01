@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,7 +39,7 @@ type Runner struct {
 func NewRunner(xfDir string) (*Runner, error) {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")
 	if _, err := os.Stat(xfPath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", err)
 		}
 
@@ -47,7 +48,7 @@ func NewRunner(xfDir string) (*Runner, error) {
 
 	composePath := filepath.Join(xfDir, "compose.yaml")
 	if _, err := os.Stat(composePath); err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, errors.Join(fmt.Errorf("environment not initialized (compose.yaml not found): %w", ErrEnvNotInitialized), err)
 		}
 

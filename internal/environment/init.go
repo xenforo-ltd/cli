@@ -1,7 +1,9 @@
 package environment
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +20,7 @@ type InitOptions struct {
 // files so callers can notify the user.
 func Init(xfDir string, opts InitOptions) (written []string, err error) {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")
-	if _, statErr := os.Stat(xfPath); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(xfPath); errors.Is(statErr, fs.ErrNotExist) {
 		return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", statErr)
 	}
 
@@ -33,7 +35,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 	}
 
 	envPath := filepath.Join(xfDir, ".env")
-	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(envPath); errors.Is(statErr, fs.ErrNotExist) {
 		envDefault, err := GetDockerFile(".env.default")
 		if err != nil {
 			return nil, fmt.Errorf("failed to read default env: %w", err)
@@ -59,7 +61,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 	}
 
 	dockerignorePath := filepath.Join(xfDir, ".dockerignore")
-	if _, statErr := os.Stat(dockerignorePath); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(dockerignorePath); errors.Is(statErr, fs.ErrNotExist) {
 		ignoreDefault, err := GetDockerFile(".dockerignore.default")
 		if err != nil {
 			return nil, fmt.Errorf("failed to read default dockerignore: %w", err)

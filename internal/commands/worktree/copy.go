@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -29,7 +30,7 @@ type progressFunc func(copied, total int)
 func copyTree(ctx context.Context, src, dst string, progress progressFunc) error {
 	info, err := os.Stat(src)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
 

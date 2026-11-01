@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -207,7 +208,7 @@ func (d *doctor) checkCacheDirectory() {
 	cacheDir := cfg.CachePath
 
 	info, err := os.Stat(cacheDir)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		if err := os.MkdirAll(cacheDir, 0o750); err != nil {
 			result.Status = statusError
 			result.Message = "Cannot create cache directory"
