@@ -34,15 +34,12 @@ var rootCmd = &cobra.Command{
 	TraverseChildren: true,
 	Short:            "Provision and manage XenForo development environments",
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
-		if err := config.Init(configFile); err != nil {
-			if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); ok {
-				return nil
-			}
-
-			return err
+		err := config.Init(configFile)
+		if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); ok {
+			return nil
 		}
 
-		return nil
+		return err
 	},
 	Long: `Provision and manage Docker-based XenForo development environments:
 authentication, package downloads, caching, containers and worktrees.
@@ -86,7 +83,7 @@ func configureErrorHandling(cmd *cobra.Command) {
 
 	// execute may be called more than once by tests or an embedding program. Do
 	// not stack another usageError wrapper on every invocation.
-	if cmd.Args != nil && (cmd.Annotations == nil || cmd.Annotations[usageConfiguredAnnotation] != "true") {
+	if cmd.Args != nil && (cmd.Annotations[usageConfiguredAnnotation] != "true") {
 		args := cmd.Args
 		cmd.Args = func(c *cobra.Command, a []string) error {
 			if err := args(c, a); err != nil {
@@ -223,7 +220,7 @@ func interruptExitCode() int {
 // A timeout is deliberately excluded: unlike an interrupt, it is a failure the
 // user did not ask for and should still be reported.
 func isInterrupted(err error) bool {
-	return err != nil && errors.Is(err, context.Canceled)
+	return errors.Is(err, context.Canceled)
 }
 
 // takesDirectXenForoRoute reports whether a first argument is eligible to be
@@ -264,12 +261,9 @@ func handleError(err error) {
 // substantive text survives (and the sentinel tail never leaks through).
 func firstErrorClause(msg string) string {
 	parts := strings.Split(msg, ": ")
-	cut := len(parts)
-	for i, p := range parts {
-		if plumbingClause(p) {
-			cut = i
-			break
-		}
+	cut := slices.IndexFunc(parts, plumbingClause)
+	if cut < 0 {
+		cut = len(parts)
 	}
 	if cut > 0 {
 		if result := strings.Join(parts[:cut], ": "); result != "" {
@@ -352,11 +346,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("no-interaction", "n", false, "disable interactive prompts")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
 
-	if err := viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")); err != nil {
-		cobra.CheckErr(err)
-	}
-
-	if err := viper.BindPFlag("no_interaction", rootCmd.PersistentFlags().Lookup("no-interaction")); err != nil {
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose")))
+	cobra.CheckErr(viper.BindPFlag("no_interaction", rootCmd.PersistentFlags().Lookup("no-interaction")))
 }

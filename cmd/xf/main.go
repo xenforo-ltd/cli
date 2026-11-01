@@ -21,12 +21,7 @@ func main() {
 	defer cancel()
 
 	go func() {
-		sig, ok := <-signals
-		if !ok {
-			return
-		}
-
-		recordInterruptSignal(sig)
+		recordInterruptSignal(<-signals)
 		cancel()
 	}()
 

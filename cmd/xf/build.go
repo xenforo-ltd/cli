@@ -67,7 +67,7 @@ func init() {
 	rootCmd.AddCommand(buildCmd)
 }
 
-// runBuild forwards the release build to the build package and reports its outputs.
+// runBuild forwards the release build to the build package.
 func runBuild(cmd *cobra.Command, args []string) error {
 	return build.Run(cmd.Context(), args, flagBuildSkipComposer)
 }

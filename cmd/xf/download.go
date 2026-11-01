@@ -46,9 +46,7 @@ func init() {
 	downloadCmd.Flags().StringVar(&flagDownloadID, "download", "", "download ID (e.g., xenforo, xfmg)")
 	downloadCmd.Flags().IntVar(&flagDownloadVersionID, "version", 0, "version ID to download")
 	downloadCmd.Flags().BoolVar(&flagDownloadForce, "force", false, "force re-download even if cached")
-	if err := downloadCmd.MarkFlagRequired("license"); err != nil {
-		cobra.CheckErr(err)
-	}
+	cobra.CheckErr(downloadCmd.MarkFlagRequired("license"))
 	rootCmd.AddCommand(downloadCmd)
 }
 

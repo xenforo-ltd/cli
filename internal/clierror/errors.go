@@ -97,7 +97,7 @@ func ExitCode(err error) (int, bool) {
 // Passthrough converts a child process's non-zero exit into a bare
 // exit-code error (the child already printed its own failure); other errors
 // are wrapped with context.
-func Passthrough(err error, context string) error {
+func Passthrough(err error, what string) error {
 	if err == nil {
 		return nil
 	}
@@ -110,7 +110,7 @@ func Passthrough(err error, context string) error {
 		}
 	}
 
-	return fmt.Errorf("%s: %w", context, err)
+	return fmt.Errorf("%s: %w", what, err)
 }
 
 // Prompt classifies a failed huh prompt. Ctrl-C at a prompt surfaces as

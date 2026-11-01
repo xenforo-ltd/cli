@@ -24,7 +24,7 @@ Specific services can be specified, or all services will be shown.`,
 
   # Show logs in specific directory
   xf logs ./my-project`,
-	Args:    cobra.MinimumNArgs(0),
+	Args:    cobra.ArbitraryArgs,
 	GroupID: "env",
 	RunE:    runLogs,
 }

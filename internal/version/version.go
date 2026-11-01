@@ -6,7 +6,7 @@ import (
 	"runtime"
 )
 
-// Version is the CLI version string.
+// Build metadata, set at link time.
 var (
 	Version = "v0.0.0"
 	Commit  = "unknown"

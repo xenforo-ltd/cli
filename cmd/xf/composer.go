@@ -30,7 +30,7 @@ flags before the command name, and use 'xf help composer' for this help text.`,
 	// Everything after this command belongs to the target tool, including
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
-	Args:               cobra.MinimumNArgs(0),
+	Args:               cobra.ArbitraryArgs,
 	GroupID:            "run",
 	RunE:               runComposer,
 }

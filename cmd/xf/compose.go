@@ -26,7 +26,7 @@ xf's own flags before the command name, and use 'xf help compose' for this help.
 	// Everything after this command belongs to the target tool, including
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
-	Args:               cobra.MinimumNArgs(0),
+	Args:               cobra.ArbitraryArgs,
 	GroupID:            "run",
 	RunE:               runCompose,
 }

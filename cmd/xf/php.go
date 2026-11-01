@@ -30,7 +30,7 @@ before the command name, and use 'xf help php' for this help text.`,
 	// Everything after this command belongs to the target tool, including
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
-	Args:               cobra.MinimumNArgs(0),
+	Args:               cobra.ArbitraryArgs,
 	GroupID:            "run",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return php.Run(cmd.Context(), args)
@@ -49,7 +49,7 @@ All arguments are passed to PHP.`,
 	// Everything after this command belongs to the target tool, including
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
-	Args:               cobra.MinimumNArgs(0),
+	Args:               cobra.ArbitraryArgs,
 	GroupID:            "run",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return phpdebug.Run(cmd.Context(), args)

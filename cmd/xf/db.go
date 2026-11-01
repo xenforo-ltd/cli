@@ -52,7 +52,7 @@ command name, and use 'xf help db shell' for this help.`,
 	// Everything after this command belongs to the wrapped client, including
 	// flags. xf's own flags must be given before the command name.
 	DisableFlagParsing: true,
-	Args:               cobra.MinimumNArgs(0),
+	Args:               cobra.ArbitraryArgs,
 	RunE:               runDBShell,
 }
 

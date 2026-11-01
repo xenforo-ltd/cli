@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	command "github.com/xenforo-ltd/cli/internal/commands/version"
+	versioncommand "github.com/xenforo-ltd/cli/internal/commands/version"
 )
 
 var (
@@ -38,5 +38,5 @@ func init() {
 }
 
 func runVersion(cmd *cobra.Command, args []string) error {
-	return command.Run(cmd.Context(), command.Options{JSON: flagVersionJSON, Short: flagVersionShort})
+	return versioncommand.Run(cmd.Context(), versioncommand.Options{JSON: flagVersionJSON, Short: flagVersionShort})
 }
