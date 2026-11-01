@@ -1,6 +1,7 @@
 package licenses
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,24 +27,18 @@ func Run(ctx context.Context, jsonOutput bool) error {
 	}
 
 	if jsonOutput {
-		type jsonExtra struct {
-			ExtraID        string `json:"extra_id"`
-			Name           string `json:"name"`
-			IsDownloadable bool   `json:"is_downloadable"`
-		}
-
 		type jsonLicense struct {
-			LicenseKey     string      `json:"license_key"`
-			ProductID      string      `json:"product_id"`
-			ProductTitle   string      `json:"product_title"`
-			IsValid        bool        `json:"is_valid"`
-			IsActive       bool        `json:"is_active"`
-			StartDate      string      `json:"start_date,omitempty"`
-			ExpirationDate string      `json:"expiration_date,omitempty"`
-			SiteURL        string      `json:"site_url,omitempty"`
-			SiteTitle      string      `json:"site_title,omitempty"`
-			CanDownload    bool        `json:"can_download"`
-			Extras         []jsonExtra `json:"extras,omitempty"`
+			LicenseKey     string                     `json:"license_key"`
+			ProductID      string                     `json:"product_id"`
+			ProductTitle   string                     `json:"product_title"`
+			IsValid        bool                       `json:"is_valid"`
+			IsActive       bool                       `json:"is_active"`
+			StartDate      string                     `json:"start_date,omitempty"`
+			ExpirationDate string                     `json:"expiration_date,omitempty"`
+			SiteURL        string                     `json:"site_url,omitempty"`
+			SiteTitle      string                     `json:"site_title,omitempty"`
+			CanDownload    bool                       `json:"can_download"`
+			Extras         []customerapi.LicenseExtra `json:"extras,omitempty"`
 		}
 
 		output := make([]jsonLicense, 0, len(licenses))
@@ -57,6 +52,7 @@ func Run(ctx context.Context, jsonOutput bool) error {
 				SiteURL:      lic.SiteURL,
 				SiteTitle:    lic.SiteTitle,
 				CanDownload:  lic.CanDownload,
+				Extras:       lic.Extras,
 			}
 
 			if !lic.StartDate.IsZero() {
@@ -65,17 +61,6 @@ func Run(ctx context.Context, jsonOutput bool) error {
 
 			if !lic.ExpirationDate.IsZero() {
 				jl.ExpirationDate = lic.ExpirationDate.Format(time.RFC3339)
-			}
-
-			if len(lic.Extras) > 0 {
-				jl.Extras = make([]jsonExtra, 0, len(lic.Extras))
-				for _, extra := range lic.Extras {
-					jl.Extras = append(jl.Extras, jsonExtra{
-						ExtraID:        extra.ExtraID,
-						Name:           extra.Name,
-						IsDownloadable: extra.IsDownloadable,
-					})
-				}
 			}
 
 			output = append(output, jl)
@@ -135,9 +120,13 @@ func licenseStatusIcon(lic customerapi.License) string {
 	}
 }
 
-func runLicensesTable(licenses []customerapi.License) {
-	ui.PrintInfo("Found " + ui.Plural(len(licenses), "license", "licenses"))
+func printLicenseCount(count int) {
+	ui.PrintInfo("Found " + ui.Plural(count, "license", "licenses"))
 	ui.Println()
+}
+
+func runLicensesTable(licenses []customerapi.License) {
+	printLicenseCount(len(licenses))
 
 	headers := []string{"LICENSE", "SITE TITLE", "SITE URL", "PRODUCT", "STATUS", "EXPIRES", "DOWNLOAD"}
 	rows := make([][]string, 0, len(licenses))
@@ -183,22 +172,13 @@ func runLicensesTable(licenses []customerapi.License) {
 }
 
 func formatLicenseSite(lic customerapi.License) (string, string) {
-	siteTitle := ui.Dim.Render("—")
-	if lic.SiteTitle != "" {
-		siteTitle = lic.SiteTitle
-	}
+	placeholder := ui.Dim.Render("—")
 
-	siteURL := ui.Dim.Render("—")
-	if lic.SiteURL != "" {
-		siteURL = lic.SiteURL
-	}
-
-	return siteTitle, siteURL
+	return cmp.Or(lic.SiteTitle, placeholder), cmp.Or(lic.SiteURL, placeholder)
 }
 
 func runLicensesVerbose(licenses []customerapi.License) {
-	ui.PrintInfo("Found " + ui.Plural(len(licenses), "license", "licenses"))
-	ui.Println()
+	printLicenseCount(len(licenses))
 
 	for i, lic := range licenses {
 		ui.Printf("%s %s %s\n", licenseStatusIcon(lic), ui.Bold.Render(lic.ProductTitle), ui.Muted.Render(lic.LicenseKey))

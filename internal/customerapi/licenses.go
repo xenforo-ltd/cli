@@ -146,11 +146,7 @@ type downloadInfoResponse struct {
 
 // GetDownloadInfo retrieves download information for a specific version.
 func (c *Client) GetDownloadInfo(ctx context.Context, licenseKey string, downloadID string, versionID int) (*DownloadInfo, error) {
-	params := url.Values{}
-	params.Set("license_key", licenseKey)
-	params.Set("download_id", downloadID)
-	params.Set("version_id", strconv.Itoa(versionID))
-	path := "/api/customer-oauth2/license-download-info?" + params.Encode()
+	path := "/api/customer-oauth2/license-download-info?" + downloadParams(licenseKey, downloadID, versionID)
 
 	var result downloadInfoResponse
 	if err := c.getJSON(ctx, path, &result); err != nil {
@@ -162,12 +158,16 @@ func (c *Client) GetDownloadInfo(ctx context.Context, licenseKey string, downloa
 
 // GetDownloadURL returns the URL to download a specific version.
 func (c *Client) GetDownloadURL(licenseKey string, downloadID string, versionID int) string {
+	return c.baseURL + "/api/customer-oauth2/license-download?" + downloadParams(licenseKey, downloadID, versionID)
+}
+
+func downloadParams(licenseKey, downloadID string, versionID int) string {
 	params := url.Values{}
 	params.Set("license_key", licenseKey)
 	params.Set("download_id", downloadID)
 	params.Set("version_id", strconv.Itoa(versionID))
 
-	return c.baseURL + "/api/customer-oauth2/license-download?" + params.Encode()
+	return params.Encode()
 }
 
 // GetAccessToken retrieves the current access token.
