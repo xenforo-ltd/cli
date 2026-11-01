@@ -292,33 +292,12 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 
 		outPath := filepath.Join(destDir, name)
 
-		limitedReader := io.LimitReader(tarReader, maxBinarySize)
-
-		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-		if err != nil {
-			return "", fmt.Errorf("failed to extract update binary: %w", err)
+		if err := writeBinary(outPath, tarReader, name); err != nil {
+			return "", err
 		}
 
-		written, err := io.Copy(outFile, limitedReader)
-		if err != nil {
-			outFile.Close()
-			return "", fmt.Errorf("failed to extract update binary: %w", err)
-		}
-
-		if written > maxBinarySize {
-			outFile.Close()
-			return "", fmt.Errorf("update binary %s exceeds maximum allowed size of %d bytes: %w", name, maxBinarySize, errUpdateFailed)
-		}
-
-		if err := outFile.Close(); err != nil {
-			return "", fmt.Errorf("failed to finalize update binary: %w", err)
-		}
-
-		mode := header.FileInfo().Mode().Perm()
-		if mode != 0 && runtime.GOOS != windowsOS {
-			if err := os.Chmod(outPath, mode); err != nil {
-				return "", fmt.Errorf("failed to apply binary permissions: %w", err)
-			}
+		if err := applyBinaryMode(outPath, header.FileInfo().Mode().Perm()); err != nil {
+			return "", err
 		}
 
 		extracted[name] = outPath
@@ -364,49 +343,61 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 
 		outPath := filepath.Join(destDir, name)
 
-		limitedReader := io.LimitReader(inFile, maxBinarySize)
-
-		outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-		if err != nil {
+		if err := writeBinary(outPath, inFile, name); err != nil {
 			inFile.Close()
-			return "", fmt.Errorf("failed to extract update binary: %w", err)
-		}
-
-		written, err := io.Copy(outFile, limitedReader)
-		if err != nil {
-			outFile.Close()
-			inFile.Close()
-
-			return "", fmt.Errorf("failed to extract update binary: %w", err)
-		}
-
-		if written > maxBinarySize {
-			outFile.Close()
-			inFile.Close()
-
-			return "", fmt.Errorf("update binary %s exceeds maximum allowed size of %d bytes: %w", name, maxBinarySize, errUpdateFailed)
-		}
-
-		if err := outFile.Close(); err != nil {
-			inFile.Close()
-			return "", fmt.Errorf("failed to finalize update binary: %w", err)
+			return "", err
 		}
 
 		if err := inFile.Close(); err != nil {
 			return "", fmt.Errorf("failed to close update archive entry: %w", err)
 		}
 
-		mode := file.Mode().Perm()
-		if mode != 0 && runtime.GOOS != windowsOS {
-			if err := os.Chmod(outPath, mode); err != nil {
-				return "", fmt.Errorf("failed to apply binary permissions: %w", err)
-			}
+		if err := applyBinaryMode(outPath, file.Mode().Perm()); err != nil {
+			return "", err
 		}
 
 		extracted[name] = outPath
 	}
 
 	return pickExtractedBinary(extracted)
+}
+
+// writeBinary copies an archive entry to outPath, rejecting entries larger
+// than maxBinarySize.
+func writeBinary(outPath string, r io.Reader, name string) error {
+	outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("failed to extract update binary: %w", err)
+	}
+
+	written, err := io.Copy(outFile, io.LimitReader(r, maxBinarySize))
+	if err != nil {
+		outFile.Close()
+		return fmt.Errorf("failed to extract update binary: %w", err)
+	}
+
+	if written > maxBinarySize {
+		outFile.Close()
+		return fmt.Errorf("update binary %s exceeds maximum allowed size of %d bytes: %w", name, maxBinarySize, errUpdateFailed)
+	}
+
+	if err := outFile.Close(); err != nil {
+		return fmt.Errorf("failed to finalize update binary: %w", err)
+	}
+
+	return nil
+}
+
+func applyBinaryMode(outPath string, mode os.FileMode) error {
+	if mode == 0 || runtime.GOOS == windowsOS {
+		return nil
+	}
+
+	if err := os.Chmod(outPath, mode); err != nil {
+		return fmt.Errorf("failed to apply binary permissions: %w", err)
+	}
+
+	return nil
 }
 
 // binaryName reports whether an archive entry is the xf binary, returning the
