@@ -95,6 +95,35 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 	}, nil
 }
 
+type entryVerifier interface {
+	GetEntry(licenseKey string, downloadID, version string) (*Entry, error)
+	Verify(entry *Entry) (bool, error)
+}
+
+// FindValid returns the cached entry whose file exists and passes
+// verification, or nil if there is none. Only a failure to look up the entry
+// is returned as an error; a corrupt or missing file counts as no entry.
+func FindValid(m entryVerifier, licenseKey string, downloadID, version string) (*Entry, error) {
+	entry, err := m.GetEntry(licenseKey, downloadID, version)
+	if err != nil {
+		if errors.Is(err, ErrCacheMiss) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	if valid, err := m.Verify(entry); err != nil || !valid {
+		return nil, nil
+	}
+
+	if _, err := os.Stat(entry.FilePath); err != nil {
+		return nil, nil
+	}
+
+	return entry, nil
+}
+
 // saveMetadata saves cache entry metadata to disk.
 func (m *Manager) saveMetadata(licenseKey string, metadata *EntryMetadata) error {
 	entryPath, err := m.entryPath(licenseKey, metadata.DownloadID, metadata.Version)
@@ -136,7 +165,7 @@ func (m *Manager) Verify(entry *Entry) (bool, error) {
 
 // PurgeAll removes all cached files.
 func (m *Manager) PurgeAll() error {
-	if err := os.RemoveAll(m.basePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := os.RemoveAll(m.basePath); err != nil {
 		return fmt.Errorf("failed to purge cache: %w", err)
 	}
 
@@ -145,12 +174,12 @@ func (m *Manager) PurgeAll() error {
 
 // PurgeLicense removes all cached files for a specific license.
 func (m *Manager) PurgeLicense(licenseKey string) error {
-	licensePath := filepath.Clean(filepath.Join(m.basePath, licenseKey))
-	if !strings.HasPrefix(licensePath, m.basePath+string(filepath.Separator)) {
-		return fmt.Errorf("invalid license key: %w", errInvalidInput)
+	licensePath, err := m.licensePath(licenseKey)
+	if err != nil {
+		return err
 	}
 
-	if err := os.RemoveAll(licensePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := os.RemoveAll(licensePath); err != nil {
 		return fmt.Errorf("failed to purge license cache: %w", err)
 	}
 
@@ -159,30 +188,7 @@ func (m *Manager) PurgeLicense(licenseKey string) error {
 
 // List returns all cached entries.
 func (m *Manager) List() ([]*Entry, error) {
-	var entries []*Entry
-
-	if _, err := os.Stat(m.basePath); errors.Is(err, fs.ErrNotExist) {
-		return entries, nil
-	}
-
-	err := filepath.WalkDir(m.basePath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.Name() == metadataFilename {
-			entry, err := m.loadEntryFromMetadata(path)
-			if err != nil {
-				return err
-			}
-
-			if entry != nil {
-				entries = append(entries, entry)
-			}
-		}
-
-		return nil
-	})
+	entries, err := m.walkEntries(m.basePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cache: %w", err)
 	}
@@ -192,37 +198,55 @@ func (m *Manager) List() ([]*Entry, error) {
 
 // ListForLicense returns all cached entries for a specific license.
 func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
-	var entries []*Entry
-
-	licensePath := filepath.Clean(filepath.Join(m.basePath, licenseKey))
-	if !strings.HasPrefix(licensePath, m.basePath+string(filepath.Separator)) {
-		return nil, fmt.Errorf("invalid license key: %w", errInvalidInput)
+	licensePath, err := m.licensePath(licenseKey)
+	if err != nil {
+		return nil, err
 	}
 
-	if _, err := os.Stat(licensePath); errors.Is(err, fs.ErrNotExist) {
+	entries, err := m.walkEntries(licensePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list license cache: %w", err)
+	}
+
+	return entries, nil
+}
+
+func (m *Manager) licensePath(licenseKey string) (string, error) {
+	p := filepath.Clean(filepath.Join(m.basePath, licenseKey))
+	if !strings.HasPrefix(p, m.basePath+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid license key: %w", errInvalidInput)
+	}
+
+	return p, nil
+}
+
+func (m *Manager) walkEntries(root string) ([]*Entry, error) {
+	var entries []*Entry
+
+	if _, err := os.Stat(root); errors.Is(err, fs.ErrNotExist) {
 		return entries, nil
 	}
 
-	err := filepath.WalkDir(licensePath, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if d.Name() == metadataFilename {
-			entry, err := m.loadEntryFromMetadata(path)
-			if err != nil {
-				return err
-			}
-
-			if entry != nil {
-				entries = append(entries, entry)
-			}
+		if d.Name() != metadataFilename {
+			return nil
 		}
+
+		entry, err := m.loadEntryFromMetadata(path)
+		if err != nil {
+			return err
+		}
+
+		entries = append(entries, entry)
 
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list license cache: %w", err)
+		return nil, err
 	}
 
 	return entries, nil
@@ -242,11 +266,6 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	safeFilename := sanitizeFilename(metadata.Filename)
 	if safeFilename == "" {
 		return nil, fmt.Errorf("invalid cached filename %s: %w", metadata.Filename, errInvalidInput)
-	}
-
-	_, err = filepath.Rel(m.basePath, metadataPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve relative cache path for %s: %w", metadataPath, err)
 	}
 
 	var licenseKey string

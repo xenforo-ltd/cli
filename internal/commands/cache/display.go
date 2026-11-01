@@ -7,13 +7,13 @@ import (
 
 // printCacheHeader prints the shared summary line used by both the table and
 // verbose cache list views.
-func printCacheHeader(entries []*cache.Entry, totalSize int64) {
-	ui.PrintInfo(ui.Plural(len(entries), "cached download", "cached downloads") + " (" + ui.FormatBytes(totalSize) + ")")
+func printCacheHeader(entries []*cache.Entry) {
+	ui.PrintInfo(ui.Plural(len(entries), "cached download", "cached downloads") + " (" + ui.FormatBytes(totalSize(entries)) + ")")
 	ui.Println()
 }
 
-func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
-	printCacheHeader(entries, totalSize)
+func runCacheListTable(entries []*cache.Entry) {
+	printCacheHeader(entries)
 
 	headers := []string{"LICENSE", "PRODUCT", "VERSION", "SIZE", "DOWNLOADED"}
 	rows := make([][]string, 0, len(entries))
@@ -31,12 +31,10 @@ func runCacheListTable(entries []*cache.Entry, totalSize int64) error {
 	ui.Println(ui.NewTable(headers, rows))
 	ui.Println()
 	ui.PrintHint("Run " + ui.Command.Render("xf cache list -v") + " for detailed information")
-
-	return nil
 }
 
-func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
-	printCacheHeader(entries, totalSize)
+func runCacheListVerbose(entries []*cache.Entry) {
+	printCacheHeader(entries)
 
 	currentLicense := ""
 	for _, e := range entries {
@@ -65,6 +63,13 @@ func runCacheListVerbose(entries []*cache.Entry, totalSize int64) error {
 
 		ui.PrintKeyValuePaddedWithIndent(pairs, ui.Indent2)
 	}
+}
 
-	return nil
+func totalSize(entries []*cache.Entry) int64 {
+	var total int64
+	for _, e := range entries {
+		total += e.Metadata.Size
+	}
+
+	return total
 }

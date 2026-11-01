@@ -17,6 +17,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/version"
 )
 
+const defaultFilename = "download.zip"
+
 // DownloadOptions specifies download parameters.
 type DownloadOptions struct {
 	LicenseKey       string
@@ -171,7 +173,7 @@ func resolveFilename(override string, resp *http.Response, url string) string {
 		return safe
 	}
 
-	return "download.zip"
+	return defaultFilename
 }
 
 func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChecksum string, progress ProgressCallback) error {
@@ -285,7 +287,7 @@ func parseFilenameFromResponse(resp *http.Response, url string) string {
 		break
 	}
 
-	return "download.zip"
+	return defaultFilename
 }
 
 func sanitizeFilename(name string) string {

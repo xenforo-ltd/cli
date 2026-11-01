@@ -2,9 +2,7 @@ package download
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/cache"
@@ -122,25 +120,20 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 	}
 
 	if !force {
-		entry, err := cacheManager.GetEntry(licenseKey, downloadID, info.VersionString)
-		if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
+		entry, err := cache.FindValid(cacheManager, licenseKey, downloadID, info.VersionString)
+		if err != nil {
 			return fmt.Errorf("failed to check cache for %s %s: %w", downloadID, info.VersionString, err)
 		}
 
 		if entry != nil {
-			valid, err := cacheManager.Verify(entry)
-			if err == nil && valid {
-				if _, statErr := os.Stat(entry.FilePath); statErr == nil {
-					ui.SuccessBox("Already cached", []ui.KVPair{
-						ui.KV("File", ui.Path.Render(ui.ShortHome(entry.FilePath))),
-						ui.KV("Version", ui.Version.Render(info.VersionString)),
-						ui.KV("Size", ui.FormatBytes(entry.Metadata.Size)),
-					})
-					ui.PrintHint("Add " + ui.Command.Render("--force") + " to re-download")
+			ui.SuccessBox("Already cached", []ui.KVPair{
+				ui.KV("File", ui.Path.Render(ui.ShortHome(entry.FilePath))),
+				ui.KV("Version", ui.Version.Render(info.VersionString)),
+				ui.KV("Size", ui.FormatBytes(entry.Metadata.Size)),
+			})
+			ui.PrintHint("Add " + ui.Command.Render("--force") + " to re-download")
 
-					return nil
-				}
-			}
+			return nil
 		}
 	}
 

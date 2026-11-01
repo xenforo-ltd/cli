@@ -89,19 +89,18 @@ func List(_ context.Context, opts ListOptions) error {
 		return strings.Compare(a.Metadata.Version, b.Metadata.Version)
 	})
 
-	var totalSize int64
-	for _, e := range entries {
-		totalSize += e.Metadata.Size
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	if cfg.Verbose {
-		return runCacheListVerbose(entries, totalSize)
+		runCacheListVerbose(entries)
+
+		return nil
 	}
 
-	return runCacheListTable(entries, totalSize)
+	runCacheListTable(entries)
+
+	return nil
 }

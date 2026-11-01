@@ -32,17 +32,11 @@ func Purge(_ context.Context, opts PurgeOptions) error {
 			return nil
 		}
 
-		var totalSize int64
-		for _, e := range entries {
-			totalSize += e.Metadata.Size
-		}
-
 		if err := manager.PurgeLicense(opts.LicenseKey); err != nil {
 			return fmt.Errorf("failed to purge cached downloads for license %s: %w", opts.LicenseKey, err)
 		}
 
-		ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
-			ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize)), nil)
+		printPurged(entries)
 
 		return nil
 	}
@@ -61,17 +55,16 @@ func Purge(_ context.Context, opts PurgeOptions) error {
 		return nil
 	}
 
-	var totalSize int64
-	for _, e := range entries {
-		totalSize += e.Metadata.Size
-	}
-
 	if err := manager.PurgeAll(); err != nil {
 		return fmt.Errorf("failed to purge all cached downloads: %w", err)
 	}
 
-	ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
-		ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize)), nil)
+	printPurged(entries)
 
 	return nil
+}
+
+func printPurged(entries []*cache.Entry) {
+	ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
+		ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize(entries))), nil)
 }

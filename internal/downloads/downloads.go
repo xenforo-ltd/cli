@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -68,10 +67,6 @@ func ResolveSelections(
 ) ([]Selection, error) {
 	selections := make([]Selection, 0, len(products))
 
-	if overrides == nil {
-		overrides = map[string]int{}
-	}
-
 	coreVersions, err := client.GetLicenseVersions(ctx, licenseKey, "xenforo")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get versions for xenforo: %w", err)
@@ -86,12 +81,10 @@ func ResolveSelections(
 
 	var selectedCore *customerapi.Version
 
-	for i := range coreVersions.Versions {
-		v := &coreVersions.Versions[i]
-		if v.VersionID == coreVersionID {
-			selectedCore = v
-			break
-		}
+	if i := slices.IndexFunc(coreVersions.Versions, func(v customerapi.Version) bool {
+		return v.VersionID == coreVersionID
+	}); i >= 0 {
+		selectedCore = &coreVersions.Versions[i]
 	}
 
 	for _, product := range products {
@@ -279,18 +272,13 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 	}
 
 	if !skipCache {
-		entry, err := cacheManager.GetEntry(licenseKey, selection.Product, versionStr)
-		if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
+		entry, err := cache.FindValid(cacheManager, licenseKey, selection.Product, versionStr)
+		if err != nil {
 			return nil, "", fmt.Errorf("failed to check cache for %s %s: %w", selection.Product, versionStr, err)
 		}
 
 		if entry != nil {
-			valid, err := cacheManager.Verify(entry)
-			if err == nil && valid {
-				if _, statErr := os.Stat(entry.FilePath); statErr == nil {
-					return entry, versionStr, nil
-				}
-			}
+			return entry, versionStr, nil
 		}
 	}
 
