@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/xenforo-ltd/cli/internal/clierror"
 )
 
 // Tests executing Cobra must run serially: its global OnInitialize hook updates Viper.
@@ -64,7 +66,7 @@ func TestUsageErrorsStillPrintUsage(t *testing.T) {
 		t.Fatal("expected an argument validation error")
 	}
 
-	if _, ok := errors.AsType[*usageError](err); !ok {
+	if !clierror.IsUsage(err) {
 		t.Fatalf("argument errors must be marked as usage errors, got %T: %v", err, err)
 	}
 }
@@ -92,7 +94,7 @@ func TestRuntimeErrorsAreNotUsageErrors(t *testing.T) {
 		t.Fatal("expected the runtime error to be returned")
 	}
 
-	if _, ok := errors.AsType[*usageError](err); ok {
+	if clierror.IsUsage(err) {
 		t.Error("runtime errors must not be marked as usage errors")
 	}
 }
@@ -164,7 +166,7 @@ func TestConfigureErrorHandlingIsIdempotent(t *testing.T) {
 
 	count := 0
 	for current := err; current != nil; current = errors.Unwrap(current) {
-		if _, ok := current.(*usageError); ok {
+		if clierror.IsUsage(current) {
 			count++
 		}
 	}

@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"testing"
-	"time"
 )
 
 // TestInterruptIsNotReportedAsAnError covers Ctrl-C during a long-running
@@ -54,36 +52,5 @@ func TestInterruptIsNotReportedAsAnError(t *testing.T) {
 				t.Errorf("isInterrupted(%v) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
-	}
-}
-
-// TestLocalCommandReportsCancellation covers the non-Dockerised fallback, which
-// runs `php cmd.php ...` directly. Cancellation must reach that child too, and
-// be reported as a cancellation rather than as a failed command.
-func TestLocalCommandReportsCancellation(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	cmdFn := func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
-		return exec.CommandContext(ctx, "sh", "-c", "while true; do sleep 0.05; done")
-	}
-
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
-
-	err := runAsLocalXenForoCommand(ctx, t.TempDir(), []string{"list"}, cmdFn)
-	if err == nil {
-		t.Fatal("expected an error when the context is cancelled")
-	}
-
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("error %q does not unwrap to context.Canceled", err)
-	}
-
-	if !isInterrupted(err) {
-		t.Error("a cancelled local command must be treated as an interrupt")
 	}
 }

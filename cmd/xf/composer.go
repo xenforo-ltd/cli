@@ -1,11 +1,9 @@
 package main
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/environment"
+	"github.com/xenforo-ltd/cli/internal/commands/composer"
 )
 
 var composerCmd = &cobra.Command{
@@ -42,14 +40,5 @@ func init() {
 }
 
 func runComposer(cmd *cobra.Command, args []string) error {
-	xfDir, composerArgs, err := resolveXenForoDirAndArgs(args)
-	if err != nil {
-		return err
-	}
-
-	if err := environment.RunComposer(cmd.Context(), xfDir, os.Stdin, os.Stdout, os.Stderr, composerArgs...); err != nil {
-		return passthroughError(err, "failed to run Composer")
-	}
-
-	return nil
+	return composer.Run(cmd.Context(), args)
 }

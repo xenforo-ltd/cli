@@ -1,14 +1,9 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"os/exec"
-
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/environment"
+	commandexec "github.com/xenforo-ltd/cli/internal/commands/exec"
 )
 
 var execCmd = &cobra.Command{
@@ -38,77 +33,5 @@ func init() {
 }
 
 func runExec(cmd *cobra.Command, args []string) error {
-	xfDir, execArgs, err := resolveXenForoDirAndArgs(args)
-	if err != nil {
-		return err
-	}
-
-	if err := validateExecInvocation(execArgs); err != nil {
-		return err
-	}
-
-	runner, err := environment.NewRunner(xfDir)
-	if err != nil {
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
-	}
-
-	service := execArgs[0]
-	cmdArgs := execArgs[1:]
-
-	if err := runner.Compose(cmd.Context(), os.Stdin, os.Stdout, os.Stderr, append([]string{"exec", service}, cmdArgs...)...); err != nil {
-		return passthroughError(err, "failed to execute command in service "+service)
-	}
-
-	return nil
-}
-
-// passthroughError converts a child process's non-zero exit into a bare
-// exit-code error (the child already printed its own failure); other errors
-// are wrapped with context.
-func passthroughError(err error, context string) error {
-	if err == nil {
-		return nil
-	}
-
-	if ee, ok := errors.AsType[*exec.ExitError](err); ok {
-		// A process killed by a signal reports -1, which is not a status any
-		// caller can exit with. Those failures are reported normally instead.
-		if code := ee.ExitCode(); code >= 0 {
-			return newExitCodeError(code)
-		}
-	}
-
-	return fmt.Errorf("%s: %w", context, err)
-}
-
-func resolveXenForoDirAndArgs(args []string) (string, []string, error) {
-	if len(args) > 0 {
-		potentialPath := args[0]
-		if dir, err := getXenForoDir([]string{potentialPath}); err == nil {
-			return dir, stripFlagSeparator(args[1:]), nil
-		}
-	}
-
-	xfDir, err := getXenForoDir(nil)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return xfDir, stripFlagSeparator(args), nil
-}
-
-func stripFlagSeparator(args []string) []string {
-	if len(args) > 0 && args[0] == "--" {
-		return args[1:]
-	}
-
-	return args
-}
-
-func validateExecInvocation(execArgs []string) error {
-	if len(execArgs) < 2 {
-		return newUsageError(fmt.Errorf("exec requires <service> <command> [args...]: %w", ErrInvalidInput))
-	}
-
-	return nil
+	return commandexec.Run(cmd.Context(), args)
 }

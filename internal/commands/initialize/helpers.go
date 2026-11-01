@@ -1,0 +1,159 @@
+package initialize
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/viper"
+
+	"github.com/xenforo-ltd/cli/internal/clierror"
+	"github.com/xenforo-ltd/cli/internal/customerapi"
+	"github.com/xenforo-ltd/cli/internal/downloads"
+	"github.com/xenforo-ltd/cli/internal/ui"
+)
+
+// printInstallFailure reports an xf:install failure with a single error line
+// and a remediation hint, then returns an error that carries the child's own
+// exit status, so callers propagate failure without handleError printing the
+// same failure again.
+//
+// A cancelled context is reported as the cancellation itself, before any
+// output: an interrupted install is not a failure with a retry step.
+func printInstallFailure(ctx context.Context, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+
+	ui.PrintError("xf:install failed")
+	ui.PrintCause(err, viper.GetBool("verbose"))
+	ui.PrintHint("Run " + ui.Command.Render("xf xf:install") + " to retry once the containers are up")
+
+	return clierror.Passthrough(err, "xf:install failed")
+}
+
+func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key string) string {
+	licenses, err := client.GetLicenses(ctx)
+	if err != nil {
+		return key
+	}
+
+	for _, lic := range licenses {
+		if lic.LicenseKey != key {
+			continue
+		}
+
+		return downloads.LicenseLabel(lic)
+	}
+
+	return key
+}
+
+func getProductTitleMapCached(ctx context.Context, client *customerapi.Client, opts *InitOptions) map[string]string {
+	if len(opts.productTitleMap) > 0 {
+		return opts.productTitleMap
+	}
+
+	opts.productTitleMap = downloads.ProductTitles(ctx, client, opts.LicenseKey)
+
+	return opts.productTitleMap
+}
+
+func formatProductList(products []string, titleMap map[string]string) string {
+	names := make([]string, 0, len(products))
+	for _, p := range products {
+		name := titleMap[p]
+		if name == "" {
+			name = p
+		}
+
+		names = append(names, name)
+	}
+
+	return strings.Join(names, ", ")
+}
+
+func inferSiteTitleFromEnv(opts *InitOptions) string {
+	title := strings.TrimSpace(opts.envResolved["XF_TITLE"])
+	if title == "" {
+		return ""
+	}
+
+	if opts.InstanceName == "" {
+		return title
+	}
+
+	suffix := fmt.Sprintf(" [%s]", opts.InstanceName)
+
+	return strings.TrimSuffix(title, suffix)
+}
+
+func validateReviewInputs(opts *InitOptions) error {
+	if strings.TrimSpace(opts.AdminPassword) == "" {
+		return errPasswordRequired
+	}
+
+	if !strings.Contains(strings.TrimSpace(opts.AdminEmail), "@") {
+		return errInvalidEmail
+	}
+
+	if strings.TrimSpace(opts.AdminUser) == "" {
+		return errAdminUserRequired
+	}
+
+	for k, v := range opts.envResolved {
+		if k == "XF_DEBUG" || k == "XF_DEVELOPMENT" {
+			continue
+		}
+
+		if err := validateEnvKey(strings.TrimSpace(k)); err != nil {
+			return fmt.Errorf("invalid environment key %q: %w", k, err)
+		}
+
+		if strings.Contains(v, "\n") {
+			return fmt.Errorf("invalid environment value for %s: %w", k, errNewlinesNotAllowed)
+		}
+	}
+
+	return nil
+}
+
+func ensureCoreFirstUnique(products []string) []string {
+	seen := map[string]bool{}
+	out := []string{"xenforo"}
+	seen["xenforo"] = true
+
+	for _, p := range products {
+		p = strings.TrimSpace(p)
+		if p == "" || seen[p] {
+			continue
+		}
+
+		if p == "xenforo" {
+			continue
+		}
+
+		seen[p] = true
+		out = append(out, p)
+	}
+
+	return out
+}
+
+func formatProductNames(products []string, titleMap map[string]string) string {
+	if len(products) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(products))
+	for _, product := range products {
+		if name := strings.TrimSpace(titleMap[product]); name != "" {
+			names = append(names, name)
+			continue
+		}
+
+		names = append(names, product)
+	}
+
+	return strings.Join(names, ", ")
+}

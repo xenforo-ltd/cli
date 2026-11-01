@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	// ErrAPINotFound indicates the requested resource was not found.
-	ErrAPINotFound = errors.New("resource not found")
+	// errAPINotFound indicates the requested resource was not found.
+	errAPINotFound = errors.New("resource not found")
 
-	// ErrInvalidInput indicates invalid input was provided.
-	ErrInvalidInput = errors.New("invalid input")
+	// errInvalidInput indicates invalid input was provided.
+	errInvalidInput = errors.New("invalid input")
 )
 
 type versionClient interface {
@@ -77,7 +77,7 @@ func ResolveSelections(
 	}
 
 	if len(coreVersions.Versions) == 0 {
-		return nil, fmt.Errorf("no xenforo versions available: %w", ErrAPINotFound)
+		return nil, fmt.Errorf("no xenforo versions available: %w", errAPINotFound)
 	}
 
 	sortVersions(coreVersions.Versions)
@@ -96,7 +96,7 @@ func ResolveSelections(
 	for _, product := range products {
 		if product == "xenforo" {
 			if coreVersionID == 0 {
-				return nil, fmt.Errorf("xenforo core version ID is required: %w", ErrInvalidInput)
+				return nil, fmt.Errorf("xenforo core version ID is required: %w", errInvalidInput)
 			}
 
 			versionStr := coreVersionString

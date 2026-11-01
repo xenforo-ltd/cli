@@ -1,0 +1,105 @@
+package initialize
+
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"maps"
+	"os"
+	"regexp"
+	"strings"
+)
+
+var (
+	envKeyPattern         = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+	errInvalidEnvFormat   = errors.New("expected KEY=VALUE")
+	errInvalidEnvKey      = errors.New("must match ^[A-Z][A-Z0-9_]*$")
+	errNewlinesNotAllowed = errors.New("newlines are not allowed")
+)
+
+// parseEnvFile parses environment variables from a file.
+func parseEnvFile(path string) (map[string]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open env file %s: %w", path, err)
+	}
+	defer file.Close()
+
+	values := map[string]string{}
+	scanner := bufio.NewScanner(file)
+
+	line := 0
+	for scanner.Scan() {
+		line++
+
+		raw := strings.TrimSpace(scanner.Text())
+		if raw == "" || strings.HasPrefix(raw, "#") {
+			continue
+		}
+
+		key, value, ok := strings.Cut(raw, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid env line %d: %w", line, errInvalidEnvFormat)
+		}
+
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+
+		if err := validateEnvKey(key); err != nil {
+			return nil, fmt.Errorf("invalid env line %d: %w", line, err)
+		}
+
+		values[key] = value
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read env file %s: %w", path, err)
+	}
+
+	return values, nil
+}
+
+// parseEnvFlags parses environment variables from command-line arguments.
+func parseEnvFlags(entries []string) (map[string]string, error) {
+	values := map[string]string{}
+
+	for _, entry := range entries {
+		key, value, ok := strings.Cut(strings.TrimSpace(entry), "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid --env %q: %w", entry, errInvalidEnvFormat)
+		}
+
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+
+		if err := validateEnvKey(key); err != nil {
+			return nil, fmt.Errorf("invalid --env %q: %w", entry, err)
+		}
+
+		values[key] = value
+	}
+
+	return values, nil
+}
+
+// validateEnvKey checks if an environment variable key is valid.
+func validateEnvKey(key string) error {
+	if !envKeyPattern.MatchString(key) {
+		return fmt.Errorf("invalid key %q: %w", key, errInvalidEnvKey)
+	}
+
+	return nil
+}
+
+// mergeEnvMaps merges multiple environment maps with priority order.
+func mergeEnvMaps(base, fromFile, fromFlags map[string]string) map[string]string {
+	merged := map[string]string{}
+
+	maps.Copy(merged, base)
+
+	maps.Copy(merged, fromFile)
+
+	maps.Copy(merged, fromFlags)
+
+	return merged
+}

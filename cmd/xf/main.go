@@ -30,5 +30,5 @@ func main() {
 		cancel()
 	}()
 
-	Execute(ctx)
+	execute(ctx)
 }

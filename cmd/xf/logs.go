@@ -1,14 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/environment"
-	"github.com/xenforo-ltd/cli/internal/ui"
+	"github.com/xenforo-ltd/cli/internal/commands/logs"
 )
 
 var logsCmd = &cobra.Command{
@@ -42,34 +37,5 @@ func init() {
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {
-	xfDir, services, err := resolveXenForoDirAndArgs(args)
-	if err != nil {
-		return err
-	}
-
-	runner, err := environment.NewRunner(xfDir)
-	if err != nil {
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
-	}
-
-	if !flagLogsFollow {
-		target := "all services"
-		if len(services) > 0 {
-			target = strings.Join(services, ", ")
-		}
-
-		ui.PrintInfo("Showing logs for " + ui.Bold.Render(target))
-	}
-
-	composeArgs := []string{"logs"}
-	if flagLogsFollow {
-		composeArgs = append(composeArgs, "--follow")
-	}
-	composeArgs = append(composeArgs, services...)
-
-	if err := runner.Compose(cmd.Context(), os.Stdin, os.Stdout, os.Stderr, composeArgs...); err != nil {
-		return fmt.Errorf("failed to show container logs: %w", err)
-	}
-
-	return nil
+	return logs.Run(cmd.Context(), args, flagLogsFollow)
 }

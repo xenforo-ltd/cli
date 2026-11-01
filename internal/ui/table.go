@@ -5,32 +5,32 @@ import (
 	"charm.land/lipgloss/v2/table"
 )
 
-// TableStyle defines the visual style for tables.
-type TableStyle struct {
+// tableStyle defines the visual style for tables.
+type tableStyle struct {
 	Header    lipgloss.Style
 	Cell      lipgloss.Style
 	Separator string
 }
 
-// TablePadding is the number of spaces to pad between columns.
-const TablePadding = 2
+// tablePadding is the number of spaces to pad between columns.
+const tablePadding = 2
 
-// DefaultTableStyle returns the default table styling.
-func DefaultTableStyle() TableStyle {
-	return TableStyle{
+// defaultTableStyle returns the default table styling.
+func defaultTableStyle() tableStyle {
+	return tableStyle{
 		Header: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(ColorSubtle).
-			PaddingRight(TablePadding),
+			Foreground(colorSubtle).
+			PaddingRight(tablePadding),
 		Cell: lipgloss.NewStyle().
-			PaddingRight(TablePadding),
+			PaddingRight(tablePadding),
 		Separator: "  ",
 	}
 }
 
 // NewTable creates a formatted table with the default style.
 func NewTable(headers []string, rows [][]string) string {
-	style := DefaultTableStyle()
+	style := defaultTableStyle()
 
 	t := table.New().
 		Border(lipgloss.HiddenBorder()).

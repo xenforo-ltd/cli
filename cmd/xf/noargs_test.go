@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/xenforo-ltd/cli/internal/clierror"
 )
 
 // findCommand locates a command by its full path from the root, e.g.
@@ -108,7 +109,7 @@ func TestParentCommandsRejectUnknownSubcommands(t *testing.T) {
 				t.Errorf("error %q does not mention the unknown subcommand", err)
 			}
 
-			if _, ok := errors.AsType[*usageError](err); !ok {
+			if !clierror.IsUsage(err) {
 				t.Errorf("expected a usageError so usage is printed, got %T", err)
 			}
 		})
@@ -151,7 +152,7 @@ func TestRootRejectsUnknownCommandAfterGlobalFlag(t *testing.T) {
 		t.Fatal("expected an unknown command error")
 	}
 
-	if _, ok := errors.AsType[*usageError](err); !ok {
+	if !clierror.IsUsage(err) {
 		t.Fatalf("unknown command must be a usage error, got %T: %v", err, err)
 	}
 
@@ -159,7 +160,7 @@ func TestRootRejectsUnknownCommandAfterGlobalFlag(t *testing.T) {
 		t.Fatalf("error must name the offending token, got %v", err)
 	}
 
-	if hint := hintOf(err); !strings.Contains(hint, "xf xf-dev:import") {
+	if hint := clierror.HintOf(err); !strings.Contains(hint, "xf xf-dev:import") {
 		t.Fatalf("hint must show the working invocation, got %q", hint)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -15,11 +14,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/xenforo-ltd/cli/internal/clierror"
+	rootcommand "github.com/xenforo-ltd/cli/internal/commands/root"
 	"github.com/xenforo-ltd/cli/internal/config"
-	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/version"
-	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
 var configFile string
@@ -67,26 +66,12 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
 			return cmd.Help()
 		}
 
-		return withHint(
-			newUsageError(markAs(ErrInvalidInput, "unknown command %q for %q", args[0], cmd.CommandPath())),
+		return clierror.WithHint(
+			clierror.Usage(clierror.MarkAs(clierror.ErrInvalidInput, "unknown command %q for %q", args[0], cmd.CommandPath())),
 			"Global flags cannot precede a XenForo command; run "+ui.Command.Render(cmd.CommandPath()+" "+args[0])+" instead",
 		)
 	},
 }
-
-// usageError marks an error as caused by incorrect invocation (bad arguments or
-// flags), for which printing usage is genuinely helpful.
-type usageError struct {
-	err error
-}
-
-func newUsageError(err error) error {
-	return &usageError{err: err}
-}
-
-func (e *usageError) Error() string { return e.err.Error() }
-
-func (e *usageError) Unwrap() error { return e.err }
 
 // configureErrorHandling makes cobra print usage only for genuine misuse.
 //
@@ -105,7 +90,7 @@ func configureErrorHandling(cmd *cobra.Command) {
 		args := cmd.Args
 		cmd.Args = func(c *cobra.Command, a []string) error {
 			if err := args(c, a); err != nil {
-				return newUsageError(err)
+				return clierror.Usage(err)
 			}
 
 			return nil
@@ -117,7 +102,7 @@ func configureErrorHandling(cmd *cobra.Command) {
 	cmd.Annotations[usageConfiguredAnnotation] = "true"
 
 	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
-		return newUsageError(err)
+		return clierror.Usage(err)
 	})
 
 	for _, sub := range cmd.Commands() {
@@ -161,8 +146,8 @@ const usageTemplate = `{{styleHeading "Usage:"}}{{if .Runnable}}
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
 `
 
-// Execute runs the CLI application.
-func Execute(ctx context.Context) {
+// execute runs the CLI application.
+func execute(ctx context.Context) {
 	configureErrorHandling(rootCmd)
 
 	if len(os.Args) > 1 {
@@ -170,18 +155,17 @@ func Execute(ctx context.Context) {
 
 		if takesDirectXenForoRoute(firstArg) {
 			if !isKnownCommand(firstArg) {
-				if err := runAsXenForoCommand(ctx, os.Args[1:], exec.CommandContext); err != nil {
+				if err := rootcommand.Run(ctx, os.Args[1:]); err != nil {
 					if isInterrupted(err) {
 						os.Exit(interruptExitCode())
 					}
 
-					if errors.Is(err, ErrCancelled) {
+					if errors.Is(err, clierror.ErrCancelled) {
 						os.Exit(0)
 					}
-					if exitErr, ok := errors.AsType[*exitCodeError](err); ok {
-						os.Exit(exitErr.code)
+					if code, ok := clierror.ExitCode(err); ok {
+						os.Exit(code)
 					}
-
 					handleError(err)
 					os.Exit(1)
 				}
@@ -199,17 +183,15 @@ func Execute(ctx context.Context) {
 			os.Exit(interruptExitCode())
 		}
 
-		if errors.Is(err, ErrCancelled) {
+		if errors.Is(err, clierror.ErrCancelled) {
 			os.Exit(0)
 		}
-		if exitErr, ok := errors.AsType[*exitCodeError](err); ok {
-			os.Exit(exitErr.code)
+		if code, ok := clierror.ExitCode(err); ok {
+			os.Exit(code)
 		}
-
 		handleError(err)
 
-		var usageErr *usageError
-		if errors.As(err, &usageErr) && executed != nil {
+		if clierror.IsUsage(err) && executed != nil {
 			fmt.Fprintln(os.Stderr)
 			fmt.Fprint(os.Stderr, executed.UsageString())
 		}
@@ -276,7 +258,7 @@ func handleError(err error) {
 	// regardless of NO_COLOR or piping.
 	lipgloss.Fprintf(os.Stderr, "%s %s\n", ui.ErrorBold.Render(ui.SymbolError), ui.Error.Render(msg))
 
-	if hint := hintOf(err); hint != "" {
+	if hint := clierror.HintOf(err); hint != "" {
 		lipgloss.Fprintf(os.Stderr, "%s%s %s\n", ui.Indent1, ui.Dim.Render(ui.SymbolArrow), hint)
 	}
 }
@@ -343,68 +325,6 @@ func isKnownCommand(name string) bool {
 	}
 
 	return false
-}
-
-// commandFunc builds an external command. It is a seam for tests, and takes a
-// context so that cancellation reaches the child process.
-type commandFunc func(ctx context.Context, name string, args ...string) *exec.Cmd
-
-func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to determine the current directory: %w", err)
-	}
-
-	xfDir, err := xf.GetXenForoDir(cwd)
-	if err != nil {
-		return withHint(
-			markAs(err, "unknown command: %s (not in a XenForo directory)", args[0]),
-			"Run "+ui.Command.Render("xf --help")+" to see available commands",
-		)
-	}
-
-	runner, err := environment.NewRunner(xfDir)
-	if err != nil {
-		if errors.Is(err, environment.ErrEnvNotInitialized) {
-			return runAsLocalXenForoCommand(ctx, xfDir, args, cmdFn)
-		}
-
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
-	}
-
-	if err := runner.ExecOrRun(ctx, "xf", nil, os.Stdin, os.Stdout, os.Stderr, append([]string{"php", "cmd.php"}, args...)...); err != nil {
-		return passthroughError(err, fmt.Sprintf("failed to run XenForo command %q", args[0]))
-	}
-
-	return nil
-}
-
-func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, cmdFn commandFunc) error {
-	cmdArgs := append([]string{"cmd.php"}, args...)
-	cmd := cmdFn(ctx, "php", cmdArgs...)
-	cmd.Dir = xfDir
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		// The child is killed when the context ends, so report why it stopped
-		// rather than the resulting signal.
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
-		}
-
-		if errors.Is(err, exec.ErrNotFound) {
-			return withHint(
-				&kindError{err: errors.New("PHP is not installed or not in your PATH"), kind: err},
-				"Install PHP or run this inside a started environment ("+ui.Command.Render("xf up")+")",
-			)
-		}
-
-		return passthroughError(err, "local XenForo command failed")
-	}
-
-	return nil
 }
 
 func init() {

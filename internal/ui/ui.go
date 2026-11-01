@@ -14,44 +14,44 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// ColorPrimary is the primary accent color.
+// colorPrimary is the primary accent color.
 var (
 	hasDark   = lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
 	lightDark = lipgloss.LightDark(hasDark)
 
-	ColorPrimary   = lipgloss.Blue
-	ColorSecondary = lipgloss.Magenta
-	ColorAccent    = lipgloss.Cyan
-	ColorSuccess   = lipgloss.Green
-	ColorWarning   = lipgloss.Yellow
-	ColorError     = lipgloss.Red
-	ColorInfo      = lipgloss.Cyan
-	ColorSubtle    = lightDark(lipgloss.Color("#585858"), lipgloss.Color("#BCBCBC"))
+	colorPrimary   = lipgloss.Blue
+	colorSecondary = lipgloss.Magenta
+	colorAccent    = lipgloss.Cyan
+	colorSuccess   = lipgloss.Green
+	colorWarning   = lipgloss.Yellow
+	colorError     = lipgloss.Red
+	colorInfo      = lipgloss.Cyan
+	colorSubtle    = lightDark(lipgloss.Color("#585858"), lipgloss.Color("#BCBCBC"))
 )
 
 const ansiClearLine = "\r\033[2K"
 
 // Predefined styles for consistent use across commands.
 var (
-	Bold  = lipgloss.NewStyle().Bold(true)
-	Dim   = lipgloss.NewStyle().Faint(true)             // Terminal's native faint/dim
-	Muted = lipgloss.NewStyle().Foreground(ColorSubtle) // Adaptive subtle color
-	Label = lipgloss.NewStyle().Foreground(ColorSubtle) // For labels in key-value pairs
+	Bold       = lipgloss.NewStyle().Bold(true)
+	Dim        = lipgloss.NewStyle().Faint(true)             // Terminal's native faint/dim
+	Muted      = lipgloss.NewStyle().Foreground(colorSubtle) // Adaptive subtle color
+	labelStyle = lipgloss.NewStyle().Foreground(colorSubtle) // For labels in key-value pairs
 
-	Success = lipgloss.NewStyle().Foreground(ColorSuccess)
-	Warning = lipgloss.NewStyle().Foreground(ColorWarning)
-	Error   = lipgloss.NewStyle().Foreground(ColorError)
-	Info    = lipgloss.NewStyle().Foreground(ColorInfo)
+	Success   = lipgloss.NewStyle().Foreground(colorSuccess)
+	Warning   = lipgloss.NewStyle().Foreground(colorWarning)
+	Error     = lipgloss.NewStyle().Foreground(colorError)
+	infoStyle = lipgloss.NewStyle().Foreground(colorInfo)
 
-	SuccessBold = lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true)
-	ErrorBold   = lipgloss.NewStyle().Foreground(ColorError).Bold(true)
+	successBold = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
+	ErrorBold   = lipgloss.NewStyle().Foreground(colorError).Bold(true)
 
 	Header = lipgloss.NewStyle().Bold(true).Underline(true)
 
-	Command = lipgloss.NewStyle().Foreground(ColorAccent)
-	Path    = lipgloss.NewStyle().Foreground(ColorSecondary)
-	URL     = lipgloss.NewStyle().Foreground(ColorPrimary).Underline(true)
-	Version = lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
+	Command = lipgloss.NewStyle().Foreground(colorAccent)
+	Path    = lipgloss.NewStyle().Foreground(colorSecondary)
+	URL     = lipgloss.NewStyle().Foreground(colorPrimary).Underline(true)
+	Version = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 )
 
 // Indent1 is one level of indentation (2 spaces).
@@ -60,14 +60,14 @@ const (
 	Indent2 = "    "
 )
 
-// SymbolSuccess is the success symbol.
+// symbolSuccess is the success symbol.
 const (
-	SymbolSuccess = "✓"
-	SymbolWarning = "!"
+	symbolSuccess = "✓"
+	symbolWarning = "!"
 	SymbolError   = "✗"
-	SymbolInfo    = "•"
-	SymbolSkipped = "-"
-	SymbolPending = "○"
+	symbolInfo    = "•"
+	symbolSkipped = "-"
+	symbolPending = "○"
 	SymbolArrow   = "→"
 	SymbolBullet  = "•"
 )
@@ -90,17 +90,17 @@ func Printf(format string, v ...any) int {
 func StatusIcon(status string) string {
 	switch status {
 	case "success", "ok":
-		return Success.Render(SymbolSuccess)
+		return Success.Render(symbolSuccess)
 	case "warning", "warn":
-		return Warning.Render(SymbolWarning)
+		return Warning.Render(symbolWarning)
 	case "error", "fail":
 		return Error.Render(SymbolError)
 	case "info":
-		return Info.Render(SymbolInfo)
+		return infoStyle.Render(symbolInfo)
 	case "skipped", "skip":
-		return Dim.Render(SymbolSkipped)
+		return Dim.Render(symbolSkipped)
 	case "pending":
-		return Dim.Render(SymbolPending)
+		return Dim.Render(symbolPending)
 	default:
 		return Dim.Render("?")
 	}
@@ -120,8 +120,8 @@ func FormatDate(t time.Time) string { return t.Format("2006-01-02") }
 // FormatDateTime renders a timestamp for key-value output.
 func FormatDateTime(t time.Time) string { return t.Format("2006-01-02 15:04") }
 
-// IsTerminal reports whether f is an interactive terminal.
-func IsTerminal(f *os.File) bool {
+// isTerminal reports whether f is an interactive terminal.
+func isTerminal(f *os.File) bool {
 	fi, err := f.Stat()
 	if err != nil {
 		return false
@@ -131,7 +131,7 @@ func IsTerminal(f *os.File) bool {
 
 // ClearScreen clears the visible screen when stdout is a terminal.
 func ClearScreen() {
-	if IsTerminal(os.Stdout) {
+	if isTerminal(os.Stdout) {
 		fmt.Fprint(os.Stdout, "\033[H\033[2J")
 	}
 }
@@ -173,15 +173,15 @@ func FileLink(text, filename string) string {
 
 // isTTY records whether stdout is an interactive terminal, gating spinner
 // and progress-bar animation and terminal-only hyperlinks.
-var isTTY = IsTerminal(os.Stdout)
+var isTTY = isTerminal(os.Stdout)
 
 // Step returns a formatted progress step indicator.
 func Step(current, total int) string {
-	return Info.Render(fmt.Sprintf("[%d/%d]", current, total))
+	return infoStyle.Render(fmt.Sprintf("[%d/%d]", current, total))
 }
 
-// StepWithLabel returns a progress step with a label.
-func StepWithLabel(current, total int, label string) string {
+// stepWithLabel returns a progress step with a label.
+func stepWithLabel(current, total int, label string) string {
 	return fmt.Sprintf("%s %s", Step(current, total), Bold.Render(label))
 }
 
@@ -229,7 +229,7 @@ func renderKeyValuePadded(pairs []KVPair, indent string) string {
 	var sb strings.Builder
 	for _, p := range pairs {
 		padding := strings.Repeat(" ", maxKeyLen-lipgloss.Width(p.Key))
-		fmt.Fprintf(&sb, "%s%s%s  %s\n", indent, Label.Render(p.Key+":"), padding, p.Value)
+		fmt.Fprintf(&sb, "%s%s%s  %s\n", indent, labelStyle.Render(p.Key+":"), padding, p.Value)
 	}
 
 	return sb.String()
@@ -249,13 +249,13 @@ type Spinner struct {
 	frameIdx int
 }
 
-// SpinnerFrames are the animation frames for the spinner.
-var SpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+// spinnerFrames are the animation frames for the spinner.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // NewSpinner creates a new spinner with the given message.
 func NewSpinner(message string) *Spinner {
 	return &Spinner{
-		frames:   SpinnerFrames,
+		frames:   spinnerFrames,
 		interval: 80 * time.Millisecond,
 		message:  message,
 		writer:   os.Stdout,
@@ -296,7 +296,7 @@ func (s *Spinner) Start() {
 		for {
 			s.mu.Lock()
 			msg := s.message
-			frame := Info.Render(s.frames[s.frameIdx%len(s.frames)])
+			frame := infoStyle.Render(s.frames[s.frameIdx%len(s.frames)])
 			lipgloss.Fprint(s.writer, ansiClearLine)
 			lipgloss.Fprintf(s.writer, "%s %s", frame, msg)
 			s.frameIdx++
@@ -442,7 +442,7 @@ func (p *ProgressBar) render() {
 		ansiClearLine,
 		p.message,
 		bar,
-		Info.Render(pctStr),
+		infoStyle.Render(pctStr),
 		Dim.Render(sizeStr))
 }
 
@@ -484,7 +484,7 @@ func PrintInfo(message string) {
 
 // PrintStep prints a step message.
 func PrintStep(current, total int, message string) {
-	lipgloss.Println(StepWithLabel(current, total, message))
+	lipgloss.Println(stepWithLabel(current, total, message))
 }
 
 // PrintSubstep prints an indented substep message with arrow.
@@ -495,6 +495,19 @@ func PrintSubstep(message string) {
 // PrintDetail prints an indented detail message (dimmed).
 func PrintDetail(message string) {
 	lipgloss.Printf("%s%s\n", Indent2, Dim.Render(message))
+}
+
+// PrintCause prints the underlying error beneath a status line, but only under
+// verbose output.
+//
+// Status lines stay readable by default, while the detail needed to diagnose a
+// failure is still one flag away rather than discarded.
+func PrintCause(err error, verbose bool) {
+	if err == nil || !verbose {
+		return
+	}
+
+	PrintDetail(err.Error())
 }
 
 // PrintHint prints an actionable next step: "  → Run xf auth login to ...".
@@ -511,7 +524,7 @@ func PrintEmpty(message string) {
 // SuccessBox prints a success message with optional key-value details.
 // This replaces heavy double-line separators with a cleaner format.
 func SuccessBox(message string, details []KVPair) {
-	lipgloss.Printf("%s %s\n", StatusIcon("success"), SuccessBold.Render(message))
+	lipgloss.Printf("%s %s\n", StatusIcon("success"), successBold.Render(message))
 
 	if len(details) > 0 {
 		lipgloss.Println()

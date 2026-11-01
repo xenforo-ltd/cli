@@ -1,12 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/environment"
+	"github.com/xenforo-ltd/cli/internal/commands/compose"
 )
 
 var composeCmd = &cobra.Command{
@@ -39,19 +36,5 @@ func init() {
 }
 
 func runCompose(cmd *cobra.Command, args []string) error {
-	xfDir, composeArgs, err := resolveXenForoDirAndArgs(args)
-	if err != nil {
-		return err
-	}
-
-	runner, err := environment.NewRunner(xfDir)
-	if err != nil {
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
-	}
-
-	if err := runner.Compose(cmd.Context(), os.Stdin, os.Stdout, os.Stderr, composeArgs...); err != nil {
-		return passthroughError(err, "failed to run docker compose")
-	}
-
-	return nil
+	return compose.Run(cmd.Context(), args)
 }

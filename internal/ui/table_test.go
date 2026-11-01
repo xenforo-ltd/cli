@@ -6,7 +6,7 @@ import (
 )
 
 func TestDefaultTableStyle(t *testing.T) {
-	s := DefaultTableStyle()
+	s := defaultTableStyle()
 	if s.Separator != "  " {
 		t.Fatalf("separator = %q", s.Separator)
 	}

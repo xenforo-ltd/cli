@@ -3,6 +3,18 @@
 Operational rules for working in this repository. Keep this file short and
 limited to things that are stable and easy to get wrong.
 
+## Package ownership
+
+- `cmd/xf` owns Cobra wiring, root dispatch, signals, and final error output.
+- `internal/commands/<command>` owns that command's execution. Each subcommand
+  has a matching Go file in the same package.
+- Code shared within a command family belongs in separate responsibility-named
+  files, not in a parent or subcommand's action file.
+- Code shared across command families belongs in packages outside
+  `internal/commands`. Command packages must not import one another.
+- Export symbols only for production consumers outside their package. Move
+  tests with implementations instead of exporting symbols for tests.
+
 ## Verification
 
 Run before proposing a change as complete:
@@ -66,7 +78,7 @@ ran. Treat it as a known bug to fix separately, not as intended behaviour.
 
 ## Error reporting
 
-`Execute` owns error output; cobra's own printing is silenced.
+`execute` owns error output; cobra's own printing is silenced.
 
 - Usage is printed **only** for invocation mistakes, which are marked with
   `usageError`.

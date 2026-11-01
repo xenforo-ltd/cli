@@ -58,11 +58,11 @@ func TestKeyValuePaddingUsesDisplayWidth(t *testing.T) {
 }
 
 func TestStatusIconSymbols(t *testing.T) {
-	if !strings.Contains(StatusIcon("success"), SymbolSuccess) {
+	if !strings.Contains(StatusIcon("success"), symbolSuccess) {
 		t.Fatal("success icon missing symbol")
 	}
 
-	if !strings.Contains(StatusIcon("warning"), SymbolWarning) {
+	if !strings.Contains(StatusIcon("warning"), symbolWarning) {
 		t.Fatal("warning icon missing symbol")
 	}
 
@@ -76,7 +76,7 @@ func TestStatusIconSymbols(t *testing.T) {
 }
 
 func TestStepWithLabel(t *testing.T) {
-	if got := StepWithLabel(1, 3, "Init"); !strings.Contains(got, "Init") || !strings.Contains(got, "1/3") {
+	if got := stepWithLabel(1, 3, "Init"); !strings.Contains(got, "Init") || !strings.Contains(got, "1/3") {
 		t.Fatalf("unexpected StepWithLabel output: %q", got)
 	}
 }
@@ -205,7 +205,7 @@ func TestSpinnerStopWithMessagePrintsFinalLine(t *testing.T) {
 		t.Errorf("final message missing from %q", out)
 	}
 
-	if !strings.Contains(out, SymbolSuccess) {
+	if !strings.Contains(out, symbolSuccess) {
 		t.Errorf("success icon missing from %q", out)
 	}
 }

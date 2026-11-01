@@ -1,15 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/environment"
-	"github.com/xenforo-ltd/cli/internal/ui"
-	"github.com/xenforo-ltd/cli/internal/xf"
+	"github.com/xenforo-ltd/cli/internal/commands/up"
 )
 
 var upCmd = &cobra.Command{
@@ -41,83 +35,10 @@ func init() {
 }
 
 func runUp(cmd *cobra.Command, args []string) error {
-	xfDir, err := getXenForoDir(args)
-	if err != nil {
-		return err
-	}
-
-	ctx := cmd.Context()
-
-	if err := environment.CheckDockerRunning(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker is running: %w", err)
-	}
-
-	if err := environment.CheckDockerComposeAvailable(ctx); err != nil {
-		return fmt.Errorf("failed to verify Docker Compose is available: %w", err)
-	}
-
-	runner, err := environment.NewRunner(xfDir)
-	if err != nil {
-		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
-	}
-
-	ui.PrintInfo("Starting Docker environment " + ui.Bold.Render(runner.Instance()) + " " + ui.Muted.Render("("+ui.ShortHome(xfDir)+")"))
-
 	detach := flagUpDetach
 	if cmd.Flags().Changed("no-detach") {
 		detach = false
 	}
 
-	composeArgs := []string{"up"}
-	if detach {
-		composeArgs = append(composeArgs, "--detach")
-	}
-
-	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, composeArgs...); err != nil {
-		return fmt.Errorf("failed to start Docker environment: %w", err)
-	}
-
-	details := []ui.KVPair{}
-	if url, err := runner.GetURL(ctx); err == nil {
-		details = append(details, ui.KV("URL", ui.URL.Render(url)))
-	} else {
-		ui.PrintWarning("Could not determine the site URL")
-	}
-	ui.Println()
-	ui.SuccessBox("Docker environment started", details)
-
-	return nil
-}
-
-// getXenForoDir gets the XenForo directory from args or auto-detects.
-func getXenForoDir(args []string) (string, error) {
-	if len(args) > 0 {
-		absPath, err := filepath.Abs(args[0])
-		if err != nil {
-			return "", fmt.Errorf("invalid path: %w", err)
-		}
-
-		xfPath := filepath.Join(absPath, "src", "XF.php")
-		if _, err := os.Stat(xfPath); err != nil {
-			if os.IsNotExist(err) {
-				return "", markAs(os.ErrNotExist, "not a XenForo installation: %s (no src/XF.php found)", absPath)
-			}
-
-			return "", fmt.Errorf("cannot access %s: %w", absPath, err)
-		}
-
-		return absPath, nil
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	xfDir, err := xf.GetXenForoDir(cwd)
-	if err != nil {
-		return "", fmt.Errorf("failed to find XenForo directory: %w", err)
-	}
-
-	return xfDir, nil
+	return up.Run(cmd.Context(), args, detach)
 }

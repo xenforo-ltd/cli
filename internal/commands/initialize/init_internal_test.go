@@ -1,0 +1,199 @@
+package initialize
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/xenforo-ltd/cli/internal/customerapi"
+	"github.com/xenforo-ltd/cli/internal/downloads"
+	"github.com/xenforo-ltd/cli/internal/setup"
+)
+
+var errTestBoom = errors.New("boom")
+
+// TestPlannedInitSteps pins the fixed step plan: the Composer, JavaScript and XenForo
+// install slots count toward the total whether they run or are printed as
+// skipped, so the only thing that changes the total is --skip-up, which makes
+// all unreachable.
+func TestPlannedInitSteps(t *testing.T) {
+	tests := []struct {
+		name string
+		opts InitOptions
+		want int
+	}{
+		{name: "full run", opts: InitOptions{}, want: 9},
+		{name: "skip install", opts: InitOptions{SkipInstall: true}, want: 9},
+		{name: "skip composer", opts: InitOptions{SkipComposer: true}, want: 9},
+		{name: "skip install and composer", opts: InitOptions{SkipInstall: true, SkipComposer: true}, want: 9},
+		{name: "skip up", opts: InitOptions{SkipUp: true}, want: 6},
+		{name: "skip up and skip install", opts: InitOptions{SkipUp: true, SkipInstall: true}, want: 6},
+		{name: "skip up and skip composer", opts: InitOptions{SkipUp: true, SkipComposer: true}, want: 6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := plannedInitSteps(tt.opts); got != tt.want {
+				t.Fatalf("plannedInitSteps(%+v) = %d, want %d", tt.opts, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestPrepareTargetDirectory covers the target-directory precondition and
+// the action taken on it, now implemented in one place: prepareTargetDirectory
+// must reject a doomed target before any download, and report the outcome for
+// a usable one.
+func TestPrepareTargetDirectory(t *testing.T) {
+	t.Run("creates missing dir", func(t *testing.T) {
+		target := filepath.Join(t.TempDir(), "new-dir")
+		if err := prepareTargetDirectory(target); err != nil {
+			t.Fatalf("prepareTargetDirectory failed: %v", err)
+		}
+
+		if info, err := os.Stat(target); err != nil || !info.IsDir() {
+			t.Fatalf("target not created as dir: info=%v err=%v", info, err)
+		}
+	})
+
+	t.Run("rejects file path", func(t *testing.T) {
+		file := filepath.Join(t.TempDir(), "file")
+		if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+			t.Fatalf("seed file: %v", err)
+		}
+
+		if err := prepareTargetDirectory(file); err == nil {
+			t.Fatal("expected error for non-directory target")
+		}
+	})
+
+	t.Run("non-empty dir", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "something.txt"), []byte("x"), 0o600); err != nil {
+			t.Fatalf("seed file: %v", err)
+		}
+
+		if err := prepareTargetDirectory(dir); err == nil {
+			t.Fatal("expected error for non-empty non-XenForo directory")
+		}
+	})
+
+	t.Run("allows non-empty xenforo dir", func(t *testing.T) {
+		dir := t.TempDir()
+
+		xfPath := filepath.Join(dir, "src", "XF.php")
+		if err := os.MkdirAll(filepath.Dir(xfPath), 0o750); err != nil {
+			t.Fatalf("create XF src dir: %v", err)
+		}
+
+		if err := os.WriteFile(xfPath, []byte("<?php // XF stub"), 0o600); err != nil {
+			t.Fatalf("seed XF.php: %v", err)
+		}
+
+		if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte("x"), 0o600); err != nil {
+			t.Fatalf("seed extra file: %v", err)
+		}
+
+		if err := prepareTargetDirectory(dir); err != nil {
+			t.Fatalf("prepareTargetDirectory should allow non-empty XenForo directory: %v", err)
+		}
+	})
+}
+
+func TestHelpersFormatting(t *testing.T) {
+	if got := formatProductNames([]string{"xenforo", "xfmg"}, map[string]string{"xenforo": "XenForo", "xfmg": "Media Gallery"}); got != "XenForo, Media Gallery" {
+		t.Fatalf("unexpected product names: %q", got)
+	}
+
+	lic := customerapi.License{LicenseKey: "ABC", SiteTitle: "Site", SiteURL: "https://example.com"}
+	if got := downloads.LicenseLabel(lic); !strings.Contains(got, "ABC") || !strings.Contains(got, "Site") {
+		t.Fatalf("unexpected license label: %q", got)
+	}
+
+	if got := formatProductList([]string{"xenforo", "xfmg"}, map[string]string{"xenforo": "XenForo", "xfmg": "Media"}); got != "XenForo, Media" {
+		t.Fatalf("unexpected product list: %q", got)
+	}
+}
+
+// TestPrintInstallFailureDefersToCancellation pins the contract that an
+// interrupted install is reported as the cancellation itself rather than a
+// failed install with a retry hint. The guard runs before any ui output, so
+// the test stays quiet.
+func TestPrintInstallFailureDefersToCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := printInstallFailure(ctx, errTestBoom)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("printInstallFailure returned %v, want context.Canceled", err)
+	}
+}
+
+func TestInferSiteTitleAndBoardFallback(t *testing.T) {
+	opts := &InitOptions{InstanceName: "demo", envResolved: map[string]string{"XF_TITLE": "Forum [demo]"}}
+	if got := inferSiteTitleFromEnv(opts); got != "Forum" {
+		t.Fatalf("unexpected inferred title: %q", got)
+	}
+
+	fallback := setup.FallbackBoardURL("demo")
+	if !strings.Contains(fallback, "demo") {
+		t.Fatalf("unexpected fallback board URL: %q", fallback)
+	}
+
+	url, detected := setup.ChooseBoardURL("demo", "", errTestBoom)
+	if detected || url != fallback {
+		t.Fatalf("unexpected chooseBoardURL fallback: url=%q detected=%v", url, detected)
+	}
+}
+
+func TestNormalizeRuntimeStoragePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions")
+	}
+
+	target := t.TempDir()
+
+	nestedDir := filepath.Join(target, "data", "nested")
+	if err := os.MkdirAll(nestedDir, 0o700); err != nil {
+		t.Fatalf("create nested directory: %v", err)
+	}
+
+	nestedFile := filepath.Join(nestedDir, "cache.txt")
+	if err := os.WriteFile(nestedFile, []byte("x"), 0o600); err != nil {
+		t.Fatalf("seed nested file: %v", err)
+	}
+
+	if err := normalizeRuntimeStorage(target); err != nil {
+		t.Fatalf("normalizeRuntimeStorage failed: %v", err)
+	}
+
+	// The seeded data/ tree and the newly created internal_data/ must all be
+	// traversable/writable by the container's www-data user.
+	for _, dir := range []string{
+		filepath.Join(target, "data"),
+		nestedDir,
+		filepath.Join(target, "internal_data"),
+	} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("stat %s: %v", dir, err)
+		}
+
+		if got := info.Mode().Perm(); got != 0o777 {
+			t.Fatalf("%s mode = %o, want 0777", dir, got)
+		}
+	}
+
+	info, err := os.Stat(nestedFile)
+	if err != nil {
+		t.Fatalf("stat nested file: %v", err)
+	}
+
+	if got := info.Mode().Perm(); got != 0o666 {
+		t.Fatalf("nested file mode = %o, want 0666", got)
+	}
+}

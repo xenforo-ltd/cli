@@ -1,14 +1,9 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"time"
-
 	"github.com/spf13/cobra"
 
-	"github.com/xenforo-ltd/cli/internal/ui"
-	"github.com/xenforo-ltd/cli/internal/version"
+	command "github.com/xenforo-ltd/cli/internal/commands/version"
 )
 
 var (
@@ -43,45 +38,5 @@ func init() {
 }
 
 func runVersion(cmd *cobra.Command, args []string) error {
-	info := version.Get()
-
-	if flagVersionShort {
-		fmt.Println(info.Version)
-		return nil
-	}
-
-	if flagVersionJSON {
-		data, err := json.MarshalIndent(info, "", "  ")
-		if err != nil {
-			return fmt.Errorf("error encoding version info as JSON: %w", err)
-		}
-
-		ui.Println(string(data))
-
-		return nil
-	}
-
-	ui.Printf("%s %s\n", ui.Bold.Render("xf"), ui.Version.Render(info.Version))
-	ui.Println()
-
-	var pairs []ui.KVPair
-	if info.Commit != "" && info.Commit != "unknown" {
-		pairs = append(pairs, ui.KV("Commit", info.Commit))
-	}
-
-	if info.Date != "" && info.Date != "unknown" {
-		built := info.Date
-		if t, err := time.Parse(time.RFC3339, info.Date); err == nil {
-			built = ui.FormatDateTime(t)
-		}
-
-		pairs = append(pairs, ui.KV("Built", built))
-	}
-
-	pairs = append(pairs, ui.KV("Go version", info.GoVersion))
-	pairs = append(pairs, ui.KV("Platform", fmt.Sprintf("%s/%s", info.OS, info.Arch)))
-
-	ui.PrintKeyValuePadded(pairs)
-
-	return nil
+	return command.Run(cmd.Context(), command.Options{JSON: flagVersionJSON, Short: flagVersionShort})
 }

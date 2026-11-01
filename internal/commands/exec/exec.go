@@ -1,0 +1,44 @@
+package exec
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/xenforo-ltd/cli/internal/clierror"
+	"github.com/xenforo-ltd/cli/internal/environment"
+	"github.com/xenforo-ltd/cli/internal/passthrough"
+)
+
+func Run(ctx context.Context, args []string) error {
+	xfDir, execArgs, err := passthrough.Resolve(args)
+	if err != nil {
+		return err
+	}
+
+	if err := validateExecInvocation(execArgs); err != nil {
+		return err
+	}
+
+	runner, err := environment.NewRunner(xfDir)
+	if err != nil {
+		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
+	}
+
+	service := execArgs[0]
+	cmdArgs := execArgs[1:]
+
+	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, append([]string{"exec", service}, cmdArgs...)...); err != nil {
+		return clierror.Passthrough(err, "failed to execute command in service "+service)
+	}
+
+	return nil
+}
+
+func validateExecInvocation(execArgs []string) error {
+	if len(execArgs) < 2 {
+		return clierror.Usage(fmt.Errorf("exec requires <service> <command> [args...]: %w", clierror.ErrInvalidInput))
+	}
+
+	return nil
+}

@@ -1,0 +1,31 @@
+package worktree
+
+import (
+	"context"
+	"fmt"
+	"os"
+)
+
+func List(ctx context.Context, json bool) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	source, err := sourceCheckout(ctx, cwd)
+	if err != nil {
+		return err
+	}
+
+	registry, err := newRegistry()
+	if err != nil {
+		return err
+	}
+
+	entries, err := registry.forSource(source)
+	if err != nil {
+		return err
+	}
+
+	return printWorktrees(entries, json)
+}

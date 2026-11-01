@@ -187,9 +187,6 @@ func TestFlagSeparatorStillAccepted(t *testing.T) {
 		t.Fatalf("RunE received %v, want the separator to reach it untouched", got)
 	}
 
-	if stripped := stripFlagSeparator(got); !reflect.DeepEqual(stripped, []string{"-v"}) {
-		t.Errorf("stripFlagSeparator(%v) = %v, want [-v]", got, stripped)
-	}
 }
 
 // TestEveryPassthroughCommandDisablesFlagParsing guards against a new
