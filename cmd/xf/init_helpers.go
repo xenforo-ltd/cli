@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/xenforo-ltd/cli/internal/customerapi"
-	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -172,12 +171,12 @@ func validateReviewInputs(opts *InitOptions) error {
 			continue
 		}
 
-		if err := initflow.ValidateEnvKey(strings.TrimSpace(k)); err != nil {
+		if err := validateEnvKey(strings.TrimSpace(k)); err != nil {
 			return fmt.Errorf("invalid environment key %q: %w", k, err)
 		}
 
 		if strings.Contains(v, "\n") {
-			return fmt.Errorf("invalid environment value for %s: %w", k, initflow.ErrNewlinesNotAllowed)
+			return fmt.Errorf("invalid environment value for %s: %w", k, errNewlinesNotAllowed)
 		}
 	}
 

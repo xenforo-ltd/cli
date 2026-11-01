@@ -17,7 +17,6 @@ import (
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/dockercompose"
-	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 	"github.com/xenforo-ltd/cli/internal/xfcmd"
@@ -194,18 +193,18 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	fileEnv := map[string]string{}
 	if opts.EnvFile != "" {
-		fileEnv, err = initflow.ParseEnvFile(opts.EnvFile)
+		fileEnv, err = parseEnvFile(opts.EnvFile)
 		if err != nil {
 			return fmt.Errorf("failed to parse --env-file: %w", err)
 		}
 	}
 
-	flagEnv, err := initflow.ParseEnvFlags(opts.EnvFlags)
+	flagEnv, err := parseEnvFlags(opts.EnvFlags)
 	if err != nil {
 		return fmt.Errorf("failed to parse --env: %w", err)
 	}
 
-	opts.EnvResolved = initflow.MergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
+	opts.EnvResolved = mergeEnvMaps(map[string]string{}, fileEnv, flagEnv)
 
 	hasXenForo, err := detectXenForo(absPath)
 	if err != nil {
@@ -611,7 +610,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		return markAs(ErrNotFound, "no versions available")
 	}
 
-	initflow.SortVersionsDesc(versions.Versions)
+	sortVersionsDesc(versions.Versions)
 	opts.CoreVersions = versions.Versions
 
 	if opts.VersionID == 0 {

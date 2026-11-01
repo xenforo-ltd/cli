@@ -1,4 +1,4 @@
-package initflow
+package main
 
 import (
 	"sort"
@@ -8,14 +8,14 @@ import (
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 )
 
-// DisplayVersion represents a version option for display.
-type DisplayVersion struct {
+// displayVersion represents a version option for display.
+type displayVersion struct {
 	Value int
 	Label string
 }
 
-// SortVersionsDesc sorts versions by release date in descending order.
-func SortVersionsDesc(versions []customerapi.Version) {
+// sortVersionsDesc sorts versions by release date in descending order.
+func sortVersionsDesc(versions []customerapi.Version) {
 	sort.Slice(versions, func(i, j int) bool {
 		ti := versions[i].ReleaseDate.Time
 
@@ -28,8 +28,8 @@ func SortVersionsDesc(versions []customerapi.Version) {
 	})
 }
 
-// BuildVersionOptions builds display options for a version selection.
-func BuildVersionOptions(versions []customerapi.Version, maxVersion int) []DisplayVersion {
+// buildVersionOptions builds display options for a version selection.
+func buildVersionOptions(versions []customerapi.Version, maxVersion int) []displayVersion {
 	if len(versions) == 0 {
 		return nil
 	}
@@ -40,7 +40,7 @@ func BuildVersionOptions(versions []customerapi.Version, maxVersion int) []Displ
 
 	latestID := versions[0].VersionID
 
-	out := make([]DisplayVersion, 0, maxVersion)
+	out := make([]displayVersion, 0, maxVersion)
 	for _, v := range versions[:maxVersion] {
 		label := v.VersionStr
 		switch {
@@ -52,7 +52,7 @@ func BuildVersionOptions(versions []customerapi.Version, maxVersion int) []Displ
 			label += " (pre-release)"
 		}
 
-		out = append(out, DisplayVersion{
+		out = append(out, displayVersion{
 			Value: v.VersionID,
 			Label: label,
 		})
@@ -61,8 +61,8 @@ func BuildVersionOptions(versions []customerapi.Version, maxVersion int) []Displ
 	return out
 }
 
-// ResolveVersionInput resolves a version input string to a full version.
-func ResolveVersionInput(input string, versions []customerapi.Version) (customerapi.Version, bool) {
+// resolveVersionInput resolves a version input string to a full version.
+func resolveVersionInput(input string, versions []customerapi.Version) (customerapi.Version, bool) {
 	input = strings.TrimSpace(strings.ToLower(input))
 
 	input = strings.TrimPrefix(input, "v")

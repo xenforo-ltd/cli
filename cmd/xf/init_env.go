@@ -1,5 +1,4 @@
-// Package initflow provides interactive workflow builders for setup tasks.
-package initflow
+package main
 
 import (
 	"bufio"
@@ -11,16 +10,15 @@ import (
 	"strings"
 )
 
-// ErrInvalidEnvFormat is returned when an environment entry is malformed.
 var (
 	envKeyPattern         = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
-	ErrInvalidEnvFormat   = errors.New("expected KEY=VALUE")
-	ErrInvalidEnvKey      = errors.New("must match ^[A-Z][A-Z0-9_]*$")
-	ErrNewlinesNotAllowed = errors.New("newlines are not allowed")
+	errInvalidEnvFormat   = errors.New("expected KEY=VALUE")
+	errInvalidEnvKey      = errors.New("must match ^[A-Z][A-Z0-9_]*$")
+	errNewlinesNotAllowed = errors.New("newlines are not allowed")
 )
 
-// ParseEnvFile parses environment variables from a file.
-func ParseEnvFile(path string) (map[string]string, error) {
+// parseEnvFile parses environment variables from a file.
+func parseEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open env file %s: %w", path, err)
@@ -41,13 +39,13 @@ func ParseEnvFile(path string) (map[string]string, error) {
 
 		key, value, ok := strings.Cut(raw, "=")
 		if !ok {
-			return nil, fmt.Errorf("invalid env line %d: %w", line, ErrInvalidEnvFormat)
+			return nil, fmt.Errorf("invalid env line %d: %w", line, errInvalidEnvFormat)
 		}
 
 		key = strings.TrimSpace(key)
 		value = strings.TrimSpace(value)
 
-		if err := ValidateEnvKey(key); err != nil {
+		if err := validateEnvKey(key); err != nil {
 			return nil, fmt.Errorf("invalid env line %d: %w", line, err)
 		}
 
@@ -61,20 +59,20 @@ func ParseEnvFile(path string) (map[string]string, error) {
 	return values, nil
 }
 
-// ParseEnvFlags parses environment variables from command-line arguments.
-func ParseEnvFlags(entries []string) (map[string]string, error) {
+// parseEnvFlags parses environment variables from command-line arguments.
+func parseEnvFlags(entries []string) (map[string]string, error) {
 	values := map[string]string{}
 
 	for _, entry := range entries {
 		key, value, ok := strings.Cut(strings.TrimSpace(entry), "=")
 		if !ok {
-			return nil, fmt.Errorf("invalid --env %q: %w", entry, ErrInvalidEnvFormat)
+			return nil, fmt.Errorf("invalid --env %q: %w", entry, errInvalidEnvFormat)
 		}
 
 		key = strings.TrimSpace(key)
 		value = strings.TrimSpace(value)
 
-		if err := ValidateEnvKey(key); err != nil {
+		if err := validateEnvKey(key); err != nil {
 			return nil, fmt.Errorf("invalid --env %q: %w", entry, err)
 		}
 
@@ -84,17 +82,17 @@ func ParseEnvFlags(entries []string) (map[string]string, error) {
 	return values, nil
 }
 
-// ValidateEnvKey checks if an environment variable key is valid.
-func ValidateEnvKey(key string) error {
+// validateEnvKey checks if an environment variable key is valid.
+func validateEnvKey(key string) error {
 	if !envKeyPattern.MatchString(key) {
-		return fmt.Errorf("invalid key %q: %w", key, ErrInvalidEnvKey)
+		return fmt.Errorf("invalid key %q: %w", key, errInvalidEnvKey)
 	}
 
 	return nil
 }
 
-// MergeEnvMaps merges multiple environment maps with priority order.
-func MergeEnvMaps(base, fromFile, fromFlags map[string]string) map[string]string {
+// mergeEnvMaps merges multiple environment maps with priority order.
+func mergeEnvMaps(base, fromFile, fromFlags map[string]string) map[string]string {
 	merged := map[string]string{}
 
 	maps.Copy(merged, base)

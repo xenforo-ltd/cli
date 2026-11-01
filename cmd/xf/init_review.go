@@ -13,7 +13,6 @@ import (
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 	"github.com/xenforo-ltd/cli/internal/docker"
 	"github.com/xenforo-ltd/cli/internal/downloads"
-	"github.com/xenforo-ltd/cli/internal/initflow"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -57,7 +56,7 @@ func (m overrideMode) String() string {
 }
 
 func chooseCoreVersionInteractively(opts *InitOptions) error {
-	display := initflow.BuildVersionOptions(opts.CoreVersions, versionCount)
+	display := buildVersionOptions(opts.CoreVersions, versionCount)
 
 	versionOptions := make([]huh.Option[int], 0, len(display)+1)
 	for _, d := range display {
@@ -93,7 +92,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 				return promptError(err, "version input")
 			}
 
-			v, ok := initflow.ResolveVersionInput(manualInput, opts.CoreVersions)
+			v, ok := resolveVersionInput(manualInput, opts.CoreVersions)
 			if !ok {
 				ui.PrintWarning("Version not found for this license. Try another version.")
 				continue
@@ -275,7 +274,7 @@ func editCoreSetup(ctx context.Context, client *customerapi.Client, opts *InitOp
 		return fmt.Errorf("no versions available for this license: %w", ErrNotFound)
 	}
 
-	initflow.SortVersionsDesc(versions.Versions)
+	sortVersionsDesc(versions.Versions)
 
 	opts.CoreVersions = versions.Versions
 	if err := chooseCoreVersionInteractively(opts); err != nil {
@@ -479,8 +478,8 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 			return fmt.Errorf("no versions available for %s: %w", product, ErrNotFound)
 		}
 
-		initflow.SortVersionsDesc(versions.Versions)
-		optsList := initflow.BuildVersionOptions(versions.Versions, versionCount)
+		sortVersionsDesc(versions.Versions)
+		optsList := buildVersionOptions(versions.Versions, versionCount)
 
 		selectOptions := make([]huh.Option[int], 0, len(optsList)+1)
 		for _, d := range optsList {
@@ -510,7 +509,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 					return promptError(err, "version input for %s", product)
 				}
 
-				v, ok := initflow.ResolveVersionInput(input, versions.Versions)
+				v, ok := resolveVersionInput(input, versions.Versions)
 				if !ok {
 					ui.PrintWarning("Version not found. Try another version.")
 					continue
@@ -579,7 +578,7 @@ func editEnvValues(opts *InitOptions) error {
 			}
 
 			key = strings.TrimSpace(strings.ToUpper(key))
-			if err := initflow.ValidateEnvKey(key); err != nil {
+			if err := validateEnvKey(key); err != nil {
 				ui.PrintWarning(sentence(err.Error()))
 				continue
 			}
