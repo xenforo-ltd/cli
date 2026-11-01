@@ -70,7 +70,7 @@ func copyTree(ctx context.Context, src, dst string, progress progressFunc) error
 
 	var pending []pendingMode
 
-	walkErr := filepath.Walk(root, func(path string, entry os.FileInfo, walkErr error) error {
+	walkErr := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -94,19 +94,29 @@ func copyTree(ctx context.Context, src, dst string, progress progressFunc) error
 				return err
 			}
 
-			pending = append(pending, pendingMode{path: target, mode: entry.Mode().Perm()})
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+
+			pending = append(pending, pendingMode{path: target, mode: info.Mode().Perm()})
 
 			return nil
 
-		case entry.Mode()&os.ModeSymlink != 0:
+		case entry.Type()&os.ModeSymlink != 0:
 			return copySymlink(path, target)
 
-		case !entry.Mode().IsRegular():
+		case !entry.Type().IsRegular():
 			// Sockets and devices have no meaning in a copy.
 			return nil
 		}
 
-		if err := copyFile(path, target, entry.Mode().Perm()); err != nil {
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+
+		if err := copyFile(path, target, info.Mode().Perm()); err != nil {
 			return err
 		}
 
@@ -144,7 +154,7 @@ func copyTree(ctx context.Context, src, dst string, progress progressFunc) error
 func countFiles(ctx context.Context, root string) (int, error) {
 	count := 0
 
-	err := filepath.Walk(root, func(_ string, entry os.FileInfo, walkErr error) error {
+	err := filepath.WalkDir(root, func(_ string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -153,7 +163,7 @@ func countFiles(ctx context.Context, root string) (int, error) {
 			return err
 		}
 
-		if entry.Mode().IsRegular() {
+		if entry.Type().IsRegular() {
 			count++
 		}
 
