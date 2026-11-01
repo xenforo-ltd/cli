@@ -14,10 +14,8 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// colorPrimary is the primary accent color.
 var (
-	hasDark   = lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
-	lightDark = lipgloss.LightDark(hasDark)
+	lightDark = lipgloss.LightDark(lipgloss.HasDarkBackground(os.Stdin, os.Stdout))
 
 	colorPrimary   = lipgloss.Blue
 	colorSecondary = lipgloss.Magenta
@@ -54,13 +52,12 @@ var (
 	Version = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 )
 
-// Indent1 is one level of indentation (2 spaces).
+// Indent1 and Indent2 are one and two levels of indentation.
 const (
 	Indent1 = "  "
 	Indent2 = "    "
 )
 
-// symbolSuccess is the success symbol.
 const (
 	symbolSuccess = "✓"
 	symbolWarning = "!"
@@ -69,7 +66,7 @@ const (
 	symbolSkipped = "-"
 	symbolPending = "○"
 	SymbolArrow   = "→"
-	SymbolBullet  = "•"
+	SymbolBullet  = symbolInfo
 )
 
 // Println is a wrapper around lipgloss.Println for color-downsampled output.
@@ -108,10 +105,11 @@ func StatusIcon(status string) string {
 
 // Plural returns the count with the correct singular/plural noun.
 func Plural(n int, singular, plural string) string {
+	noun := plural
 	if n == 1 {
-		return formatCount(n) + " " + singular
+		noun = singular
 	}
-	return formatCount(n) + " " + plural
+	return formatCount(n) + " " + noun
 }
 
 // FormatDate renders a date for table cells.
@@ -238,7 +236,6 @@ func renderKeyValuePadded(pairs []KVPair, indent string) string {
 // Spinner provides a simple terminal spinner.
 type Spinner struct {
 	mu       sync.Mutex
-	frames   []string
 	interval time.Duration
 	message  string
 	writer   io.Writer
@@ -255,11 +252,9 @@ var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "�
 // NewSpinner creates a new spinner with the given message.
 func NewSpinner(message string) *Spinner {
 	return &Spinner{
-		frames:   spinnerFrames,
 		interval: 80 * time.Millisecond,
 		message:  message,
 		writer:   os.Stdout,
-		done:     make(chan struct{}),
 	}
 }
 
@@ -296,7 +291,7 @@ func (s *Spinner) Start() {
 		for {
 			s.mu.Lock()
 			msg := s.message
-			frame := infoStyle.Render(s.frames[s.frameIdx%len(s.frames)])
+			frame := infoStyle.Render(spinnerFrames[s.frameIdx%len(spinnerFrames)])
 			lipgloss.Fprint(s.writer, ansiClearLine)
 			lipgloss.Fprintf(s.writer, "%s %s", frame, msg)
 			s.frameIdx++
@@ -462,25 +457,21 @@ func FormatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// PrintSuccess prints a success message.
-func PrintSuccess(message string) {
-	lipgloss.Printf("%s %s\n", StatusIcon("success"), message)
+func printStatus(status, message string) {
+	lipgloss.Printf("%s %s\n", StatusIcon(status), message)
 }
+
+// PrintSuccess prints a success message.
+func PrintSuccess(message string) { printStatus("success", message) }
 
 // PrintWarning prints a warning message.
-func PrintWarning(message string) {
-	lipgloss.Printf("%s %s\n", StatusIcon("warning"), message)
-}
+func PrintWarning(message string) { printStatus("warning", message) }
 
 // PrintError prints an error message.
-func PrintError(message string) {
-	lipgloss.Printf("%s %s\n", StatusIcon("error"), message)
-}
+func PrintError(message string) { printStatus("error", message) }
 
 // PrintInfo prints an info message.
-func PrintInfo(message string) {
-	lipgloss.Printf("%s %s\n", StatusIcon("info"), message)
-}
+func PrintInfo(message string) { printStatus("info", message) }
 
 // PrintStep prints a step message.
 func PrintStep(current, total int, message string) {
@@ -517,27 +508,23 @@ func PrintHint(text string) {
 }
 
 // PrintEmpty prints a standard empty-result line.
-func PrintEmpty(message string) {
-	lipgloss.Printf("%s %s\n", StatusIcon("info"), message)
-}
+func PrintEmpty(message string) { printStatus("info", message) }
 
-// SuccessBox prints a success message with optional key-value details.
-// This replaces heavy double-line separators with a cleaner format.
-func SuccessBox(message string, details []KVPair) {
-	lipgloss.Printf("%s %s\n", StatusIcon("success"), successBold.Render(message))
+func printBox(status, message string, details []KVPair) {
+	printStatus(status, message)
 
 	if len(details) > 0 {
 		lipgloss.Println()
 		PrintKeyValuePadded(details)
 	}
+}
+
+// SuccessBox prints a success message with optional key-value details.
+func SuccessBox(message string, details []KVPair) {
+	printBox("success", successBold.Render(message), details)
 }
 
 // InfoBox prints an info message with optional key-value details.
 func InfoBox(message string, details []KVPair) {
-	lipgloss.Printf("%s %s\n", StatusIcon("info"), Bold.Render(message))
-
-	if len(details) > 0 {
-		lipgloss.Println()
-		PrintKeyValuePadded(details)
-	}
+	printBox("info", Bold.Render(message), details)
 }

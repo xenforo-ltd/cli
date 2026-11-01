@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -72,8 +73,7 @@ func (w *PhaseTrackerWriter) processLine(line string) {
 
 	if strings.HasPrefix(w.baseMessage, "Installing XenForo") {
 		if importMessage := parseInstallImportMessage(trimmed); importMessage != "" && importMessage != w.lastMessage {
-			w.lastMessage = importMessage
-			w.spinner.UpdateMessage(fmt.Sprintf("%s (%s)", w.baseMessage, importMessage))
+			w.setPhase(importMessage)
 
 			return
 		}
@@ -83,13 +83,17 @@ func (w *PhaseTrackerWriter) processLine(line string) {
 	for _, rule := range w.rules {
 		if containsAny(lower, rule.contains) {
 			if rule.message != "" && rule.message != w.lastMessage {
-				w.lastMessage = rule.message
-				w.spinner.UpdateMessage(fmt.Sprintf("%s (%s)", w.baseMessage, rule.message))
+				w.setPhase(rule.message)
 			}
 
 			return
 		}
 	}
+}
+
+func (w *PhaseTrackerWriter) setPhase(message string) {
+	w.lastMessage = message
+	w.spinner.UpdateMessage(fmt.Sprintf("%s (%s)", w.baseMessage, message))
 }
 
 func parseInstallImportMessage(line string) string {
@@ -101,48 +105,26 @@ func parseInstallImportMessage(line string) string {
 	const marker = "master data ("
 
 	idx := strings.Index(lower, marker)
-	if idx >= 0 {
-		after := line[idx+len(marker):]
-
-		end := strings.Index(after, ")")
-		if end < 0 {
-			end = len(after)
-		}
-
-		inside := strings.TrimSpace(after[:end])
-		if inside == "" {
-			return "importing data"
-		}
-
-		partsCount := 2
-		parts := strings.SplitN(inside, ":", partsCount)
-
-		name := strings.ToLower(strings.TrimSpace(parts[0]))
-		if name == "" {
-			return "importing data"
-		}
-
-		if len(parts) == partsCount {
-			percent := strings.TrimSpace(parts[1])
-			if percent != "" {
-				return fmt.Sprintf("importing %s (%s)", name, percent)
-			}
-		}
-
-		return "importing " + name
+	if idx < 0 {
+		return "importing data"
 	}
 
-	return "importing data"
+	inside, _, _ := strings.Cut(line[idx+len(marker):], ")")
+	name, percent, _ := strings.Cut(inside, ":")
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return "importing data"
+	}
+
+	if percent = strings.TrimSpace(percent); percent != "" {
+		return fmt.Sprintf("importing %s (%s)", name, percent)
+	}
+
+	return "importing " + name
 }
 
 func containsAny(s string, needles []string) bool {
-	for _, n := range needles {
-		if strings.Contains(s, n) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(needles, func(n string) bool { return strings.Contains(s, n) })
 }
 
 func DockerStartPhaseRules() []PhaseRule {

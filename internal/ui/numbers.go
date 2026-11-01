@@ -25,8 +25,10 @@ func formatCount(n int) string {
 	}
 
 	tag := language.English
-	if parsed, err := language.Parse(strings.ReplaceAll(locale, "_", "-")); locale != "" && err == nil {
-		tag = parsed
+	if locale != "" {
+		if parsed, err := language.Parse(strings.ReplaceAll(locale, "_", "-")); err == nil {
+			tag = parsed
+		}
 	}
 	return message.NewPrinter(tag).Sprintf("%d", n)
 }
