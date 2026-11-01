@@ -102,10 +102,6 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 	if len(order) == 0 {
 		order = d.keys
 	}
-	type sortValue struct {
-		text   string
-		number int64
-	}
 	type row struct {
 		name   string
 		values []sortValue
@@ -126,19 +122,9 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 		}
 		file := filepath.FromSlash(name)
 		filename := filepath.Join(directory, file)
-		info, err := source.Lstat(file)
+		data, err := readOutputFile(source, file, filename)
 		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", filename, err)
-		}
-		if !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("%s is not a regular file", filename)
-		}
-		data, err := source.ReadFile(file)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", filename, err)
-		}
-		if !utf8.Valid(data) {
-			return nil, fmt.Errorf("%s contains invalid UTF-8", filename)
+			return nil, err
 		}
 		r, err := d.record(name, data, meta)
 		if err != nil {
@@ -156,20 +142,9 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 		if node == nil {
 			continue
 		}
-		values := make([]sortValue, len(order))
-		for i, key := range order {
-			value, _, err := (field{source: key}).value(r)
-			if err != nil {
-				return nil, fmt.Errorf("sorting %s: %w", filename, err)
-			}
-			values[i].text = value
-			if slices.Contains(d.numeric, key) {
-				number, err := strconv.ParseInt(value, 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("%s: invalid numeric %s: %w", filename, key, err)
-				}
-				values[i].number = number
-			}
+		values, err := d.sortValues(r, order, filename)
+		if err != nil {
+			return nil, err
 		}
 		rows = append(rows, row{name: name, values: values, node: *node})
 	}
@@ -192,6 +167,53 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 		nodes = append(nodes, row.node)
 	}
 	return nodes, nil
+}
+
+// readOutputFile reads a UTF-8 regular file from source. file is relative to
+// source; filename is the path used in errors.
+func readOutputFile(source *os.Root, file, filename string) ([]byte, error) {
+	info, err := source.Lstat(file)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", filename, err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", filename)
+	}
+	data, err := source.ReadFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", filename, err)
+	}
+	if !utf8.Valid(data) {
+		return nil, fmt.Errorf("%s contains invalid UTF-8", filename)
+	}
+	return data, nil
+}
+
+// sortValue is a record's value for one sort key. number is set only for
+// numeric keys.
+type sortValue struct {
+	text   string
+	number int64
+}
+
+// sortValues extracts r's value for each key in order, parsing numeric keys.
+func (d definition) sortValues(r record, order []string, filename string) ([]sortValue, error) {
+	values := make([]sortValue, len(order))
+	for i, key := range order {
+		value, _, err := (field{source: key}).value(r)
+		if err != nil {
+			return nil, fmt.Errorf("sorting %s: %w", filename, err)
+		}
+		values[i].text = value
+		if slices.Contains(d.numeric, key) {
+			number, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("%s: invalid numeric %s: %w", filename, key, err)
+			}
+			values[i].number = number
+		}
+	}
+	return values, nil
 }
 
 // record verifies the content hash and builds an export record from a file.
