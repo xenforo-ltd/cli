@@ -95,13 +95,7 @@ func createEnvFile(path string, values map[string]string) error {
 	slices.Sort(keys)
 
 	for _, key := range keys {
-		value := values[key]
-		// Quote values that contain spaces or special characters
-		if needsQuoting(value) {
-			value = fmt.Sprintf("\"%s\"", value)
-		}
-
-		if _, err := fmt.Fprintf(file, "%s=%s\n", key, value); err != nil {
+		if _, err := fmt.Fprintf(file, "%s=%s\n", key, quoteEnvValue(values[key])); err != nil {
 			return fmt.Errorf("failed to write to .env file: %w", err)
 		}
 	}
@@ -132,32 +126,16 @@ func updateEnvFile(path string, values map[string]string) error {
 
 		key := strings.TrimSpace(before)
 		if newValue, ok := values[key]; ok {
-			var leadingSpace strings.Builder
+			leadingSpace := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 
-			for _, c := range line {
-				if c == ' ' || c == '\t' {
-					leadingSpace.WriteRune(c)
-				} else {
-					break
-				}
-			}
-
-			if needsQuoting(newValue) {
-				newValue = fmt.Sprintf("\"%s\"", newValue)
-			}
-
-			lines[i] = fmt.Sprintf("%s%s=%s", leadingSpace.String(), key, newValue)
+			lines[i] = fmt.Sprintf("%s%s=%s", leadingSpace, key, quoteEnvValue(newValue))
 			updated[key] = true
 		}
 	}
 
 	for key, value := range values {
 		if !updated[key] {
-			if needsQuoting(value) {
-				value = fmt.Sprintf("\"%s\"", value)
-			}
-
-			lines = append(lines, fmt.Sprintf("%s=%s", key, value))
+			lines = append(lines, fmt.Sprintf("%s=%s", key, quoteEnvValue(value)))
 		}
 	}
 
@@ -167,6 +145,15 @@ func updateEnvFile(path string, values map[string]string) error {
 	}
 
 	return nil
+}
+
+// quoteEnvValue quotes values that contain spaces or special characters.
+func quoteEnvValue(value string) string {
+	if needsQuoting(value) {
+		return fmt.Sprintf("\"%s\"", value)
+	}
+
+	return value
 }
 
 func needsQuoting(value string) bool {
