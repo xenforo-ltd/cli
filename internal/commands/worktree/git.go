@@ -53,8 +53,7 @@ func (gitBackend) nameExists(ctx context.Context, repoDir, branch string) (bool,
 	}
 
 	// show-ref exits 1 when the ref is absent, which is not an error here.
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok && exitErr.ExitCode() == 1 {
 		return false, nil
 	}
 

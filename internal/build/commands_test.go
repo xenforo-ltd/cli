@@ -164,8 +164,7 @@ func TestBuildCommandFailure(t *testing.T) {
 	}
 	f := newFixture(t, string(config))
 	_, err = build.Build(t.Context(), f.root, addOnID, build.WithoutDependencyInstall())
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 23 {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); !ok || exitErr.ExitCode() != 23 {
 		t.Fatalf("error = %v, want exit status 23", err)
 	}
 	requireError(t, err, "exec ")
@@ -313,8 +312,7 @@ func TestBuildComposerEnvironmentFailures(t *testing.T) {
 			writeFile(t, f.addon, "composer.json", `{}`)
 			writeFile(t, f.root, "compose.yaml", "services: {}\n")
 			result, err := build.Build(t.Context(), f.root, addOnID)
-			var exitErr *exec.ExitError
-			if !errors.As(err, &exitErr) || exitErr.ExitCode() != 23 || result != nil {
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); !ok || exitErr.ExitCode() != 23 || result != nil {
 				t.Fatalf("result = %+v, error = %v, want Docker exit status 23", result, err)
 			}
 			for _, record := range readCommands(t, log) {

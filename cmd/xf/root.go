@@ -35,7 +35,7 @@ var rootCmd = &cobra.Command{
 	Short:            "Provision and manage XenForo development environments",
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if err := config.Init(configFile); err != nil {
-			if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+			if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); ok {
 				return nil
 			}
 

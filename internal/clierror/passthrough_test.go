@@ -27,8 +27,8 @@ func TestPassthroughErrorPreservesTheChildExitCode(t *testing.T) {
 	for _, code := range []int{1, 2, 3, 42} {
 		err := Passthrough(exitErrorWithCode(t, code), "failed to run PHP")
 
-		var exitErr *exitCodeError
-		if !errors.As(err, &exitErr) {
+		exitErr, ok := errors.AsType[*exitCodeError](err)
+		if !ok {
 			t.Fatalf("code %d: got %T, want *exitCodeError", code, err)
 		}
 
@@ -42,8 +42,8 @@ func TestPassthroughErrorPreservesTheChildExitCodeThroughWrapping(t *testing.T) 
 	// The docker runner wraps the child's error before it reaches us.
 	wrapped := fmt.Errorf("docker command failed: %w", exitErrorWithCode(t, 7))
 
-	var exitErr *exitCodeError
-	if !errors.As(Passthrough(wrapped, "failed to run Composer"), &exitErr) {
+	exitErr, ok := errors.AsType[*exitCodeError](Passthrough(wrapped, "failed to run Composer"))
+	if !ok {
 		t.Fatal("wrapped exit error was not recognised")
 	}
 

@@ -44,8 +44,8 @@ func TestPassthroughErrorIgnoresSignalExitCodes(t *testing.T) {
 		t.Fatal("expected the signalled command to fail")
 	}
 
-	var ee *exec.ExitError
-	if !errors.As(err, &ee) {
+	ee, ok := errors.AsType[*exec.ExitError](err)
+	if !ok {
 		t.Fatalf("expected an *exec.ExitError, got %T", err)
 	}
 
