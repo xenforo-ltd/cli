@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
+
+const progressUpdateStep = 100 * 1024
 
 // UpgradeOptions specifies upgrade parameters.
 type UpgradeOptions struct {
@@ -114,10 +117,6 @@ func validateUpgradeFlags(opts *UpgradeOptions) error {
 		return clierror.Usage(fmt.Errorf("missing required flags in non-interactive mode: %s: %w", strings.Join(missing, ", "), clierror.ErrInvalidInput))
 	}
 
-	if len(opts.products) == 0 {
-		opts.products = []string{"xenforo"}
-	}
-
 	return nil
 }
 
@@ -131,10 +130,6 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 		if err := selectLicense(ctx, client, opts); err != nil {
 			return err
 		}
-	}
-
-	if len(opts.products) == 0 {
-		opts.products = []string{"xenforo"}
 	}
 
 	if opts.TargetVersionID == 0 {
@@ -223,11 +218,8 @@ func selectTargetVersion(ctx context.Context, client *customerapi.Client, opts *
 		return clierror.Prompt(err, "version selection")
 	}
 
-	for _, v := range versions.Versions {
-		if v.VersionID == opts.TargetVersionID {
-			opts.targetVersionString = v.VersionStr
-			break
-		}
+	if i := slices.IndexFunc(versions.Versions, func(v customerapi.Version) bool { return v.VersionID == opts.TargetVersionID }); i >= 0 {
+		opts.targetVersionString = versions.Versions[i].VersionStr
 	}
 
 	return nil
@@ -242,6 +234,10 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
 		return fmt.Errorf("failed to create customer API client: %w", err)
+	}
+
+	if len(opts.products) == 0 {
+		opts.products = []string{"xenforo"}
 	}
 
 	step := 1
@@ -360,8 +356,8 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 		spinner := ui.NewSpinner(fmt.Sprintf("Downloading %s %s", productName, selection.VersionString))
 		spinner.Start()
 
-		progress := func(current, total int64) {
-			if current-lastUpdate < 102400 && lastUpdate != 0 {
+		progress := func(current, _ int64) {
+			if current-lastUpdate < progressUpdateStep && lastUpdate != 0 {
 				return
 			}
 
