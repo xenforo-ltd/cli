@@ -20,23 +20,9 @@ const embedDir = "embed"
 
 const defaultSuffix = ".default"
 
-// extractOptions specifies options for extracting Docker files.
-type extractOptions struct {
-	overwriteBaseFiles bool
-}
-
-// extractDockerFilesWithOptions extracts Docker files with custom options.
-// It returns the paths of any ".default" files written alongside existing,
-// user-modified files so callers can notify the user.
-func extractDockerFilesWithOptions(targetDir string, opts extractOptions) (written []string, err error) {
-	written, err = extractDir(embedDir, targetDir, "", opts.overwriteBaseFiles)
-	if err != nil {
-		return nil, err
-	}
-
-	return written, nil
-}
-
+// extractDir extracts embedded Docker files. It returns the paths of any
+// ".default" files written alongside existing, user-modified files so callers
+// can notify the user.
 func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) ([]string, error) {
 	entries, err := dockerFS.ReadDir(srcDir)
 	if err != nil {

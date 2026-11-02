@@ -41,11 +41,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 		newEnv = true
 	}
 
-	extractOpts := extractOptions{
-		overwriteBaseFiles: opts.OverwriteExisting,
-	}
-
-	written, err = extractDockerFilesWithOptions(xfDir, extractOpts)
+	written, err = extractDir(embedDir, xfDir, "", opts.OverwriteExisting)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract Docker files: %w", err)
 	}
