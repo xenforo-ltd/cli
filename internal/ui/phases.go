@@ -17,7 +17,7 @@ type PhaseTrackerWriter struct {
 	spinner     *Spinner
 	baseMessage string
 	rules       []phaseRule
-	pending     string
+	pending     strings.Builder
 	lastMessage string
 	tail        []string
 	tailMax     int
@@ -38,13 +38,13 @@ func (w *PhaseTrackerWriter) Write(p []byte) (int, error) {
 
 	for _, b := range p {
 		if b == '\n' || b == '\r' {
-			w.processLine(w.pending)
-			w.pending = ""
+			w.processLine(w.pending.String())
+			w.pending.Reset()
 
 			continue
 		}
 
-		w.pending += string(b)
+		w.pending.WriteByte(b)
 	}
 
 	return len(p), nil
