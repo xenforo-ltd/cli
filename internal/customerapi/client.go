@@ -229,8 +229,12 @@ func checkResponse(resp *http.Response) error {
 	}
 
 	errResp, parseErr := parseError(body)
-	if parseErr != nil || len(errResp.Errors) == 0 {
+	if parseErr != nil {
 		return fmt.Errorf("API error (status %d): %s: %w", resp.StatusCode, string(body), parseErr)
+	}
+
+	if len(errResp.Errors) == 0 {
+		return fmt.Errorf("API error (status %d): %s: %w", resp.StatusCode, string(body), errAPIError)
 	}
 
 	return fmt.Errorf("API error: %s: %w", errResp.Errors[0].Message, errAPIError)

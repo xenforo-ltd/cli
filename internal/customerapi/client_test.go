@@ -71,6 +71,11 @@ func TestClientBehavior(t *testing.T) {
 			fmt.Fprint(w, `{broken`)
 			return
 		}
+		if mode == "empty-errors" {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"errors":[]}`)
+			return
+		}
 		if mode == "server-error" {
 			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
 			return
@@ -139,6 +144,18 @@ func TestClientBehavior(t *testing.T) {
 		reset("malformed")
 		if _, err := client.GetLicenses(t.Context()); err == nil || !strings.Contains(err.Error(), "decode") {
 			t.Fatalf("malformed API response: %v", err)
+		}
+	})
+
+	t.Run("error without details", func(t *testing.T) {
+		save(t)
+		reset("empty-errors")
+		_, err := client.GetLicenses(t.Context())
+		if err == nil || strings.Contains(err.Error(), "%!w") {
+			t.Fatalf("empty error details: %v", err)
+		}
+		if !strings.Contains(err.Error(), "API error") || !strings.Contains(err.Error(), "400") {
+			t.Fatalf("missing API error context: %v", err)
 		}
 	})
 
