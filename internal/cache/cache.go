@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/config"
@@ -52,12 +51,12 @@ func NewManager() (*Manager, error) {
 
 // entryPath returns the directory path for a cache entry.
 func (m *Manager) entryPath(licenseKey string, downloadID, version string) (string, error) {
-	p := filepath.Clean(filepath.Join(m.basePath, licenseKey, downloadID, version))
-	if !strings.HasPrefix(p, m.basePath+string(filepath.Separator)) {
+	rel := filepath.Join(licenseKey, downloadID, version)
+	if rel == "." || !filepath.IsLocal(rel) {
 		return "", fmt.Errorf("invalid cache path components: %w", errInvalidInput)
 	}
 
-	return p, nil
+	return filepath.Join(m.basePath, rel), nil
 }
 
 // metadataFilename is the name of the metadata file for each cache entry.
@@ -212,12 +211,12 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 }
 
 func (m *Manager) licensePath(licenseKey string) (string, error) {
-	p := filepath.Clean(filepath.Join(m.basePath, licenseKey))
-	if !strings.HasPrefix(p, m.basePath+string(filepath.Separator)) {
+	rel := filepath.Clean(licenseKey)
+	if rel == "." || !filepath.IsLocal(rel) {
 		return "", fmt.Errorf("invalid license key: %w", errInvalidInput)
 	}
 
-	return p, nil
+	return filepath.Join(m.basePath, rel), nil
 }
 
 func (m *Manager) walkEntries(root string) ([]*Entry, error) {
