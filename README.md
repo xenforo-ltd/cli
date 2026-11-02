@@ -538,27 +538,27 @@ Available on all built-in commands:
 ### Make
 
 ```bash
-make build      # Build the binary
-make run        # Run without building (go run)
-make test       # Run all tests
-make test-v     # Run tests with verbose output
-make test-cover # Run tests with coverage
-make fmt        # Format code
-make vet        # Check for common mistakes
-make tidy       # Update dependencies
-make clean      # Remove built binary
-make all        # Format, vet, test, and build
+make build         # Build the binary
+make test          # Run all tests
+make test-v        # Run tests with verbose output
+make test-coverage # Run tests with coverage
+make fmt           # Format code
+make lint          # Run go vet and check formatting
+make mod-tidy      # Tidy module dependencies
+make clean         # Remove build artifacts
+make all           # Lint, test, and build
+make help          # List all targets
 ```
 
 ### Go Directly
 
 ```bash
 # Build
-go build -o xf .
+go build -o xf ./cmd/xf
 
 # Run without building
-go run . --help
-go run . version
+go run ./cmd/xf --help
+go run ./cmd/xf version
 
 # Tests
 go test ./...
@@ -570,26 +570,9 @@ go test ./... -cover
 
 ```text
 xf/
-├── cmd/                    # CLI commands
-├── internal/
-│   ├── api/                # XenForo API client
-│   ├── auth/               # OAuth and keychain integration
-│   ├── cache/              # Download cache management
-│   ├── config/             # Config and environment settings
-│   ├── dockercompose/      # Docker Compose runner integration
-│   ├── doctor/             # System diagnostics
-│   ├── downloads/          # Download orchestration
-│   ├── embed/              # Embedded Docker assets
-│   ├── errors/             # Structured error types
-│   ├── extract/            # Archive extraction
-│   ├── selfupdate/         # Self-update logic
-│   ├── stream/             # Streaming/progress helpers
-│   ├── ui/                 # CLI UI helpers
-│   ├── version/            # Build/runtime version info
-│   ├── xf/                 # XenForo-specific helpers
-│   └── xfcmd/              # XenForo command helpers
+├── cmd/xf/                 # Entry point
+├── internal/               # CLI implementation (see internal/README.md)
 ├── scripts/                # Install/test scripts
-├── main.go                 # Entry point
 ├── go.mod                  # Go module definition
 ├── Makefile                # Build automation
 └── README.md
@@ -605,6 +588,9 @@ xf/
 ## Building for Release
 
 ```bash
-# Build with embedded version information
-make release VERSION=1.0.0
+# Update the changelog and tag the next version
+make release
+
+# Or tag a specific version
+make release TAG=v1.0.0
 ```
