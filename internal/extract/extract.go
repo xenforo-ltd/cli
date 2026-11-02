@@ -16,7 +16,7 @@ var errInvalidArchive = errors.New("invalid archive")
 
 const maxFileSize = 32 * 1024 * 1024 // 32 MB
 
-func extractFile(file *zip.File, destPath string) error {
+func extractFile(file *zip.File, root *os.Root, destPath string) error {
 	if file.UncompressedSize64 > maxFileSize {
 		return fmt.Errorf("file %s is too large to extract: %w", file.Name, errInvalidArchive)
 	}
@@ -26,7 +26,7 @@ func extractFile(file *zip.File, destPath string) error {
 	}
 
 	parentDir := filepath.Dir(destPath)
-	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+	if err := root.MkdirAll(parentDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %s: %w", parentDir, err)
 	}
 
@@ -38,7 +38,7 @@ func extractFile(file *zip.File, destPath string) error {
 
 	limitedReader := io.LimitReader(srcFile, maxFileSize)
 
-	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+	destFile, err := root.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 	if err != nil {
 		return fmt.Errorf("failed to create file: %s: %w", destPath, err)
 	}
@@ -60,26 +60,17 @@ func extractFile(file *zip.File, destPath string) error {
 	return nil
 }
 
-// sanitizePath ensures the path is safe and within the destination directory.
-// This prevents "zip slip" directory traversal attacks.
-func sanitizePath(destDir, name string) (string, error) {
-	if strings.HasPrefix(name, "/") || strings.Contains(name, "\\") || hasDriveLetter(name) || filepath.IsAbs(name) {
+func sanitizePath(name string) (string, error) {
+	if strings.Contains(name, "\\") || hasDriveLetter(name) || !filepath.IsLocal(name) {
 		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
 	name = filepath.Clean(name)
-	destPath := filepath.Join(destDir, name)
-
-	rel, err := filepath.Rel(filepath.Clean(destDir), destPath)
-	if err != nil {
-		return "", fmt.Errorf("invalid path in archive: %w", err)
-	}
-
-	if strings.HasPrefix(rel, "..") {
+	if strings.HasPrefix(name, "..") {
 		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
-	return destPath, nil
+	return name, nil
 }
 
 func hasDriveLetter(name string) bool {
@@ -111,6 +102,12 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
+	root, err := os.OpenRoot(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to open destination directory: %w", err)
+	}
+	defer root.Close()
+
 	var uploadFiles []*zip.File
 
 	for _, file := range reader.File {
@@ -131,7 +128,7 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 			continue
 		}
 
-		destPath, err := sanitizePath(destDir, name)
+		destPath, err := sanitizePath(name)
 		if err != nil {
 			return err
 		}
@@ -141,14 +138,14 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, 0o755); err != nil {
+			if err := root.MkdirAll(destPath, 0o755); err != nil {
 				return fmt.Errorf("failed to create directory: %s: %w", name, err)
 			}
 
 			continue
 		}
 
-		if err := extractFile(file, destPath); err != nil {
+		if err := extractFile(file, root, destPath); err != nil {
 			return err
 		}
 	}

@@ -597,6 +597,7 @@ xf/
 - OAuth tokens use the system keychain by default. File storage is an explicit opt-in and stores credentials as plaintext with owner-only file permissions on Unix. On Windows, access is controlled by the containing directory’s ACL; use a private user directory. There is no automatic plaintext fallback.
 - PKCE is used for OAuth authorization flow security.
 - Stored tokens are refreshed automatically when needed. Environment tokens must be replaced externally when expired or revoked.
+- Package extraction confines writes to the destination directory. Archive symlink entries are rejected, as are absolute or escaping symlinks encountered beneath the destination.
 
 ## Building for Release
 
