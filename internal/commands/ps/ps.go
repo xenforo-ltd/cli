@@ -35,7 +35,7 @@ func Run(ctx context.Context, args []string) error {
 		rows = append(rows, []string{c.Service, c.Name, renderState(c.State), c.Status, c.Ports})
 	}
 
-	ui.PrintTable([]string{"SERVICE", "CONTAINER", "STATE", "STATUS", "PORTS"}, rows)
+	ui.Println(ui.NewTable([]string{"SERVICE", "CONTAINER", "STATE", "STATUS", "PORTS"}, rows))
 
 	return nil
 }

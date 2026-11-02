@@ -44,12 +44,3 @@ func NewTable(headers []string, rows [][]string) string {
 
 	return t.String()
 }
-
-// PrintTable prints a formatted table to stdout.
-func PrintTable(headers []string, rows [][]string) {
-	if len(rows) == 0 {
-		return
-	}
-
-	lipgloss.Println(NewTable(headers, rows))
-}
