@@ -41,7 +41,7 @@ func copyTree(ctx context.Context, src, dst string, progress progressFunc) error
 		return fmt.Errorf("%s is not a directory: %w", src, errNotADirectory)
 	}
 
-	// filepath.Walk does not follow a symlink at the root of the walk, even
+	// filepath.WalkDir does not follow a symlink at the root of the walk, even
 	// though os.Stat above does. Without this, a symlinked src is walked as
 	// the link itself rather than the directory it points to.
 	root, err := filepath.EvalSymlinks(src)
