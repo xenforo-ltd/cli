@@ -128,6 +128,7 @@ func copyTree(ctx context.Context, src, dst string, progress progressFunc) error
 
 		return nil
 	})
+
 	if walkErr != nil {
 		return walkErr
 	}
@@ -169,6 +170,7 @@ func countFiles(ctx context.Context, root string) (int, error) {
 
 		return nil
 	})
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to count files in %s: %w", root, err)
 	}

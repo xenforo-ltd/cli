@@ -43,6 +43,7 @@ func Run(ctx context.Context) error {
 		if result.message != "" {
 			line += "  " + ui.Dim.Render(result.message)
 		}
+
 		ui.Println(line)
 
 		if result.details != "" {

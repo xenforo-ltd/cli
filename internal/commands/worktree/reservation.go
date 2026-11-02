@@ -60,6 +60,7 @@ func reserveWorktreeName(ctx context.Context, reg *registry, source, branch, ins
 
 			return instanceTaken(ctx, reg, sourceInstance, name, noSetup)
 		})
+
 		if err != nil {
 			return entry{}, err
 		}

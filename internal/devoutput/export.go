@@ -37,22 +37,27 @@ func Export(ctx context.Context, addOnDir string) (*result, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	absolute, err := filepath.Abs(addOnDir)
 	if err != nil {
 		return nil, err
 	}
+
 	root, err := os.OpenRoot(absolute)
 	if err != nil {
 		return nil, fmt.Errorf("opening add-on directory: %w", err)
 	}
+
 	defer root.Close()
 	if err := checkTypes(root); err != nil {
 		return nil, err
 	}
+
 	type output struct {
 		name string
 		data []byte
 	}
+
 	var outputs []output
 	warnings := make(map[string]bool)
 	for _, definition := range definitions {
@@ -60,28 +65,35 @@ func Export(ctx context.Context, addOnDir string) (*result, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		data, err := render(definition.container, nodes)
 		if err != nil {
 			return nil, fmt.Errorf("encoding %s: %w", definition.directory, err)
 		}
+
 		outputs = append(outputs, output{name: definition.container + ".xml", data: data})
 	}
+
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	if err := root.MkdirAll("_data", 0o755); err != nil {
 		return nil, err
 	}
+
 	destination, err := root.OpenRoot("_data")
 	if err != nil {
 		return nil, err
 	}
+
 	defer destination.Close()
 	for _, output := range outputs {
 		if err := writeXML(ctx, destination, output.name, output.data); err != nil {
 			return nil, fmt.Errorf("writing %s: %w", output.name, err)
 		}
 	}
+
 	return &result{
 		Warnings: slices.Sorted(maps.Keys(warnings)),
 	}, nil
@@ -96,42 +108,53 @@ func checkTypes(root *os.Root) error {
 		known[definition.directory] = true
 		files[definition.container+".xml"] = true
 	}
+
 	entries, err := fs.ReadDir(root.FS(), "_output")
 	if err != nil {
 		return fmt.Errorf("reading development output: %w", err)
 	}
+
 	for _, entry := range entries {
 		name := entry.Name()
 		if strings.HasPrefix(name, ".") {
 			continue
 		}
+
 		if entry.IsDir() && known[name] {
 			continue
 		}
+
 		if entry.Type().IsRegular() && (name == "extension_hint.php" || name == "option_hint.php" || name == "style_properties.less") {
 			continue
 		}
+
 		return fmt.Errorf("unsupported development-output type or file %q", name)
 	}
+
 	info, err := root.Lstat("_data")
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
+
 	if !info.IsDir() {
 		return errors.New("_data must be a directory, not a file or symbolic link")
 	}
+
 	entries, err = fs.ReadDir(root.FS(), "_data")
 	if err != nil {
 		return err
 	}
+
 	for _, entry := range entries {
 		if strings.HasSuffix(entry.Name(), ".xml") && !files[entry.Name()] {
 			return fmt.Errorf("unsupported release data type %q", entry.Name())
 		}
 	}
+
 	return nil
 }
 
@@ -141,24 +164,30 @@ func writeXML(ctx context.Context, root *os.Root, name string, data []byte) erro
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
 	temporary := ".export-" + rand.Text()
 	f, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
+
 	defer root.Remove(temporary)
 	defer f.Close()
 	if _, err := f.Write(data); err != nil {
 		return err
 	}
+
 	if err := f.Chmod(0o644); err != nil {
 		return err
 	}
+
 	if err := f.Close(); err != nil {
 		return err
 	}
+
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
 	return root.Rename(temporary, name)
 }

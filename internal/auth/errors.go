@@ -33,5 +33,6 @@ func ErrorMessage(err error) string {
 			return strings.TrimSuffix(message, ": "+kind.Error())
 		}
 	}
+
 	return message
 }

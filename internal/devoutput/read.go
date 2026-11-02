@@ -31,26 +31,34 @@ func readMetadata(ctx context.Context, root *os.Root) (map[string]record, error)
 			if err != nil {
 				return err
 			}
+
 			if err := ctx.Err(); err != nil {
 				return err
 			}
+
 			if !entry.IsDir() {
 				return missing
 			}
+
 			return nil
 		})
+
 		return nil, err
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("%s contains invalid UTF-8", filename)
 	}
+
 	metadata, err := ndjsonMetadata(data)
 	if err != nil {
 		return nil, fmt.Errorf("decoding %s: %w", filename, err)
 	}
+
 	return metadata, nil
 }
 
@@ -66,16 +74,20 @@ func ndjsonMetadata(data []byte) (map[string]record, error) {
 		} else if err != nil {
 			return nil, err
 		}
+
 		var name string
 		if err := json.Unmarshal(r["_file"], &name); err != nil || name == "" {
 			return nil, errors.New("metadata record has no filename")
 		}
+
 		if !fs.ValidPath(name) || strings.ContainsAny(name, `\:`) {
 			return nil, fmt.Errorf("invalid metadata filename %q", name)
 		}
+
 		if _, exists := result[name]; exists {
 			return nil, fmt.Errorf("duplicate metadata for %s", name)
 		}
+
 		delete(r, "_file")
 		result[name] = r
 	}
@@ -90,64 +102,79 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("opening %s: %w", directory, err)
 	}
+
 	defer source.Close()
 	metadata, err := readMetadata(ctx, source)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s metadata: %w", directory, err)
 	}
+
 	order := d.order
 	if len(order) == 0 {
 		order = d.keys
 	}
+
 	type row struct {
 		name   string
 		values []sortValue
 		node   xmlElement
 	}
+
 	rows := make([]row, 0, len(metadata))
 	allowed := make(map[string]bool)
 	d.element.sources(allowed)
 	if d.suffix != "" {
 		allowed["hash"] = true
 	}
+
 	for _, key := range slices.Concat(d.keys, d.ignored) {
 		allowed[key] = true
 	}
+
 	for name, meta := range metadata {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		file := filepath.FromSlash(name)
 		filename := filepath.Join(directory, file)
 		data, err := readOutputFile(source, file, filename)
 		if err != nil {
 			return nil, err
 		}
+
 		r, err := d.record(name, data, meta)
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", filename, err)
 		}
+
 		for key := range r {
 			if !allowed[key] {
 				warnings[fmt.Sprintf("%s: ignoring unknown field %q", d.directory, key)] = true
 			}
 		}
+
 		node, err := d.element.convert(r)
 		if err != nil {
 			return nil, fmt.Errorf("converting %s: %w", filename, err)
 		}
+
 		if node == nil {
 			continue
 		}
+
 		values, err := d.sortValues(r, order, filename)
 		if err != nil {
 			return nil, err
 		}
+
 		rows = append(rows, row{name: name, values: values, node: *node})
 	}
+
 	slices.SortFunc(rows, func(a, b row) int {
 		for i, key := range order {
 			var comparison int
@@ -156,16 +183,20 @@ func (d definition) read(ctx context.Context, root *os.Root, warnings map[string
 			} else {
 				comparison = strings.Compare(a.values[i].text, b.values[i].text)
 			}
+
 			if comparison != 0 {
 				return comparison
 			}
 		}
+
 		return strings.Compare(a.name, b.name)
 	})
+
 	nodes := make([]xmlElement, 0, len(rows))
 	for _, row := range rows {
 		nodes = append(nodes, row.node)
 	}
+
 	return nodes, nil
 }
 
@@ -176,16 +207,20 @@ func readOutputFile(source *os.Root, file, filename string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", filename, err)
 	}
+
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("%s is not a regular file", filename)
 	}
+
 	data, err := source.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", filename, err)
 	}
+
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("%s contains invalid UTF-8", filename)
 	}
+
 	return data, nil
 }
 
@@ -204,15 +239,18 @@ func (d definition) sortValues(r record, order []string, filename string) ([]sor
 		if err != nil {
 			return nil, fmt.Errorf("sorting %s: %w", filename, err)
 		}
+
 		values[i].text = value
 		if slices.Contains(d.numeric, key) {
 			number, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("%s: invalid numeric %s: %w", filename, key, err)
 			}
+
 			values[i].number = number
 		}
 	}
+
 	return values, nil
 }
 
@@ -225,6 +263,7 @@ func (d definition) record(name string, contents []byte, metadata record) (recor
 	if hash != hex.EncodeToString(digest[:]) {
 		return nil, errors.New("stale metadata; prepare development output with XenForo before exporting")
 	}
+
 	var r record
 	stem := strings.TrimSuffix(name, ".json")
 	if d.suffix != "" {
@@ -234,31 +273,38 @@ func (d definition) record(name string, contents []byte, metadata record) (recor
 			if slices.Contains(d.keys, key) {
 				return nil, fmt.Errorf("unsupported metadata field %q", key)
 			}
+
 			r[key] = value
 		}
+
 		r["$text"], _ = json.Marshal(string(contents))
 	} else {
 		if !strings.HasSuffix(name, ".json") {
 			return nil, errors.New("expected a JSON file")
 		}
+
 		if err := json.Unmarshal(contents, &r); err != nil {
 			return nil, err
 		}
+
 		if r == nil {
 			return nil, errors.New("expected a JSON object")
 		}
 	}
+
 	if len(d.keys) > 0 {
 		parts := strings.SplitN(stem, d.separator, len(d.keys))
 		if len(parts) != len(d.keys) {
 			return nil, fmt.Errorf("filename %q must contain %s", name, strings.Join(d.keys, " and "))
 		}
+
 		for i, key := range d.keys {
 			if _, exists := r[key]; !exists {
 				r[key], _ = json.Marshal(parts[i])
 			}
 		}
 	}
+
 	return r, nil
 }
 
@@ -268,9 +314,11 @@ func (e element) sources(result map[string]bool) {
 	for _, f := range e.attributes {
 		result[f.source] = true
 	}
+
 	if e.content.source != "" {
 		result[e.content.source] = true
 	}
+
 	for _, child := range e.children {
 		if child.repeat != "" {
 			result[child.repeat] = true

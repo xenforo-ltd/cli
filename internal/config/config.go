@@ -50,10 +50,12 @@ func AuthFilePath() (string, error) {
 	if path := viper.ConfigFileUsed(); path != "" {
 		return filepath.Abs(filepath.Join(filepath.Dir(path), "auth.json"))
 	}
+
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
+
 	return filepath.Join(dir, "xf", "auth.json"), nil
 }
 

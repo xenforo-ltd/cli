@@ -22,9 +22,11 @@ func parseMetadata(data []byte) (map[string]any, error) {
 	if err := decoder.Decode(&metadata); err != nil {
 		return nil, fmt.Errorf("parsing addon.json: %w", err)
 	}
+
 	if hasTrailingData(decoder) {
 		return nil, errors.New("parsing addon.json: unexpected data after metadata")
 	}
+
 	if metadata == nil {
 		return nil, errors.New("parsing addon.json: expected an object")
 	}

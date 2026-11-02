@@ -22,6 +22,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 
 		return nil, fmt.Errorf("failed to read .env file: %w", err)
 	}
+
 	defer file.Close()
 
 	env := make(map[string]string)
@@ -84,6 +85,7 @@ func createEnvFile(path string, values map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create .env file: %w", err)
 	}
+
 	defer file.Close()
 
 	for _, key := range slices.Sorted(maps.Keys(values)) {

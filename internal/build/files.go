@@ -92,14 +92,17 @@ func collectFilesWhere(ctx context.Context, root *os.Root, start string, include
 			if !link && !include(child, entry.IsDir()) {
 				continue
 			}
+
 			info, err := entry.Info()
 			if err == nil && info.Mode()&os.ModeSymlink != 0 {
 				// Resolve links through the build root, not the entry's parent.
 				info, err = root.Stat(filepath.FromSlash(child))
 			}
+
 			if link && !include(child, err != nil || info.IsDir()) {
 				continue
 			}
+
 			if err == nil && info.IsDir() {
 				if err := walk(child, info); err != nil {
 					return err
@@ -159,6 +162,7 @@ func readFile(ctx context.Context, root fileSource, name string) ([]byte, error)
 	if size := info.Size(); size > 0 && size <= int64(math.MaxInt-bytes.MinRead) {
 		buffer.Grow(int(size) + bytes.MinRead)
 	}
+
 	_, err = buffer.ReadFrom(f)
 	return buffer.Bytes(), err
 }

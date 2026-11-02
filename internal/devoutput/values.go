@@ -20,11 +20,14 @@ func (f field) value(r record) (string, bool, error) {
 		if f.optional {
 			return "", true, nil
 		}
+
 		return "", false, fmt.Errorf("missing field %q", f.source)
 	}
+
 	if f.omit == emptyValue && isEmpty(raw) {
 		return "", true, nil
 	}
+
 	var value string
 	var err error
 	switch f.format {
@@ -37,6 +40,7 @@ func (f field) value(r record) (string, bool, error) {
 		} else {
 			err = json.Compact(&formatted, raw)
 		}
+
 		value = formatted.String()
 	case lines, commas:
 		var values []string
@@ -45,20 +49,25 @@ func (f field) value(r record) (string, bool, error) {
 			if f.format == commas {
 				separator = ","
 			}
+
 			value = strings.Join(values, separator)
 		}
+
 	default:
 		err = fmt.Errorf("unknown value format %d", f.format)
 	}
+
 	if err != nil {
 		return "", false, fmt.Errorf("field %q: %w", f.source, err)
 	}
+
 	handler := strings.ToLower(strings.TrimLeft(value, `\`))
 	for _, prefix := range f.forbiddenPrefixes {
 		if strings.HasPrefix(handler, strings.ToLower(prefix)) {
 			return "", false, fmt.Errorf("field %q: custom export handler %q is not supported", f.source, value)
 		}
 	}
+
 	return value, f.omit == emptyString && bytes.Equal(bytes.TrimSpace(raw), []byte(`""`)), nil
 }
 
@@ -70,6 +79,7 @@ func scalarValue(raw json.RawMessage) (string, error) {
 	if len(raw) == 0 {
 		return "", errors.New("expected a scalar")
 	}
+
 	switch raw[0] {
 	case '"':
 		var value string
@@ -95,10 +105,12 @@ func isEmpty(raw json.RawMessage) bool {
 	if json.Compact(&compact, raw) != nil {
 		return false
 	}
+
 	switch compact.String() {
 	case "null", "false", "0", `"0"`, `""`, "[]", "{}":
 		return true
 	}
+
 	return false
 }
 
@@ -107,6 +119,7 @@ func validateText(value string) error {
 	if !utf8.ValidString(value) {
 		return errors.New("invalid UTF-8")
 	}
+
 	for _, r := range value {
 		switch {
 		case r == '\t' || r == '\n' || r == '\r':
@@ -115,5 +128,6 @@ func validateText(value string) error {
 			return fmt.Errorf("character U+%04X is not valid in XML", r)
 		}
 	}
+
 	return nil
 }

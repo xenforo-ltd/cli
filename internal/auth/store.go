@@ -23,6 +23,7 @@ func NewStore() (Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load authentication configuration: %w", err)
 	}
+
 	return selectStore(cfg, os.Getenv("XF_TOKEN"), config.AuthFilePath, func() (Store, error) {
 		return newKeychain(), nil
 	})
@@ -33,8 +34,10 @@ func selectStore(cfg config.Config, raw string, filePath func() (string, error),
 		if strings.ContainsFunc(raw, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
 			return nil, fmt.Errorf("XF_TOKEN must be a raw access token without whitespace or control characters: %w", ErrInvalidInput)
 		}
+
 		return &environmentStore{token: Token{AccessToken: raw, TokenType: "Bearer", BaseURL: cfg.OAuth.BaseURL, External: true}}, nil
 	}
+
 	switch cfg.Auth.Storage {
 	case "", "keychain":
 		return keychainStore()
@@ -43,6 +46,7 @@ func selectStore(cfg config.Config, raw string, filePath func() (string, error),
 		if err != nil {
 			return nil, fmt.Errorf("failed to locate authentication file: %w", err)
 		}
+
 		return &FileStore{path: path}, nil
 	default:
 		return nil, fmt.Errorf("auth.storage must be keychain or file: %w", ErrInvalidInput)
@@ -65,10 +69,12 @@ func NewWritableStore() (WritableStore, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	writable, ok := store.(WritableStore)
 	if !ok {
 		return nil, errExternallyManaged
 	}
+
 	return writable, nil
 }
 

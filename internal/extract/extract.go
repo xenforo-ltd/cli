@@ -34,6 +34,7 @@ func extractFile(file *zip.File, root *os.Root, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file in archive: %s: %w", file.Name, err)
 	}
+
 	defer srcFile.Close()
 
 	// One byte past the limit lets the check below tell an oversized entry
@@ -44,6 +45,7 @@ func extractFile(file *zip.File, root *os.Root, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %s: %w", destPath, err)
 	}
+
 	defer destFile.Close()
 
 	written, err := io.Copy(destFile, limitedReader)
@@ -93,6 +95,7 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 	if err != nil {
 		return fmt.Errorf("failed to open zip file: %w", err)
 	}
+
 	defer reader.Close()
 
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
@@ -103,6 +106,7 @@ func XenForoZip(zipPath, destDir string, onProgress func(current, total int, fil
 	if err != nil {
 		return fmt.Errorf("failed to open destination directory: %w", err)
 	}
+
 	defer root.Close()
 
 	var uploadFiles []*zip.File

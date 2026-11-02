@@ -39,6 +39,7 @@ func Run(ctx context.Context, args []string) error {
 	} else {
 		ui.PrintWarning("Could not determine the site URL")
 	}
+
 	ui.Println()
 	ui.SuccessBox("Docker environment restarted", details)
 

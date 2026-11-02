@@ -56,6 +56,7 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 		base:       opts.Base,
 		instance:   reserved.Instance,
 	})
+
 	if err != nil {
 		// Release the name so a retry can use it, unless creation left the
 		// directory behind. chooseName skips that directory for this source,

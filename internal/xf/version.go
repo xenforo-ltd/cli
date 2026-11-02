@@ -196,6 +196,7 @@ func DetectVersionFS(installation fs.FS) (*Version, error) {
 
 		return nil, fmt.Errorf("failed to read XF.php: %w", err)
 	}
+
 	defer file.Close()
 
 	var (
@@ -235,21 +236,26 @@ func DetectVersionFS(installation fs.FS) (*Version, error) {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("reading core addon.json: %w", err)
 	}
+
 	if err == nil {
 		var metadata struct {
 			VersionID     int    `json:"version_id"`
 			VersionString string `json:"version_string"`
 		}
+
 		if err := json.Unmarshal(data, &metadata); err != nil {
 			return nil, fmt.Errorf("parsing core addon.json: %w", err)
 		}
+
 		if metadata.VersionID <= 0 || metadata.VersionString == "" {
 			return nil, errors.New("core addon.json must contain a positive version_id and a nonempty version_string")
 		}
+
 		if metadata.VersionID != versionID || metadata.VersionString != versionStr {
 			return nil, fmt.Errorf("core version mismatch: src/XF.php reports %s [%d], but src/addons/XF/addon.json reports %s [%d]",
 				versionStr, versionID, metadata.VersionString, metadata.VersionID)
 		}
+
 		versionStr, versionID = metadata.VersionString, metadata.VersionID
 	}
 

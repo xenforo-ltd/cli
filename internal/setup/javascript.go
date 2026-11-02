@@ -33,9 +33,11 @@ func initJavaScriptProjects(root string) ([]string, error) {
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
+
 			if err != nil {
 				return nil, fmt.Errorf("checking JavaScript build configuration %s: %w", manifest, err)
 			}
+
 			if info.IsDir() {
 				continue
 			}
@@ -48,9 +50,11 @@ func initJavaScriptProjects(root string) ([]string, error) {
 		if a == "XF" && b != "XF" {
 			return -1
 		}
+
 		if b == "XF" && a != "XF" {
 			return 1
 		}
+
 		return strings.Compare(a, b)
 	})
 
@@ -71,6 +75,7 @@ func RunJavaScript(ctx context.Context, opts *Options, step, totalSteps int) err
 	if err != nil {
 		return err
 	}
+
 	if len(projects) == 0 {
 		PrintSkippedStep(step, totalSteps, title, "build.json not present")
 		return nil
@@ -87,6 +92,7 @@ func RunJavaScript(ctx context.Context, opts *Options, step, totalSteps int) err
 				spinner.Stop()
 				return ctxErr
 			}
+
 			if project == "XF" {
 				spinner.StopWithMessage("error", "Failed to build "+label)
 				return fmt.Errorf("failed to build %s: %w", label, err)

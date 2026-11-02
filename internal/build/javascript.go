@@ -60,15 +60,18 @@ func collectJavaScriptFiles(ctx context.Context, root *os.Root, patterns []fileP
 			if !inside {
 				continue
 			}
+
 			if rel == "." {
 				return true
 			}
+
 			for _, pattern := range patterns {
 				if pattern.matches(rel, false) || pattern.mayContain(rel) {
 					return true
 				}
 			}
 		}
+
 		return false
 	})
 }
@@ -123,6 +126,7 @@ func (p addOnPaths) rollupFiles(ctx context.Context, files []file, pattern fileP
 		if key == output || key == minifiedPath(output) {
 			return false
 		}
+
 		if isLiteral(pattern.value) {
 			return true
 		}

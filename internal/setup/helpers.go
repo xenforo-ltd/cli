@@ -31,6 +31,7 @@ func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string
 	if detectedErr != nil || strings.TrimSpace(detectedURL) == "" {
 		return environment.FallbackBoardURL(instanceName), false
 	}
+
 	return detectedURL, true
 }
 
@@ -81,6 +82,7 @@ func shellJoinArgs(args []string) string {
 	for i, arg := range args {
 		parts[i] = shellQuote(arg)
 	}
+
 	return strings.Join(parts, " ")
 }
 
@@ -104,12 +106,14 @@ func PrintUsefulCommands() {
 		ui.KV("xf composer", "Run Composer"),
 		ui.KV("xf php", "Run PHP"),
 	}
+
 	width := 0
 	for _, c := range commands {
 		if w := lipgloss.Width(c.Key); w > width {
 			width = w
 		}
 	}
+
 	ui.Println(ui.Bold.Render("Useful commands:"))
 	for _, c := range commands {
 		ui.Printf("%s%s  %s\n", ui.Indent1, ui.Command.Render(padRight(c.Key, width)), ui.Muted.Render(c.Value))
@@ -121,5 +125,6 @@ func padRight(s string, width int) string {
 	if w >= width {
 		return s
 	}
+
 	return s + strings.Repeat(" ", width-w)
 }

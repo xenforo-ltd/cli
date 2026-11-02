@@ -170,9 +170,11 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
 	cobra.AddTemplateFunc("styleHeading", func(s string) string {
 		return lipgloss.Sprint(ui.Bold.Render(s))
 	})
+
 	cobra.AddTemplateFunc("styleCommand", func(s string) string {
 		return lipgloss.Sprint(ui.Command.Render(s))
 	})
+
 	root.SetUsageTemplate(usageTemplate)
 
 	root.PersistentFlags().StringVarP(&configFile, "config", "c", "", "path to config file")
@@ -361,6 +363,7 @@ func firstErrorClause(msg string) string {
 	if cut < 0 {
 		cut = len(parts)
 	}
+
 	if cut > 0 {
 		if result := strings.Join(parts[:cut], ": "); result != "" {
 			return result
@@ -373,9 +376,11 @@ func firstErrorClause(msg string) string {
 	for end > 0 && plumbingClause(parts[end-1]) {
 		end--
 	}
+
 	if end == 0 {
 		return msg
 	}
+
 	return strings.Join(parts[:end], ": ")
 }
 
@@ -383,12 +388,14 @@ func plumbingClause(s string) bool {
 	if strings.HasPrefix(s, "exit status ") {
 		return true
 	}
+
 	switch s {
 	case "docker command failed", "invalid input", "not found",
 		"forbidden", "internal error", "authentication failed",
 		"keychain unavailable", "context canceled":
 		return true
 	}
+
 	return false
 }
 

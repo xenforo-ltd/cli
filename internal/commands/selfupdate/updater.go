@@ -249,12 +249,14 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open update archive: %w", err)
 	}
+
 	defer f.Close()
 
 	gzReader, err := gzip.NewReader(f)
 	if err != nil {
 		return "", fmt.Errorf("failed to read update archive: %w", err)
 	}
+
 	defer gzReader.Close()
 
 	tarReader := tar.NewReader(gzReader)
@@ -309,6 +311,7 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open update archive: %w", err)
 	}
+
 	defer reader.Close()
 
 	extracted := make(map[string]string)
@@ -487,6 +490,7 @@ func (u *updater) getLatestRelease(ctx context.Context) (*release, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for updates: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
@@ -525,6 +529,7 @@ func (u *updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 	if err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -561,6 +566,7 @@ func (u *updater) verifyChecksum(ctx context.Context, filePath string, info *upd
 	if err != nil {
 		return fmt.Errorf("failed to download checksum: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -581,6 +587,7 @@ func (u *updater) verifyChecksum(ctx context.Context, filePath string, info *upd
 	if err != nil {
 		return fmt.Errorf("failed to open downloaded file for verification: %w", err)
 	}
+
 	defer f.Close()
 
 	hasher := sha256.New()

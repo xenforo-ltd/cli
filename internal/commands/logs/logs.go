@@ -35,6 +35,7 @@ func Run(ctx context.Context, args []string, follow bool) error {
 	if follow {
 		composeArgs = append(composeArgs, "--follow")
 	}
+
 	composeArgs = append(composeArgs, services...)
 
 	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, composeArgs...); err != nil {

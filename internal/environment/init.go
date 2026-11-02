@@ -50,6 +50,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 		updates := map[string]string{
 			"XF_INSTANCE": GenerateInstanceName(filepath.Base(xfDir)),
 		}
+
 		if len(opts.Contexts) > 0 {
 			updates["XF_CONTEXTS"] = strings.Join(opts.Contexts, ":")
 		}

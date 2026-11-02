@@ -61,6 +61,7 @@ func listDownloadables(ctx context.Context, client *customerapi.Client, licenseK
 	for _, d := range downloadables.Downloadables {
 		pairs = append(pairs, ui.KV(d.DownloadID, d.Title))
 	}
+
 	ui.PrintKeyValuePadded(pairs)
 
 	ui.PrintHint("Add " + ui.Command.Render("--download <id>") + " to choose a package")
@@ -131,6 +132,7 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 				ui.KV("Version", ui.Version.Render(info.VersionString)),
 				ui.KV("Size", ui.FormatBytes(entry.Metadata.Size)),
 			})
+
 			ui.PrintHint("Add " + ui.Command.Render("--force") + " to re-download")
 
 			return nil

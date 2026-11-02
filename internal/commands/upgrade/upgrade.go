@@ -291,6 +291,7 @@ func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	successDetails := []ui.KVPair{
 		ui.KV("Path", ui.Path.Render(ui.ShortHome(opts.TargetPath))),
 	}
+
 	if opts.targetVersionString != "" {
 		successDetails = append(successDetails, ui.KV("New version", ui.Version.Render(opts.targetVersionString)))
 	}
@@ -336,6 +337,7 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.products, opts.TargetVersionID, opts.targetVersionString, nil, func(product string) {
 		ui.PrintWarning("No versions available for " + downloads.ProductTitle(titleMap, product) + "; skipping")
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve upgrade selections for license %s: %w", opts.LicenseKey, err)
 	}

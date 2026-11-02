@@ -26,8 +26,10 @@ func RunInDir(ctx context.Context, installationDir, workDir string, stdin io.Rea
 		if workDir != "." {
 			containerDir = path.Join("/var/www/html", workDir)
 		}
+
 		return runner.execOrRunInDir(ctx, "xf", containerDir, nil, stdin, stdout, stderr, argv...)
 	}
+
 	if !errors.Is(err, ErrEnvNotInitialized) {
 		return fmt.Errorf("initializing Docker Compose runner: %w", err)
 	}
@@ -42,5 +44,6 @@ func RunInDir(ctx context.Context, installationDir, workDir string, stdin io.Rea
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
 	}
+
 	return err
 }

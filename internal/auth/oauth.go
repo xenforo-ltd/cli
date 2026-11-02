@@ -92,6 +92,7 @@ func (c *oauthClient) ExchangeCode(ctx context.Context, code string, pkce *pkceP
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 
 	tokenResp, err := readTokenResponse(resp, "token", "token exchange", errAuthFailed)
@@ -115,6 +116,7 @@ func (c *oauthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 
 	tokenResp, err := readTokenResponse(resp, "refresh", "token refresh", errAuthExpired)
@@ -153,6 +155,7 @@ func (c *oauthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
@@ -184,6 +187,7 @@ func (c *oauthClient) RevokeToken(ctx context.Context, token string) error {
 	if err != nil {
 		return err
 	}
+
 	defer resp.Body.Close()
 
 	// Revocation should return 200 OK even if token was already invalid

@@ -26,6 +26,7 @@ func (s uploadSelection) collectFiles(ctx context.Context, root *os.Root) (map[s
 	files, err := collectFilesWhere(ctx, root, ".", func(name string, isDir bool) bool {
 		return !isIgnoredPath(name) && !matchesPatterns(s.blacklist, name, isDir) && s.matchesWhitelist(name, isDir)
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +36,7 @@ func (s uploadSelection) collectFiles(ctx context.Context, root *os.Root) (map[s
 		if f.err != nil {
 			return nil, fmt.Errorf("reading %s: %w", f.path, f.err)
 		}
+
 		if f.isDir() {
 			continue
 		}
@@ -56,18 +58,22 @@ func (s uploadSelection) collectFiles(ctx context.Context, root *os.Root) (map[s
 	if s.composerAutoload != "" {
 		required = append(required, path.Join(s.addOnDir, s.composerAutoload, "installed.json"))
 	}
+
 	for _, name := range required {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		key := path.Join(s.prefix, name)
 		if _, ok := selected[key]; ok {
 			continue
 		}
+
 		info, err := root.Stat(filepath.FromSlash(name))
 		if err := (file{path: name, info: info, err: err}).regular(); err != nil {
 			return nil, fmt.Errorf("including required release file: %w", err)
 		}
+
 		selected[key] = name
 	}
 
@@ -90,6 +96,7 @@ func (s uploadSelection) addAdditionalFiles(ctx context.Context, root *os.Root, 
 		} else {
 			err = s.addAdditionalPattern(ctx, root, selected, entry)
 		}
+
 		if err != nil {
 			return err
 		}
@@ -122,9 +129,11 @@ func (s uploadSelection) addAdditionalPath(ctx context.Context, root *os.Root, s
 			if f.err != nil {
 				return fmt.Errorf("reading additional file %s: %w", f.path, f.err)
 			}
+
 			if f.isDir() {
 				continue
 			}
+
 			if err := f.regular(); err != nil {
 				return err
 			}
@@ -158,6 +167,7 @@ func (s uploadSelection) addAdditionalPattern(ctx context.Context, root *os.Root
 			if f.err != nil {
 				return fmt.Errorf("reading additional file %s: %w", f.path, f.err)
 			}
+
 			if f.isDir() {
 				continue
 			}
@@ -166,6 +176,7 @@ func (s uploadSelection) addAdditionalPattern(ctx context.Context, root *os.Root
 			if !pattern.matches(rel, false) {
 				continue
 			}
+
 			if err := f.regular(); err != nil {
 				return err
 			}
@@ -195,9 +206,11 @@ func (s uploadSelection) includeAdditional(base string, pattern *filePattern) fu
 		if isIgnoredPath(rel) {
 			return false
 		}
+
 		if isHiddenPath(rel) && !s.matchesWhitelist(rel, isDir) {
 			return false
 		}
+
 		if pattern == nil {
 			return true
 		}

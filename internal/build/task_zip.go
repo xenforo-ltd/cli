@@ -79,6 +79,7 @@ func (t *zipTask) run(ctx context.Context, root *os.Root) error {
 		if err := zw.Close(); err != nil {
 			return err
 		}
+
 		return output.Flush()
 	})
 
@@ -131,6 +132,7 @@ func (s uploadSelection) collectNoUpload(ctx context.Context, root *os.Root) ([]
 	} else if err != nil {
 		return nil, fmt.Errorf("reading _no_upload: %w", err)
 	}
+
 	return collectFilesWhere(ctx, root, base, func(name string, isDir bool) bool {
 		rel, _ := within(name, base)
 		return !isHiddenPath(rel) || s.matchesWhitelist(name, isDir)

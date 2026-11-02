@@ -63,23 +63,29 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 					if ctx.Err() == nil && options.OnBuild != nil {
 						done = options.OnBuild()
 					}
+
 					return api.OnStartResult{}, nil
 				})
+
 				build.OnResolve(api.OnResolveOptions{Filter: "^xf-javascript$"}, func(api.OnResolveArgs) (api.OnResolveResult, error) {
 					return api.OnResolveResult{Path: "xf-javascript", Namespace: "xf-javascript"}, nil
 				})
+
 				build.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: "xf-javascript"}, func(api.OnLoadArgs) (api.OnLoadResult, error) {
 					return loadJavaScriptWatch(ctx, installation, addOnID), nil
 				})
+
 				build.OnEnd(func(result *api.BuildResult) (api.OnEndResult, error) {
 					buildErr := ctx.Err()
 					if buildErr == nil && len(result.Errors) > 0 {
 						buildErr = errors.New(result.Errors[0].Text)
 					}
+
 					if done != nil {
 						done(buildErr)
 						done = nil
 					}
+
 					if ctx.Err() != nil {
 						return api.OnEndResult{}, nil
 					}
@@ -103,6 +109,7 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 			},
 		}},
 	})
+
 	if contextErr != nil {
 		return fmt.Errorf("creating JavaScript watch: %w", contextErr)
 	}

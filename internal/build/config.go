@@ -76,6 +76,7 @@ func readConfig(ctx context.Context, installation *os.Root, addOnID string) (*co
 			buildJSON, err = []byte("{}"), nil
 		}
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("reading build.json: %w", err)
 	}
@@ -106,6 +107,7 @@ func parseConfig(buildJSON, addOnJSON []byte, addOnID string) (*config, error) {
 	if err := json.Unmarshal(buildJSON, &raw); err != nil {
 		return nil, fmt.Errorf("parsing build.json: %w", err)
 	}
+
 	if bytes.Equal(bytes.TrimSpace(buildJSON), []byte("null")) {
 		return nil, errors.New("parsing build.json: expected an object")
 	}
@@ -138,6 +140,7 @@ func parseConfig(buildJSON, addOnJSON []byte, addOnID string) (*config, error) {
 	if cfg.blacklist, err = parsePatterns(raw.Blacklist); err != nil {
 		return nil, fmt.Errorf("invalid blacklist: %w", err)
 	}
+
 	if cfg.hashExclude, err = parsePatterns(raw.HashExclude); err != nil {
 		return nil, fmt.Errorf("invalid hash_exclude: %w", err)
 	}
@@ -158,11 +161,13 @@ func parseConfig(buildJSON, addOnJSON []byte, addOnID string) (*config, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if value := metadata["composer_autoload"]; value != nil {
 		autoload, ok := value.(string)
 		if !ok {
 			return nil, errors.New("addon.json composer_autoload must be a string")
 		}
+
 		if autoload != "" {
 			cfg.composerAutoload, err = relativePath(autoload, literalPath)
 			if err != nil {
@@ -204,6 +209,7 @@ func parseCommand(entry json.RawMessage, number int) ([]string, error) {
 		if err := json.Unmarshal(entry, &line); err != nil {
 			return nil, fmt.Errorf("build.json exec command %d must be a string or an array of strings", number)
 		}
+
 		command = strings.Fields(line)
 	}
 

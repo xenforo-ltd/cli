@@ -14,6 +14,7 @@ func JavaScript(ctx context.Context, args []string, watch bool) error {
 	if err != nil {
 		return err
 	}
+
 	if watch {
 		ui.PrintInfo("Watching JavaScript for " + addOnID)
 		ui.Println()
@@ -33,12 +34,14 @@ func JavaScript(ctx context.Context, args []string, watch bool) error {
 			},
 		})
 	}
+
 	spinner := ui.NewSpinner("Building JavaScript")
 	defer spinner.Stop()
 	spinner.Start()
 	if err := build.BuildJavaScript(ctx, xfDir, addOnID); err != nil {
 		return err
 	}
+
 	spinner.StopWithMessage("success", "Built JavaScript for "+addOnID)
 	return nil
 }

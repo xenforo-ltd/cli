@@ -35,6 +35,7 @@ func (t composerTask) run(ctx context.Context, root *os.Root) error {
 	if t.dir != "." {
 		args = append(args, "--working-dir="+t.dir)
 	}
+
 	if err := environment.RunComposer(ctx, t.installationDir, t.streams.stdin, t.streams.stdout, t.streams.stderr, args...); err != nil {
 		return fmt.Errorf("composer install: %w", err)
 	}

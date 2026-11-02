@@ -21,10 +21,12 @@ func (t exportDataTask) run(ctx context.Context, root *os.Root) error {
 	if err != nil {
 		return fmt.Errorf("exporting add-on data: %w", err)
 	}
+
 	for _, warning := range result.Warnings {
 		if _, err := fmt.Fprintln(t.stderr, "warning: "+warning); err != nil {
 			return fmt.Errorf("writing export warning: %w", err)
 		}
 	}
+
 	return nil
 }

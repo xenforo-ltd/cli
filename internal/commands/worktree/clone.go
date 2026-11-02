@@ -225,6 +225,7 @@ func cloneFiles(ctx context.Context, spinner *ui.Spinner, sourcePath, worktreePa
 				spinner.UpdateMessage(fmt.Sprintf("Copying %s (%d/%d files)", dir, done, total))
 			}
 		})
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to copy %s: %w", dir, err)
 		}

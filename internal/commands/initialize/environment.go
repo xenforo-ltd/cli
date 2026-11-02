@@ -23,6 +23,7 @@ func parseEnvFile(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open env file %s: %w", path, err)
 	}
+
 	defer file.Close()
 
 	values := map[string]string{}

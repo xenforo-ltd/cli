@@ -183,6 +183,7 @@ func ListEmbeddedFiles() ([]string, error) {
 
 		return nil
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list embedded files: %w", err)
 	}

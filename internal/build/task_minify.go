@@ -21,6 +21,7 @@ func (t minifyTask) run(ctx context.Context, root *os.Root) error {
 	if err != nil {
 		return fmt.Errorf("collecting minify inputs: %w", err)
 	}
+
 	seen := make(map[string]bool)
 	for _, pattern := range t.patterns {
 		matches, err := t.minifyFiles(ctx, files, pattern, t.outputs)

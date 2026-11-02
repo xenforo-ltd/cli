@@ -109,6 +109,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		OverwriteExisting: true,
 		Contexts:          opts.Contexts,
 	}
+
 	writtenDefaults, err := environment.Init(opts.TargetPath, environmentOpts)
 	if err != nil {
 		return fmt.Errorf("failed to initialize Docker configuration: %w", err)
@@ -127,6 +128,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		InstalledVersion:   opts.versionString,
 		InstalledVersionID: opts.VersionID,
 	}
+
 	if err := xf.WriteMetadata(opts.TargetPath, meta); err != nil {
 		// Non-fatal - warn but continue
 		ui.PrintWarning("Could not write metadata")
@@ -193,6 +195,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			if err := setup.RunComposerInstall(ctx, runner, opts.TargetPath, cfg.Verbose); err != nil {
 				return err
 			}
+
 		default:
 			setup.PrintSkippedStep(step, totalSteps, "Installing Composer dependencies", "composer.json not present")
 		}
@@ -217,6 +220,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		ui.KV("Instance", opts.InstanceName),
 		ui.KV("Products", formatProductNames(opts.Products, titleMap)),
 	}
+
 	if !opts.SkipUp {
 		successDetails = append(successDetails, ui.KV("URL", ui.URL.Render(siteURL)))
 	}
@@ -385,6 +389,7 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.versionString, opts.productOverrides, func(product string) {
 		ui.PrintWarning("No versions available for " + downloads.ProductTitle(titleMap, product) + ", skipping")
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve product selections for license %s: %w", opts.LicenseKey, err)
 	}

@@ -52,6 +52,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 		inputTitle:  "Enter XenForo version string or ID",
 		notFound:    "Version not found for this license. Try another version.",
 	})
+
 	if err != nil {
 		return err
 	}
@@ -145,6 +146,7 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 			huh.NewOption("Edit environment values", "env"),
 			huh.NewOption("Cancel", "cancel"),
 		}
+
 		if err := huh.NewSelect[string]().
 			Options(options...).
 			Value(&choice).
@@ -168,18 +170,21 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 			if err := editCoreSetup(ctx, client, opts); err != nil {
 				return err
 			}
+
 		case "admin-site":
 			ui.ClearScreen()
 
 			if err := editAdminSite(opts); err != nil {
 				return err
 			}
+
 		case "addon-overrides":
 			ui.ClearScreen()
 
 			if err := editAddonOverrides(ctx, client, opts); err != nil {
 				return err
 			}
+
 		case "env":
 			ui.ClearScreen()
 
@@ -432,6 +437,7 @@ func chooseOverrideVersion(ctx context.Context, client *customerapi.Client, opts
 		notFound:    "Version not found. Try another version.",
 		errSuffix:   " for " + product,
 	})
+
 	if err != nil {
 		return err
 	}
@@ -529,6 +535,7 @@ func currentEnvPreview(opts *InitOptions) map[string]string {
 		"XF_EMAIL":    opts.AdminEmail,
 		"PHP_VERSION": defaultPHPVersion(),
 	}
+
 	base["XF_TITLE"] = setup.InstanceTitle(opts.SiteTitle, opts.InstanceName)
 
 	merged := map[string]string{}

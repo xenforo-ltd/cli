@@ -109,6 +109,7 @@ func Plural(n int, singular, plural string) string {
 	if n == 1 {
 		noun = singular
 	}
+
 	return formatCount(n) + " " + noun
 }
 
@@ -124,6 +125,7 @@ func isTerminal(f *os.File) bool {
 	if err != nil {
 		return false
 	}
+
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
@@ -140,12 +142,15 @@ func ShortHome(path string) string {
 	if err != nil || home == "" {
 		return path
 	}
+
 	if path == home {
 		return "~"
 	}
+
 	if strings.HasPrefix(path, home+string(os.PathSeparator)) {
 		return "~" + path[len(home):]
 	}
+
 	return path
 }
 
@@ -166,6 +171,7 @@ func FileLink(text, filename string) string {
 		// Windows drive-letter paths need a leading slash in file URLs.
 		target.Path = "/" + filename
 	}
+
 	return Path.Hyperlink(target.String()).Render(text)
 }
 

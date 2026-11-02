@@ -29,42 +29,53 @@ func (rule element) convert(r record) (*xmlElement, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		if omitted {
 			continue
 		}
+
 		if err := validateText(value); err != nil {
 			return nil, fmt.Errorf("attribute %s: %w", attr.name, err)
 		}
+
 		node.attributes = append(node.attributes, xml.Attr{Name: xml.Name{Local: attr.name}, Value: value})
 	}
+
 	if rule.content.source != "" {
 		value, omitted, err := rule.content.value(r)
 		if err != nil {
 			return nil, err
 		}
+
 		if omitted {
 			return nil, nil
 		}
+
 		if err := validateText(value); err != nil {
 			return nil, fmt.Errorf("element %s: %w", rule.name, err)
 		}
+
 		node.content = value
 	}
+
 	for _, childRule := range rule.children {
 		rows, err := childRows(childRule, r)
 		if err != nil {
 			return nil, err
 		}
+
 		for _, row := range rows {
 			child, err := childRule.convert(row)
 			if err != nil {
 				return nil, err
 			}
+
 			if child != nil {
 				node.children = append(node.children, *child)
 			}
 		}
 	}
+
 	return node, nil
 }
 
@@ -74,21 +85,25 @@ func childRows(childRule element, r record) ([]record, error) {
 	if childRule.repeat == "" {
 		return []record{r}, nil
 	}
+
 	raw, ok := r[childRule.repeat]
 	if !ok {
 		return nil, fmt.Errorf("missing field %q", childRule.repeat)
 	}
+
 	var values record
 	if !isEmpty(raw) {
 		if err := json.Unmarshal(raw, &values); err != nil {
 			return nil, fmt.Errorf("field %q: %w", childRule.repeat, err)
 		}
 	}
+
 	var rows []record
 	for _, name := range slices.Sorted(maps.Keys(values)) {
 		key, _ := json.Marshal(name)
 		rows = append(rows, record{"$key": key, "$value": values[name]})
 	}
+
 	return rows, nil
 }
 
@@ -107,6 +122,7 @@ func (node xmlElement) MarshalXML(e *xml.Encoder, start xml.StartElement) error 
 	} else {
 		value.Content = node.content
 	}
+
 	return e.EncodeElement(value, start)
 }
 
@@ -120,9 +136,11 @@ func render(container string, nodes []xmlElement) ([]byte, error) {
 	if err := e.Encode(xmlElement{name: container, children: nodes}); err != nil {
 		return nil, err
 	}
+
 	if err := e.Close(); err != nil {
 		return nil, err
 	}
+
 	out.WriteByte('\n')
 	return out.Bytes(), nil
 }

@@ -106,6 +106,7 @@ func Status(ctx context.Context, opts StatusOptions) error {
 			ServerValid:   serverValid,
 			Username:      username,
 		}
+
 		if file, ok := store.(*auth.FileStore); ok {
 			output.StoragePath = file.Path()
 		}
@@ -176,21 +177,25 @@ func reportAuthUnavailable(store auth.Store, err error, jsonOutput bool) error {
 	case errors.Is(err, auth.ErrInvalidInput):
 		reason = "invalid_credentials"
 	}
+
 	if jsonOutput {
 		output := authStatusJSON{Authenticated: new(false), Reason: reason}
 		if store != nil {
 			output.Source = store.Source()
 		}
+
 		if reason != "not_authenticated" {
 			output.Error = auth.ErrorMessage(err)
 		}
 
 		return printAuthStatusJSON(output)
 	}
+
 	if errors.Is(err, auth.ErrAuthRequired) || errors.Is(err, auth.ErrConfigMismatch) {
 		ui.PrintWarning(auth.ErrorMessage(err))
 		return nil
 	}
+
 	return err
 }
 
@@ -215,6 +220,7 @@ func runEnvironmentAuthStatus(ctx context.Context, token *auth.Token, jsonOutput
 			output.ExpiresAt = &expiresAt
 			output.Expired = new(!time.Now().Before(expiry))
 		}
+
 		if result.Iat > 0 {
 			issuedAt := time.Unix(result.Iat, 0).Format(time.RFC3339)
 			output.IssuedAt = &issuedAt
@@ -222,23 +228,28 @@ func runEnvironmentAuthStatus(ctx context.Context, token *auth.Token, jsonOutput
 	} else {
 		output.Error = "Unable to validate XF_TOKEN with the server"
 	}
+
 	if jsonOutput {
 		return printAuthStatusJSON(output)
 	}
+
 	ui.PrintInfo("Credential source: environment (XF_TOKEN)")
 	if validationErr != nil {
 		ui.PrintWarning("Token is present; server validity and expiry are unknown")
 		return nil
 	}
+
 	if !result.Active {
 		ui.PrintWarning("XF_TOKEN is inactive; replace it with a valid access token")
 		return nil
 	}
+
 	ui.PrintSuccess("Authenticated (server validated)")
 	if result.Exp > 0 {
 		ui.PrintInfo("Expires: " + time.Unix(result.Exp, 0).Format(time.RFC1123))
 	} else {
 		ui.PrintInfo("Expiry: unknown")
 	}
+
 	return nil
 }

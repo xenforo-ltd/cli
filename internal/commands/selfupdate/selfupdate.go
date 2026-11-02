@@ -65,6 +65,7 @@ func Run(ctx context.Context, checkOnly bool) error {
 			dlSpinner.Start()
 		}
 	})
+
 	if err != nil {
 		if progressBar != nil {
 			progressBar.Abandon()

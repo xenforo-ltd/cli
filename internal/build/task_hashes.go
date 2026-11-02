@@ -39,6 +39,7 @@ func (t *hashesTask) run(ctx context.Context, root *os.Root) error {
 		if !inside {
 			name = rel
 		}
+
 		if excluded(t.exclude, name, false) {
 			continue
 		}
@@ -71,6 +72,7 @@ func hashFile(ctx context.Context, source fileSource, name string, buffer []byte
 	if err != nil {
 		return "", err
 	}
+
 	defer f.Close()
 	hasher.Reset()
 
@@ -78,13 +80,16 @@ func hashFile(ctx context.Context, source fileSource, name string, buffer []byte
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
+
 		n, readErr := f.Read(buffer)
 		if n > 0 {
 			hasher.Write(stripCarriageReturns(buffer[:n]))
 		}
+
 		if readErr == io.EOF {
 			break
 		}
+
 		if readErr != nil {
 			return "", readErr
 		}
@@ -103,5 +108,6 @@ func stripCarriageReturns(chunk []byte) []byte {
 			kept++
 		}
 	}
+
 	return chunk[:kept]
 }

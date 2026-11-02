@@ -77,6 +77,7 @@ func attributes(names string) []field {
 	for name := range strings.FieldsSeq(names) {
 		fields = append(fields, field{name: name, source: name, omit: emptyString})
 	}
+
 	return fields
 }
 

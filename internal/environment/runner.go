@@ -158,6 +158,7 @@ func (r *Runner) execOrRunInDir(ctx context.Context, service, workDir string, en
 	if input, ok := stdin.(*os.File); !ok || !term.IsTerminal(input.Fd()) {
 		execArgs = append(execArgs, "-T")
 	}
+
 	execArgs = appendEnvVars(execArgs, env, "-e")
 	execArgs = appendWorkDir(execArgs, workDir)
 	execArgs = append(execArgs, service)

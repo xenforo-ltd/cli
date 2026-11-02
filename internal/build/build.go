@@ -144,6 +144,7 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*bu
 		zipPath:    zipPath,
 		timestamp:  opts.timestamp,
 	}
+
 	if err := runTasks(ctx, root, []task{archive}, opts.taskProgress); err != nil {
 		return nil, err
 	}
@@ -194,13 +195,16 @@ func runTasks(ctx context.Context, root *os.Root, tasks []task, progress func(Ta
 		if progress != nil {
 			done = progress(taskKind(task))
 		}
+
 		err := task.run(ctx, root)
 		if err == nil && ctx.Err() != nil {
 			err = fmt.Errorf("build interrupted: %w", ctx.Err())
 		}
+
 		if done != nil {
 			done(err)
 		}
+
 		if err != nil {
 			return err
 		}

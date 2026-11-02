@@ -87,6 +87,7 @@ func Run(ctx context.Context, opts *InitOptions) error {
 			Contexts: opts.Contexts, EnvResolved: opts.envResolved, StartContainers: opts.StartContainers,
 			SkipComposer: opts.SkipComposer, SkipBuildJS: opts.SkipBuildJS, SkipInstall: opts.SkipInstall,
 		}
+
 		err := setup.Existing(ctx, shared)
 		opts.InstanceName, opts.SiteTitle = shared.InstanceName, shared.SiteTitle
 		return err

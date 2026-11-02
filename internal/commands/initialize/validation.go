@@ -20,6 +20,7 @@ func validateAdminUsername(s string) error {
 	if utf8.RuneCountInString(s) < minimumUsernameLength {
 		return errUsernameTooShort
 	}
+
 	return nil
 }
 

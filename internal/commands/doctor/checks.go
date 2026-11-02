@@ -61,6 +61,7 @@ func (d *doctor) runAll(ctx context.Context) []*checkResult {
 	if err == nil {
 		source, token, err = resolveAuthentication(store, auth.RequireAuthFrom)
 	}
+
 	d.checkAuthentication(source, token, err)
 	d.checkGit(ctx)
 	d.checkDocker(ctx)
@@ -81,6 +82,7 @@ func resolveAuthentication(store auth.Store, load func(auth.Store) (*auth.Token,
 			return source, nil, preflightErr
 		}
 	}
+
 	token, err = load(store)
 
 	return source, token, err
@@ -111,6 +113,7 @@ func (d *doctor) checkAuthentication(source string, token *auth.Token, err error
 
 		return
 	}
+
 	if token.External {
 		result.status = statusOK
 		result.message = "XF_TOKEN is present (validity and expiry not checked)"

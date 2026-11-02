@@ -24,6 +24,7 @@ func (t rollupTask) run(ctx context.Context, root *os.Root) error {
 	if err != nil {
 		return fmt.Errorf("collecting rollup inputs: %w", err)
 	}
+
 	outputs := rollupOutputs(t.entries)
 
 	for i, entry := range t.entries {

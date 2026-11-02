@@ -30,6 +30,7 @@ func (o *directoryOpener) Open(name string) (*os.File, error) {
 				return nil, err
 			}
 		}
+
 		o.parent = parent
 	}
 
@@ -39,6 +40,7 @@ func (o *directoryOpener) Open(name string) (*os.File, error) {
 		}
 		// A link can leave this directory while remaining inside the build root.
 	}
+
 	return o.root.Open(name)
 }
 
@@ -47,5 +49,6 @@ func (o *directoryOpener) close() {
 	if o.dir != nil {
 		o.dir.Close()
 	}
+
 	o.dir, o.parent = nil, ""
 }

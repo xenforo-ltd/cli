@@ -137,6 +137,7 @@ func (p filePattern) allowsHidden(name string) bool {
 				break
 			}
 		}
+
 		if !allowed {
 			return false
 		}

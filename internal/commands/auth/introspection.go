@@ -13,6 +13,7 @@ func introspectAuthToken(ctx context.Context, token *auth.Token) (*auth.Introspe
 	if err != nil {
 		return nil, err
 	}
+
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return auth.NewOAuthClient(&cfg.OAuth).IntrospectToken(ctx, token.AccessToken)

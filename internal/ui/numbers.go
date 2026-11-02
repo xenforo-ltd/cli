@@ -18,6 +18,7 @@ func formatCount(n int) string {
 			break
 		}
 	}
+
 	locale, _, _ = strings.Cut(locale, ".")
 	locale, _, _ = strings.Cut(locale, "@")
 	if locale == "C" || locale == "POSIX" {
@@ -30,5 +31,6 @@ func formatCount(n int) string {
 			tag = parsed
 		}
 	}
+
 	return message.NewPrinter(tag).Sprintf("%d", n)
 }

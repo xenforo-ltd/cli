@@ -87,6 +87,7 @@ func keychainUnavailable(cause error) error {
 	if cause != nil {
 		return fmt.Errorf("system keychain is unavailable (%v); Linux requires a running, unlocked Secret Service; select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", cause, ErrStoreUnavailable)
 	}
+
 	return fmt.Errorf("system keychain is unavailable (Linux requires a running, unlocked Secret Service); select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", ErrStoreUnavailable)
 }
 
@@ -94,6 +95,7 @@ func (k *keychain) PrepareLogin() error {
 	if !k.isAvailable() {
 		return keychainUnavailable(nil)
 	}
+
 	return nil
 }
 

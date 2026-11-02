@@ -244,6 +244,7 @@ func (m *Manager) walkEntries(root string) ([]*Entry, error) {
 
 		return nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -300,6 +301,7 @@ func calculateChecksum(filePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open file for checksum: %w", err)
 	}
+
 	defer f.Close()
 
 	h := sha256.New()

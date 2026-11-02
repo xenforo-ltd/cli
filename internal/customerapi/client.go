@@ -48,6 +48,7 @@ func NewClient() (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	token, err := auth.RequireAuthFrom(store)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load authentication token: %w", err)
@@ -98,6 +99,7 @@ func (c *Client) getJSON(ctx context.Context, path string, result any) error {
 	if err != nil {
 		return err
 	}
+
 	defer resp.Body.Close()
 
 	if err := checkResponse(resp); err != nil {
@@ -179,6 +181,7 @@ func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	if token.External {
 		return fmt.Errorf("replace XF_TOKEN with a valid access token: %w", errAuthExpired)
 	}
+
 	if token.RefreshToken == "" {
 		return fmt.Errorf("no refresh token available: %w", errAuthExpired)
 	}

@@ -58,6 +58,7 @@ func (m *Manager) Download(ctx context.Context, opts DownloadOptions, authToken 
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
 
 	if err := checkResponseStatus(resp, authToken); err != nil {

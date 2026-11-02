@@ -53,6 +53,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		targetPath = args[0]
 	}
+
 	return upgrade.Run(cmd.Context(), &upgrade.UpgradeOptions{
 		TargetPath: targetPath, LicenseKey: flagUpgradeLicense,
 		TargetVersionID: flagUpgradeVersion, SkipUpgrade: flagUpgradeSkipCmd,

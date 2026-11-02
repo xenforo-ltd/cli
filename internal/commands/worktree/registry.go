@@ -145,6 +145,7 @@ func (r *registry) add(e entry) error {
 	if err != nil {
 		return err
 	}
+
 	defer unlock()
 
 	// A damaged registry must not block recording new work, so parse failures
@@ -185,6 +186,7 @@ func (r *registry) reserve(e entry) error {
 	if err != nil {
 		return err
 	}
+
 	defer unlock()
 
 	entries, err := r.load()
@@ -220,6 +222,7 @@ func (r *registry) prune(now time.Time) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	defer unlock()
 
 	entries, err := r.load()
@@ -263,6 +266,7 @@ func (r *registry) remove(worktreePath string) error {
 	if err != nil {
 		return err
 	}
+
 	defer unlock()
 
 	// A damaged registry must not block cleanup: worktree removal and prune

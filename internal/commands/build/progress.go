@@ -45,9 +45,11 @@ func (p *buildProgress) start(task build.Task) func(error) {
 			if p.tracker != nil {
 				ui.PrintHiddenOutputTail("Composer output", p.tracker.TailLines())
 			}
+
 		default:
 			p.spinner.StopWithMessage("success", complete)
 		}
+
 		p.spinner, p.tracker = nil, nil
 	}
 }
@@ -76,11 +78,13 @@ func (w buildProgressWriter) Write(data []byte) (int, error) {
 	if p.tracker != nil {
 		return p.tracker.Write(data)
 	}
+
 	if p.spinner != nil && p.spinner.Animating() {
 		// Output can arrive in partial lines. Keep the spinner stopped for the
 		// rest of this stage so its frames cannot erase subprocess output.
 		p.spinner.Stop()
 	}
+
 	return w.output.Write(data)
 }
 
