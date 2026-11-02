@@ -66,7 +66,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 		return fmt.Errorf("failed to create customer API client: %w", err)
 	}
 
-	titleMap := downloads.ProductTitles(ctx, client, opts.LicenseKey)
+	titleMap := getProductTitleMapCached(ctx, client, opts)
 
 	totalSteps := plannedInitSteps(*opts)
 	step := 1
@@ -84,7 +84,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	ui.PrintStep(step, totalSteps, "Downloading XenForo files")
 	step++
 
-	cachedFiles, err := downloadProducts(ctx, client, opts)
+	cachedFiles, err := downloadProducts(ctx, client, opts, titleMap)
 	if err != nil {
 		return err
 	}
@@ -374,13 +374,11 @@ func prepareTargetDirectory(targetPath string) error {
 	return nil
 }
 
-func downloadProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions) (map[string]*cache.Entry, error) {
+func downloadProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions, titleMap map[string]string) (map[string]*cache.Entry, error) {
 	cacheManager, err := cache.NewManager()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cache manager: %w", err)
 	}
-
-	titleMap := downloads.ProductTitles(ctx, client, opts.LicenseKey)
 
 	cachedFiles := make(map[string]*cache.Entry)
 
