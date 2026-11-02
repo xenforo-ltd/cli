@@ -107,6 +107,17 @@ func TestXenForoZipRejectsUnsafeEntries(t *testing.T) {
 	})
 }
 
+func TestXenForoZipAllowsDotDotPrefixedNames(t *testing.T) {
+	archive := makeZip(t, zipEntry{name: "upload/..config", content: "kept"})
+	dest := t.TempDir()
+	if err := extract.XenForoZip(archive, dest, nil); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(dest, "..config")); err != nil || string(data) != "kept" {
+		t.Fatalf("content = %q, %v", data, err)
+	}
+}
+
 func TestXenForoZipInvalidArchive(t *testing.T) {
 	dir := t.TempDir()
 	invalid := filepath.Join(dir, "invalid.zip")

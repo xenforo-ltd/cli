@@ -67,12 +67,7 @@ func sanitizePath(name string) (string, error) {
 		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
 	}
 
-	name = filepath.Clean(name)
-	if strings.HasPrefix(name, "..") {
-		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
-	}
-
-	return name, nil
+	return filepath.Clean(name), nil
 }
 
 func hasDriveLetter(name string) bool {
