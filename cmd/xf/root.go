@@ -230,6 +230,10 @@ func isInterrupted(err error) bool {
 // combined with a direct XenForo command. `xf -v xf-dev:import` falls through to
 // cobra, where rootCmd's RunE rejects it as an unknown command.
 func takesDirectXenForoRoute(firstArg string) bool {
+	if firstArg == cobra.ShellCompRequestCmd || firstArg == cobra.ShellCompNoDescRequestCmd {
+		return false
+	}
+
 	return !strings.HasPrefix(firstArg, "-") &&
 		firstArg != "help" && firstArg != "--help" && firstArg != "-h"
 }
