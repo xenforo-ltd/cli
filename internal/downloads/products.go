@@ -28,6 +28,16 @@ func ProductTitles(ctx context.Context, client *customerapi.Client, licenseKey s
 	return out
 }
 
+// ProductTitle returns the display title for product, falling back to the
+// product ID when the license does not report a title.
+func ProductTitle(titles map[string]string, product string) string {
+	if title := titles[product]; title != "" {
+		return title
+	}
+
+	return product
+}
+
 func LicenseLabel(lic customerapi.License) string {
 	var parts []string
 	if lic.SiteTitle != "" {
@@ -61,10 +71,7 @@ func ExtractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 			continue
 		}
 
-		title := product
-		if name := titleMap[product]; name != "" {
-			title = name
-		}
+		title := ProductTitle(titleMap, product)
 
 		if err := extractEntry(entry, targetPath, product, title, verb); err != nil {
 			return err

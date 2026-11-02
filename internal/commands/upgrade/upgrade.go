@@ -333,23 +333,15 @@ func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts 
 
 	cachedFiles := make(map[string]*cache.Entry)
 
-	productTitle := func(product string) string {
-		if title := titleMap[product]; title != "" {
-			return title
-		}
-
-		return product
-	}
-
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.products, opts.TargetVersionID, opts.targetVersionString, nil, func(product string) {
-		ui.PrintWarning("No versions available for " + productTitle(product) + "; skipping")
+		ui.PrintWarning("No versions available for " + downloads.ProductTitle(titleMap, product) + "; skipping")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve upgrade selections for license %s: %w", opts.LicenseKey, err)
 	}
 
 	for _, selection := range selections {
-		productName := productTitle(selection.Product)
+		productName := downloads.ProductTitle(titleMap, selection.Product)
 
 		var lastUpdate int64
 

@@ -64,12 +64,7 @@ func getProductTitleMapCached(ctx context.Context, client *customerapi.Client, o
 func formatProductList(products []string, titleMap map[string]string) string {
 	names := make([]string, 0, len(products))
 	for _, p := range products {
-		name := titleMap[p]
-		if name == "" {
-			name = p
-		}
-
-		names = append(names, name)
+		names = append(names, downloads.ProductTitle(titleMap, p))
 	}
 
 	return strings.Join(names, ", ")

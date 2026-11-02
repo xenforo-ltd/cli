@@ -384,23 +384,15 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 
 	cachedFiles := make(map[string]*cache.Entry)
 
-	productTitle := func(product string) string {
-		if title := titleMap[product]; title != "" {
-			return title
-		}
-
-		return product
-	}
-
 	selections, err := downloads.ResolveSelections(ctx, client, opts.LicenseKey, opts.Products, opts.VersionID, opts.versionString, opts.productOverrides, func(product string) {
-		ui.PrintWarning("No versions available for " + productTitle(product) + ", skipping")
+		ui.PrintWarning("No versions available for " + downloads.ProductTitle(titleMap, product) + ", skipping")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve product selections for license %s: %w", opts.LicenseKey, err)
 	}
 
 	for _, selection := range selections {
-		productName := productTitle(selection.Product)
+		productName := downloads.ProductTitle(titleMap, selection.Product)
 
 		var (
 			progressBar *ui.ProgressBar

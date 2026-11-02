@@ -222,12 +222,7 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 				label += " " + ui.Dim.Render("(latest)")
 			}
 
-			name := titleMap[s.Product]
-			if name == "" {
-				name = s.Product
-			}
-
-			pairs = append(pairs, ui.KV(name, label))
+			pairs = append(pairs, ui.KV(downloads.ProductTitle(titleMap, s.Product), label))
 		}
 
 		if len(pairs) == 0 {
@@ -360,10 +355,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 
 		addonOptions := make([]huh.Option[string], 0, len(addons)+1)
 		for _, p := range addons {
-			name := titleMap[p]
-			if name == "" {
-				name = p
-			}
+			name := downloads.ProductTitle(titleMap, p)
 
 			label := name
 			if id, ok := opts.productOverrides[p]; ok {
