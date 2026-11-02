@@ -136,11 +136,17 @@ func configureExistingEnv(opts *Options) error {
 	if len(contexts) == 0 {
 		contexts = []string{"caddy", "mysql", "development", "caddy-development", "redis", "mailpit"}
 	}
+
+	adminEmail := opts.AdminEmail
+	if adminEmail == "" {
+		adminEmail = "admin@example.com"
+	}
+
 	updates := map[string]string{
 		"XF_INSTANCE":    opts.InstanceName,
 		"XF_CONTEXTS":    strings.Join(contexts, ":"),
 		"XF_TITLE":       InstanceTitle("", opts.InstanceName),
-		"XF_EMAIL":       "admin@example.com",
+		"XF_EMAIL":       adminEmail,
 		"XF_DEBUG":       "1",
 		"XF_DEVELOPMENT": "1",
 	}
