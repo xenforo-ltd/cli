@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -7,10 +7,18 @@ import (
 	"github.com/xenforo-ltd/cli/internal/passthrough"
 )
 
-var updateCmd = &cobra.Command{
-	Use:   "update [path]",
-	Short: "Update the Docker environment from the CLI",
-	Long: `Refresh a XenForo project's Docker environment from the files shipped with
+var (
+	flagUpdateSkipPull    bool
+	flagUpdateSkipBuild   bool
+	flagUpdateSkipRestart bool
+)
+
+// newUpdateCommand builds the update command.
+func newUpdateCommand() *cobra.Command {
+	updateCmd := &cobra.Command{
+		Use:   "update [path]",
+		Short: "Update the Docker environment from the CLI",
+		Long: `Refresh a XenForo project's Docker environment from the files shipped with
 this version of the CLI.
 
 Environment files are rewritten, except .env and .dockerignore: those are
@@ -21,7 +29,7 @@ to the new images.
 
 Running it repeatedly is safe: files that already match are left alone and
 compose reports nothing to do.`,
-	Example: `  # Update the environment in the current directory
+		Example: `  # Update the environment in the current directory
   xf update
 
   # Update a specific project
@@ -32,23 +40,16 @@ compose reports nothing to do.`,
 
   # Only refresh files, leaving containers untouched
   xf update --no-restart`,
-	Args:    cobra.MaximumNArgs(1),
-	GroupID: "env",
-	RunE:    runUpdate,
-}
+		Args:    cobra.MaximumNArgs(1),
+		GroupID: "env",
+		RunE:    runUpdate,
+	}
 
-var (
-	flagUpdateSkipPull    bool
-	flagUpdateSkipBuild   bool
-	flagUpdateSkipRestart bool
-)
-
-func init() {
 	updateCmd.Flags().BoolVar(&flagUpdateSkipPull, "no-pull", false, "skip pulling images")
 	updateCmd.Flags().BoolVar(&flagUpdateSkipBuild, "no-build", false, "skip building images")
 	updateCmd.Flags().BoolVar(&flagUpdateSkipRestart, "no-restart", false, "leave running containers on their current images")
 
-	rootCmd.AddCommand(updateCmd)
+	return updateCmd
 }
 
 func runUpdate(cmd *cobra.Command, args []string) error {

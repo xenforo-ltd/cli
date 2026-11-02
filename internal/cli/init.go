@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -6,10 +6,18 @@ import (
 	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
-var initCmd = &cobra.Command{
-	Use:   "init [path]",
-	Short: "Initialize a new XenForo development environment",
-	Long: `Initialize a new XenForo development environment.
+var initOptions initialize.InitOptions
+
+// legacyInitContexts holds values of the deprecated --contexts flag, which is
+// kept for one release so existing scripts keep working.
+var legacyInitContexts []string
+
+// newInitCommand builds the init command.
+func newInitCommand() *cobra.Command {
+	initCmd := &cobra.Command{
+		Use:   "init [path]",
+		Short: "Initialize a new XenForo development environment",
+		Long: `Initialize a new XenForo development environment.
 
 This command can operate in two modes:
 
@@ -46,7 +54,7 @@ Existing Directory Mode (--existing flag):
 
 Note: init defaults XF_DEBUG=1 and XF_DEVELOPMENT=1.
 You can override either value via --env-file/--env.`,
-	Example: `  # Fresh install (interactive)
+		Example: `  # Fresh install (interactive)
   xf init ./my-project
 
   # Fresh install (non-interactive)
@@ -64,16 +72,9 @@ You can override either value via --env-file/--env.`,
 
   # Provide .env overrides
   xf init ./my-project --env-file ./my.env --env XF_TITLE="My Site"`,
-	Args: cobra.MaximumNArgs(1), GroupID: "start", RunE: runInit,
-}
+		Args: cobra.MaximumNArgs(1), GroupID: "start", RunE: runInit,
+	}
 
-var initOptions initialize.InitOptions
-
-// legacyInitContexts holds values of the deprecated --contexts flag, which is
-// kept for one release so existing scripts keep working.
-var legacyInitContexts []string
-
-func init() {
 	initCmd.Flags().StringVar(&initOptions.LicenseKey, "license", "", "license key")
 	initCmd.Flags().IntVar(&initOptions.VersionID, "version", 0, "version ID to install")
 	initCmd.Flags().StringSliceVar(&initOptions.Products, "products", nil, "additional products to install (e.g., xfmg,xfes)")
@@ -95,7 +96,8 @@ func init() {
 	initCmd.Flags().StringArrayVar(&initOptions.EnvFlags, "env", nil, "environment override in KEY=VALUE format (repeatable)")
 	completion.Register(initCmd, "license", completion.LicenseKeys)
 	completion.Register(initCmd, "context", completion.DockerContexts)
-	rootCmd.AddCommand(initCmd)
+
+	return initCmd
 }
 
 func runInit(cmd *cobra.Command, args []string) error {

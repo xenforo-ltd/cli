@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -11,14 +11,16 @@ var (
 	flagVersionShort bool
 )
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version information",
-	Long: `Display the version, build commit, build date, and runtime information.
+// newVersionCommand builds the version command.
+func newVersionCommand() *cobra.Command {
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Long: `Display the version, build commit, build date, and runtime information.
 
 Shows detailed build information including the exact Git commit and
 build timestamp when available.`,
-	Example: `  # Show full version info
+		Example: `  # Show full version info
   xf version
 
   # Show only version number
@@ -26,15 +28,15 @@ build timestamp when available.`,
 
   # Output as JSON (useful for scripting)
   xf version --json`,
-	Args:    cobra.NoArgs,
-	GroupID: "maint",
-	RunE:    runVersion,
-}
+		Args:    cobra.NoArgs,
+		GroupID: "maint",
+		RunE:    runVersion,
+	}
 
-func init() {
 	versionCmd.Flags().BoolVar(&flagVersionJSON, "json", false, "output as JSON")
 	versionCmd.Flags().BoolVarP(&flagVersionShort, "short", "s", false, "print only the version number")
-	rootCmd.AddCommand(versionCmd)
+
+	return versionCmd
 }
 
 func runVersion(cmd *cobra.Command, args []string) error {

@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -6,11 +6,20 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/build"
 )
 
-// buildCmd builds an add-on release from its build.json configuration.
-var buildCmd = &cobra.Command{
-	Use:   "build [addon-id]",
-	Short: "Build an add-on release",
-	Long: `Export an add-on's data, build JavaScript, run configured commands, and create
+var (
+	// flagBuildSkipComposer skips dependency installation for a release build.
+	flagBuildSkipComposer bool
+	// flagBuildWatch selects JavaScript watch mode.
+	flagBuildWatch bool
+)
+
+// newBuildCommand builds the build command family.
+func newBuildCommand() *cobra.Command {
+	// buildCmd builds an add-on release from its build.json configuration.
+	buildCmd := &cobra.Command{
+		Use:   "build [addon-id]",
+		Short: "Build an add-on release",
+		Long: `Export an add-on's data, build JavaScript, run configured commands, and create
 a release ZIP and hash manifest using build.json.
 
 The XenForo installation is discovered from the current directory or XF_DIR.
@@ -23,20 +32,20 @@ Data is exported from prepared _output after Composer and before JavaScript
 tasks; _metadata.jsonl drives each data type.
 ZIP timestamps use the build start time; BUILD_DATE overrides them with
 a Unix timestamp. Source modification times are not retained.`,
-	Example: `  xf build
+		Example: `  xf build
   xf build Vendor/AddOn
   xf build Vendor/AddOn --skip-composer
   xf build js --watch`,
-	Args:    cobra.MaximumNArgs(1),
-	GroupID: "run",
-	RunE:    runBuild,
-}
+		Args:    cobra.MaximumNArgs(1),
+		GroupID: "run",
+		RunE:    runBuild,
+	}
 
-// buildJavaScriptCmd builds or watches an add-on's JavaScript without a release.
-var buildJavaScriptCmd = &cobra.Command{
-	Use:   "js [addon-id]",
-	Short: "Build or watch an add-on's JavaScript",
-	Long: `Run the minify and rollup tasks configured in the add-on's build.json.
+	// buildJavaScriptCmd builds or watches an add-on's JavaScript without a release.
+	buildJavaScriptCmd := &cobra.Command{
+		Use:   "js [addon-id]",
+		Short: "Build or watch an add-on's JavaScript",
+		Long: `Run the minify and rollup tasks configured in the add-on's build.json.
 Dependencies, exec commands, and release archives are not part of this command.
 
 The XenForo installation is discovered from the current directory or XF_DIR.
@@ -44,27 +53,19 @@ When omitted, the add-on is inferred by searching upward for addon.json,
 falling back to XF.
 Use --watch to rebuild when sources or configuration change. Build errors are
 reported without stopping the watcher; press Ctrl-C to stop.`,
-	Example: `  xf build js
+		Example: `  xf build js
   xf build js --watch
   xf build js Vendor/AddOn
   xf build js Vendor/AddOn --watch`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runBuildJavaScript,
-}
+		Args: cobra.MaximumNArgs(1),
+		RunE: runBuildJavaScript,
+	}
 
-var (
-	// flagBuildSkipComposer skips dependency installation for a release build.
-	flagBuildSkipComposer bool
-	// flagBuildWatch selects JavaScript watch mode.
-	flagBuildWatch bool
-)
-
-// init registers the build commands and their flags.
-func init() {
 	buildCmd.Flags().BoolVar(&flagBuildSkipComposer, "skip-composer", false, "skip Composer dependency installation")
 	buildJavaScriptCmd.Flags().BoolVar(&flagBuildWatch, "watch", false, "rebuild JavaScript when inputs change")
 	buildCmd.AddCommand(buildJavaScriptCmd)
-	rootCmd.AddCommand(buildCmd)
+
+	return buildCmd
 }
 
 // runBuild forwards the release build to the build package.

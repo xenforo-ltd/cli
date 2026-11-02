@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -6,14 +6,18 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/logs"
 )
 
-var logsCmd = &cobra.Command{
-	Use:   "logs [path] [services...]",
-	Short: "Show container logs",
-	Long: `Show logs from Docker containers.
+var flagLogsFollow bool
+
+// newLogsCommand builds the logs command.
+func newLogsCommand() *cobra.Command {
+	logsCmd := &cobra.Command{
+		Use:   "logs [path] [services...]",
+		Short: "Show container logs",
+		Long: `Show logs from Docker containers.
 
 If no path is provided, the current directory will be searched for a XenForo installation.
 Specific services can be specified, or all services will be shown.`,
-	Example: `  # Show all logs
+		Example: `  # Show all logs
   xf logs
 
   # Follow logs (like tail -f)
@@ -24,16 +28,14 @@ Specific services can be specified, or all services will be shown.`,
 
   # Show logs in specific directory
   xf logs ./my-project`,
-	Args:    cobra.ArbitraryArgs,
-	GroupID: "env",
-	RunE:    runLogs,
-}
+		Args:    cobra.ArbitraryArgs,
+		GroupID: "env",
+		RunE:    runLogs,
+	}
 
-var flagLogsFollow bool
-
-func init() {
 	logsCmd.Flags().BoolVarP(&flagLogsFollow, "follow", "f", false, "Follow log output")
-	rootCmd.AddCommand(logsCmd)
+
+	return logsCmd
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {

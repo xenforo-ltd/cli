@@ -5,7 +5,8 @@ limited to things that are stable and easy to get wrong.
 
 ## Package ownership
 
-- `cmd/xf` owns Cobra wiring, root dispatch, signals, and final error output.
+- `internal/cli` owns the Cobra tree, flag binding, command dispatch, and final
+  error output. `cmd/xf` owns signal handling and process exit.
 - `internal/commands/<command>` owns that command's execution. Each subcommand
   has a matching Go file in the same package.
 - Code shared within a command family belongs in separate responsibility-named

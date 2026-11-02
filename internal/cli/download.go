@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -7,10 +7,19 @@ import (
 	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
-var downloadCmd = &cobra.Command{
-	Use:   "download",
-	Short: "Download XenForo packages",
-	Long: `Download XenForo packages to the local cache.
+var (
+	flagDownloadLicenseKey string
+	flagDownloadID         string
+	flagDownloadVersionID  int
+	flagDownloadForce      bool
+)
+
+// newDownloadCommand builds the download command.
+func newDownloadCommand() *cobra.Command {
+	downloadCmd := &cobra.Command{
+		Use:   "download",
+		Short: "Download XenForo packages",
+		Long: `Download XenForo packages to the local cache.
 
 Downloads are cached locally and verified with checksums. Subsequent
 downloads of the same version will use the cached copy.
@@ -19,7 +28,7 @@ The download command works in stages:
   1. Without --download: Lists available packages for the license
   2. With --download: Lists available versions for that package
   3. With --download and --version: Downloads the specified version`,
-	Example: `  # List available packages for a license
+		Example: `  # List available packages for a license
   xf download --license XF123-ABCD-1234
 
   # List available versions for XenForo
@@ -30,19 +39,11 @@ The download command works in stages:
 
   # Force re-download even if cached
   xf download --license XF123-ABCD-1234 --download xenforo --version 12345 --force`,
-	Args:    cobra.NoArgs,
-	GroupID: "start",
-	RunE:    runDownload,
-}
+		Args:    cobra.NoArgs,
+		GroupID: "start",
+		RunE:    runDownload,
+	}
 
-var (
-	flagDownloadLicenseKey string
-	flagDownloadID         string
-	flagDownloadVersionID  int
-	flagDownloadForce      bool
-)
-
-func init() {
 	downloadCmd.Flags().StringVar(&flagDownloadLicenseKey, "license", "", "license key")
 	downloadCmd.Flags().StringVar(&flagDownloadID, "download", "", "download ID (e.g., xenforo, xfmg)")
 	downloadCmd.Flags().IntVar(&flagDownloadVersionID, "version", 0, "version ID to download")
@@ -50,7 +51,8 @@ func init() {
 	cobra.CheckErr(downloadCmd.MarkFlagRequired("license"))
 	completion.Register(downloadCmd, "license", completion.LicenseKeys)
 	completion.Register(downloadCmd, "download", completion.DownloadIDs)
-	rootCmd.AddCommand(downloadCmd)
+
+	return downloadCmd
 }
 
 func runDownload(cmd *cobra.Command, args []string) error {

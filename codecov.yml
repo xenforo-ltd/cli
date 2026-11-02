@@ -1,6 +1,6 @@
 # Codecov defaults to a patch target of "auto", which requires every pull
 # request to match the project's overall coverage. That is the wrong bar for
-# this repository: the CLI's command layer (cmd/xf) is thin wiring around
+# this repository: the CLI's command layer (internal/cli) is thin wiring around
 # Docker, git and the customer API, so most of it can only be exercised by
 # integration tests we do not run in CI. Pull requests that touch that layer
 # fail the patch check no matter how well their testable logic is covered.

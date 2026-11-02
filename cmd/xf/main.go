@@ -6,9 +6,15 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/xenforo-ltd/cli/internal/cli"
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	// NotifyContext reports only that the context ended, not which signal
 	// ended it, so the signal is recorded here to exit with its conventional
 	// 128+signum status: 130 for SIGINT, 143 for SIGTERM.
@@ -21,9 +27,9 @@ func main() {
 	defer cancel()
 
 	go func() {
-		recordInterruptSignal(<-signals)
+		cli.RecordInterruptSignal(<-signals)
 		cancel()
 	}()
 
-	execute(ctx)
+	return cli.Run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
 }

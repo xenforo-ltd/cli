@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -6,13 +6,17 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/up"
 )
 
-var upCmd = &cobra.Command{
-	Use:   "up [path]",
-	Short: "Start the Docker environment",
-	Long: `Start the Docker environment for a XenForo installation.
+var flagUpDetach bool
+
+// newUpCommand builds the up command.
+func newUpCommand() *cobra.Command {
+	upCmd := &cobra.Command{
+		Use:   "up [path]",
+		Short: "Start the Docker environment",
+		Long: `Start the Docker environment for a XenForo installation.
 
 If no path is provided, the current directory will be searched for a XenForo installation.`,
-	Example: `  # Start in current directory (auto-detect)
+		Example: `  # Start in current directory (auto-detect)
   xf up
 
   # Start specific directory
@@ -20,18 +24,15 @@ If no path is provided, the current directory will be searched for a XenForo ins
 
   # Start in foreground (not detached)
   xf up --no-detach`,
-	Args:    cobra.MaximumNArgs(1),
-	GroupID: "env",
-	RunE:    runUp,
-}
+		Args:    cobra.MaximumNArgs(1),
+		GroupID: "env",
+		RunE:    runUp,
+	}
 
-var flagUpDetach bool
-
-func init() {
 	upCmd.Flags().BoolVar(&flagUpDetach, "detach", true, "Run containers in the background")
 	upCmd.Flags().Bool("no-detach", false, "Run containers in the foreground")
 
-	rootCmd.AddCommand(upCmd)
+	return upCmd
 }
 
 func runUp(cmd *cobra.Command, args []string) error {

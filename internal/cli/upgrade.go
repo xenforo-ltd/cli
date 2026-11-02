@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -6,10 +6,18 @@ import (
 	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
-var upgradeCmd = &cobra.Command{
-	Use:   "upgrade [path]",
-	Short: "Upgrade an existing XenForo installation",
-	Long: `Upgrade an existing XenForo installation to a newer version.
+var (
+	flagUpgradeLicense string
+	flagUpgradeVersion int
+	flagUpgradeSkipCmd bool
+)
+
+// newUpgradeCommand builds the upgrade command.
+func newUpgradeCommand() *cobra.Command {
+	upgradeCmd := &cobra.Command{
+		Use:   "upgrade [path]",
+		Short: "Upgrade an existing XenForo installation",
+		Long: `Upgrade an existing XenForo installation to a newer version.
 
 This command:
   1. Detects the current XenForo version
@@ -21,7 +29,7 @@ This command:
 The target directory must contain an existing XenForo installation.
 If the installation was created with 'xf init', the license
 key will be detected automatically. Otherwise, use --license to specify it.`,
-	Example: `  # Interactive upgrade (prompts for version)
+		Example: `  # Interactive upgrade (prompts for version)
   xf upgrade ./my-project
 
   # Upgrade to a specific version
@@ -29,21 +37,15 @@ key will be detected automatically. Otherwise, use --license to specify it.`,
 
   # Non-interactive upgrade
   xf upgrade ./my-project --version 2030971 --non-interactive`,
-	Args: cobra.MaximumNArgs(1), GroupID: "env", RunE: runUpgrade,
-}
+		Args: cobra.MaximumNArgs(1), GroupID: "env", RunE: runUpgrade,
+	}
 
-var (
-	flagUpgradeLicense string
-	flagUpgradeVersion int
-	flagUpgradeSkipCmd bool
-)
-
-func init() {
 	upgradeCmd.Flags().StringVar(&flagUpgradeLicense, "license", "", "license key (auto-detected if not specified)")
 	upgradeCmd.Flags().IntVar(&flagUpgradeVersion, "version", 0, "target version ID")
 	upgradeCmd.Flags().BoolVar(&flagUpgradeSkipCmd, "skip-upgrade", false, "skip running xf:upgrade command")
 	completion.Register(upgradeCmd, "license", completion.LicenseKeys)
-	rootCmd.AddCommand(upgradeCmd)
+
+	return upgradeCmd
 }
 
 func runUpgrade(cmd *cobra.Command, args []string) error {

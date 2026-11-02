@@ -1,8 +1,10 @@
 # Package boundaries
 
-`cmd/xf` defines the Cobra command tree, binds flags, and handles process-level
-dispatch, signals, errors, and exit codes. It delegates execution to
-`commands/<command>` using contexts, arguments, and concrete options.
+`cmd/xf` is the process entry point: it handles signals and exits with the
+status `cli.Run` returns. `internal/cli` builds the Cobra command tree, binds
+flags, dispatches commands, and renders errors and exit codes. It delegates
+execution to `commands/<command>` using contexts, arguments, and concrete
+options.
 
 Command packages do not import one another. Each subcommand has its own action
 file in its parent's package. Helpers used by multiple actions belong in
@@ -17,6 +19,7 @@ belongs outside `commands`.
 | `build` | Add-on release and JavaScript build execution. |
 | `cache` | Downloaded archives, metadata, integrity checks, and cache storage. |
 | `clierror` | Error classification, usage markers, hints, cancellation, and child exit status. |
+| `cli` | Command tree, flag binding, dispatch, and process-level error reporting. |
 | `config` | CLI configuration and its defaults. |
 | `customerapi` | Authenticated access to the XenForo customer API. |
 | `devoutput` | Conversion of prepared development output to release XML. |

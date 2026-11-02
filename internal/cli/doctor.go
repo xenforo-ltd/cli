@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"github.com/spf13/cobra"
@@ -6,10 +6,12 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/doctor"
 )
 
-var doctorCmd = &cobra.Command{
-	Use:   "doctor",
-	Short: "Check system health and dependencies",
-	Long: `Run diagnostic checks to verify that your system is properly configured
+// newDoctorCommand builds the doctor command.
+func newDoctorCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "doctor",
+		Short: "Check system health and dependencies",
+		Long: `Run diagnostic checks to verify that your system is properly configured
 for XenForo CLI.
 
 This command checks:
@@ -20,14 +22,13 @@ This command checks:
   - Cache directory permissions
   - Disk space availability
   - Network connectivity`,
-	Example: `  # Run all health checks
+		Example: `  # Run all health checks
   xf doctor`,
-	Args:    cobra.NoArgs,
-	GroupID: "maint",
-	RunE:    runDoctor,
+		Args:    cobra.NoArgs,
+		GroupID: "maint",
+		RunE:    runDoctor,
+	}
 }
-
-func init() { rootCmd.AddCommand(doctorCmd) }
 
 func runDoctor(cmd *cobra.Command, args []string) error {
 	return doctor.Run(cmd.Context())
