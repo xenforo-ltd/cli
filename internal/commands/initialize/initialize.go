@@ -15,6 +15,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/clierror"
 	"github.com/xenforo-ltd/cli/internal/config"
 	"github.com/xenforo-ltd/cli/internal/customerapi"
+	"github.com/xenforo-ltd/cli/internal/downloads"
 	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/setup"
 )
@@ -272,7 +273,7 @@ func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 		return clierror.MarkAs(clierror.ErrNotFound, "no versions available")
 	}
 
-	sortVersionsDesc(versions.Versions)
+	downloads.SortVersions(versions.Versions)
 	opts.coreVersions = versions.Versions
 
 	if opts.VersionID == 0 {

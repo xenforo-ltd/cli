@@ -76,7 +76,7 @@ func ResolveSelections(
 		return nil, fmt.Errorf("no xenforo versions available: %w", errAPINotFound)
 	}
 
-	sortVersions(coreVersions.Versions)
+	SortVersions(coreVersions.Versions)
 	latestCore := coreVersions.Versions[0]
 
 	var selectedCore *customerapi.Version
@@ -142,7 +142,7 @@ func ResolveSelections(
 			continue
 		}
 
-		sortVersions(versions.Versions)
+		SortVersions(versions.Versions)
 		selected, reason := resolveAddonSelection(versions.Versions, selectedCore, &latestCore, coreVersionString)
 		selections = append(selections, selection{
 			Product:       product,
@@ -185,7 +185,8 @@ func resolveAddonSelection(sortedAddonVersions []customerapi.Version, selectedCo
 	return latestAddon, "latest fallback (no <= release date)"
 }
 
-func sortVersions(v []customerapi.Version) {
+// SortVersions orders versions newest first, breaking ties by version ID.
+func SortVersions(v []customerapi.Version) {
 	slices.SortFunc(v, func(a, b customerapi.Version) int {
 		if c := b.ReleaseDate.Compare(a.ReleaseDate.Time); c != 0 {
 			return c

@@ -1,8 +1,6 @@
 package initialize
 
 import (
-	"cmp"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -13,17 +11,6 @@ import (
 type displayVersion struct {
 	value int
 	label string
-}
-
-// sortVersionsDesc sorts versions by release date in descending order.
-func sortVersionsDesc(versions []customerapi.Version) {
-	slices.SortFunc(versions, func(a, b customerapi.Version) int {
-		if c := b.ReleaseDate.Compare(a.ReleaseDate.Time); c != 0 {
-			return c
-		}
-
-		return cmp.Compare(b.VersionID, a.VersionID)
-	})
 }
 
 // buildVersionOptions builds display options for a version selection.

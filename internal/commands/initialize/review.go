@@ -267,7 +267,7 @@ func editCoreSetup(ctx context.Context, client *customerapi.Client, opts *InitOp
 		return fmt.Errorf("no versions available for this license: %w", clierror.ErrNotFound)
 	}
 
-	sortVersionsDesc(versions.Versions)
+	downloads.SortVersions(versions.Versions)
 
 	opts.coreVersions = versions.Versions
 
@@ -424,7 +424,7 @@ func chooseOverrideVersion(ctx context.Context, client *customerapi.Client, opts
 		return fmt.Errorf("no versions available for %s: %w", product, clierror.ErrNotFound)
 	}
 
-	sortVersionsDesc(versions.Versions)
+	downloads.SortVersions(versions.Versions)
 
 	v, err := promptVersion(versions.Versions, versionPrompt{
 		selectTitle: "Select version for " + product,
