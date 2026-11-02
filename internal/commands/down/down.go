@@ -23,7 +23,9 @@ func Run(ctx context.Context, args []string) error {
 
 	ui.PrintInfo("Stopping Docker environment " + ui.Bold.Render(runner.Instance()))
 
-	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, downComposeArgs()...); err != nil {
+	// No --volumes: the database and other volume data survive a later start,
+	// unlike Destroy.
+	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "down"); err != nil {
 		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}
 
@@ -31,11 +33,4 @@ func Run(ctx context.Context, args []string) error {
 	ui.SuccessBox("Docker environment stopped", nil)
 
 	return nil
-}
-
-// downComposeArgs lists the compose arguments for stopping an environment.
-// It deliberately omits --volumes so the database and other volume data
-// survive a later start, unlike Destroy.
-func downComposeArgs() []string {
-	return []string{"down"}
 }
