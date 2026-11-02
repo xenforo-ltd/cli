@@ -143,32 +143,22 @@ func ResolveSelections(
 		}
 
 		sortVersions(versions.Versions)
-		selected := resolveAddonSelection(versions.Versions, selectedCore, &latestCore, coreVersionString)
+		selected, reason := resolveAddonSelection(versions.Versions, selectedCore, &latestCore, coreVersionString)
 		selections = append(selections, Selection{
 			Product:       product,
 			VersionID:     selected.VersionID,
 			VersionString: selected.VersionStr,
-			Reason:        selected.Reason,
+			Reason:        reason,
 		})
 	}
 
 	return selections, nil
 }
 
-type resolvedVersion struct {
-	VersionID  int
-	VersionStr string
-	Reason     string
-}
-
-func resolveAddonSelection(addonVersions []customerapi.Version, selectedCore, latestCore *customerapi.Version, coreVersionString string) resolvedVersion {
-	latestAddon := addonVersions[0]
+func resolveAddonSelection(sortedAddonVersions []customerapi.Version, selectedCore, latestCore *customerapi.Version, coreVersionString string) (customerapi.Version, string) {
+	latestAddon := sortedAddonVersions[0]
 	if selectedCore != nil && latestCore != nil && selectedCore.VersionID == latestCore.VersionID {
-		return resolvedVersion{
-			VersionID:  latestAddon.VersionID,
-			VersionStr: latestAddon.VersionStr,
-			Reason:     "latest (core is latest)",
-		}
+		return latestAddon, "latest (core is latest)"
 	}
 
 	coreVersionForMatch := coreVersionString
@@ -178,33 +168,21 @@ func resolveAddonSelection(addonVersions []customerapi.Version, selectedCore, la
 
 	normCore := normalizeVersion(coreVersionForMatch)
 	if normCore != "" {
-		for _, v := range addonVersions {
+		for _, v := range sortedAddonVersions {
 			if normalizeVersion(v.VersionStr) == normCore {
-				return resolvedVersion{
-					VersionID:  v.VersionID,
-					VersionStr: v.VersionStr,
-					Reason:     "exact match",
-				}
+				return v, "exact match"
 			}
 		}
 	}
 
 	if selectedCore != nil {
-		best := newestAtOrBefore(addonVersions, selectedCore.ReleaseDate.Time)
+		best := newestAtOrBefore(sortedAddonVersions, selectedCore.ReleaseDate.Time)
 		if best != nil {
-			return resolvedVersion{
-				VersionID:  best.VersionID,
-				VersionStr: best.VersionStr,
-				Reason:     "date-match fallback",
-			}
+			return *best, "date-match fallback"
 		}
 	}
 
-	return resolvedVersion{
-		VersionID:  latestAddon.VersionID,
-		VersionStr: latestAddon.VersionStr,
-		Reason:     "latest fallback (no <= release date)",
-	}
+	return latestAddon, "latest fallback (no <= release date)"
 }
 
 func sortVersions(v []customerapi.Version) {
@@ -217,31 +195,21 @@ func sortVersions(v []customerapi.Version) {
 	})
 }
 
-func newestAtOrBefore(versions []customerapi.Version, t time.Time) *customerapi.Version {
+func newestAtOrBefore(sortedVersions []customerapi.Version, t time.Time) *customerapi.Version {
 	if t.IsZero() {
 		return nil
 	}
 
-	var picked *customerapi.Version
-
-	for i := range versions {
-		v := &versions[i]
+	for i := range sortedVersions {
+		v := &sortedVersions[i]
 		if v.ReleaseDate.IsZero() || v.ReleaseDate.After(t) {
 			continue
 		}
 
-		if picked == nil {
-			picked = v
-			continue
-		}
-
-		if v.ReleaseDate.After(picked.ReleaseDate.Time) ||
-			(v.ReleaseDate.Equal(picked.ReleaseDate.Time) && v.VersionID > picked.VersionID) {
-			picked = v
-		}
+		return v
 	}
 
-	return picked
+	return nil
 }
 
 func normalizeVersion(s string) string {
