@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -256,22 +257,10 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, 
 }
 
 func parseFilenameFromResponse(resp *http.Response, url string) string {
-	for part := range strings.SplitSeq(resp.Header.Get("Content-Disposition"), ";") {
-		after, ok := strings.CutPrefix(strings.TrimSpace(part), "filename=")
-		if !ok {
-			continue
-		}
-
-		filename := strings.Trim(after, "\"")
-		if filename == "" {
-			continue
-		}
-
-		if safe := sanitizeFilename(filename); safe != "" {
+	if _, params, err := mime.ParseMediaType(resp.Header.Get("Content-Disposition")); err == nil {
+		if safe := sanitizeFilename(params["filename"]); safe != "" {
 			return safe
 		}
-
-		break
 	}
 
 	for _, part := range slices.Backward(strings.Split(url, "/")) {
