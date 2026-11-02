@@ -32,5 +32,4 @@ belongs outside `commands`.
 
 Export APIs for actual production consumers outside the package, not to expose
 implementation details to tests. Serialization and interface methods retain the
-visibility their protocols require. Existing tests live with the code they test;
-`testutils` is explicitly test support.
+visibility their protocols require.

@@ -215,18 +215,6 @@ func sourceCheckout(ctx context.Context, dir string) (string, error) {
 	return source, err
 }
 
-// currentBranch returns the branch checked out in repoDir.
-//
-// For a Jujutsu repository this returns the workspace name.
-func currentBranch(ctx context.Context, repoDir string) (string, error) {
-	b, err := detectBackend(ctx, repoDir)
-	if err != nil {
-		return "", err
-	}
-
-	return b.currentName(ctx, repoDir)
-}
-
 // resolveSymlinks resolves a path for comparison, falling back to the cleaned
 // path when it cannot be resolved. Temporary directories on macOS are symlinked
 // via /var, so comparing unresolved paths gives false mismatches.

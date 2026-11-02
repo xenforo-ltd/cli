@@ -48,7 +48,7 @@ Consequences worth remembering:
 - `xf php --verbose` forwards `--verbose` to PHP; it does not enable `xf`
   verbosity. Put the flag before the command name.
 - `rootCmd` sets `TraverseChildren` so pre-command globals still work. Removing
-  it silently breaks `xf --verbose php ...`. It is covered by a test.
+  it silently breaks `xf --verbose php ...`.
 
 All other commands parse flags normally and accept them in **any** position.
 `logs` is deliberately not a passthrough command, because `--follow` belongs to
