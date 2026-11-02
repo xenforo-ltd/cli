@@ -14,10 +14,10 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
-// BuildResult describes a completed release.
-type BuildResult struct {
-	// HashesPath is the absolute path to the generated hash manifest.
-	HashesPath string
+// buildResult describes a completed release.
+type buildResult struct {
+	// hashesPath is the absolute path to the generated hash manifest.
+	hashesPath string
 
 	// ZipPath is the absolute path to the release archive.
 	ZipPath string
@@ -80,7 +80,7 @@ func WithTimestamp(timestamp time.Time) Option {
 // Data is exported from prepared _output after Composer and before JavaScript
 // tasks. The export creates the add-on's _data directory if needed.
 // ZIP timestamps default to the build start time, not source modification times.
-func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*BuildResult, error) {
+func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*buildResult, error) {
 	opts := applyOptions(options)
 	if opts.timestamp.Before(time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)) ||
 		opts.timestamp.After(time.Unix(1<<32-1, 0)) {
@@ -151,8 +151,8 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*Bu
 		return nil, err
 	}
 
-	return &BuildResult{
-		HashesPath: filepath.Join(root.Name(), filepath.FromSlash(hashesPath)),
+	return &buildResult{
+		hashesPath: filepath.Join(root.Name(), filepath.FromSlash(hashesPath)),
 		ZipPath:    filepath.Join(root.Name(), filepath.FromSlash(zipPath)),
 		FileCount:  archive.fileCount,
 		TotalSize:  archive.totalSize,

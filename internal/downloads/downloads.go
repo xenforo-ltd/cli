@@ -40,10 +40,10 @@ type cacheDownloader interface {
 	Download(ctx context.Context, opts cache.DownloadOptions, authToken string, progress cache.ProgressCallback) (*cache.DownloadResult, error)
 }
 
-// Selection represents a product/version selection to download.
-type Selection struct {
+// selection represents a product/version selection to download.
+type selection struct {
 	Product       string
-	VersionID     int
+	versionID     int
 	VersionString string
 	Reason        string
 }
@@ -64,8 +64,8 @@ func ResolveSelections(
 	coreVersionString string,
 	overrides map[string]int,
 	onSkip func(product string),
-) ([]Selection, error) {
-	selections := make([]Selection, 0, len(products))
+) ([]selection, error) {
+	selections := make([]selection, 0, len(products))
 
 	coreVersions, err := client.GetLicenseVersions(ctx, licenseKey, "xenforo")
 	if err != nil {
@@ -103,9 +103,9 @@ func ResolveSelections(
 				}
 			}
 
-			selections = append(selections, Selection{
+			selections = append(selections, selection{
 				Product:       product,
-				VersionID:     coreVersionID,
+				versionID:     coreVersionID,
 				VersionString: versionStr,
 				Reason:        reason,
 			})
@@ -119,9 +119,9 @@ func ResolveSelections(
 				return nil, fmt.Errorf("failed to resolve override for %s: %w", product, err)
 			}
 
-			selections = append(selections, Selection{
+			selections = append(selections, selection{
 				Product:       product,
-				VersionID:     overrideID,
+				versionID:     overrideID,
 				VersionString: info.VersionString,
 				Reason:        "manual override",
 			})
@@ -144,9 +144,9 @@ func ResolveSelections(
 
 		sortVersions(versions.Versions)
 		selected, reason := resolveAddonSelection(versions.Versions, selectedCore, &latestCore, coreVersionString)
-		selections = append(selections, Selection{
+		selections = append(selections, selection{
 			Product:       product,
-			VersionID:     selected.VersionID,
+			versionID:     selected.VersionID,
 			VersionString: selected.VersionStr,
 			Reason:        reason,
 		})
@@ -224,12 +224,12 @@ func normalizeVersion(s string) string {
 }
 
 // DownloadSelection downloads a product based on the selection.
-func DownloadSelection(ctx context.Context, client *customerapi.Client, cacheManager *cache.Manager, licenseKey string, selection Selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
+func DownloadSelection(ctx context.Context, client *customerapi.Client, cacheManager *cache.Manager, licenseKey string, selection selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
 	return downloadSelection(ctx, client, cacheManager, licenseKey, selection, skipCache, progress)
 }
 
-func downloadSelection(ctx context.Context, client downloadClient, cacheManager cacheDownloader, licenseKey string, selection Selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
-	info, err := client.GetDownloadInfo(ctx, licenseKey, selection.Product, selection.VersionID)
+func downloadSelection(ctx context.Context, client downloadClient, cacheManager cacheDownloader, licenseKey string, selection selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
+	info, err := client.GetDownloadInfo(ctx, licenseKey, selection.Product, selection.versionID)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get download info for %s: %w", selection.Product, err)
 	}
@@ -255,7 +255,7 @@ func downloadSelection(ctx context.Context, client downloadClient, cacheManager 
 		return nil, "", fmt.Errorf("failed to get access token for %s: %w", selection.Product, err)
 	}
 
-	downloadURL := client.GetDownloadURL(licenseKey, selection.Product, selection.VersionID)
+	downloadURL := client.GetDownloadURL(licenseKey, selection.Product, selection.versionID)
 	downloadOpts := cache.DownloadOptions{
 		LicenseKey:     licenseKey,
 		DownloadID:     selection.Product,

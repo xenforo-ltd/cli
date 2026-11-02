@@ -37,7 +37,7 @@ func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string
 	return detectedURL, true
 }
 
-// InstallShellCommand builds the shell command that runs xf:install.
+// installShellCommand builds the shell command that runs xf:install.
 //
 // Every argument is shell-quoted, so installer values such as the site title
 // cannot inject shell syntax. The password substitution is quoted too, so a
@@ -56,7 +56,7 @@ func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string
 // single-tenant development environment created by this tool, so that exposure
 // is accepted; it should be revisited if XenForo ever accepts the password on
 // stdin or from an environment variable of its own.
-func InstallShellCommand(installArgs []string) string {
+func installShellCommand(installArgs []string) string {
 	command := shellJoinArgs(append([]string{"php", "cmd.php"}, installArgs...))
 	// Expanded directly rather than through $(printenv ...): command
 	// substitution strips trailing newlines, so a password ending in one would
@@ -76,7 +76,7 @@ func InstallInvocation(user, email, title, siteURL, password string) ([]string, 
 		"--url=" + siteURL,
 	}
 
-	return []string{"sh", "-c", InstallShellCommand(installArgs)}, map[string]string{"XF_INSTALL_PASSWORD": password}
+	return []string{"sh", "-c", installShellCommand(installArgs)}, map[string]string{"XF_INSTALL_PASSWORD": password}
 }
 
 func shellJoinArgs(args []string) string {

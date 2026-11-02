@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-// UnixTime is a time.Time that unmarshals from Unix timestamps.
-type UnixTime struct {
+// unixTime is a time.Time that unmarshals from Unix timestamps.
+type unixTime struct {
 	time.Time
 }
 
-// UnmarshalJSON unmarshals a Unix timestamp or RFC3339 string into a UnixTime.
-func (t *UnixTime) UnmarshalJSON(data []byte) error {
+// UnmarshalJSON unmarshals a Unix timestamp or RFC3339 string into a unixTime.
+func (t *unixTime) UnmarshalJSON(data []byte) error {
 	var timestamp int64
 	if err := json.Unmarshal(data, &timestamp); err != nil {
 		// Try parsing as a regular time string
@@ -57,8 +57,8 @@ type License struct {
 	ProductTitle   string         `json:"product_title"`
 	IsValid        bool           `json:"is_valid"`
 	IsActive       bool           `json:"is_active"`
-	StartDate      UnixTime       `json:"start_date"`
-	ExpirationDate UnixTime       `json:"expiration_date"`
+	StartDate      unixTime       `json:"start_date"`
+	ExpirationDate unixTime       `json:"expiration_date"`
 	SiteURL        string         `json:"site_url,omitempty"`
 	SiteTitle      string         `json:"site_title,omitempty"`
 	CanDownload    bool           `json:"can_download"`
@@ -80,8 +80,8 @@ func (c *Client) GetLicenses(ctx context.Context) ([]License, error) {
 	return result.Licenses, nil
 }
 
-// Downloadable represents a downloadable product associated with a license.
-type Downloadable struct {
+// downloadable represents a downloadable product associated with a license.
+type downloadable struct {
 	DownloadID string `json:"download_id"`
 	Title      string `json:"title"`
 }
@@ -90,13 +90,13 @@ type Downloadable struct {
 type Version struct {
 	VersionID   int      `json:"version_id"`
 	VersionStr  string   `json:"version_string"`
-	ReleaseDate UnixTime `json:"release_date"`
+	ReleaseDate unixTime `json:"release_date"`
 	Stable      bool     `json:"stable"`
 }
 
 // LicenseDownloadables represents the downloadables available for a license.
 type LicenseDownloadables struct {
-	Downloadables []Downloadable `json:"downloadables"`
+	Downloadables []downloadable `json:"downloadables"`
 }
 
 // LicenseVersions represents the versions available for a license/download.

@@ -25,8 +25,8 @@ type DownloadOptions struct {
 	DownloadID       string // e.g., "xenforo", "xfmg"
 	Version          string
 	URL              string
-	ExpectedChecksum string // SHA-256, optional
-	ExpectedSize     int64  // 0 = unknown
+	expectedChecksum string // SHA-256, optional
+	expectedSize     int64  // 0 = unknown
 	Filename         string // overrides Content-Disposition
 	SkipCacheCheck   bool
 }
@@ -48,7 +48,7 @@ func (m *Manager) Download(ctx context.Context, opts DownloadOptions, authToken 
 			return result, nil
 		}
 
-		if !errors.Is(err, ErrCacheMiss) {
+		if !errors.Is(err, errCacheMiss) {
 			return nil, err
 		}
 	}
@@ -66,8 +66,8 @@ func (m *Manager) Download(ctx context.Context, opts DownloadOptions, authToken 
 	filename := resolveFilename(opts.Filename, resp, opts.URL)
 
 	totalSize := resp.ContentLength
-	if totalSize <= 0 && opts.ExpectedSize > 0 {
-		totalSize = opts.ExpectedSize
+	if totalSize <= 0 && opts.expectedSize > 0 {
+		totalSize = opts.expectedSize
 	}
 
 	entryPath, err := m.entryPath(opts.LicenseKey, opts.DownloadID, opts.Version)
@@ -81,7 +81,7 @@ func (m *Manager) Download(ctx context.Context, opts DownloadOptions, authToken 
 
 	filePath := filepath.Join(entryPath, filename)
 
-	if err := downloadToFile(filePath, resp.Body, totalSize, opts.ExpectedChecksum, progress); err != nil {
+	if err := downloadToFile(filePath, resp.Body, totalSize, opts.expectedChecksum, progress); err != nil {
 		return nil, err
 	}
 
@@ -106,7 +106,7 @@ func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 	}
 
 	if !valid {
-		return nil, ErrCacheMiss
+		return nil, errCacheMiss
 	}
 
 	if _, err := os.Stat(entry.FilePath); err != nil {
@@ -114,7 +114,7 @@ func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 			return nil, fmt.Errorf("failed to stat cached file %s: %w", entry.FilePath, err)
 		}
 
-		return nil, ErrCacheMiss
+		return nil, errCacheMiss
 	}
 
 	return &DownloadResult{Entry: entry, WasCached: true}, nil
@@ -234,7 +234,7 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, 
 		return nil, err
 	}
 
-	metadata := &EntryMetadata{
+	metadata := &entryMetadata{
 		DownloadID:   opts.DownloadID,
 		Version:      opts.Version,
 		Filename:     filepath.Base(filePath),

@@ -12,12 +12,12 @@ import (
 	"strings"
 )
 
-// ContainerInfo describes a single container as rendered by `xf ps`.
+// containerInfo describes a single container as rendered by `xf ps`.
 //
 // Status and Ports are display strings derived from the Compose record rather
 // than wire fields: `docker compose ps --format json` reports State, Health,
 // ExitCode and Publishers, not the combined Status/Ports strings.
-type ContainerInfo struct {
+type containerInfo struct {
 	Service string
 	Name    string
 	State   string
@@ -50,8 +50,8 @@ type composePortPublisher struct {
 const unknownValue = "—"
 
 // normalize converts a wire record into the display model used by `xf ps`.
-func (rec composeContainerRecord) normalize() ContainerInfo {
-	return ContainerInfo{
+func (rec composeContainerRecord) normalize() containerInfo {
+	return containerInfo{
 		Service: rec.Service,
 		Name:    rec.Name,
 		State:   rec.State,
@@ -102,7 +102,7 @@ func (pub composePortPublisher) text() string {
 }
 
 // PSInfo returns container status parsed from `docker compose ps --format json`.
-func (r *Runner) PSInfo(ctx context.Context) ([]ContainerInfo, error) {
+func (r *Runner) PSInfo(ctx context.Context) ([]containerInfo, error) {
 	cmd := r.composeCommand(ctx, "ps", "--format", "json")
 
 	var stdout, stderr bytes.Buffer
@@ -129,10 +129,10 @@ func (r *Runner) PSInfo(ctx context.Context) ([]ContainerInfo, error) {
 // releases, and JSON Lines (one container per line) in newer ones. Both are
 // accepted; the records themselves use the official schema, whose status and
 // port information lives in Health, ExitCode and Publishers.
-func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
+func parseContainerInfo(data []byte) ([]containerInfo, error) {
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) == 0 {
-		return []ContainerInfo{}, nil
+		return []containerInfo{}, nil
 	}
 
 	var records []composeContainerRecord
@@ -160,7 +160,7 @@ func parseContainerInfo(data []byte) ([]ContainerInfo, error) {
 		}
 	}
 
-	containers := make([]ContainerInfo, 0, len(records))
+	containers := make([]containerInfo, 0, len(records))
 	for _, record := range records {
 		containers = append(containers, record.normalize())
 	}

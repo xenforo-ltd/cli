@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-type PhaseRule struct {
+type phaseRule struct {
 	contains []string
 	message  string
 }
@@ -16,14 +16,14 @@ type PhaseTrackerWriter struct {
 	mu          sync.Mutex
 	spinner     *Spinner
 	baseMessage string
-	rules       []PhaseRule
+	rules       []phaseRule
 	pending     string
 	lastMessage string
 	tail        []string
 	tailMax     int
 }
 
-func NewPhaseTrackerWriter(spinner *Spinner, baseMessage string, rules []PhaseRule) *PhaseTrackerWriter {
+func NewPhaseTrackerWriter(spinner *Spinner, baseMessage string, rules []phaseRule) *PhaseTrackerWriter {
 	return &PhaseTrackerWriter{
 		spinner:     spinner,
 		baseMessage: baseMessage,
@@ -127,16 +127,16 @@ func containsAny(s string, needles []string) bool {
 	return slices.ContainsFunc(needles, func(n string) bool { return strings.Contains(s, n) })
 }
 
-func DockerStartPhaseRules() []PhaseRule {
-	return []PhaseRule{
+func DockerStartPhaseRules() []phaseRule {
+	return []phaseRule{
 		{contains: []string{"pulling", "pull complete", "downloaded", "extracting"}, message: "pulling images"},
 		{contains: []string{"building", "load build", "cached", "exporting", "writing image"}, message: "building services"},
 		{contains: []string{"creating", "recreating", "starting", "started", "running"}, message: "starting containers"},
 	}
 }
 
-func ComposerPhaseRules() []PhaseRule {
-	return []PhaseRule{
+func ComposerPhaseRules() []phaseRule {
+	return []phaseRule{
 		{contains: []string{"loading composer repositories"}, message: "loading repositories"},
 		{contains: []string{"updating dependencies"}, message: "updating dependencies"},
 		{contains: []string{"installing dependencies"}, message: "installing dependencies"},
@@ -144,8 +144,8 @@ func ComposerPhaseRules() []PhaseRule {
 	}
 }
 
-func InstallPhaseRules() []PhaseRule {
-	return []PhaseRule{
+func InstallPhaseRules() []phaseRule {
+	return []phaseRule{
 		{contains: []string{"installing", "initializing"}, message: "initializing"},
 		{contains: []string{"importing", "master data", "phrases", "templates"}, message: "importing data"},
 		{contains: []string{"rebuilding", "caches"}, message: "rebuilding caches"},

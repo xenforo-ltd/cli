@@ -61,7 +61,7 @@ func (t *zipTask) run(ctx context.Context, root *os.Root) error {
 		output := bufio.NewWriterSize(out, ioBufferSize)
 		zw := zip.NewWriter(output)
 		sources := directoryOpener{root: root}
-		defer sources.Close()
+		defer sources.close()
 		buffer := make([]byte, ioBufferSize)
 		for _, rel := range keys {
 			size, err := addFileToArchive(ctx, &sources, zw, rel, files[rel], t.timestamp, buffer)

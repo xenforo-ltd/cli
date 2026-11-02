@@ -7,9 +7,9 @@ import (
 
 // tableStyle defines the visual style for tables.
 type tableStyle struct {
-	Header    lipgloss.Style
-	Cell      lipgloss.Style
-	Separator string
+	header    lipgloss.Style
+	cell      lipgloss.Style
+	separator string
 }
 
 // tablePadding is the number of spaces to pad between columns.
@@ -18,13 +18,13 @@ const tablePadding = 2
 // defaultTableStyle returns the default table styling.
 func defaultTableStyle() tableStyle {
 	return tableStyle{
-		Header: lipgloss.NewStyle().
+		header: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorSubtle).
 			PaddingRight(tablePadding),
-		Cell: lipgloss.NewStyle().
+		cell: lipgloss.NewStyle().
 			PaddingRight(tablePadding),
-		Separator: "  ",
+		separator: "  ",
 	}
 }
 
@@ -38,10 +38,10 @@ func NewTable(headers []string, rows [][]string) string {
 		Rows(rows...).
 		StyleFunc(func(row, _ int) lipgloss.Style {
 			if row == table.HeaderRow {
-				return style.Header
+				return style.header
 			}
 
-			return style.Cell
+			return style.cell
 		})
 
 	return t.String()

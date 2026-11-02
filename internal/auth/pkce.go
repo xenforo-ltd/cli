@@ -11,23 +11,23 @@ const (
 	codeVerifierBytes = 64
 )
 
-// PKCEParams contains the PKCE parameters for an OAuth flow.
-type PKCEParams struct {
-	// CodeVerifier is the random string used to generate the challenge.
-	CodeVerifier string
+// pkceParams contains the PKCE parameters for an OAuth flow.
+type pkceParams struct {
+	// codeVerifier is the random string used to generate the challenge.
+	codeVerifier string
 
-	// CodeChallenge is the S256 hash of the verifier.
-	CodeChallenge string
+	// codeChallenge is the S256 hash of the verifier.
+	codeChallenge string
 
-	// CodeChallengeMethod is always "S256".
-	CodeChallengeMethod string
+	// codeChallengeMethod is always "S256".
+	codeChallengeMethod string
 
 	// State is a random string to prevent CSRF attacks.
 	State string
 }
 
 // GeneratePKCE generates new PKCE parameters for an OAuth flow.
-func GeneratePKCE() (*PKCEParams, error) {
+func GeneratePKCE() (*pkceParams, error) {
 	verifierBytes := make([]byte, codeVerifierBytes)
 	rand.Read(verifierBytes)
 
@@ -42,10 +42,10 @@ func GeneratePKCE() (*PKCEParams, error) {
 
 	state := base64URLEncode(stateBytes)
 
-	return &PKCEParams{
-		CodeVerifier:        codeVerifier,
-		CodeChallenge:       codeChallenge,
-		CodeChallengeMethod: "S256",
+	return &pkceParams{
+		codeVerifier:        codeVerifier,
+		codeChallenge:       codeChallenge,
+		codeChallengeMethod: "S256",
 		State:               state,
 	}, nil
 }

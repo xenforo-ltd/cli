@@ -25,7 +25,7 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 	}
 
 	extractOpts := extractOptions{
-		OverwriteBaseFiles: opts.OverwriteExisting,
+		overwriteBaseFiles: opts.OverwriteExisting,
 	}
 
 	written, err = extractDockerFilesWithOptions(xfDir, extractOpts)

@@ -1,10 +1,7 @@
 // Package version provides CLI version information.
 package version
 
-import (
-	"fmt"
-	"runtime"
-)
+import "runtime"
 
 // Build metadata, set at link time.
 var (
@@ -13,8 +10,8 @@ var (
 	Date    = "unknown"
 )
 
-// Info contains version and build information.
-type Info struct {
+// info contains version and build information.
+type info struct {
 	Version   string `json:"version"`
 	Commit    string `json:"commit"`
 	Date      string `json:"date"`
@@ -24,8 +21,8 @@ type Info struct {
 }
 
 // Get returns the current version information.
-func Get() Info {
-	return Info{
+func Get() info {
+	return info{
 		Version:   Version,
 		Commit:    Commit,
 		Date:      Date,
@@ -33,9 +30,4 @@ func Get() Info {
 		OS:        runtime.GOOS,
 		Arch:      runtime.GOARCH,
 	}
-}
-
-func (i Info) String() string {
-	return fmt.Sprintf("xf %s (%s) built on %s\n%s %s/%s",
-		i.Version, i.Commit, i.Date, i.GoVersion, i.OS, i.Arch)
 }

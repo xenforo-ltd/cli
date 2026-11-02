@@ -12,17 +12,17 @@ import (
 	"strings"
 )
 
-// Stability represents the release stability of a XenForo version.
-type Stability string
+// stability represents the release stability of a XenForo version.
+type stability string
 
-// Stability constants represent different release stages.
+// stability constants represent different release stages.
 const (
-	stabilityAlpha   Stability = "alpha"
-	stabilityBeta    Stability = "beta"
-	stabilityRC      Stability = "rc"
-	stabilityStable  Stability = "stable"
-	stabilityPL      Stability = "pl"
-	stabilityUnknown Stability = "unknown"
+	stabilityAlpha   stability = "alpha"
+	stabilityBeta    stability = "beta"
+	stabilityRC      stability = "rc"
+	stabilityStable  stability = "stable"
+	stabilityPL      stability = "pl"
+	stabilityUnknown stability = "unknown"
 
 	stabilityAlphaNumber  = 1
 	stabilityBetaNumber   = 3
@@ -48,12 +48,12 @@ var (
 type Version struct {
 	String    string    // e.g., "2.3.8"
 	ID        int       // e.g., 2030871
-	Major     int       // e.g., 2
-	Minor     int       // e.g., 3
-	Patch     int       // e.g., 8
-	Stability Stability // alpha, beta, rc, stable, pl
-	StabNum   int       // stability number (1=alpha, 3=beta, 5=rc, 7=stable, 9=pl)
-	PLLevel   int       // patch level (0-9)
+	major     int       // e.g., 2
+	minor     int       // e.g., 3
+	patch     int       // e.g., 8
+	stability stability // alpha, beta, rc, stable, pl
+	stabNum   int       // stability number (1=alpha, 3=beta, 5=rc, 7=stable, 9=pl)
+	plLevel   int       // patch level (0-9)
 }
 
 // parseVersionString parses a version string into a Version structure.
@@ -62,34 +62,34 @@ func parseVersionString(versionStr string) (*Version, error) {
 
 	versionStr = strings.TrimSpace(versionStr)
 
-	v.Stability = stabilityStable
-	v.StabNum = stabilityStableNumber
-	v.PLLevel = 1
+	v.stability = stabilityStable
+	v.stabNum = stabilityStableNumber
+	v.plLevel = 1
 
 	lowerStr := strings.ToLower(versionStr)
 	var numberPattern, stripPattern *regexp.Regexp
 	switch {
 	case strings.Contains(lowerStr, string(stabilityAlpha)):
-		v.Stability = stabilityAlpha
-		v.StabNum = stabilityAlphaNumber
+		v.stability = stabilityAlpha
+		v.stabNum = stabilityAlphaNumber
 		numberPattern, stripPattern = alphaNumberPattern, alphaStripPattern
 	case strings.Contains(lowerStr, string(stabilityBeta)):
-		v.Stability = stabilityBeta
-		v.StabNum = stabilityBetaNumber
+		v.stability = stabilityBeta
+		v.stabNum = stabilityBetaNumber
 		numberPattern, stripPattern = betaNumberPattern, betaStripPattern
 	case strings.Contains(lowerStr, string(stabilityRC)) || strings.Contains(lowerStr, "release candidate"):
-		v.Stability = stabilityRC
-		v.StabNum = stabilityRCNumber
+		v.stability = stabilityRC
+		v.stabNum = stabilityRCNumber
 		numberPattern, stripPattern = rcNumberPattern, rcStripPattern
 	case strings.Contains(lowerStr, string(stabilityPL)) || strings.Contains(lowerStr, "patch level"):
-		v.Stability = stabilityPL
-		v.StabNum = stabilityPLNumber
+		v.stability = stabilityPL
+		v.stabNum = stabilityPLNumber
 		numberPattern, stripPattern = plNumberPattern, plStripPattern
 	}
 
 	if numberPattern != nil {
 		if matches := numberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
-			v.PLLevel, _ = strconv.Atoi(matches[1])
+			v.plLevel, _ = strconv.Atoi(matches[1])
 		}
 
 		versionStr = stripPattern.ReplaceAllString(versionStr, "")
@@ -104,18 +104,18 @@ func parseVersionString(versionStr string) (*Version, error) {
 
 	var err error
 
-	v.Major, err = strconv.Atoi(parts[0])
+	v.major, err = strconv.Atoi(parts[0])
 	if err != nil {
 		return nil, fmt.Errorf("invalid major version %s: %w", parts[0], err)
 	}
 
-	v.Minor, err = strconv.Atoi(parts[1])
+	v.minor, err = strconv.Atoi(parts[1])
 	if err != nil {
 		return nil, fmt.Errorf("invalid minor version %s: %w", parts[1], err)
 	}
 
 	if len(parts) >= 3 {
-		v.Patch, err = strconv.Atoi(parts[2])
+		v.patch, err = strconv.Atoi(parts[2])
 		if err != nil {
 			return nil, fmt.Errorf("invalid patch version %s: %w", parts[2], err)
 		}
@@ -123,7 +123,7 @@ func parseVersionString(versionStr string) (*Version, error) {
 
 	// Calculate version ID: abbccde
 	// a = major, bb = minor, cc = patch, d = stability, e = pl level
-	v.ID = v.Major*1000000 + v.Minor*10000 + v.Patch*100 + v.StabNum*10 + v.PLLevel
+	v.ID = v.major*1000000 + v.minor*10000 + v.patch*100 + v.stabNum*10 + v.plLevel
 
 	return v, nil
 }
@@ -132,48 +132,48 @@ func parseVersionString(versionStr string) (*Version, error) {
 func ParseVersionID(versionID int) *Version {
 	v := &Version{ID: versionID}
 
-	v.PLLevel = versionID % 10
+	v.plLevel = versionID % 10
 	versionID /= 10
 
-	v.StabNum = versionID % 10
+	v.stabNum = versionID % 10
 	versionID /= 10
 
-	v.Patch = versionID % 100
+	v.patch = versionID % 100
 	versionID /= 100
 
-	v.Minor = versionID % 100
+	v.minor = versionID % 100
 	versionID /= 100
 
-	v.Major = versionID
+	v.major = versionID
 
-	switch v.StabNum {
+	switch v.stabNum {
 	case stabilityAlphaNumber:
-		v.Stability = stabilityAlpha
+		v.stability = stabilityAlpha
 	case stabilityBetaNumber:
-		v.Stability = stabilityBeta
+		v.stability = stabilityBeta
 	case stabilityRCNumber:
-		v.Stability = stabilityRC
+		v.stability = stabilityRC
 	case stabilityStableNumber:
-		v.Stability = stabilityStable
+		v.stability = stabilityStable
 	case stabilityPLNumber:
-		v.Stability = stabilityPL
+		v.stability = stabilityPL
 	default:
-		v.Stability = stabilityUnknown
+		v.stability = stabilityUnknown
 	}
 
-	v.String = fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-	if v.Stability != stabilityStable {
-		switch v.Stability {
+	v.String = fmt.Sprintf("%d.%d.%d", v.major, v.minor, v.patch)
+	if v.stability != stabilityStable {
+		switch v.stability {
 		case stabilityAlpha:
-			v.String += fmt.Sprintf(" Alpha %d", v.PLLevel)
+			v.String += fmt.Sprintf(" Alpha %d", v.plLevel)
 		case stabilityBeta:
-			v.String += fmt.Sprintf(" Beta %d", v.PLLevel)
+			v.String += fmt.Sprintf(" Beta %d", v.plLevel)
 		case stabilityRC:
-			v.String += fmt.Sprintf(" RC %d", v.PLLevel)
+			v.String += fmt.Sprintf(" RC %d", v.plLevel)
 		case stabilityPL:
-			v.String += fmt.Sprintf(" PL %d", v.PLLevel)
+			v.String += fmt.Sprintf(" PL %d", v.plLevel)
 		case stabilityUnknown:
-			v.String += fmt.Sprintf(" (unknown %d)", v.StabNum)
+			v.String += fmt.Sprintf(" (unknown %d)", v.stabNum)
 		}
 	}
 

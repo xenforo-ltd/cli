@@ -16,15 +16,15 @@ import (
 	"github.com/xenforo-ltd/cli/internal/config"
 )
 
-// OAuthClient handles the OAuth authentication flow.
-type OAuthClient struct {
+// oauthClient handles the OAuth authentication flow.
+type oauthClient struct {
 	config     *config.OAuthConfig
 	httpClient *http.Client
 }
 
 // NewOAuthClient creates a new OAuth client.
-func NewOAuthClient(cfg *config.OAuthConfig) *OAuthClient {
-	return &OAuthClient{
+func NewOAuthClient(cfg *config.OAuthConfig) *oauthClient {
+	return &oauthClient{
 		config: cfg,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -33,7 +33,7 @@ func NewOAuthClient(cfg *config.OAuthConfig) *OAuthClient {
 }
 
 // AuthorizationURL generates the OAuth authorization URL.
-func (c *OAuthClient) AuthorizationURL(pkce *PKCEParams, redirectURI string) string {
+func (c *oauthClient) AuthorizationURL(pkce *pkceParams, redirectURI string) string {
 	endpoints := c.config.Endpoints()
 
 	params := url.Values{}
@@ -42,8 +42,8 @@ func (c *OAuthClient) AuthorizationURL(pkce *PKCEParams, redirectURI string) str
 	params.Set("redirect_uri", redirectURI)
 	params.Set("scope", strings.Join(c.config.Scopes, " "))
 	params.Set("state", pkce.State)
-	params.Set("code_challenge", pkce.CodeChallenge)
-	params.Set("code_challenge_method", pkce.CodeChallengeMethod)
+	params.Set("code_challenge", pkce.codeChallenge)
+	params.Set("code_challenge_method", pkce.codeChallengeMethod)
 
 	return endpoints.Auth + "?" + params.Encode()
 }
@@ -58,7 +58,7 @@ type tokenResponse struct {
 }
 
 // ExchangeCode exchanges an authorization code for a token.
-func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEParams, redirectURI string) (*Token, error) {
+func (c *oauthClient) ExchangeCode(ctx context.Context, code string, pkce *pkceParams, redirectURI string) (*Token, error) {
 	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
@@ -66,7 +66,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 	data.Set("client_id", c.config.ClientID)
 	data.Set("code", code)
 	data.Set("redirect_uri", redirectURI)
-	data.Set("code_verifier", pkce.CodeVerifier)
+	data.Set("code_verifier", pkce.codeVerifier)
 
 	resp, err := c.postForm(ctx, endpoints.Token, data, "token request", "exchange code for token")
 	if err != nil {
@@ -92,7 +92,7 @@ func (c *OAuthClient) ExchangeCode(ctx context.Context, code string, pkce *PKCEP
 }
 
 // RefreshToken refreshes an expired access token.
-func (c *OAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
+func (c *oauthClient) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
 	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
@@ -140,7 +140,7 @@ type IntrospectResponse struct {
 }
 
 // IntrospectToken checks the validity and metadata of a token.
-func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (*IntrospectResponse, error) {
+func (c *oauthClient) IntrospectToken(ctx context.Context, accessToken string) (*IntrospectResponse, error) {
 	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
@@ -171,7 +171,7 @@ func (c *OAuthClient) IntrospectToken(ctx context.Context, accessToken string) (
 }
 
 // RevokeToken revokes an access or refresh token.
-func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
+func (c *oauthClient) RevokeToken(ctx context.Context, token string) error {
 	endpoints := c.config.Endpoints()
 
 	data := url.Values{}
@@ -197,7 +197,7 @@ func (c *OAuthClient) RevokeToken(ctx context.Context, token string) error {
 	return nil
 }
 
-func (c *OAuthClient) postForm(ctx context.Context, endpoint string, data url.Values, request, action string) (*http.Response, error) {
+func (c *oauthClient) postForm(ctx context.Context, endpoint string, data url.Values, request, action string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create %s: %w", request, err)
@@ -213,7 +213,7 @@ func (c *OAuthClient) postForm(ctx context.Context, endpoint string, data url.Va
 	return resp, nil
 }
 
-func (c *OAuthClient) tokenFromResponse(resp *tokenResponse) *Token {
+func (c *oauthClient) tokenFromResponse(resp *tokenResponse) *Token {
 	now := time.Now()
 
 	return &Token{
@@ -227,24 +227,24 @@ func (c *OAuthClient) tokenFromResponse(resp *tokenResponse) *Token {
 	}
 }
 
-// CallbackResult holds the result of the OAuth callback.
-type CallbackResult struct {
+// callbackResult holds the result of the OAuth callback.
+type callbackResult struct {
 	Code  string
 	State string
 	Error string
 }
 
-// CallbackServer handles the OAuth redirect callback from the authorization server.
-type CallbackServer struct {
+// callbackServer handles the OAuth redirect callback from the authorization server.
+type callbackServer struct {
 	listener net.Listener
 	server   *http.Server
-	result   chan CallbackResult
+	result   chan callbackResult
 	serveErr chan error
 	path     string
 }
 
 // NewCallbackServer creates a new callback server.
-func NewCallbackServer(ctx context.Context, path string) (*CallbackServer, error) {
+func NewCallbackServer(ctx context.Context, path string) (*callbackServer, error) {
 	lc := &net.ListenConfig{}
 
 	listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
@@ -252,9 +252,9 @@ func NewCallbackServer(ctx context.Context, path string) (*CallbackServer, error
 		return nil, fmt.Errorf("failed to start callback server: %w", err)
 	}
 
-	cs := &CallbackServer{
+	cs := &callbackServer{
 		listener: listener,
-		result:   make(chan CallbackResult, 1),
+		result:   make(chan callbackResult, 1),
 		serveErr: make(chan error, 1),
 		path:     path,
 	}
@@ -276,12 +276,12 @@ func NewCallbackServer(ctx context.Context, path string) (*CallbackServer, error
 }
 
 // RedirectURI returns the callback server's redirect URI.
-func (cs *CallbackServer) RedirectURI() string {
+func (cs *callbackServer) RedirectURI() string {
 	return fmt.Sprintf("http://%s%s", cs.listener.Addr(), cs.path)
 }
 
 // Start begins listening for the OAuth callback.
-func (cs *CallbackServer) Start() {
+func (cs *callbackServer) Start() {
 	go func() {
 		err := cs.server.Serve(cs.listener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -294,7 +294,7 @@ func (cs *CallbackServer) Start() {
 }
 
 // WaitForCallback waits for the OAuth callback result.
-func (cs *CallbackServer) WaitForCallback(ctx context.Context) (*CallbackResult, error) {
+func (cs *callbackServer) WaitForCallback(ctx context.Context) (*callbackResult, error) {
 	select {
 	case result := <-cs.result:
 		return &result, nil
@@ -306,7 +306,7 @@ func (cs *CallbackServer) WaitForCallback(ctx context.Context) (*CallbackResult,
 }
 
 // Shutdown gracefully shuts down the callback server.
-func (cs *CallbackServer) Shutdown(ctx context.Context) error {
+func (cs *callbackServer) Shutdown(ctx context.Context) error {
 	if err := cs.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("failed to shut down callback server: %w", err)
 	}
@@ -314,10 +314,10 @@ func (cs *CallbackServer) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (cs *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
+func (cs *callbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
-	result := CallbackResult{
+	result := callbackResult{
 		Code:  query.Get("code"),
 		State: query.Get("state"),
 		Error: query.Get("error"),

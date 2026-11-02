@@ -22,14 +22,14 @@ const defaultSuffix = ".default"
 
 // extractOptions specifies options for extracting Docker files.
 type extractOptions struct {
-	OverwriteBaseFiles bool
+	overwriteBaseFiles bool
 }
 
 // extractDockerFilesWithOptions extracts Docker files with custom options.
 // It returns the paths of any ".default" files written alongside existing,
 // user-modified files so callers can notify the user.
 func extractDockerFilesWithOptions(targetDir string, opts extractOptions) (written []string, err error) {
-	written, err = extractDir(embedDir, targetDir, "", opts.OverwriteBaseFiles)
+	written, err = extractDir(embedDir, targetDir, "", opts.overwriteBaseFiles)
 	if err != nil {
 		return nil, err
 	}

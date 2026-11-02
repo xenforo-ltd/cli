@@ -31,7 +31,7 @@ func (t *hashesTask) run(ctx context.Context, root *os.Root) error {
 
 	manifest := make(map[string]string, len(files))
 	sources := directoryOpener{root: root}
-	defer sources.Close()
+	defer sources.close()
 	buffer := make([]byte, ioBufferSize)
 	hasher := sha256.New()
 	for _, rel := range slices.Sorted(maps.Keys(files)) {

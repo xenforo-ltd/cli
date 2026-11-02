@@ -3,8 +3,8 @@ package cache
 import "errors"
 
 var (
-	// ErrCacheMiss is returned when a requested cache entry does not exist.
-	ErrCacheMiss = errors.New("cache miss")
+	// errCacheMiss is returned when a requested cache entry does not exist.
+	errCacheMiss = errors.New("cache miss")
 
 	// errChecksumMismatch indicates a checksum verification failure.
 	errChecksumMismatch = errors.New("checksum mismatch")

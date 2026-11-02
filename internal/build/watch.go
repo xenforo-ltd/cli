@@ -17,8 +17,8 @@ import (
 // WatchOptions controls reporting from [WatchJavaScript].
 // Its zero value discards all output.
 type WatchOptions struct {
-	// Stdout receives successful build status messages.
-	Stdout io.Writer
+	// stdout receives successful build status messages.
+	stdout io.Writer
 
 	// Stderr receives build errors.
 	Stderr io.Writer
@@ -41,7 +41,7 @@ func WatchJavaScript(ctx context.Context, rootDir, addOnID string, options Watch
 		return fmt.Errorf("invalid add-on ID: %q", addOnID)
 	}
 
-	stdout := writerOrDiscard(options.Stdout)
+	stdout := writerOrDiscard(options.stdout)
 	stderr := writerOrDiscard(options.Stderr)
 	installation, err := openInstallation(ctx, rootDir)
 	if err != nil {

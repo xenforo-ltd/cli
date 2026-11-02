@@ -34,14 +34,14 @@ type Config struct {
 	CachePath string `json:"cache_path" mapstructure:"cache_path"`
 
 	// Auth selects the persistent credential store.
-	Auth AuthConfig `json:"auth" mapstructure:"auth"`
+	Auth authConfig `json:"auth" mapstructure:"auth"`
 
 	// OAuth holds OAuth-related settings.
 	OAuth OAuthConfig `json:"oauth" mapstructure:"oauth"`
 }
 
-// AuthConfig holds persistent credential storage settings.
-type AuthConfig struct {
+// authConfig holds persistent credential storage settings.
+type authConfig struct {
 	Storage string `json:"storage" mapstructure:"storage"`
 }
 
@@ -72,8 +72,8 @@ type OAuthConfig struct {
 	RedirectPath string `json:"redirect_path" mapstructure:"redirect_path"`
 }
 
-// OAuthEndpoints holds the OAuth endpoint URLs.
-type OAuthEndpoints struct {
+// oauthEndpoints holds the OAuth endpoint URLs.
+type oauthEndpoints struct {
 	Auth       string
 	Token      string
 	Introspect string
@@ -81,10 +81,10 @@ type OAuthEndpoints struct {
 }
 
 // Endpoints returns the OAuth endpoint URLs.
-func (cfg *OAuthConfig) Endpoints() *OAuthEndpoints {
+func (cfg *OAuthConfig) Endpoints() *oauthEndpoints {
 	base := strings.TrimSuffix(cfg.BaseURL, "/")
 
-	return &OAuthEndpoints{
+	return &oauthEndpoints{
 		Auth:       base + "/customer-oauth/authorize",
 		Token:      base + "/api/customer-oauth2/token",
 		Introspect: base + "/api/customer-oauth2/introspect",

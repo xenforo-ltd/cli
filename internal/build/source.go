@@ -22,7 +22,7 @@ type directoryOpener struct {
 func (o *directoryOpener) Open(name string) (*os.File, error) {
 	parent := filepath.Dir(name)
 	if parent != o.parent {
-		o.Close()
+		o.close()
 		if parent != "." {
 			var err error
 			o.dir, err = o.root.OpenRoot(parent)
@@ -42,8 +42,8 @@ func (o *directoryOpener) Open(name string) (*os.File, error) {
 	return o.root.Open(name)
 }
 
-// Close releases the cached directory handle without closing the build root.
-func (o *directoryOpener) Close() {
+// close releases the cached directory handle without closing the build root.
+func (o *directoryOpener) close() {
 	if o.dir != nil {
 		o.dir.Close()
 	}

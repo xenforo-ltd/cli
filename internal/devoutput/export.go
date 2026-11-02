@@ -14,16 +14,16 @@ import (
 	"strings"
 )
 
-// Result describes a completed export.
-type Result struct {
-	// Directory is the absolute path to the release data directory.
-	Directory string
+// result describes a completed export.
+type result struct {
+	// directory is the absolute path to the release data directory.
+	directory string
 
-	// Files is the number of XML files written, including empty containers.
-	Files int
+	// files is the number of XML files written, including empty containers.
+	files int
 
-	// Entries is the number of exported records across all XML files.
-	Entries int
+	// entries is the number of exported records across all XML files.
+	entries int
 
 	// Warnings lists ignored unknown fields, sorted and deduplicated by data type
 	// and field name. Intentionally omitted stock fields do not produce warnings.
@@ -37,12 +37,12 @@ type Result struct {
 // Non-empty type directories require _metadata.jsonl. Only listed files are
 // exported, and their contents must match the recorded hashes. Template and
 // phrase versions are preserved. Unknown record fields are ignored and reported
-// in Result.Warnings. Unsupported data types and export-handler class extensions
+// in result.Warnings. Unsupported data types and export-handler class extensions
 // are rejected; PHP handlers are not executed.
 //
 // Export converts all inputs before writing any files. Each XML file is replaced
 // atomically, but an I/O error or cancellation may leave a partially written set.
-func Export(ctx context.Context, addOnDir string) (*Result, error) {
+func Export(ctx context.Context, addOnDir string) (*result, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -93,10 +93,10 @@ func Export(ctx context.Context, addOnDir string) (*Result, error) {
 			return nil, fmt.Errorf("writing %s: %w", output.name, err)
 		}
 	}
-	return &Result{
-		Directory: filepath.Join(absolute, "_data"),
-		Files:     len(outputs),
-		Entries:   entries,
+	return &result{
+		directory: filepath.Join(absolute, "_data"),
+		files:     len(outputs),
+		entries:   entries,
 		Warnings:  slices.Sorted(maps.Keys(warnings)),
 	}, nil
 }

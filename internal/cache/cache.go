@@ -22,8 +22,8 @@ type Manager struct {
 	basePath string
 }
 
-// EntryMetadata holds information about a cached file.
-type EntryMetadata struct {
+// entryMetadata holds information about a cached file.
+type entryMetadata struct {
 	DownloadID   string    `json:"download_id"`
 	Version      string    `json:"version"`
 	Filename     string    `json:"filename"`
@@ -36,7 +36,7 @@ type EntryMetadata struct {
 // Entry represents a cached download file.
 type Entry struct {
 	LicenseKey string
-	Metadata   EntryMetadata
+	Metadata   entryMetadata
 	FilePath   string
 }
 
@@ -75,13 +75,13 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, ErrCacheMiss
+			return nil, errCacheMiss
 		}
 
 		return nil, fmt.Errorf("failed to read cache metadata: %w", err)
 	}
 
-	var metadata EntryMetadata
+	var metadata entryMetadata
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		return nil, fmt.Errorf("failed to parse cache metadata: %w", err)
 	}
@@ -106,7 +106,7 @@ type entryVerifier interface {
 func FindValid(m entryVerifier, licenseKey string, downloadID, version string) (*Entry, error) {
 	entry, err := m.GetEntry(licenseKey, downloadID, version)
 	if err != nil {
-		if errors.Is(err, ErrCacheMiss) {
+		if errors.Is(err, errCacheMiss) {
 			return nil, nil
 		}
 
@@ -125,7 +125,7 @@ func FindValid(m entryVerifier, licenseKey string, downloadID, version string) (
 }
 
 // saveMetadata saves cache entry metadata to disk.
-func (m *Manager) saveMetadata(licenseKey string, metadata *EntryMetadata) error {
+func (m *Manager) saveMetadata(licenseKey string, metadata *entryMetadata) error {
 	entryPath, err := m.entryPath(licenseKey, metadata.DownloadID, metadata.Version)
 	if err != nil {
 		return err
@@ -258,7 +258,7 @@ func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 		return nil, fmt.Errorf("failed to read cache metadata %s: %w", metadataPath, err)
 	}
 
-	var metadata EntryMetadata
+	var metadata entryMetadata
 	if err := json.Unmarshal(data, &metadata); err != nil {
 		return nil, fmt.Errorf("failed to parse cache metadata %s: %w", metadataPath, err)
 	}
