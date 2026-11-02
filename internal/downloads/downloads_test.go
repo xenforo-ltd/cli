@@ -113,10 +113,9 @@ func TestSelectionAndDownload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
 
 	t.Run("latest core selects latest add-on", func(t *testing.T) {
-		got, err := downloads.ResolveSelections(ctx, client, "license-1", []string{"xenforo", "exact"}, 20, "ignored", nil, nil)
+		got, err := downloads.ResolveSelections(t.Context(), client, "license-1", []string{"xenforo", "exact"}, 20, "ignored", nil, nil)
 		if err != nil || len(got) != 2 {
 			t.Fatalf("selections: %v, %v", got, err)
 		}
@@ -127,7 +126,7 @@ func TestSelectionAndDownload(t *testing.T) {
 
 	t.Run("older core selects exact then date then latest", func(t *testing.T) {
 		var skipped []string
-		got, err := downloads.ResolveSelections(ctx, client, "license-1", []string{"xenforo", "exact", "date", "future", "empty"}, 10, "wrong", nil, func(product string) { skipped = append(skipped, product) })
+		got, err := downloads.ResolveSelections(t.Context(), client, "license-1", []string{"xenforo", "exact", "date", "future", "empty"}, 10, "wrong", nil, func(product string) { skipped = append(skipped, product) })
 		if err != nil || len(got) != 4 {
 			t.Fatalf("selections: %v, %v", got, err)
 		}
@@ -144,7 +143,7 @@ func TestSelectionAndDownload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		entry, version, err := downloads.DownloadSelection(ctx, client, manager, "license-1", got[2], false, nil)
+		entry, version, err := downloads.DownloadSelection(t.Context(), client, manager, "license-1", got[2], false, nil)
 		if err != nil {
 			t.Fatalf("download: %v", err)
 		}
@@ -168,7 +167,7 @@ func TestSelectionAndDownload(t *testing.T) {
 	})
 
 	t.Run("override takes precedence", func(t *testing.T) {
-		got, err := downloads.ResolveSelections(ctx, client, "license-1", []string{"empty"}, 20, "2.3.0", map[string]int{"empty": 77}, nil)
+		got, err := downloads.ResolveSelections(t.Context(), client, "license-1", []string{"empty"}, 20, "2.3.0", map[string]int{"empty": 77}, nil)
 		if err != nil || len(got) != 1 || got[0].Product != "empty" || got[0].VersionString != "override-release" {
 			t.Fatalf("override: %+v, %v", got, err)
 		}
@@ -177,7 +176,7 @@ func TestSelectionAndDownload(t *testing.T) {
 	t.Run("no core versions is an error", func(t *testing.T) {
 		noCoreVersions.Store(true)
 		defer noCoreVersions.Store(false)
-		_, err := downloads.ResolveSelections(ctx, client, "license-1", []string{"empty"}, 10, "2.2.0", nil, nil)
+		_, err := downloads.ResolveSelections(t.Context(), client, "license-1", []string{"empty"}, 10, "2.2.0", nil, nil)
 		if err == nil || !strings.Contains(err.Error(), "no xenforo versions available") {
 			t.Fatalf("expected unavailable core error, got %v", err)
 		}
@@ -196,7 +195,7 @@ func TestSelectionAndDownload(t *testing.T) {
 			{"override request fails", []string{"empty"}, 10, map[string]int{"empty": 999}, "failed to resolve override for empty"},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
-				_, err := downloads.ResolveSelections(ctx, client, "license-1", tc.products, tc.core, "2.2.0", tc.overrides, nil)
+				_, err := downloads.ResolveSelections(t.Context(), client, "license-1", tc.products, tc.core, "2.2.0", tc.overrides, nil)
 				if err == nil || !strings.Contains(err.Error(), tc.message) {
 					t.Fatalf("expected %q error, got %v", tc.message, err)
 				}

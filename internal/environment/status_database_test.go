@@ -45,7 +45,7 @@ func TestPSInfoComposeFormats(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := runnerWithFakeDocker(t, `printf '%s' "$PS_DATA"`)
 			t.Setenv("PS_DATA", tc.data)
-			got, err := r.PSInfo(context.Background())
+			got, err := r.PSInfo(t.Context())
 			if err != nil || len(got) != 2 {
 				t.Fatalf("PSInfo: %v, %v", got, err)
 			}
@@ -64,19 +64,19 @@ func TestPSInfoErrorsAndEmpty(t *testing.T) {
 printf '%s' "$PS_DATA"`)
 	for _, data := range []string{`[{"Service":`, "{\"Service\":\"ok\"}\n{"} {
 		t.Setenv("PS_DATA", data)
-		if _, err := r.PSInfo(context.Background()); err == nil || !strings.Contains(err.Error(), "failed to parse container status") {
+		if _, err := r.PSInfo(t.Context()); err == nil || !strings.Contains(err.Error(), "failed to parse container status") {
 			t.Errorf("malformed %q: %v", data, err)
 		}
 	}
 	t.Setenv("PS_DATA", " \n")
-	if got, err := r.PSInfo(context.Background()); err != nil || len(got) != 0 {
+	if got, err := r.PSInfo(t.Context()); err != nil || len(got) != 0 {
 		t.Errorf("empty output: %v, %v", got, err)
 	}
 	t.Setenv("PS_FAIL", "1")
-	if _, err := r.PSInfo(context.Background()); err == nil || !strings.Contains(err.Error(), "daemon unavailable") {
+	if _, err := r.PSInfo(t.Context()); err == nil || !strings.Contains(err.Error(), "daemon unavailable") {
 		t.Errorf("docker failure: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if _, err := r.PSInfo(ctx); !errors.Is(err, context.Canceled) {
 		t.Errorf("cancellation: %v", err)
@@ -92,7 +92,7 @@ if [ "$READY" = yes ]; then
   printf OK
 fi`)
 	t.Setenv("READY", "yes")
-	if err := r.WaitForDatabase(context.Background(), 0); err != nil {
+	if err := r.WaitForDatabase(t.Context(), 0); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
 	if got := strings.Count(readFile(t, log), "attempt\n"); got != 2 {
@@ -102,13 +102,13 @@ fi`)
 		t.Fatal(err)
 	}
 	t.Setenv("READY", "no")
-	if err := r.WaitForDatabase(context.Background(), 0); err == nil || !strings.Contains(err.Error(), "timed out waiting for database") {
+	if err := r.WaitForDatabase(t.Context(), 0); err == nil || !strings.Contains(err.Error(), "timed out waiting for database") {
 		t.Fatalf("not ready: %v", err)
 	}
 	if got := strings.Count(readFile(t, log), "attempt\n"); got <= 1 {
 		t.Errorf("expected retries before failure, got %d attempts", got)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := r.WaitForDatabase(ctx, 0); !errors.Is(err, context.Canceled) {
 		t.Errorf("cancellation: %v", err)

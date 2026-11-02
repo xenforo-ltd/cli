@@ -76,7 +76,7 @@ func TestDownloadLifecycle(t *testing.T) {
 	var progress, total int64
 	download := func() *cache.DownloadResult {
 		t.Helper()
-		result, err := m.Download(context.Background(), opts, "test-token", func(current, size int64) {
+		result, err := m.Download(t.Context(), opts, "test-token", func(current, size int64) {
 			progress, total = current, size
 		})
 		if err != nil {
@@ -155,7 +155,7 @@ func TestDownloadLifecycle(t *testing.T) {
 		defer server.Close()
 		for _, path := range []string{"failure", "incomplete", "cancelled"} {
 			opts := cache.DownloadOptions{LicenseKey: "failure-" + path, DownloadID: "xf", Version: "1", URL: server.URL + "/" + path, Filename: "file.zip"}
-			ctx := context.Background()
+			ctx := t.Context()
 			if path == "cancelled" {
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithCancel(ctx)

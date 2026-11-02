@@ -1,7 +1,6 @@
 package auth_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -135,7 +134,7 @@ func status(t *testing.T) (map[string]any, string) {
 	old := os.Stdout
 	os.Stdout = f
 	defer func() { os.Stdout = old }()
-	err = command.Status(context.Background(), command.StatusOptions{JSON: true})
+	err = command.Status(t.Context(), command.StatusOptions{JSON: true})
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -261,7 +260,7 @@ func TestRefreshFileCredentials(t *testing.T) {
 	cleanCredentials(t)
 	t.Run("failure preserves file", func(t *testing.T) {
 		before := writeToken(t, token("refresh-denied"))
-		err := command.Refresh(context.Background())
+		err := command.Refresh(t.Context())
 		if err == nil || !strings.Contains(err.Error(), "failed to refresh token") {
 			t.Fatalf("Refresh error = %v", err)
 		}
@@ -275,7 +274,7 @@ func TestRefreshFileCredentials(t *testing.T) {
 	})
 	t.Run("success persists rotated access and retains refresh", func(t *testing.T) {
 		writeToken(t, token("refresh-ok"))
-		if err := command.Refresh(context.Background()); err != nil {
+		if err := command.Refresh(t.Context()); err != nil {
 			t.Fatal(err)
 		}
 		data, err := os.ReadFile(credentialPath)
@@ -292,7 +291,7 @@ func TestRefreshFileCredentials(t *testing.T) {
 	})
 	t.Run("missing refresh hint", func(t *testing.T) {
 		before := writeToken(t, token(""))
-		err := command.Refresh(context.Background())
+		err := command.Refresh(t.Context())
 		if err == nil || !strings.Contains(err.Error(), "no refresh token") || !strings.Contains(clierror.HintOf(err), "xf auth login") {
 			t.Fatalf("error = %v, hint = %q", err, clierror.HintOf(err))
 		}
@@ -313,7 +312,7 @@ func TestLogoutFileCredentials(t *testing.T) {
 		revocations = nil
 		revocationMu.Unlock()
 		writeToken(t, token("refresh-secret"))
-		if err := command.Logout(context.Background()); err != nil {
+		if err := command.Logout(t.Context()); err != nil {
 			t.Fatal(err)
 		}
 		revocationMu.Lock()
@@ -334,7 +333,7 @@ func TestLogoutFileCredentials(t *testing.T) {
 		tok := token("revoke-denied-refresh")
 		tok.AccessToken = "revoke-denied-access"
 		writeToken(t, tok)
-		if err := command.Logout(context.Background()); err != nil {
+		if err := command.Logout(t.Context()); err != nil {
 			t.Fatal(err)
 		}
 		revocationMu.Lock()
@@ -356,14 +355,14 @@ func TestEnvironmentLifecycleRejectsMutations(t *testing.T) {
 	t.Setenv("XF_TOKEN", "external-secret")
 	for _, tc := range []struct {
 		name string
-		run  func() error
+		run  func(*testing.T) error
 	}{
-		{"login", func() error { return command.Login(context.Background(), command.LoginOptions{Timeout: 1}) }},
-		{"refresh", func() error { return command.Refresh(context.Background()) }},
-		{"logout", func() error { return command.Logout(context.Background()) }},
+		{"login", func(t *testing.T) error { return command.Login(t.Context(), command.LoginOptions{Timeout: 1}) }},
+		{"refresh", func(t *testing.T) error { return command.Refresh(t.Context()) }},
+		{"logout", func(t *testing.T) error { return command.Logout(t.Context()) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.run()
+			err := tc.run(t)
 			if err == nil || !strings.Contains(err.Error(), "XF_TOKEN manages authentication externally") || strings.Contains(err.Error(), "external-secret") {
 				t.Fatalf("error = %v", err)
 			}

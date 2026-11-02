@@ -172,7 +172,7 @@ func TestRunnerComposeAndExecFallback(t *testing.T) {
 		t.Fatal("runner did not read environment")
 	}
 	var stdout, stderr bytes.Buffer
-	if err := runner.ExecOrRun(context.Background(), "xf", map[string]string{"SECRET": "sensitive"}, strings.NewReader(""), &stdout, &stderr, "php", "-v"); err != nil {
+	if err := runner.ExecOrRun(t.Context(), "xf", map[string]string{"SECRET": "sensitive"}, strings.NewReader(""), &stdout, &stderr, "php", "-v"); err != nil {
 		t.Fatal(err)
 	}
 	if stdout.String() != dir+"|sensitive" || stderr.Len() != 0 {
@@ -195,7 +195,7 @@ func TestRunnerComposeAndExecFallback(t *testing.T) {
 	if !sawExec || !sawRun {
 		t.Fatalf("expected exec and run fallback in Docker calls: %v", lines)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := runner.Compose(ctx, nil, &stdout, &stderr, "ps"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation: %v", err)
@@ -212,7 +212,7 @@ func TestRunInDirFallsBackToLocalCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	if err := environment.RunInDir(context.Background(), dir, "nested", strings.NewReader("input"), &stdout, &stderr, "/bin/sh", "-c", "pwd; cat"); err != nil {
+	if err := environment.RunInDir(t.Context(), dir, "nested", strings.NewReader("input"), &stdout, &stderr, "/bin/sh", "-c", "pwd; cat"); err != nil {
 		t.Fatal(err)
 	}
 	outputDir, input, ok := strings.Cut(stdout.String(), "\n")
@@ -227,7 +227,7 @@ func TestRunInDirFallsBackToLocalCommand(t *testing.T) {
 	if err != nil || gotDir != wantDir {
 		t.Fatalf("local working directory: %q, %v; want %q", gotDir, err, wantDir)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := environment.RunInDir(ctx, dir, ".", nil, &stdout, &stderr, "/bin/sh", "-c", "exit 0"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation: %v", err)

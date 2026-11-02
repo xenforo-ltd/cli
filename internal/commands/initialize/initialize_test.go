@@ -121,7 +121,7 @@ func TestInitialize(t *testing.T) {
 		opts := valid(target)
 		opts.Products = []string{" addon ", "xenforo", "addon", ""}
 		opts.EnvFile, opts.EnvFlags = envFile, []string{"CUSTOM=flag=value", "XF_EMAIL=flag@example.com"}
-		if err := initialize.Run(context.Background(), opts); err != nil {
+		if err := initialize.Run(t.Context(), opts); err != nil {
 			t.Fatal(err)
 		}
 		wantProducts := []string{"xenforo", "addon"}
@@ -168,7 +168,7 @@ func TestInitialize(t *testing.T) {
 			t.Fatal(err)
 		}
 		opts := &initialize.InitOptions{TargetPath: target, InstanceName: "existing", SkipBuildJS: true, EnvFlags: []string{"XF_TITLE=Existing title"}}
-		if err := initialize.Run(context.Background(), opts); err != nil {
+		if err := initialize.Run(t.Context(), opts); err != nil {
 			t.Fatal(err)
 		}
 		values, err := environment.ReadEnvFile(filepath.Join(target, ".env"))
@@ -202,7 +202,7 @@ func TestInitialize(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				o := valid(filepath.Join(t.TempDir(), "site"))
 				tc.change(o)
-				err := initialize.Run(context.Background(), o)
+				err := initialize.Run(t.Context(), o)
 				if err == nil || !strings.Contains(err.Error(), tc.want) {
 					t.Fatalf("error: %v", err)
 				}
@@ -216,7 +216,7 @@ func TestInitialize(t *testing.T) {
 		if err := os.WriteFile(marker, []byte("keep"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		err := initialize.Run(context.Background(), valid(target))
+		err := initialize.Run(t.Context(), valid(target))
 		if !errors.Is(err, clierror.ErrInvalidInput) || !strings.Contains(err.Error(), "not empty") {
 			t.Fatalf("error: %v", err)
 		}
@@ -231,7 +231,7 @@ func TestInitialize(t *testing.T) {
 		mu.Unlock()
 		defer func() { mu.Lock(); failVersions = false; mu.Unlock() }()
 		target := filepath.Join(t.TempDir(), "site")
-		err := initialize.Run(context.Background(), valid(target))
+		err := initialize.Run(t.Context(), valid(target))
 		if err == nil || !strings.Contains(err.Error(), "503") || !strings.Contains(err.Error(), "resolve product selections") {
 			t.Fatalf("error: %v", err)
 		}

@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"context"
 	"io"
 	"net/url"
 	"os"
@@ -79,7 +78,7 @@ func captureOutput(t *testing.T, fn func() error) (string, error) {
 
 func TestPrintURLAndOrbStackRequirement(t *testing.T) {
 	dir, _ := databaseFixture(t, "redis:mysql")
-	output, err := captureOutput(t, func() error { return db.DB(context.Background(), []string{dir}, db.Options{PrintURL: true}) })
+	output, err := captureOutput(t, func() error { return db.DB(t.Context(), []string{dir}, db.Options{PrintURL: true}) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,11 +94,11 @@ func TestPrintURLAndOrbStackRequirement(t *testing.T) {
 		t.Fatalf("unexpected connection URL: %s", u)
 	}
 	t.Setenv("ENGINE", "Docker Desktop")
-	if _, err := captureOutput(t, func() error { return db.DB(context.Background(), []string{dir}, db.Options{PrintURL: true}) }); err == nil || !strings.Contains(err.Error(), "requires OrbStack") {
+	if _, err := captureOutput(t, func() error { return db.DB(t.Context(), []string{dir}, db.Options{PrintURL: true}) }); err == nil || !strings.Contains(err.Error(), "requires OrbStack") {
 		t.Errorf("non-OrbStack engine: %v", err)
 	}
 	t.Setenv("INFO_FAIL", "1")
-	if _, err := captureOutput(t, func() error { return db.DB(context.Background(), []string{dir}, db.Options{PrintURL: true}) }); err == nil || !strings.Contains(err.Error(), "failed to detect OrbStack") {
+	if _, err := captureOutput(t, func() error { return db.DB(t.Context(), []string{dir}, db.Options{PrintURL: true}) }); err == nil || !strings.Contains(err.Error(), "failed to detect OrbStack") {
 		t.Errorf("docker info failure: %v", err)
 	}
 }
@@ -114,8 +113,8 @@ func TestDatabaseContextSelection(t *testing.T) {
 		t.Run(tc.contexts, func(t *testing.T) {
 			dir, _ := databaseFixture(t, tc.contexts)
 			for _, run := range []func() error{
-				func() error { return db.DB(context.Background(), []string{dir}, db.Options{PrintURL: true}) },
-				func() error { return db.Shell(context.Background(), []string{dir}) },
+				func() error { return db.DB(t.Context(), []string{dir}, db.Options{PrintURL: true}) },
+				func() error { return db.Shell(t.Context(), []string{dir}) },
 			} {
 				if err := run(); err == nil || !strings.Contains(err.Error(), tc.want) {
 					t.Errorf("got %v, want %q", err, tc.want)
@@ -127,7 +126,7 @@ func TestDatabaseContextSelection(t *testing.T) {
 
 func TestShellForwardsArgumentsWithoutPasswordInArgv(t *testing.T) {
 	dir, log := databaseFixture(t, "mysql-replication")
-	if err := db.Shell(context.Background(), []string{dir, "--", "--execute", "SELECT 1"}); err != nil {
+	if err := db.Shell(t.Context(), []string{dir, "--", "--execute", "SELECT 1"}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := os.ReadFile(log)
@@ -144,7 +143,7 @@ func TestShellForwardsArgumentsWithoutPasswordInArgv(t *testing.T) {
 		t.Errorf("password appeared in arguments: %q", got)
 	}
 	t.Setenv("RUNNING", "no")
-	if err := db.Shell(context.Background(), []string{dir}); err == nil || !strings.Contains(err.Error(), "database is not running") {
+	if err := db.Shell(t.Context(), []string{dir}); err == nil || !strings.Contains(err.Error(), "database is not running") {
 		t.Errorf("stopped database: %v", err)
 	}
 }

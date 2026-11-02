@@ -53,7 +53,7 @@ func TestBuildReleaseContentsAndReproducibility(t *testing.T) {
 	put(t, addon, "_no_upload/README.txt", "instructions")
 	stamp := time.Date(2024, 2, 3, 4, 5, 6, 999, time.FixedZone("offset", 3600))
 	opts := []build.Option{build.WithoutDependencyInstall(), build.WithTimestamp(stamp)}
-	result, err := build.Build(context.Background(), root, "Acme/Demo", opts...)
+	result, err := build.Build(t.Context(), root, "Acme/Demo", opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestBuildReleaseContentsAndReproducibility(t *testing.T) {
 	if result.FileCount != len(want) || result.TotalSize != size {
 		t.Fatalf("counts: %d files, %d bytes", result.FileCount, result.TotalSize)
 	}
-	second, err := build.Build(context.Background(), root, "Acme/Demo", opts...)
+	second, err := build.Build(t.Context(), root, "Acme/Demo", opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestBuildTimestampBoundaries(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root, _ := fixture(t, `{}`)
-			result, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall(), build.WithTimestamp(tc.timestamp))
+			result, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall(), build.WithTimestamp(tc.timestamp))
 			if !tc.valid {
 				if err == nil {
 					t.Fatal("accepted out-of-range timestamp")
@@ -177,19 +177,19 @@ func TestBuildTimestampBoundaries(t *testing.T) {
 func TestBuildRejectsUnsafeAndFailedInputs(t *testing.T) {
 	t.Run("invalid add-on ID", func(t *testing.T) {
 		root, _ := fixture(t, `{}`)
-		if _, err := build.Build(context.Background(), root, "../Demo", build.WithoutDependencyInstall()); err == nil {
+		if _, err := build.Build(t.Context(), root, "../Demo", build.WithoutDependencyInstall()); err == nil {
 			t.Fatal("accepted invalid add-on ID")
 		}
 	})
 	t.Run("malformed config", func(t *testing.T) {
 		root, _ := fixture(t, `{"whitelist":`)
-		if _, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
+		if _, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
 			t.Fatal("accepted malformed build.json")
 		}
 	})
 	t.Run("traversal", func(t *testing.T) {
 		root, _ := fixture(t, `{"additional_files":["../secret"]}`)
-		if _, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
+		if _, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
 			t.Fatal("accepted traversal")
 		}
 	})
@@ -205,13 +205,13 @@ func TestBuildRejectsUnsafeAndFailedInputs(t *testing.T) {
 			}
 			t.Fatal(err)
 		}
-		if _, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
+		if _, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
 			t.Fatal("accepted external symlink")
 		}
 	})
 	t.Run("missing additional file", func(t *testing.T) {
 		root, addon := fixture(t, `{"additional_files":["missing.txt"]}`)
-		if _, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
+		if _, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
 			t.Fatal("accepted missing input")
 		}
 		if _, err := os.Stat(filepath.Join(addon, "_releases")); !errors.Is(err, os.ErrNotExist) {
@@ -221,7 +221,7 @@ func TestBuildRejectsUnsafeAndFailedInputs(t *testing.T) {
 	t.Run("javascript task failure", func(t *testing.T) {
 		root, addon := fixture(t, `{"minify":["js/broken.js"]}`)
 		put(t, addon, "js/broken.js", "function {")
-		if _, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
+		if _, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
 			t.Fatal("accepted invalid JavaScript")
 		}
 		if _, err := os.Stat(filepath.Join(addon, "_releases")); !errors.Is(err, os.ErrNotExist) {
@@ -230,7 +230,7 @@ func TestBuildRejectsUnsafeAndFailedInputs(t *testing.T) {
 	})
 	t.Run("canceled", func(t *testing.T) {
 		root, _ := fixture(t, `{}`)
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		if _, err := build.Build(ctx, root, "Acme/Demo", build.WithoutDependencyInstall()); !errors.Is(err, context.Canceled) {
 			t.Fatalf("error: %v", err)
@@ -242,7 +242,7 @@ func TestBuildJavaScriptRollsUpAndMinifies(t *testing.T) {
 	root, addon := fixture(t, `{"rollup":{"js/bundle.js":["js/one.js","js/two.js"]},"minify":["js/bundle.js"]}`)
 	put(t, addon, "js/one.js", "window.first = 1;")
 	put(t, addon, "js/two.js", "window.second = 2;")
-	if err := build.BuildJavaScript(context.Background(), root, "Acme/Demo"); err != nil {
+	if err := build.BuildJavaScript(t.Context(), root, "Acme/Demo"); err != nil {
 		t.Fatal(err)
 	}
 	bundle, err := os.ReadFile(filepath.Join(addon, "js/bundle.js"))

@@ -2,7 +2,6 @@ package build_test
 
 import (
 	"archive/zip"
-	"context"
 	"io"
 	"strings"
 	"testing"
@@ -39,7 +38,7 @@ func TestBuildAdditionalGlobsAndFilePrecedence(t *testing.T) {
 	put(t, addon, "js/two.js", "root two")
 	put(t, addon, "js/ignored.txt", "not selected")
 	put(t, addon, "_files/js/one.js", "replacement one")
-	result, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall())
+	result, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +64,7 @@ func TestBuildHiddenFilesRequireExplicitWhitelist(t *testing.T) {
 		put(t, addon, "visible.txt", "visible")
 		put(t, addon, ".secret", "hidden")
 		put(t, addon, ".config/settings", "hidden directory")
-		result, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall())
+		result, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +83,7 @@ func TestBuildHiddenFilesRequireExplicitWhitelist(t *testing.T) {
 		put(t, addon, ".htaccess", "rules")
 		put(t, addon, "visible.txt", "visible")
 		put(t, addon, ".secret", "hidden")
-		result, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall())
+		result, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +99,7 @@ func TestBuildHiddenFilesRequireExplicitWhitelist(t *testing.T) {
 
 func TestBuildAdditionalGlobMustMatch(t *testing.T) {
 	root, _ := fixture(t, `{"additional_files":["assets/*.js"]}`)
-	_, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall())
+	_, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall())
 	if err == nil || !strings.Contains(err.Error(), "matched no files") {
 		t.Fatalf("unmatched glob error = %v", err)
 	}

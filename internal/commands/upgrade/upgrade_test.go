@@ -144,7 +144,7 @@ func runScenario(t *testing.T, scenario string) {
 		}
 		t.Setenv("PATH", bin)
 	}
-	err = upgrade.Run(context.Background(), &upgrade.UpgradeOptions{TargetPath: installation, TargetVersionID: target, SkipUpgrade: scenario != "child-failure"})
+	err = upgrade.Run(t.Context(), &upgrade.UpgradeOptions{TargetPath: installation, TargetVersionID: target, SkipUpgrade: scenario != "child-failure"})
 	switch scenario {
 	case "success", "child-failure":
 		if scenario == "success" && err != nil {

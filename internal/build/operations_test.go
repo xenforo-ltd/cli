@@ -3,7 +3,6 @@ package build_test
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"errors"
 	"io"
 	"os"
@@ -23,7 +22,7 @@ func TestBuildExecGeneratesArchiveContent(t *testing.T) {
 	root, addon := fixture(t, `{"exec":[["/bin/sh","-c","read -r input; printf '%s\\n' \"$PWD\" \"$input\" \"$1\" \"$2\" > generated.txt; printf stdout; printf stderr >&2","sh","{addon_id}:{version_string}:{version_id}:{enabled}","{missing}:{empty}:{object}"]]}`)
 	put(t, addon, "addon.json", `{"version_string":"1.2 Beta","version_id":123,"enabled":true,"empty":"","object":{}}`)
 	var stdout, stderr bytes.Buffer
-	result, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall(), build.WithIO(strings.NewReader("input line\n"), &stdout, &stderr))
+	result, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall(), build.WithIO(strings.NewReader("input line\n"), &stdout, &stderr))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +65,7 @@ func TestBuildExecStopsOnFailure(t *testing.T) {
 		t.Skip("requires POSIX shell")
 	}
 	root, addon := fixture(t, `{"exec":[["/bin/sh","-c","printf first > first.txt; exit 7"],["/bin/sh","-c","printf later > later.txt"]]}`)
-	if _, err := build.Build(context.Background(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
+	if _, err := build.Build(t.Context(), root, "Acme/Demo", build.WithoutDependencyInstall()); err == nil {
 		t.Fatal("expected command failure")
 	}
 	if _, err := os.Stat(filepath.Join(addon, "first.txt")); err != nil {
@@ -114,7 +113,7 @@ func TestBuildComposerOptional(t *testing.T) {
 			if tc.skip {
 				opts = append(opts, build.WithoutDependencyInstall())
 			}
-			result, err := build.Build(context.Background(), root, "Acme/Demo", opts...)
+			result, err := build.Build(t.Context(), root, "Acme/Demo", opts...)
 			if (err != nil) != tc.fail {
 				t.Fatalf("build error: %v", err)
 			}

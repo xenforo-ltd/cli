@@ -1,7 +1,6 @@
 package devoutput_test
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/json"
 	"encoding/xml"
@@ -29,7 +28,7 @@ func TestExportNestedOptionsAndJSON(t *testing.T) {
 	prepared(t, root, "phrases", "example.txt", text)
 	// Text records retain version metadata in addition to the file hash.
 	write(t, root, "_output/phrases/_metadata.jsonl", fmt.Sprintf(`{"_file":"example.txt","hash":"%x","version_id":1,"version_string":"1","global_cache":false}`, md5.Sum([]byte(text))))
-	if _, err := devoutput.Export(context.Background(), root); err != nil {
+	if _, err := devoutput.Export(t.Context(), root); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(root, "_data/options.xml"))
@@ -105,7 +104,7 @@ func TestExportRejectsInvalidContentAndCollections(t *testing.T) {
 			root := t.TempDir()
 			prepared(t, root, tc.kind, tc.filename, tc.content)
 			write(t, root, "_data/options.xml", "existing")
-			if _, err := devoutput.Export(context.Background(), root); err == nil || !strings.Contains(err.Error(), tc.message) {
+			if _, err := devoutput.Export(t.Context(), root); err == nil || !strings.Contains(err.Error(), tc.message) {
 				t.Fatalf("error: %v", err)
 			}
 			data, err := os.ReadFile(filepath.Join(root, "_data/options.xml"))

@@ -31,7 +31,7 @@ func TestExportPhrases(t *testing.T) {
 	write(t, root, "_output/phrases/greeting.txt", text)
 	write(t, root, "_output/phrases/unlisted.txt", "not exported")
 	write(t, root, "_output/phrases/_metadata.jsonl", fmt.Sprintf(`{"_file":"greeting.txt","hash":"%x","version_id":102,"version_string":"1.2","global_cache":true,"custom_field":"ignored"}`, md5.Sum([]byte(text))))
-	result, err := devoutput.Export(context.Background(), root)
+	result, err := devoutput.Export(t.Context(), root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestExportRejectsInvalidInputsBeforeWriting(t *testing.T) {
 				write(t, root, "_output/phrases/greeting.txt", "hello")
 			}
 			write(t, root, tc.path, tc.data)
-			if _, err := devoutput.Export(context.Background(), root); err == nil || !strings.Contains(err.Error(), tc.message) {
+			if _, err := devoutput.Export(t.Context(), root); err == nil || !strings.Contains(err.Error(), tc.message) {
 				t.Fatalf("error: %v", err)
 			}
 			data, err := os.ReadFile(filepath.Join(root, "_data/phrases.xml"))
@@ -101,7 +101,7 @@ func TestExportRejectsInvalidInputsBeforeWriting(t *testing.T) {
 		})
 	}
 	t.Run("canceled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		if _, err := devoutput.Export(ctx, t.TempDir()); !errors.Is(err, context.Canceled) {
 			t.Fatalf("error: %v", err)

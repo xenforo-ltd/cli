@@ -240,25 +240,25 @@ func TestOAuthBehavior(t *testing.T) {
 		t.Fatalf("authorization URL: %s", u)
 	}
 	challenge = u.Query().Get("code_challenge")
-	token, err := client.ExchangeCode(context.Background(), "code", pkce, "http://localhost/callback")
+	token, err := client.ExchangeCode(t.Context(), "code", pkce, "http://localhost/callback")
 	if err != nil || token.AccessToken != "access" || token.IsExpired() || token.BaseURL != server.URL {
 		t.Fatalf("exchange: %#v %v", token, err)
 	}
-	refreshed, err := client.RefreshToken(context.Background(), "initial")
+	refreshed, err := client.RefreshToken(t.Context(), "initial")
 	if err != nil || refreshed.AccessToken != "renewed" || refreshed.RefreshToken != "initial" {
 		t.Fatalf("refresh: %#v %v", refreshed, err)
 	}
-	if _, err := client.RefreshToken(context.Background(), "fail"); err == nil || !strings.Contains(err.Error(), "400") || !strings.Contains(err.Error(), "invalid grant") {
+	if _, err := client.RefreshToken(t.Context(), "fail"); err == nil || !strings.Contains(err.Error(), "400") || !strings.Contains(err.Error(), "invalid grant") {
 		t.Fatalf("refresh error: %v", err)
 	}
-	introspection, err := client.IntrospectToken(context.Background(), "access")
+	introspection, err := client.IntrospectToken(t.Context(), "access")
 	if err != nil || !introspection.Active || introspection.Username != "alice" {
 		t.Fatalf("introspection: %#v %v", introspection, err)
 	}
-	if err := client.RevokeToken(context.Background(), "access"); err != nil {
+	if err := client.RevokeToken(t.Context(), "access"); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if _, err := client.RefreshToken(ctx, "initial"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation: %v", err)
