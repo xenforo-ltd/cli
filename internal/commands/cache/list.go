@@ -86,7 +86,11 @@ func List(_ context.Context, opts ListOptions) error {
 			return c
 		}
 
-		return strings.Compare(a.Metadata.Version, b.Metadata.Version)
+		if c := strings.Compare(a.Metadata.Version, b.Metadata.Version); c != 0 {
+			return c
+		}
+
+		return strings.Compare(a.FilePath, b.FilePath)
 	})
 
 	cfg, err := config.Load()
