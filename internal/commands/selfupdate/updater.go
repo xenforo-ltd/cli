@@ -370,7 +370,9 @@ func writeBinary(outPath string, r io.Reader, name string) error {
 		return fmt.Errorf("failed to extract update binary: %w", err)
 	}
 
-	written, err := io.Copy(outFile, io.LimitReader(r, maxBinarySize))
+	// Read one byte past the limit so the check below can tell an oversized
+	// entry from one that is exactly maxBinarySize.
+	written, err := io.Copy(outFile, io.LimitReader(r, maxBinarySize+1))
 	if err != nil {
 		outFile.Close()
 		return fmt.Errorf("failed to extract update binary: %w", err)
