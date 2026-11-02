@@ -275,9 +275,7 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 		}
 
 		cleanName := path.Clean(header.Name)
-		if cleanName == "." ||
-			path.IsAbs(cleanName) ||
-			strings.HasPrefix(cleanName, "..") {
+		if cleanName == "." || !filepath.IsLocal(cleanName) {
 			continue
 		}
 
@@ -321,9 +319,7 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 		}
 
 		cleanName := path.Clean(file.Name)
-		if cleanName == "." ||
-			strings.HasPrefix(cleanName, "/") ||
-			strings.Contains(cleanName, "..") {
+		if cleanName == "." || !filepath.IsLocal(cleanName) {
 			continue
 		}
 
