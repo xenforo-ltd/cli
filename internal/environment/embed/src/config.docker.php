@@ -92,9 +92,13 @@ if (getenv_docker('XF_DEVELOPMENT'))
 		];
 
 		$options['captcha'] = '';
-		$options['registrationSetup']['emailConfirmation'] = 0;
+		$registrationSetup = $options['registrationSetup'];
+		$registrationSetup['emailConfirmation'] = 0;
+		$options['registrationSetup'] = $registrationSetup;
 		$options['registrationTimer'] = 0;
-		$options['sitemapAutoSubmit']['enabled'] = 0;
+		$sitemapAutoSubmit = $options['sitemapAutoSubmit'];
+		$sitemapAutoSubmit['enabled'] = 0;
+		$options['sitemapAutoSubmit'] = $sitemapAutoSubmit;
 
 		return $options;
 	});
@@ -140,11 +144,13 @@ $c->extend('options', function ($options)
 
 	if (isset($options['xfesConfig']))
 	{
-		$options['xfesConfig']['host'] = getenv_docker('XF_XFES_SEARCH_HOST', 'localhost');
-		$options['xfesConfig']['port'] = (int) getenv_docker('XF_XFES_SEARCH_PORT', '9200');
-		$options['xfesConfig']['username'] = getenv_docker('XF_XFES_SEARCH_USER');
-		$options['xfesConfig']['password'] = getenv_docker('XF_XFES_SEARCH_PASSWORD');
-		$options['xfesConfig']['index'] = getenv_docker('XF_XFES_SEARCH_INDEX');
+		$xfesConfig = $options['xfesConfig'];
+		$xfesConfig['host'] = getenv_docker('XF_XFES_SEARCH_HOST', 'localhost');
+		$xfesConfig['port'] = (int) getenv_docker('XF_XFES_SEARCH_PORT', '9200');
+		$xfesConfig['username'] = getenv_docker('XF_XFES_SEARCH_USER');
+		$xfesConfig['password'] = getenv_docker('XF_XFES_SEARCH_PASSWORD');
+		$xfesConfig['index'] = getenv_docker('XF_XFES_SEARCH_INDEX');
+		$options['xfesConfig'] = $xfesConfig;
 	}
 
 	if (getenv_docker('XF_IMAGICK_ENABLE'))
