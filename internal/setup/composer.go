@@ -37,11 +37,14 @@ func ShouldRunComposer(targetPath string) bool {
 // a database.
 func pendingAddOnComposerProjects(root string) []string {
 	// Add-on IDs are either Name or Vendor/Name.
+	rootFS := os.DirFS(root)
 	var manifests []string
 
 	for _, pattern := range []string{"src/addons/*/addon.json", "src/addons/*/*/addon.json"} {
-		matches, _ := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern)))
-		manifests = append(manifests, matches...)
+		matches, _ := fs.Glob(rootFS, pattern)
+		for _, match := range matches {
+			manifests = append(manifests, filepath.Join(root, filepath.FromSlash(match)))
+		}
 	}
 
 	var pending []string
