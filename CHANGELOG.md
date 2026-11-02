@@ -2,6 +2,156 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-11-02
+
+### Features
+
+- *(build)* Support additional-file globs
+- *(build)* Support environment-aware exec aliases
+- *(cli)* Add dynamic shell completions
+- *(cli)* Repeat --context for Docker contexts
+- *(cli)* Add an environment update command
+- *(docker)* **Breaking**: Replace PECL with PIE
+- *(docker)* Allow compatible PHP extension updates
+- *(init)* Build JavaScript for source checkouts
+
+### Bug fixes
+
+- *(build)* Refine the release output summary
+- *(cache)* Break listing ties by file path
+- *(cli)* Route completion requests to Cobra
+- *(customerapi)* Report errors without details
+- *(environment)* Append `.env` keys in order
+- *(environment)* Make `.env` owner-only
+- *(environment)* Report unreadable `src/XF.php`
+- *(environment)* Honor init options
+- *(environment)* Stop database wait on cancel
+- *(environment)* Apply nested option overrides
+- *(extract)* Confine ZIP writes with `os.Root`
+- *(extract)* Reject oversized archive entries
+- *(extract)* Accept names that start with `..`
+- *(self-update)* Reject oversized binaries
+- *(setup)* Find add-ons in paths with wildcards
+- *(setup)* Honor the configured admin email
+- *(ui)* Keep non-ASCII output intact
+- *(ui)* Bound offsets taken from lowercasing
+- *(version)* Prefer core add-on version metadata
+- *(version)* Explicitly ignore read-only file close errors
+- *(worktree)* Explain a corrupt registry on list
+
+### Refactor
+
+- *(auth)* Consolidate token operations
+- *(auth)* Share token response decoding
+- *(build)* Move JavaScript builds under build js
+- *(build)* Extract repeated build helpers
+- *(build)* Consolidate build helpers
+- *(build)* Check containment with `IsLocal`
+- *(cache)* Flatten filename header parsing
+- *(cache)* Consolidate cache access
+- *(cache)* Validate path parts with `IsLocal`
+- *(cache)* Parse filenames with `mime`
+- *(cli)* Localize setup workflow helpers
+- *(cli)* Group shared setup operations
+- *(cli)* Move command execution into packages
+- *(cli)* Share quiet-exit handling across routes
+- *(cli)* Simplify command plumbing
+- *(cli)* Make the entry point testable
+- *(commands)* Keep internal fields private
+- *(db)* Clarify connection naming
+- *(devoutput)* Extract file reading and sort keys
+- *(devoutput)* Clarify XML conversion
+- *(doctor)* Streamline diagnostic checks
+- *(down)* Pass compose arguments directly
+- *(download)* Choose the success title once
+- *(downloads)* Simplify version selection
+- *(downloads)* Share product title fallback
+- *(downloads)* Export version sorting
+- *(environment)* Centralize `.env` value quoting
+- *(environment)* Unify command execution
+- *(environment)* Own fallback board URL
+- *(environment)* Inline Docker file extraction
+- *(environment)* Inline `isDefaultFile`
+- *(extract)* Share product extraction flow
+- *(init)* Split setup steps into focused helpers
+- *(init)* Unify prompts and setup steps
+- *(initialize)* Merge product name formatting
+- *(initialize)* Fetch product titles once
+- *(licenses)* Share data and query helpers
+- *(ps)* Isolate container state rendering
+- *(self-update)* Share archive entry extraction
+- *(self-update)* Simplify update flow
+- *(selfupdate)* Check entries with `IsLocal`
+- *(ui)* Unify terminal rendering
+- *(ui)* Remove unused table style field
+- *(ui)* Use `strings.Cut` for phase parsing
+- *(ui)* Copy output tail with `slices.Clone`
+- *(ui)* Remove `PrintTable`
+- *(ui)* Inline table styling
+- *(upgrade)* Extract interactive selection steps
+- *(upgrade)* Centralize product defaults
+- *(worktree)* Share backend operations
+- *(worktree)* Reuse home shortening helper
+- *(xf)* Reuse version matching patterns
+- *(xf)* Share version suffix parsing
+- Consolidate environment ownership
+- Privatize package-local service APIs
+- Use `errors.Is` for file existence checks
+- Use `errors.AsType` for error matching
+- Sort with `slices` instead of `sort`
+- Limit shared package exports
+- Remove unused build and export state
+
+### Documentation
+
+- *(agents)* Update routing and usage error guidance
+- *(readme)* Fix stale development instructions
+- *(worktree)* Name `filepath.WalkDir` in comment
+- Match doc comments to renamed symbols
+
+### Performance
+
+- *(worktree)* Walk copied trees with `WalkDir`
+
+### Tests
+
+- *(auth)* Cover credential storage and OAuth
+- *(auth)* Cover command credential lifecycle
+- *(build)* Cover release selection and builds
+- *(cache)* Cover download lifecycle
+- *(cache)* Cover list and purge filtering
+- *(cli)* Cover entry-point routing
+- *(clierror)* Cover error classification
+- *(customerapi)* Cover API retry behavior
+- *(db)* Cover URLs, drivers, and shell access
+- *(devoutput)* Cover XML export
+- *(downloads)* Cover product selection
+- *(environment)* Cover setup and runtime checks
+- *(extract)* Cover archive extraction safety
+- *(init)* Cover licensed installation flow
+- *(root)* Cover local XenForo command fallback
+- *(setup)* Cover installer invocation quoting
+- *(upgrade)* Cover upgrade failure safety
+- *(worktree)* Cover lifecycle and safeguards
+- *(worktree)* Iterate lines with `strings.SplitSeq`
+- *(xf)* Cover discovery, metadata, and versions
+- Measure coverage across package boundaries
+- Check missing files with `fs.ErrNotExist`
+- Use `t.Context()` for test contexts
+
+### Miscellaneous
+
+- *(assets)* Add application icon
+- *(assets)* Minify the CLI icon
+- *(codecov)* Drop missing `testutils` ignore
+- *(docker)* Bump dependencies
+- *(docker)* Update ODBC for both architectures
+- *(docker)* Bump Composer to 2.11
+- *(gha)* Adopt a workflow dependency lockfile
+- *(lint)* Ignore read-only filesystem close errors
+- *(tests)* Remove the Go test suite
+- Bump Blacksmith runners to Ubuntu 26.04
+
 ## [0.4.0] - 2026-10-15
 
 ### Features
@@ -486,6 +636,7 @@ All notable changes to this project will be documented in this file.
 - Include zip and unzip tools in image
 - Introduce XF CLI tool
 
+[0.5.0]: https://github.com/xenforo-ltd/cli/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/xenforo-ltd/cli/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/xenforo-ltd/cli/compare/v0.2.2..v0.3.0
 [0.2.2]: https://github.com/xenforo-ltd/cli/compare/v0.2.1..v0.2.2
