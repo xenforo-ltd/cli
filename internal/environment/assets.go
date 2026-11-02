@@ -50,7 +50,7 @@ func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) ([]s
 			continue
 		}
 
-		if isDefaultFile(entry.Name()) {
+		if strings.HasSuffix(entry.Name(), defaultSuffix) {
 			defaultPath, err := extractDefaultFile(srcPath, targetPath)
 			if err != nil {
 				return nil, err
@@ -93,10 +93,6 @@ func extractFile(srcPath, targetPath string) error {
 	}
 
 	return nil
-}
-
-func isDefaultFile(name string) bool {
-	return strings.HasSuffix(name, defaultSuffix)
 }
 
 // extractDefaultFile writes the embedded default alongside an existing,
