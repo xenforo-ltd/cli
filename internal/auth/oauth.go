@@ -57,6 +57,26 @@ type tokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
+// readTokenResponse decodes a token endpoint response. A non-200 status is
+// reported as the operation failing, wrapped with sentinel.
+func readTokenResponse(resp *http.Response, kind, operation string, sentinel error) (*tokenResponse, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s response: %w", kind, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%s failed (status %d): %s: %w", operation, resp.StatusCode, body, sentinel)
+	}
+
+	var tokenResp tokenResponse
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return nil, fmt.Errorf("failed to parse %s response: %w", kind, err)
+	}
+
+	return &tokenResp, nil
+}
+
 // ExchangeCode exchanges an authorization code for a token.
 func (c *oauthClient) ExchangeCode(ctx context.Context, code string, pkce *pkceParams, redirectURI string) (*Token, error) {
 	endpoints := c.config.Endpoints()
@@ -74,21 +94,12 @@ func (c *oauthClient) ExchangeCode(ctx context.Context, code string, pkce *pkceP
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	tokenResp, err := readTokenResponse(resp, "token", "token exchange", errAuthFailed)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read token response: %w", err)
+		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token exchange failed (status %d): %s: %w", resp.StatusCode, body, errAuthFailed)
-	}
-
-	var tokenResp tokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to parse token response: %w", err)
-	}
-
-	return c.tokenFromResponse(&tokenResp), nil
+	return c.tokenFromResponse(tokenResp), nil
 }
 
 // RefreshToken refreshes an expired access token.
@@ -106,21 +117,12 @@ func (c *oauthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	tokenResp, err := readTokenResponse(resp, "refresh", "token refresh", errAuthExpired)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read refresh response: %w", err)
+		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token refresh failed (status %d): %s: %w", resp.StatusCode, body, errAuthExpired)
-	}
-
-	var tokenResp tokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to parse refresh response: %w", err)
-	}
-
-	token := c.tokenFromResponse(&tokenResp)
+	token := c.tokenFromResponse(tokenResp)
 
 	// If no new refresh token was provided, keep the old one
 	if token.RefreshToken == "" {
