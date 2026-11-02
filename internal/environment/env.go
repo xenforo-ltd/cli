@@ -125,9 +125,9 @@ func updateEnvFile(path string, values map[string]string) error {
 		}
 	}
 
-	for key, value := range values {
+	for _, key := range slices.Sorted(maps.Keys(values)) {
 		if !updated[key] {
-			lines = append(lines, fmt.Sprintf("%s=%s", key, quoteEnvValue(value)))
+			lines = append(lines, fmt.Sprintf("%s=%s", key, quoteEnvValue(values[key])))
 		}
 	}
 
