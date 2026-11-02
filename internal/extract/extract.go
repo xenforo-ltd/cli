@@ -36,7 +36,9 @@ func extractFile(file *zip.File, root *os.Root, destPath string) error {
 	}
 	defer srcFile.Close()
 
-	limitedReader := io.LimitReader(srcFile, maxFileSize)
+	// One byte past the limit lets the check below tell an oversized entry
+	// from one that is exactly maxFileSize.
+	limitedReader := io.LimitReader(srcFile, maxFileSize+1)
 
 	destFile, err := root.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 	if err != nil {
