@@ -359,6 +359,23 @@ func (r *Runner) IsServiceRunning(ctx context.Context, service string) (bool, er
 	return false, nil
 }
 
+// HasRunningServices reports whether the compose project has any running
+// containers.
+func (r *Runner) HasRunningServices(ctx context.Context) (bool, error) {
+	containers, err := r.PSInfo(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check running containers: %w", err)
+	}
+
+	for _, container := range containers {
+		if container.State == "running" {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func isNotRunningExecError(err error, stderr string) bool {
 	msg := strings.ToLower(err.Error() + " " + stderr)
 

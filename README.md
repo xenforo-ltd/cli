@@ -261,6 +261,9 @@ xf up
 xf down
 xf reboot
 
+# Update environment files and images after upgrading the CLI
+xf update
+
 # Status and logs
 xf ps
 xf logs
