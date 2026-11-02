@@ -7,9 +7,8 @@ import (
 
 // tableStyle defines the visual style for tables.
 type tableStyle struct {
-	header    lipgloss.Style
-	cell      lipgloss.Style
-	separator string
+	header lipgloss.Style
+	cell   lipgloss.Style
 }
 
 // tablePadding is the number of spaces to pad between columns.
@@ -24,7 +23,6 @@ func defaultTableStyle() tableStyle {
 			PaddingRight(tablePadding),
 		cell: lipgloss.NewStyle().
 			PaddingRight(tablePadding),
-		separator: "  ",
 	}
 }
 
