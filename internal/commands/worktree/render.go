@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/ui"
@@ -96,7 +94,7 @@ func printWorktrees(entries []entry, jsonOutput bool) error {
 	for _, entry := range entries {
 		rows = append(rows, []string{
 			entry.Branch,
-			shortenPath(entry.WorktreePath),
+			ui.ShortHome(entry.WorktreePath),
 			entry.Instance,
 			renderWorktreeState(worktreeState(entry.WorktreePath)),
 		})
@@ -118,18 +116,4 @@ func printJSON(v any) error {
 	ui.Println(string(data))
 
 	return nil
-}
-
-// shortenPath replaces the home directory with ~ for display.
-func shortenPath(path string) string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return path
-	}
-
-	if rel, err := filepath.Rel(home, path); err == nil && !strings.HasPrefix(rel, "..") {
-		return filepath.Join("~", rel)
-	}
-
-	return path
 }
