@@ -109,9 +109,9 @@ func parseInstallImportMessage(line string) string {
 		return "importing data"
 	}
 
-	inside, _, _ := strings.Cut(line[idx+len(marker):], ")")
+	inside, _, _ := strings.Cut(lower[idx+len(marker):], ")")
 	name, percent, _ := strings.Cut(inside, ":")
-	name = strings.ToLower(strings.TrimSpace(name))
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return "importing data"
 	}
