@@ -62,7 +62,7 @@ exit 0
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range strings.Split(strings.TrimSpace(string(calls)), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(string(calls)), "\n") {
 		for _, action := range []string{" up ", " run ", " exec "} {
 			if strings.Contains(" "+line+" ", action) {
 				t.Errorf("setup with --no-up started containers: %q", line)
