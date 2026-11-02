@@ -54,10 +54,7 @@ func (w *PhaseTrackerWriter) TailLines() []string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	out := make([]string, len(w.tail))
-	copy(out, w.tail)
-
-	return out
+	return slices.Clone(w.tail)
 }
 
 func (w *PhaseTrackerWriter) processLine(line string) {
