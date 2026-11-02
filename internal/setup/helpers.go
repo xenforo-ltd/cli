@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/xenforo-ltd/cli/internal/environment"
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
@@ -26,13 +27,9 @@ func InstanceTitle(title, instanceName string) string {
 	return fmt.Sprintf("%s [%s]", title, instanceName)
 }
 
-func FallbackBoardURL(instanceName string) string {
-	return fmt.Sprintf("https://%s.xf.local", instanceName)
-}
-
 func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string, bool) {
 	if detectedErr != nil || strings.TrimSpace(detectedURL) == "" {
-		return FallbackBoardURL(instanceName), false
+		return environment.FallbackBoardURL(instanceName), false
 	}
 	return detectedURL, true
 }

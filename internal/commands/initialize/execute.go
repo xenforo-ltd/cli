@@ -151,7 +151,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	step++
 	ui.Println()
 
-	siteURL := setup.FallbackBoardURL(opts.InstanceName)
+	siteURL := environment.FallbackBoardURL(opts.InstanceName)
 
 	if opts.SkipUp {
 		ui.PrintInfo("Docker containers not started (--skip-up)")

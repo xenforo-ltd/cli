@@ -66,7 +66,7 @@ func Existing(ctx context.Context, opts *Options) error {
 	}
 	step++
 	ui.Println()
-	siteURL := FallbackBoardURL(opts.InstanceName)
+	siteURL := environment.FallbackBoardURL(opts.InstanceName)
 	urlDetected := false
 	if opts.StartContainers {
 		ui.PrintStep(step, totalSteps, "Starting environment")

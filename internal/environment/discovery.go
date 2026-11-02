@@ -19,6 +19,12 @@ func IsOrbStack(ctx context.Context) (bool, error) {
 	return strings.TrimSpace(string(info)) == "OrbStack", nil
 }
 
+// FallbackBoardURL returns the board URL an instance is reachable at when it
+// runs under OrbStack.
+func FallbackBoardURL(instanceName string) string {
+	return fmt.Sprintf("https://%s.xf.local", instanceName)
+}
+
 // GetURL returns the URL for accessing the XenForo site.
 // It detects OrbStack vs standard Docker.
 func (r *Runner) GetURL(ctx context.Context) (string, error) {
@@ -28,7 +34,7 @@ func (r *Runner) GetURL(ctx context.Context) (string, error) {
 	}
 
 	if isOrbStack {
-		return fmt.Sprintf("https://%s.xf.local", r.instance), nil
+		return FallbackBoardURL(r.instance), nil
 	}
 
 	port, err := r.getServicePort(ctx, "caddy", "80")
