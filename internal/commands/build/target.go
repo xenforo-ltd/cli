@@ -40,7 +40,7 @@ func getBuildTarget(args []string) (string, string, error) {
 	addOnsDir := filepath.Join(xfDir, "src", "addons")
 	for {
 		rel, err := filepath.Rel(addOnsDir, dir)
-		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if err != nil || rel == "." || !filepath.IsLocal(rel) {
 			break
 		}
 		metadataPath := filepath.Join(dir, "addon.json")

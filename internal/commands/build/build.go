@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/xenforo-ltd/cli/internal/build"
@@ -72,7 +71,7 @@ func releaseDisplayPath(filename string) string {
 	}
 
 	rel, err := filepath.Rel(cwd, filename)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if err != nil || !filepath.IsLocal(rel) {
 		return filename
 	}
 	return rel
