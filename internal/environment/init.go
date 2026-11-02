@@ -28,6 +28,19 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 		return nil, fmt.Errorf("cannot access src/XF.php: %w", statErr)
 	}
 
+	// Extraction creates .env from .env.default, so its presence afterwards
+	// cannot distinguish a new environment from one the user already had.
+	// Record it beforehand to avoid overwriting a user's configuration.
+	envPath := filepath.Join(xfDir, ".env")
+	newEnv := false
+	if _, statErr := os.Stat(envPath); statErr != nil {
+		if !errors.Is(statErr, fs.ErrNotExist) {
+			return nil, fmt.Errorf("cannot access %s: %w", envPath, statErr)
+		}
+
+		newEnv = true
+	}
+
 	extractOpts := extractOptions{
 		overwriteBaseFiles: opts.OverwriteExisting,
 	}
@@ -37,22 +50,9 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 		return nil, fmt.Errorf("failed to extract Docker files: %w", err)
 	}
 
-	envPath := filepath.Join(xfDir, ".env")
-	if _, statErr := os.Stat(envPath); errors.Is(statErr, fs.ErrNotExist) {
-		envDefault, err := GetDockerFile(".env.default")
-		if err != nil {
-			return nil, fmt.Errorf("failed to read default env: %w", err)
-		}
-
-		if err := os.WriteFile(envPath, envDefault, 0o600); err != nil {
-			return nil, fmt.Errorf("failed to write %s: %w", envPath, err)
-		}
-
-		dirName := filepath.Base(xfDir)
-		instanceName := GenerateInstanceName(dirName)
-
+	if newEnv {
 		updates := map[string]string{
-			"XF_INSTANCE": instanceName,
+			"XF_INSTANCE": GenerateInstanceName(filepath.Base(xfDir)),
 		}
 		if len(opts.Contexts) > 0 {
 			updates["XF_CONTEXTS"] = strings.Join(opts.Contexts, ":")

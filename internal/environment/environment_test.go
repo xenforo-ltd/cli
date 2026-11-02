@@ -46,8 +46,8 @@ func TestInitPreservesUserFilesAndOverwritePolicy(t *testing.T) {
 	if _, err := environment.Init(dir, environment.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if written, err := environment.Init(dir, environment.InitOptions{}); err != nil || len(written) != 0 {
-		t.Fatalf("unchanged second initialization: %v, %v", written, err)
+	if written, err := environment.Init(dir, environment.InitOptions{}); err != nil || len(written) != 1 || filepath.Base(written[0]) != ".env.default" {
+		t.Fatalf("second initialization: %v, %v; want only the .env default companion", written, err)
 	}
 	compose := filepath.Join(dir, "compose.yaml")
 	ignore := filepath.Join(dir, ".dockerignore")
