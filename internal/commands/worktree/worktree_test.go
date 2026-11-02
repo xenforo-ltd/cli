@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/xenforo-ltd/cli/internal/clierror"
 	"github.com/xenforo-ltd/cli/internal/commands/worktree"
 )
 
@@ -246,5 +247,29 @@ func TestJJRemoveDirtyAndForce(t *testing.T) {
 	}
 	if entries := list(t); len(entries) != 0 {
 		t.Fatalf("removed workspace still listed: %+v", entries)
+	}
+}
+
+func TestListExplainsCorruptRegistry(t *testing.T) {
+	fixture(t)
+
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		t.Skipf("no user config directory: %v", err)
+	}
+	path := filepath.Join(dir, "xf", "worktrees.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{corrupt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err = worktree.List(t.Context(), true)
+	if err == nil {
+		t.Fatal("corrupt registry was accepted")
+	}
+	if hint := clierror.HintOf(err); !strings.Contains(hint, "delete") {
+		t.Fatalf("hint = %q", hint)
 	}
 }

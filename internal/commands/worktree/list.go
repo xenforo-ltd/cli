@@ -24,7 +24,7 @@ func List(ctx context.Context, json bool) error {
 
 	entries, err := registry.forSource(source)
 	if err != nil {
-		return err
+		return registryReadError(err)
 	}
 
 	return printWorktrees(entries, json)
