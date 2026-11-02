@@ -109,7 +109,7 @@ test:
 .PHONY: test-coverage
 ## Run tests with coverage
 test-coverage:
-	go test -race -covermode=atomic -coverprofile=coverage.out ./...
+	go test -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.out ./...
 
 .PHONY: test-race
 ## Run tests with the race detector
