@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cachecommand "github.com/xenforo-ltd/cli/internal/commands/cache"
+	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
 var cacheCmd = &cobra.Command{
@@ -97,6 +98,9 @@ func init() {
 
 	cachePurgeCmd.Flags().StringVar(&flagCacheLicenseKey, "license", "", "only purge for specific license key")
 	cachePurgeCmd.Flags().BoolVar(&flagCacheAll, "all", false, "confirm purging all cached downloads")
+
+	completion.Register(cacheListCmd, "license", completion.CachedLicenseKeys)
+	completion.Register(cachePurgeCmd, "license", completion.CachedLicenseKeys)
 
 	cacheCmd.AddCommand(cacheListCmd)
 	cacheCmd.AddCommand(cachePurgeCmd)

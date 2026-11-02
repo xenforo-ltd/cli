@@ -107,8 +107,9 @@ Useful for shell and agent use:
 
   cd "$(xf worktree path dev/24x/feature)"
   cd "$(xf worktree path feature)"`,
-	Args: cobra.ExactArgs(1),
-	RunE: runWorktreePath,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: worktree.CompletionRefs,
+	RunE:              runWorktreePath,
 }
 
 var worktreeRemoveCmd = &cobra.Command{
@@ -119,8 +120,9 @@ var worktreeRemoveCmd = &cobra.Command{
 For a Git repository the worktree's branch is deleted too. Refuses when the
 checkout contains uncommitted changes or commits that exist on no remote, listing
 what would be lost. Use --force to remove it anyway.`,
-	Args: cobra.ExactArgs(1),
-	RunE: runWorktreeRemove,
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: worktree.CompletionRefs,
+	RunE:              runWorktreeRemove,
 }
 
 var worktreePruneCmd = &cobra.Command{

@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/spf13/cobra"
 	"github.com/xenforo-ltd/cli/internal/commands/upgrade"
+	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
 var upgradeCmd = &cobra.Command{
@@ -41,6 +42,7 @@ func init() {
 	upgradeCmd.Flags().StringVar(&flagUpgradeLicense, "license", "", "license key (auto-detected if not specified)")
 	upgradeCmd.Flags().IntVar(&flagUpgradeVersion, "version", 0, "target version ID")
 	upgradeCmd.Flags().BoolVar(&flagUpgradeSkipCmd, "skip-upgrade", false, "skip running xf:upgrade command")
+	completion.Register(upgradeCmd, "license", completion.LicenseKeys)
 	rootCmd.AddCommand(upgradeCmd)
 }
 

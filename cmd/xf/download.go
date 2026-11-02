@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/xenforo-ltd/cli/internal/commands/download"
+	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
 var downloadCmd = &cobra.Command{
@@ -47,6 +48,8 @@ func init() {
 	downloadCmd.Flags().IntVar(&flagDownloadVersionID, "version", 0, "version ID to download")
 	downloadCmd.Flags().BoolVar(&flagDownloadForce, "force", false, "force re-download even if cached")
 	cobra.CheckErr(downloadCmd.MarkFlagRequired("license"))
+	completion.Register(downloadCmd, "license", completion.LicenseKeys)
+	completion.Register(downloadCmd, "download", completion.DownloadIDs)
 	rootCmd.AddCommand(downloadCmd)
 }
 

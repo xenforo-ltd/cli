@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/spf13/cobra"
 	"github.com/xenforo-ltd/cli/internal/commands/initialize"
+	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
 var initCmd = &cobra.Command{
@@ -86,6 +87,8 @@ func init() {
 	initCmd.Flags().BoolVar(&initOptions.StartContainers, "up", false, "start containers after initialization (for --existing mode)")
 	initCmd.Flags().StringVar(&initOptions.EnvFile, "env-file", "", "path to env overrides file (KEY=VALUE lines)")
 	initCmd.Flags().StringArrayVar(&initOptions.EnvFlags, "env", nil, "environment override in KEY=VALUE format (repeatable)")
+	completion.Register(initCmd, "license", completion.LicenseKeys)
+	completion.Register(initCmd, "contexts", completion.DockerContexts)
 	rootCmd.AddCommand(initCmd)
 }
 
