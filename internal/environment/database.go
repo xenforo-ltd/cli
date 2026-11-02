@@ -53,7 +53,11 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 			return nil
 		}
 
-		time.Sleep(checkInterval)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for database: %w", ctx.Err())
+		case <-time.After(checkInterval):
+		}
 	}
 
 	return fmt.Errorf("timed out waiting for database to be ready: %w", errTimeout)
