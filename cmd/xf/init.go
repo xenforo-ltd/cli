@@ -57,7 +57,7 @@ You can override either value via --env-file/--env.`,
   xf init ./existing-xf-project --existing
 
   # Existing directory with custom contexts
-  xf init ./existing-xf-project --existing --contexts caddy,mysql,development,redis
+  xf init ./existing-xf-project --existing --context caddy --context mysql --context development
 
   # Existing directory and start containers
   xf init ./existing-xf-project --existing --up
@@ -68,6 +68,10 @@ You can override either value via --env-file/--env.`,
 }
 
 var initOptions initialize.InitOptions
+
+// legacyInitContexts holds values of the deprecated --contexts flag, which is
+// kept for one release so existing scripts keep working.
+var legacyInitContexts []string
 
 func init() {
 	initCmd.Flags().StringVar(&initOptions.LicenseKey, "license", "", "license key")
@@ -83,12 +87,14 @@ func init() {
 	initCmd.Flags().BoolVar(&initOptions.SkipComposer, "skip-composer", false, "skip running composer install")
 	initCmd.Flags().BoolVar(&initOptions.SkipBuildJS, "skip-build-js", false, "skip building JavaScript for XF and add-ons")
 	initCmd.Flags().BoolVar(&initOptions.ExistingOnly, "existing", false, "initialize Docker in an existing XenForo directory (skips download)")
-	initCmd.Flags().StringSliceVar(&initOptions.Contexts, "contexts", nil, "Docker contexts to enable (e.g., caddy,mysql,development,redis)")
+	initCmd.Flags().StringArrayVar(&initOptions.Contexts, "context", nil, "Docker context to enable (repeatable)")
+	initCmd.Flags().StringSliceVar(&legacyInitContexts, "contexts", nil, "Docker contexts to enable (deprecated)")
+	cobra.CheckErr(initCmd.Flags().MarkDeprecated("contexts", "use --context, which can be repeated"))
 	initCmd.Flags().BoolVar(&initOptions.StartContainers, "up", false, "start containers after initialization (for --existing mode)")
 	initCmd.Flags().StringVar(&initOptions.EnvFile, "env-file", "", "path to env overrides file (KEY=VALUE lines)")
 	initCmd.Flags().StringArrayVar(&initOptions.EnvFlags, "env", nil, "environment override in KEY=VALUE format (repeatable)")
 	completion.Register(initCmd, "license", completion.LicenseKeys)
-	completion.Register(initCmd, "contexts", completion.DockerContexts)
+	completion.Register(initCmd, "context", completion.DockerContexts)
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -98,5 +104,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		opts.TargetPath = args[0]
 	}
+
+	// --contexts kept the comma-separated spelling, so append its values after
+	// the repeated --context ones. The flag itself announces the deprecation.
+	opts.Contexts = append(opts.Contexts, legacyInitContexts...)
+
 	return initialize.Run(cmd.Context(), &opts)
 }

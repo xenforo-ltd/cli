@@ -132,10 +132,12 @@ func CachedLicenseKeys(_ *cobra.Command, _ []string, _ string) ([]cobra.Completi
 }
 
 // DockerContexts lists the contexts xf can enable, derived from the embedded
-// compose files. The flag is comma-separated, so earlier values are repeated in
-// each candidate: shells replace the whole word.
-func DockerContexts(_ *cobra.Command, _ []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
-	prefix, partial := listPrefix(toComplete)
+// compose files. Values already passed to the repeatable flag are omitted.
+func DockerContexts(cmd *cobra.Command, _ []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	chosen, err := cmd.Flags().GetStringArray("context")
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
 
 	names, err := contextNames()
 	if err != nil {
@@ -145,20 +147,12 @@ func DockerContexts(_ *cobra.Command, _ []string, toComplete string) ([]cobra.Co
 	completions := make([]cobra.Completion, 0, len(names))
 
 	for _, name := range names {
-		if strings.HasPrefix(name, partial) && !slices.Contains(strings.Split(prefix, ","), name) {
-			completions = append(completions, prefix+name)
+		if strings.HasPrefix(name, toComplete) && !slices.Contains(chosen, name) {
+			completions = append(completions, name)
 		}
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp
-}
-
-func listPrefix(toComplete string) (string, string) {
-	if i := strings.LastIndex(toComplete, ","); i >= 0 {
-		return toComplete[:i+1], toComplete[i+1:]
-	}
-
-	return "", toComplete
 }
 
 func contextNames() ([]string, error) {
