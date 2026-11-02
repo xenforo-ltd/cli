@@ -67,43 +67,32 @@ func parseVersionString(versionStr string) (*Version, error) {
 	v.PLLevel = 1
 
 	lowerStr := strings.ToLower(versionStr)
+	var numberPattern, stripPattern *regexp.Regexp
 	switch {
 	case strings.Contains(lowerStr, string(stabilityAlpha)):
 		v.Stability = stabilityAlpha
 		v.StabNum = stabilityAlphaNumber
-		// Extract alpha number if present
-		if matches := alphaNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
-			v.PLLevel, _ = strconv.Atoi(matches[1])
-		}
-
-		versionStr = alphaStripPattern.ReplaceAllString(versionStr, "")
+		numberPattern, stripPattern = alphaNumberPattern, alphaStripPattern
 	case strings.Contains(lowerStr, string(stabilityBeta)):
 		v.Stability = stabilityBeta
-
 		v.StabNum = stabilityBetaNumber
-		if matches := betaNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
-			v.PLLevel, _ = strconv.Atoi(matches[1])
-		}
-
-		versionStr = betaStripPattern.ReplaceAllString(versionStr, "")
+		numberPattern, stripPattern = betaNumberPattern, betaStripPattern
 	case strings.Contains(lowerStr, string(stabilityRC)) || strings.Contains(lowerStr, "release candidate"):
 		v.Stability = stabilityRC
-
 		v.StabNum = stabilityRCNumber
-		if matches := rcNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
-			v.PLLevel, _ = strconv.Atoi(matches[1])
-		}
-
-		versionStr = rcStripPattern.ReplaceAllString(versionStr, "")
+		numberPattern, stripPattern = rcNumberPattern, rcStripPattern
 	case strings.Contains(lowerStr, string(stabilityPL)) || strings.Contains(lowerStr, "patch level"):
 		v.Stability = stabilityPL
-
 		v.StabNum = stabilityPLNumber
-		if matches := plNumberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
+		numberPattern, stripPattern = plNumberPattern, plStripPattern
+	}
+
+	if numberPattern != nil {
+		if matches := numberPattern.FindStringSubmatch(lowerStr); len(matches) > 1 {
 			v.PLLevel, _ = strconv.Atoi(matches[1])
 		}
 
-		versionStr = plStripPattern.ReplaceAllString(versionStr, "")
+		versionStr = stripPattern.ReplaceAllString(versionStr, "")
 	}
 
 	versionStr = strings.TrimSpace(versionStr)
