@@ -104,12 +104,12 @@ func parseInstallImportMessage(line string) string {
 
 	const marker = "master data ("
 
-	idx := strings.Index(lower, marker)
-	if idx < 0 {
+	_, after, ok := strings.Cut(lower, marker)
+	if !ok {
 		return "importing data"
 	}
 
-	inside, _, _ := strings.Cut(lower[idx+len(marker):], ")")
+	inside, _, _ := strings.Cut(after, ")")
 	name, percent, _ := strings.Cut(inside, ":")
 	name = strings.TrimSpace(name)
 	if name == "" {
