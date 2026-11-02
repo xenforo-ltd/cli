@@ -20,8 +20,12 @@ type InitOptions struct {
 // files so callers can notify the user.
 func Init(xfDir string, opts InitOptions) (written []string, err error) {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")
-	if _, statErr := os.Stat(xfPath); errors.Is(statErr, fs.ErrNotExist) {
-		return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", statErr)
+	if _, statErr := os.Stat(xfPath); statErr != nil {
+		if errors.Is(statErr, fs.ErrNotExist) {
+			return nil, fmt.Errorf("not a XenForo directory (src/XF.php not found): %w", statErr)
+		}
+
+		return nil, fmt.Errorf("cannot access src/XF.php: %w", statErr)
 	}
 
 	extractOpts := extractOptions{
