@@ -16,9 +16,6 @@ import (
 
 // buildResult describes a completed release.
 type buildResult struct {
-	// hashesPath is the absolute path to the generated hash manifest.
-	hashesPath string
-
 	// ZipPath is the absolute path to the release archive.
 	ZipPath string
 
@@ -152,10 +149,9 @@ func Build(ctx context.Context, rootDir, addOnID string, options ...Option) (*bu
 	}
 
 	return &buildResult{
-		hashesPath: filepath.Join(root.Name(), filepath.FromSlash(hashesPath)),
-		ZipPath:    filepath.Join(root.Name(), filepath.FromSlash(zipPath)),
-		FileCount:  archive.fileCount,
-		TotalSize:  archive.totalSize,
+		ZipPath:   filepath.Join(root.Name(), filepath.FromSlash(zipPath)),
+		FileCount: archive.fileCount,
+		TotalSize: archive.totalSize,
 	}, nil
 }
 

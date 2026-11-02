@@ -16,15 +16,6 @@ import (
 
 // result describes a completed export.
 type result struct {
-	// directory is the absolute path to the release data directory.
-	directory string
-
-	// files is the number of XML files written, including empty containers.
-	files int
-
-	// entries is the number of exported records across all XML files.
-	entries int
-
 	// Warnings lists ignored unknown fields, sorted and deduplicated by data type
 	// and field name. Intentionally omitted stock fields do not produce warnings.
 	Warnings []string
@@ -63,7 +54,6 @@ func Export(ctx context.Context, addOnDir string) (*result, error) {
 		data []byte
 	}
 	var outputs []output
-	var entries int
 	warnings := make(map[string]bool)
 	for _, definition := range definitions {
 		nodes, err := definition.read(ctx, root, warnings)
@@ -75,7 +65,6 @@ func Export(ctx context.Context, addOnDir string) (*result, error) {
 			return nil, fmt.Errorf("encoding %s: %w", definition.directory, err)
 		}
 		outputs = append(outputs, output{name: definition.container + ".xml", data: data})
-		entries += len(nodes)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -94,10 +83,7 @@ func Export(ctx context.Context, addOnDir string) (*result, error) {
 		}
 	}
 	return &result{
-		directory: filepath.Join(absolute, "_data"),
-		files:     len(outputs),
-		entries:   entries,
-		Warnings:  slices.Sorted(maps.Keys(warnings)),
+		Warnings: slices.Sorted(maps.Keys(warnings)),
 	}, nil
 }
 
