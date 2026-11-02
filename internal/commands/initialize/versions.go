@@ -11,8 +11,8 @@ import (
 
 // displayVersion represents a version option for display.
 type displayVersion struct {
-	Value int
-	Label string
+	value int
+	label string
 }
 
 // sortVersionsDesc sorts versions by release date in descending order.
@@ -51,8 +51,8 @@ func buildVersionOptions(versions []customerapi.Version, maxVersion int) []displ
 		}
 
 		out = append(out, displayVersion{
-			Value: v.VersionID,
-			Label: label,
+			value: v.VersionID,
+			label: label,
 		})
 	}
 

@@ -29,11 +29,11 @@ func resolveDatabaseInfo(runner *environment.Runner) (connection, error) {
 	user, password := runner.DatabaseCredentials()
 
 	return connection{
-		Driver:   driver,
-		Host:     orbStackHost(databaseService, runner.Instance()),
-		Port:     driver.defaultPort(),
-		User:     user,
-		Password: password,
-		Name:     runner.DatabaseName(),
+		driver:   driver,
+		host:     orbStackHost(databaseService, runner.Instance()),
+		port:     driver.defaultPort(),
+		user:     user,
+		password: password,
+		name:     runner.DatabaseName(),
 	}, nil
 }

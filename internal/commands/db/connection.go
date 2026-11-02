@@ -74,27 +74,27 @@ func detect(contexts []string) (driver, error) {
 
 // connection describes a resolved database connection.
 type connection struct {
-	Driver   driver
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Name     string
-	FilePath string
+	driver   driver
+	host     string
+	port     int
+	user     string
+	password string
+	name     string
+	filePath string
 }
 
 // urlString renders the connection URL used to open the database in a GUI or CLI
 // client. SQLite is file-based, so its "URL" is the file path.
 func (i connection) urlString() string {
-	if i.Driver == driverSQLite {
-		return i.FilePath
+	if i.driver == driverSQLite {
+		return i.filePath
 	}
 
 	u := &url.URL{
-		Scheme: i.Driver.scheme(),
-		User:   url.UserPassword(i.User, i.Password),
-		Host:   net.JoinHostPort(i.Host, strconv.Itoa(i.Port)),
-		Path:   "/" + i.Name,
+		Scheme: i.driver.scheme(),
+		User:   url.UserPassword(i.user, i.password),
+		Host:   net.JoinHostPort(i.host, strconv.Itoa(i.port)),
+		Path:   "/" + i.name,
 	}
 
 	return u.String()

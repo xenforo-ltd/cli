@@ -50,11 +50,11 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 	}
 
 	result, err := create(ctx, backendOptions{
-		SourcePath: source,
-		Branch:     branch,
-		Name:       filepath.Base(reserved.WorktreePath),
-		Base:       opts.Base,
-		Instance:   reserved.Instance,
+		sourcePath: source,
+		branch:     branch,
+		name:       filepath.Base(reserved.WorktreePath),
+		base:       opts.Base,
+		instance:   reserved.Instance,
 	})
 	if err != nil {
 		// Release the name so a retry can use it, unless creation left the
@@ -71,12 +71,12 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 	}
 
 	record := entry{
-		SourcePath:   result.SourcePath,
-		SourceBranch: result.SourceBranch,
-		WorktreePath: result.Path,
-		Branch:       result.Branch,
-		Instance:     result.Instance,
-		CreatedAt:    result.CreatedAt,
+		SourcePath:   result.sourcePath,
+		SourceBranch: result.sourceBranch,
+		WorktreePath: result.path,
+		Branch:       result.branch,
+		Instance:     result.instance,
+		CreatedAt:    result.createdAt,
 	}
 
 	if err := reg.add(record); err != nil {
@@ -87,10 +87,10 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 
 	if !opts.JSON {
 		ui.SuccessBox("Created worktree", []ui.KVPair{
-			ui.KV("Path", ui.Path.Render(ui.ShortHome(result.Path))),
-			ui.KV("Branch", result.Branch),
-			ui.KV("Base branch", result.SourceBranch),
-			ui.KV("Instance", result.Instance),
+			ui.KV("Path", ui.Path.Render(ui.ShortHome(result.path))),
+			ui.KV("Branch", result.branch),
+			ui.KV("Base branch", result.sourceBranch),
+			ui.KV("Instance", result.instance),
 		})
 	}
 
@@ -103,7 +103,7 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 	cloning := false
 
 	if !opts.Fresh && !opts.NoUp {
-		installed, err := sourceIsInstalled(result.SourcePath)
+		installed, err := sourceIsInstalled(result.sourcePath)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 	// successful "create" says so. A later "xf up" would then present an empty
 	// board with no explanation, so name the gap and the way to close it.
 	if opts.NoUp && !opts.Fresh && !opts.NoSetup && !opts.JSON {
-		installed, err := sourceIsInstalled(result.SourcePath)
+		installed, err := sourceIsInstalled(result.sourcePath)
 		if err != nil {
 			return err
 		}
@@ -129,12 +129,12 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 
 	if !opts.NoSetup {
 		if err := setup.Existing(ctx, worktreeInitOptions(result, cloning, opts)); err != nil {
-			return fmt.Errorf("worktree created at %s, but setting up its environment failed: %w", result.Path, err)
+			return fmt.Errorf("worktree created at %s, but setting up its environment failed: %w", result.path, err)
 		}
 
 		if cloning {
-			if err := cloneEnvironment(ctx, result.SourcePath, result.Path); err != nil {
-				return fmt.Errorf("worktree created at %s, but cloning the environment failed: %w", result.Path, err)
+			if err := cloneEnvironment(ctx, result.sourcePath, result.path); err != nil {
+				return fmt.Errorf("worktree created at %s, but cloning the environment failed: %w", result.path, err)
 			}
 
 			record.Cloned = true
@@ -158,13 +158,13 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 
 	if opts.JSON {
 		return printJSON(worktreeOutput{
-			Path:         result.Path,
-			Branch:       result.Branch,
-			SourcePath:   result.SourcePath,
-			SourceBranch: result.SourceBranch,
-			Instance:     result.Instance,
+			Path:         result.path,
+			Branch:       result.branch,
+			SourcePath:   result.sourcePath,
+			SourceBranch: result.sourceBranch,
+			Instance:     result.instance,
 			Cloned:       record.Cloned,
-			CreatedAt:    result.CreatedAt,
+			CreatedAt:    result.createdAt,
 		})
 	}
 

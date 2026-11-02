@@ -33,15 +33,15 @@ func worktreeInitOptions(result *backendResult, cloning bool, opts CreateOptions
 	// being asked is the point: one command produces a usable forum. A cloned
 	// worktree keeps the source's own credentials.
 	return &setup.Options{
-		TargetPath:      result.Path,
-		InstanceName:    result.Instance,
+		TargetPath:      result.path,
+		InstanceName:    result.instance,
 		StartContainers: !opts.NoUp,
 		SkipInstall:     cloning,
 		SkipBuildJS:     opts.SkipBuildJS,
 		AdminUser:       defaultString(opts.AdminUser, defaultWorktreeAdminUser),
 		AdminPassword:   defaultString(opts.AdminPassword, defaultWorktreeAdminPassword),
 		AdminEmail:      defaultString(opts.AdminEmail, defaultWorktreeAdminEmail),
-		SiteTitle:       defaultString(opts.Title, result.Branch),
+		SiteTitle:       defaultString(opts.Title, result.branch),
 		EnvResolved:     map[string]string{},
 	}
 }

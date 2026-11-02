@@ -30,44 +30,44 @@ var (
 
 // backendOptions describes a worktree to create.
 type backendOptions struct {
-	// SourcePath is the checkout to branch from.
-	SourcePath string
+	// sourcePath is the checkout to branch from.
+	sourcePath string
 
-	// Branch is the branch (Git) or workspace (Jujutsu) to create in the new
+	// branch is the branch (Git) or workspace (Jujutsu) to create in the new
 	// checkout.
-	Branch string
+	branch string
 
-	// Name names the new directory. Defaults to chooseName's choice for
-	// Branch.
-	Name string
+	// name names the new directory. Defaults to chooseName's choice for
+	// branch.
+	name string
 
-	// Base is the revision to base the new checkout on, interpreted with the
+	// base is the revision to base the new checkout on, interpreted with the
 	// selected backend's revision syntax. Defaults to the source's current HEAD.
-	Base string
+	base string
 
-	// Instance overrides the Docker instance name, which defaults to Name.
-	Instance string
+	// instance overrides the Docker instance name, which defaults to name.
+	instance string
 }
 
 // backendResult describes a created worktree.
 type backendResult struct {
-	// Path is the worktree location.
-	Path string
+	// path is the worktree location.
+	path string
 
-	// Branch is the branch checked out in the worktree.
-	Branch string
+	// branch is the branch checked out in the worktree.
+	branch string
 
-	// SourcePath is the checkout it was created from.
-	SourcePath string
+	// sourcePath is the checkout it was created from.
+	sourcePath string
 
-	// SourceBranch is the branch the source was on at creation time.
-	SourceBranch string
+	// sourceBranch is the branch the source was on at creation time.
+	sourceBranch string
 
-	// Instance is the Docker instance name for the worktree.
-	Instance string
+	// instance is the Docker instance name for the worktree.
+	instance string
 
-	// CreatedAt is when the worktree was created.
-	CreatedAt time.Time
+	// createdAt is when the worktree was created.
+	createdAt time.Time
 }
 
 // preflight validates a request without changing anything.
@@ -116,24 +116,24 @@ func preflight(ctx context.Context, b backend, sourcePath, branch, name string) 
 // It does not configure Docker or install anything; that is the caller's job.
 // Pre-flight runs first, so a failure here leaves the source checkout untouched.
 func create(ctx context.Context, opts backendOptions) (*backendResult, error) {
-	b, source, err := resolveSource(ctx, opts.SourcePath)
+	b, source, err := resolveSource(ctx, opts.sourcePath)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.TrimSpace(opts.Branch) == "" {
+	if strings.TrimSpace(opts.branch) == "" {
 		return nil, fmt.Errorf("%w: branch name is empty", errInvalidBranch)
 	}
 
-	name := opts.Name
+	name := opts.name
 	if name == "" {
-		name, err = chooseName(source, opts.Branch, nil)
+		name, err = chooseName(source, opts.branch, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if err := preflight(ctx, b, source, opts.Branch, name); err != nil {
+	if err := preflight(ctx, b, source, opts.branch, name); err != nil {
 		return nil, err
 	}
 
@@ -148,24 +148,24 @@ func create(ctx context.Context, opts backendOptions) (*backendResult, error) {
 		return nil, fmt.Errorf("failed to create worktrees directory: %w", err)
 	}
 
-	if err := b.create(ctx, source, opts.Branch, opts.Base, target); err != nil {
+	if err := b.create(ctx, source, opts.branch, opts.base, target); err != nil {
 		// Leave no empty container directory behind after a failure.
 		_ = os.Remove(filepath.Dir(target))
 
 		return nil, err
 	}
 
-	instance := opts.Instance
+	instance := opts.instance
 	if instance == "" {
 		instance = name
 	}
 
 	return &backendResult{
-		Path:         target,
-		Branch:       opts.Branch,
-		SourcePath:   source,
-		SourceBranch: sourceBranch,
-		Instance:     instance,
-		CreatedAt:    time.Now().UTC(),
+		path:         target,
+		branch:       opts.branch,
+		sourcePath:   source,
+		sourceBranch: sourceBranch,
+		instance:     instance,
+		createdAt:    time.Now().UTC(),
 	}, nil
 }

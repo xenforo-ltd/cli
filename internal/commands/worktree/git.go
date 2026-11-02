@@ -137,7 +137,7 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 			continue
 		}
 
-		status.Modified = append(status.Modified, entry.display)
+		status.modified = append(status.modified, entry.display)
 	}
 
 	// "git remote" with no configured remotes exits 0 with empty output, so a
@@ -169,7 +169,7 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 		return status, fmt.Errorf("failed to inspect commit history: %w", err)
 	}
 
-	status.UnmergedCommits = nonEmptyLines(commits)
+	status.unmergedCommits = nonEmptyLines(commits)
 
 	return status, nil
 }

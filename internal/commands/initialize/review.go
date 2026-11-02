@@ -74,7 +74,7 @@ func promptVersion(versions []customerapi.Version, p versionPrompt) (customerapi
 
 	versionOptions := make([]huh.Option[int], 0, len(display)+1)
 	for _, d := range display {
-		versionOptions = append(versionOptions, huh.NewOption(d.Label, d.Value))
+		versionOptions = append(versionOptions, huh.NewOption(d.label, d.value))
 	}
 
 	const manual = -1

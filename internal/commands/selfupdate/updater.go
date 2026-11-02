@@ -65,13 +65,13 @@ type asset struct {
 
 // updateInfo contains information about an available update.
 type updateInfo struct {
-	CurrentVersion string
-	LatestVersion  string
-	ReleaseURL     string
-	AssetURL       string
-	AssetName      string
-	ChecksumURL    string
-	HasUpdate      bool
+	currentVersion string
+	latestVersion  string
+	releaseURL     string
+	assetURL       string
+	assetName      string
+	checksumURL    string
+	hasUpdate      bool
 }
 
 // updater handles checking for and applying updates.
@@ -103,28 +103,28 @@ func (u *updater) checkForUpdate(ctx context.Context) (*updateInfo, error) {
 	latestVersion := strings.TrimPrefix(rel.TagName, "v")
 
 	info := &updateInfo{
-		CurrentVersion: currentVersion,
-		LatestVersion:  latestVersion,
-		ReleaseURL:     rel.HTMLURL,
-		HasUpdate:      false,
+		currentVersion: currentVersion,
+		latestVersion:  latestVersion,
+		releaseURL:     rel.HTMLURL,
+		hasUpdate:      false,
 	}
 
 	if isNewerVersion(latestVersion, currentVersion) {
-		info.HasUpdate = true
+		info.hasUpdate = true
 
 		assetName := getArchiveAssetNameForPlatform(runtime.GOOS, runtime.GOARCH)
 		for _, a := range rel.Assets {
 			if a.Name == assetName {
-				info.AssetURL = a.BrowserDownloadURL
-				info.AssetName = a.Name
+				info.assetURL = a.BrowserDownloadURL
+				info.assetName = a.Name
 			}
 
 			if a.Name == "checksums.txt" || a.Name == assetName+".sha256" {
-				info.ChecksumURL = a.BrowserDownloadURL
+				info.checksumURL = a.BrowserDownloadURL
 			}
 		}
 
-		if info.AssetURL == "" {
+		if info.assetURL == "" {
 			return nil, fmt.Errorf("no release asset found for %s/%s: %w", runtime.GOOS, runtime.GOARCH, errUpdateFailed)
 		}
 	}
@@ -148,11 +148,11 @@ func (u *updater) update(ctx context.Context, info *updateInfo, progressFn func(
 }
 
 func (u *updater) updateAtPath(ctx context.Context, execPath string, info *updateInfo, progressFn func(downloaded, total int64)) error {
-	if !info.HasUpdate {
+	if !info.hasUpdate {
 		return fmt.Errorf("no update available: %w", errUpdateFailed)
 	}
 
-	if info.AssetURL == "" || info.AssetName == "" {
+	if info.assetURL == "" || info.assetName == "" {
 		return fmt.Errorf("update asset information is incomplete: %w", errUpdateFailed)
 	}
 
@@ -166,14 +166,14 @@ func (u *updater) updateAtPath(ctx context.Context, execPath string, info *updat
 		_ = os.RemoveAll(tmpDir)
 	}()
 
-	archivePath := filepath.Join(tmpDir, info.AssetName)
+	archivePath := filepath.Join(tmpDir, info.assetName)
 
 	archiveFile, err := os.Create(archivePath)
 	if err != nil {
 		return fmt.Errorf("failed to create update archive: %w", err)
 	}
 
-	if err := u.downloadFile(ctx, info.AssetURL, archiveFile, progressFn); err != nil {
+	if err := u.downloadFile(ctx, info.assetURL, archiveFile, progressFn); err != nil {
 		archiveFile.Close()
 		return err
 	}
@@ -182,7 +182,7 @@ func (u *updater) updateAtPath(ctx context.Context, execPath string, info *updat
 		return fmt.Errorf("failed to finalize update archive: %w", err)
 	}
 
-	if info.ChecksumURL != "" {
+	if info.checksumURL != "" {
 		if err := u.verifyChecksum(ctx, archivePath, info); err != nil {
 			return err
 		}
@@ -552,7 +552,7 @@ func (u *updater) downloadFile(ctx context.Context, url string, dest *os.File, p
 
 // verifyChecksum verifies the downloaded file against the published checksum.
 func (u *updater) verifyChecksum(ctx context.Context, filePath string, info *updateInfo) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, info.ChecksumURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, info.checksumURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create checksum request: %w", err)
 	}
@@ -574,9 +574,9 @@ func (u *updater) verifyChecksum(ctx context.Context, filePath string, info *upd
 		return fmt.Errorf("failed to read checksum: %w", err)
 	}
 
-	expectedChecksum, ok := parseChecksumForAsset(body, info.AssetName)
+	expectedChecksum, ok := parseChecksumForAsset(body, info.assetName)
 	if !ok {
-		return fmt.Errorf("checksum entry missing for asset %s: %w", info.AssetName, errChecksumMismatch)
+		return fmt.Errorf("checksum entry missing for asset %s: %w", info.assetName, errChecksumMismatch)
 	}
 
 	f, err := os.Open(filePath)

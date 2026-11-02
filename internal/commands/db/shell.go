@@ -53,7 +53,7 @@ func openDatabaseShell(ctx context.Context, runner *environment.Runner, info con
 		)
 	}
 
-	env := map[string]string{"MYSQL_PWD": info.Password}
+	env := map[string]string{"MYSQL_PWD": info.password}
 
 	cmd := databaseShellArgs(info, args)
 	if err := runner.ExecOrRun(ctx, databaseService, env, os.Stdin, os.Stdout, os.Stderr, cmd...); err != nil {
@@ -67,7 +67,7 @@ func openDatabaseShell(ctx context.Context, runner *environment.Runner, info con
 // appended verbatim, so callers can run a one-off query or pass any other
 // client option.
 func databaseShellArgs(info connection, extra []string) []string {
-	args := []string{"mariadb", "--user=" + info.User, "--database=" + info.Name}
+	args := []string{"mariadb", "--user=" + info.user, "--database=" + info.name}
 
 	return append(args, extra...)
 }

@@ -22,7 +22,7 @@ func Run(ctx context.Context) error {
 	for _, result := range results {
 		var statusStr string
 
-		switch result.Status {
+		switch result.status {
 		case statusOK:
 			statusStr = ui.StatusIcon("success")
 			passed++
@@ -39,20 +39,20 @@ func Run(ctx context.Context) error {
 			statusStr = ui.StatusIcon("pending")
 		}
 
-		line := fmt.Sprintf("%s %s", statusStr, ui.Bold.Render(result.Name))
-		if result.Message != "" {
-			line += "  " + ui.Dim.Render(result.Message)
+		line := fmt.Sprintf("%s %s", statusStr, ui.Bold.Render(result.name))
+		if result.message != "" {
+			line += "  " + ui.Dim.Render(result.message)
 		}
 		ui.Println(line)
 
-		if result.Details != "" {
-			for detail := range strings.SplitSeq(result.Details, "\n") {
+		if result.details != "" {
+			for detail := range strings.SplitSeq(result.details, "\n") {
 				ui.Printf("%s%s\n", ui.Indent1, ui.Dim.Render(detail))
 			}
 		}
 
-		if result.Suggestion != "" {
-			ui.PrintHint(result.Suggestion)
+		if result.suggestion != "" {
+			ui.PrintHint(result.suggestion)
 		}
 	}
 

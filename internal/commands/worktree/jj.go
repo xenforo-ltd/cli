@@ -159,7 +159,7 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatu
 			continue
 		}
 
-		status.Modified = append(status.Modified, entry.display)
+		status.modified = append(status.modified, entry.display)
 	}
 
 	// "jj git remote list" prints nothing when no remote is configured, so a
@@ -180,7 +180,7 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatu
 		return status, fmt.Errorf("failed to inspect commit history: %w", err)
 	}
 
-	status.UnmergedCommits = nonEmptyLines(commits)
+	status.unmergedCommits = nonEmptyLines(commits)
 
 	return status, nil
 }

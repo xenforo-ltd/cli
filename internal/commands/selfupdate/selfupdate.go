@@ -19,17 +19,17 @@ func Run(ctx context.Context, checkOnly bool) error {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 
-	spinner.StopWithMessage("info", "Current version "+ui.Version.Render(info.CurrentVersion)+", latest "+ui.Version.Render(info.LatestVersion))
+	spinner.StopWithMessage("info", "Current version "+ui.Version.Render(info.currentVersion)+", latest "+ui.Version.Render(info.latestVersion))
 
-	if !info.HasUpdate {
+	if !info.hasUpdate {
 		ui.PrintSuccess("Already on the latest version")
 		return nil
 	}
 
-	ui.PrintInfo("Update available: " + ui.Version.Render(info.LatestVersion))
+	ui.PrintInfo("Update available: " + ui.Version.Render(info.latestVersion))
 
-	if info.ReleaseURL != "" {
-		ui.PrintKeyValuePadded([]ui.KVPair{ui.KV("Release notes", ui.URL.Render(info.ReleaseURL))})
+	if info.releaseURL != "" {
+		ui.PrintKeyValuePadded([]ui.KVPair{ui.KV("Release notes", ui.URL.Render(info.releaseURL))})
 	}
 
 	if checkOnly {
@@ -37,7 +37,7 @@ func Run(ctx context.Context, checkOnly bool) error {
 		return nil
 	}
 
-	ui.PrintSubstep("Downloading " + info.AssetName)
+	ui.PrintSubstep("Downloading " + info.assetName)
 
 	var (
 		progressBar *ui.ProgressBar
@@ -56,12 +56,12 @@ func Run(ctx context.Context, checkOnly bool) error {
 			stopSpinner()
 
 			if progressBar == nil {
-				progressBar = ui.NewProgressBar(total, info.AssetName)
+				progressBar = ui.NewProgressBar(total, info.assetName)
 			}
 
 			progressBar.Update(downloaded)
 		} else if dlSpinner == nil {
-			dlSpinner = ui.NewSpinner("Downloading " + info.AssetName)
+			dlSpinner = ui.NewSpinner("Downloading " + info.assetName)
 			dlSpinner.Start()
 		}
 	})
@@ -82,9 +82,9 @@ func Run(ctx context.Context, checkOnly bool) error {
 	stopSpinner()
 
 	ui.Println()
-	ui.SuccessBox("Updated to "+ui.Version.Render(info.LatestVersion), []ui.KVPair{
-		ui.KV("Previous version", info.CurrentVersion),
-		ui.KV("Current version", info.LatestVersion),
+	ui.SuccessBox("Updated to "+ui.Version.Render(info.latestVersion), []ui.KVPair{
+		ui.KV("Previous version", info.currentVersion),
+		ui.KV("Current version", info.latestVersion),
 	})
 
 	return nil

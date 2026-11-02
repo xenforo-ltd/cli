@@ -20,11 +20,11 @@ var (
 
 // worktreeStatus describes the state of a worktree's working tree and branch.
 type worktreeStatus struct {
-	// Modified lists paths with uncommitted changes, including untracked files.
-	Modified []string
+	// modified lists paths with uncommitted changes, including untracked files.
+	modified []string
 
-	// UnmergedCommits lists commits not reachable from any remote branch.
-	UnmergedCommits []string
+	// unmergedCommits lists commits not reachable from any remote branch.
+	unmergedCommits []string
 }
 
 // checkRemovable reports whether a worktree can be removed without losing work.
@@ -49,12 +49,12 @@ func checkRemovable(ctx context.Context, worktreePath string) error {
 
 // removableError reports the work a removal would lose, if any.
 func removableError(status worktreeStatus) error {
-	if len(status.Modified) > 0 {
-		return fmt.Errorf("%w:\n  %s", errDirtyWorktree, strings.Join(status.Modified, "\n  "))
+	if len(status.modified) > 0 {
+		return fmt.Errorf("%w:\n  %s", errDirtyWorktree, strings.Join(status.modified, "\n  "))
 	}
 
-	if len(status.UnmergedCommits) > 0 {
-		return fmt.Errorf("%w:\n  %s", errUnmergedCommits, strings.Join(status.UnmergedCommits, "\n  "))
+	if len(status.unmergedCommits) > 0 {
+		return fmt.Errorf("%w:\n  %s", errUnmergedCommits, strings.Join(status.unmergedCommits, "\n  "))
 	}
 
 	return nil

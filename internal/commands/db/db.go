@@ -92,8 +92,8 @@ func openInTablePlus(ctx context.Context, info connection) error {
 	}
 
 	ui.SuccessBox("Opened database in TablePlus", []ui.KVPair{
-		ui.KV("Database", info.Name),
-		ui.KV("Host", info.Host),
+		ui.KV("Database", info.name),
+		ui.KV("Host", info.host),
 	})
 
 	return nil
