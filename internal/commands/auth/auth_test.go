@@ -3,8 +3,10 @@ package auth_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -100,7 +102,7 @@ func TestMain(m *testing.M) {
 
 func cleanCredentials(t *testing.T) {
 	t.Helper()
-	if err := os.Remove(credentialPath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(credentialPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Remove(credentialPath) })
@@ -321,7 +323,7 @@ func TestLogoutFileCredentials(t *testing.T) {
 		if !reflect.DeepEqual(got, []string{"access-secret", "refresh-secret"}) {
 			t.Errorf("revocations = %v", got)
 		}
-		if _, err := os.Stat(credentialPath); !os.IsNotExist(err) {
+		if _, err := os.Stat(credentialPath); !errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("credentials still exist: %v", err)
 		}
 	})
@@ -342,7 +344,7 @@ func TestLogoutFileCredentials(t *testing.T) {
 		if !reflect.DeepEqual(got, []string{"revoke-denied-access", "revoke-denied-refresh"}) {
 			t.Errorf("revocations = %v", got)
 		}
-		if _, err := os.Stat(credentialPath); !os.IsNotExist(err) {
+		if _, err := os.Stat(credentialPath); !errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("credentials still exist: %v", err)
 		}
 	})

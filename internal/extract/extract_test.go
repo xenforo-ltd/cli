@@ -3,6 +3,8 @@ package extract_test
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -69,7 +71,7 @@ func TestXenForoZip(t *testing.T) {
 	if data, err := os.ReadFile(filepath.Join(dest, "src", "file.txt")); err != nil || string(data) != "hello" {
 		t.Fatalf("extracted content: %q, %v", data, err)
 	}
-	if _, err := os.Stat(filepath.Join(dest, "README.txt")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dest, "README.txt")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("root file was extracted: %v", err)
 	}
 }
@@ -101,7 +103,7 @@ func TestXenForoZipRejectsUnsafeEntries(t *testing.T) {
 		if err := extract.XenForoZip(archive, dest, nil); err == nil {
 			t.Fatal("followed destination symlink outside root")
 		}
-		if _, err := os.Stat(filepath.Join(outside, "escape")); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(outside, "escape")); !errors.Is(err, fs.ErrNotExist) {
 			t.Fatalf("outside file exists: %v", err)
 		}
 	})

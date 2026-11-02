@@ -1,6 +1,8 @@
 package setup_test
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,7 +48,7 @@ func TestInstallInvocationQuotesArgumentsAndKeepsPasswordOutOfShellCommand(t *te
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("arguments: %q, want %q", got, want)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "injected")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, "injected")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("shell injection created a file: %v", err)
 	}
 }
