@@ -29,4 +29,3 @@ comment:
 # Generated, vendored, and test-only files are not meaningful coverage targets.
 ignore:
   - "**/*_test.go"
-  - "internal/testutils/**"
