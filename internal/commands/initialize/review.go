@@ -197,7 +197,7 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 	ui.PrintKeyValuePadded([]ui.KVPair{
 		ui.KV("License", licenseDetails),
 		ui.KV("Core version", opts.versionString),
-		ui.KV("Products", formatProductList(opts.Products, titleMap)),
+		ui.KV("Products", formatProductNames(opts.Products, titleMap)),
 		ui.KV("Admin user", opts.AdminUser),
 		ui.KV("Admin email", opts.AdminEmail),
 		ui.KV("Instance", opts.InstanceName),

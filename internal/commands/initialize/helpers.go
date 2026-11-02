@@ -61,10 +61,17 @@ func getProductTitleMapCached(ctx context.Context, client *customerapi.Client, o
 	return opts.productTitleMap
 }
 
-func formatProductList(products []string, titleMap map[string]string) string {
+// formatProductNames returns the display titles of products, joined for
+// summary lines. A product without a title is shown by its ID.
+func formatProductNames(products []string, titleMap map[string]string) string {
 	names := make([]string, 0, len(products))
-	for _, p := range products {
-		names = append(names, downloads.ProductTitle(titleMap, p))
+	for _, product := range products {
+		name := strings.TrimSpace(titleMap[product])
+		if name == "" {
+			name = product
+		}
+
+		names = append(names, name)
 	}
 
 	return strings.Join(names, ", ")
@@ -131,24 +138,6 @@ func ensureCoreFirstUnique(products []string) []string {
 	}
 
 	return out
-}
-
-func formatProductNames(products []string, titleMap map[string]string) string {
-	if len(products) == 0 {
-		return ""
-	}
-
-	names := make([]string, 0, len(products))
-	for _, product := range products {
-		if name := strings.TrimSpace(titleMap[product]); name != "" {
-			names = append(names, name)
-			continue
-		}
-
-		names = append(names, product)
-	}
-
-	return strings.Join(names, ", ")
 }
 
 func downloadableLicenseOptions(licenses []customerapi.License) []huh.Option[string] {
