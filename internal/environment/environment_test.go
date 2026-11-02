@@ -130,6 +130,23 @@ func TestEnvFileCreateRoundTrip(t *testing.T) {
 	}
 }
 
+func TestEnvFileCreateIsPrivate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are not enforced on Windows")
+	}
+	path := filepath.Join(t.TempDir(), ".env")
+	if err := environment.WriteEnvFile(path, map[string]string{"NAME": "value"}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm&0o077 != 0 {
+		t.Fatalf("mode %o grants group or other access", perm)
+	}
+}
+
 func TestRunnerComposeAndExecFallback(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("requires a POSIX shell")
