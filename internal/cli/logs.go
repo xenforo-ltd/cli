@@ -6,6 +6,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/logs"
 )
 
+// flagLogsFollow selects continuous container log output.
 var flagLogsFollow bool
 
 // newLogsCommand builds the logs command.
@@ -38,6 +39,7 @@ Specific services can be specified, or all services will be shown.`,
 	return logsCmd
 }
 
+// runLogs displays or follows logs for the selected services.
 func runLogs(cmd *cobra.Command, args []string) error {
 	return logs.Run(cmd.Context(), args, flagLogsFollow)
 }

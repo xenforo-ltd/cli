@@ -11,13 +11,12 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// StatusOptions selects JSON output for authentication status.
 type StatusOptions struct{ JSON bool }
 
-// authStatusJSON is the single stable shape for `xf auth status --json`,
-// regardless of whether the keychain is unavailable, no token is stored, or
-// a token is present (valid or expired).
+// authStatusJSON describes stored-credential and storage-error status output.
 // Authenticated and Expired are pointers so an unknown value can be reported
-// as null rather than being coerced into a definite false.
+// as null rather than being coerced into a definite false. Timestamps use RFC3339.
 type authStatusJSON struct {
 	Authenticated *bool  `json:"authenticated"`
 	Source        string `json:"source,omitempty"`
@@ -25,8 +24,8 @@ type authStatusJSON struct {
 	Reason        string `json:"reason,omitempty"`
 	Expired       *bool  `json:"expired"`
 	Scope         string `json:"scope,omitempty"`
-	IssuedAt      string `json:"issued_at,omitempty"`  // RFC3339
-	ExpiresAt     string `json:"expires_at,omitempty"` // RFC3339
+	IssuedAt      string `json:"issued_at,omitempty"`
+	ExpiresAt     string `json:"expires_at,omitempty"`
 	ServerValid   *bool  `json:"server_valid,omitempty"`
 	Username      string `json:"username,omitempty"`
 	Error         string `json:"error,omitempty"`
@@ -53,6 +52,7 @@ type environmentAuthStatusJSON struct {
 	Error         string  `json:"error,omitempty"`
 }
 
+// printAuthStatusJSON writes indented authentication status JSON to stdout.
 func printAuthStatusJSON(output any) error {
 	data, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
@@ -64,6 +64,7 @@ func printAuthStatusJSON(output any) error {
 	return nil
 }
 
+// Status reports stored or environment authentication and available server validation.
 func Status(ctx context.Context, opts StatusOptions) error {
 	store, err := auth.NewStore()
 	if err != nil {
@@ -165,6 +166,7 @@ func Status(ctx context.Context, opts StatusOptions) error {
 	return nil
 }
 
+// reportAuthUnavailable presents an authentication or storage failure in the requested format.
 func reportAuthUnavailable(store auth.Store, err error, jsonOutput bool) error {
 	reason := "storage_error"
 	switch {
@@ -199,16 +201,16 @@ func reportAuthUnavailable(store auth.Store, err error, jsonOutput bool) error {
 	return err
 }
 
+// runEnvironmentAuthStatus reports server validation of an environment token.
+// JSON includes fixed keys with null unknown values and includes claims after
+// successful introspection even when those claims are empty.
 func runEnvironmentAuthStatus(ctx context.Context, token *auth.Token, jsonOutput bool) error {
 	result, validationErr := introspectAuthToken(ctx, token)
-	// Every established key is emitted; unknown ones stay nil and serialize
-	// as explicit null so scripts can rely on their presence.
 	output := environmentAuthStatusJSON{Source: "environment"}
 	if validationErr == nil {
 		output.Authenticated = new(result.Active)
 		output.ServerValid = new(result.Active)
 
-		// Introspection succeeded, so the claims exist even when empty.
 		scope := result.Scope
 		username := result.Username
 		output.Scope = &scope

@@ -23,6 +23,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
+// progressUpdateStep is the byte interval between download progress updates.
 const progressUpdateStep = 100 * 1024
 
 // UpgradeOptions specifies upgrade parameters.
@@ -36,6 +37,7 @@ type UpgradeOptions struct {
 	SkipUpgrade         bool
 }
 
+// Run detects the installation, resolves upgrade selections, and executes the upgrade.
 func Run(ctx context.Context, opts *UpgradeOptions) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
@@ -102,6 +104,7 @@ func Run(ctx context.Context, opts *UpgradeOptions) error {
 	return executeUpgrade(ctx, opts)
 }
 
+// validateUpgradeFlags requires a license and target version in non-interactive mode.
 func validateUpgradeFlags(opts *UpgradeOptions) error {
 	var missing []string
 
@@ -120,6 +123,7 @@ func validateUpgradeFlags(opts *UpgradeOptions) error {
 	return nil
 }
 
+// runUpgradeInteractive prompts for missing license and target version selections.
 func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
@@ -139,6 +143,7 @@ func runUpgradeInteractive(ctx context.Context, opts *UpgradeOptions) error {
 	return nil
 }
 
+// selectLicense prompts for a license with download access and stores the choice.
 func selectLicense(ctx context.Context, client *customerapi.Client, opts *UpgradeOptions) error {
 	licenses, err := client.GetLicenses(ctx)
 	if err != nil {
@@ -178,6 +183,8 @@ func selectLicense(ctx context.Context, client *customerapi.Client, opts *Upgrad
 	return nil
 }
 
+// selectTargetVersion prompts for a version newer than the installed version.
+// If none is available, it reports that the installation is current.
 func selectTargetVersion(ctx context.Context, client *customerapi.Client, opts *UpgradeOptions) error {
 	versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, "xenforo")
 	if err != nil {
@@ -225,6 +232,8 @@ func selectTargetVersion(ctx context.Context, client *customerapi.Client, opts *
 	return nil
 }
 
+// executeUpgrade downloads and extracts newer product files, updates metadata,
+// and optionally runs the XenForo upgrade command.
 func executeUpgrade(ctx context.Context, opts *UpgradeOptions) error {
 	if opts.TargetVersionID <= opts.currentVersion.ID {
 		return fmt.Errorf("target version %d is not newer than current version %d: %w",
@@ -324,6 +333,8 @@ func reportUpgradeFailure(ctx context.Context, err error) error {
 	return clierror.Passthrough(err, "xf:upgrade failed")
 }
 
+// downloadUpgradeFiles resolves product versions and returns their cached files.
+// Products without available versions are skipped with a warning.
 func downloadUpgradeFiles(ctx context.Context, client *customerapi.Client, opts *UpgradeOptions) (map[string]*cache.Entry, error) {
 	cacheManager, err := cache.NewManager()
 	if err != nil {

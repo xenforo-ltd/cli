@@ -20,7 +20,9 @@ import (
 	"github.com/xenforo-ltd/cli/internal/setup"
 )
 
-// InitOptions contains options for initialization.
+// InitOptions controls fresh or existing installation setup, including product
+// selection, credentials, container startup, skipped steps and environment values.
+// Internal fields cache resolved versions, overrides and titles during setup.
 type InitOptions struct {
 	TargetPath       string
 	LicenseKey       string
@@ -47,6 +49,8 @@ type InitOptions struct {
 	productTitleMap  map[string]string
 }
 
+// Run initializes a fresh installation or configures an existing one, with a
+// 30-minute timeout. It resolves environment overrides and updates opts in place.
 func Run(ctx context.Context, opts *InitOptions) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
@@ -115,6 +119,7 @@ func Run(ctx context.Context, opts *InitOptions) error {
 	return executeInit(ctx, opts)
 }
 
+// detectXenForo reports whether path contains the XenForo entry point.
 func detectXenForo(path string) (bool, error) {
 	xfPath := filepath.Join(path, "src", "XF.php")
 
@@ -130,6 +135,8 @@ func detectXenForo(path string) (bool, error) {
 	return false, fmt.Errorf("failed to check XenForo path: %w", err)
 }
 
+// validateNonInteractiveFlags requires fresh-install credentials and selection,
+// and ensures the selected products include core first.
 func validateNonInteractiveFlags(opts *InitOptions) error {
 	var missing []string
 
@@ -166,6 +173,7 @@ func validateNonInteractiveFlags(opts *InitOptions) error {
 	return nil
 }
 
+// selectLicense prompts for a license with download access.
 func selectLicense(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	licenses, err := client.GetLicenses(ctx)
 	if err != nil {
@@ -193,6 +201,7 @@ func selectLicense(ctx context.Context, client *customerapi.Client, opts *InitOp
 	return nil
 }
 
+// promptAdminCredentials collects administrator credentials with sensible defaults.
 func promptAdminCredentials(opts *InitOptions) error {
 	if opts.AdminUser == "" {
 		opts.AdminUser = "admin"
@@ -231,6 +240,7 @@ func promptAdminCredentials(opts *InitOptions) error {
 	return nil
 }
 
+// runInteractiveSetup collects and reviews the selections for a fresh installation.
 func runInteractiveSetup(ctx context.Context, opts *InitOptions) error {
 	client, err := customerapi.NewClient()
 	if err != nil {

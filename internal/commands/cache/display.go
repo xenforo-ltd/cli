@@ -12,6 +12,7 @@ func printCacheHeader(entries []*cache.Entry) {
 	ui.Println()
 }
 
+// runCacheListTable prints the compact cache listing and a detailed-view hint.
 func runCacheListTable(entries []*cache.Entry) {
 	printCacheHeader(entries)
 
@@ -33,6 +34,7 @@ func runCacheListTable(entries []*cache.Entry) {
 	ui.PrintHint("Run " + ui.Command.Render("xf cache list -v") + " for detailed information")
 }
 
+// runCacheListVerbose prints cache entries grouped by license with metadata.
 func runCacheListVerbose(entries []*cache.Entry) {
 	printCacheHeader(entries)
 
@@ -65,6 +67,7 @@ func runCacheListVerbose(entries []*cache.Entry) {
 	}
 }
 
+// totalSize returns the sum of cached download sizes in bytes.
 func totalSize(entries []*cache.Entry) int64 {
 	var total int64
 	for _, e := range entries {

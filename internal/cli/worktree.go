@@ -11,22 +11,38 @@ import (
 )
 
 var (
-	flagWorktreeBase           string
-	flagWorktreeAdminUser      string
-	flagWorktreeAdminPassword  string
-	flagWorktreeAdminEmail     string
-	flagWorktreeTitle          string
-	flagWorktreeNoSetup        bool
-	flagWorktreeNoUp           bool
-	flagWorktreeInstance       string
-	flagWorktreeJSON           bool
-	flagWorktreeForce          bool
+	// flagWorktreeBase selects the source revision for a new checkout.
+	flagWorktreeBase string
+	// flagWorktreeAdminUser sets the new installation's administrator name.
+	flagWorktreeAdminUser string
+	// flagWorktreeAdminPassword sets the new installation's administrator password.
+	flagWorktreeAdminPassword string
+	// flagWorktreeAdminEmail sets the new installation's administrator email.
+	flagWorktreeAdminEmail string
+	// flagWorktreeTitle sets the new installation's site title.
+	flagWorktreeTitle string
+	// flagWorktreeNoSetup skips environment setup after creating a checkout.
+	flagWorktreeNoSetup bool
+	// flagWorktreeNoUp skips starting containers during setup.
+	flagWorktreeNoUp bool
+	// flagWorktreeInstance selects the Docker instance name.
+	flagWorktreeInstance string
+	// flagWorktreeJSON selects JSON output for create or list operations.
+	flagWorktreeJSON bool
+	// flagWorktreeForce permits removal despite uncommitted or unpushed work.
+	flagWorktreeForce bool
+	// flagWorktreeKeepContainers preserves containers and volumes on removal.
 	flagWorktreeKeepContainers bool
-	flagWorktreeFresh          bool
-	flagWorktreeSkipBuildJS    bool
+	// flagWorktreeFresh selects a fresh installation instead of cloning the source.
+	flagWorktreeFresh bool
+	// flagWorktreeSkipBuildJS skips JavaScript builds during setup.
+	flagWorktreeSkipBuildJS bool
 )
 
-// newWorktreeCommand builds the worktree command family.
+// newWorktreeCommand builds the worktree command family. The parent treats help
+// as a help request and rejects other unknown subcommands rather than treating
+// them as branch names. JSON creation requires --no-setup because setup writes
+// progress to stdout.
 func newWorktreeCommand() *cobra.Command {
 	worktreeCmd := &cobra.Command{
 		Use:   "worktree",
@@ -62,17 +78,11 @@ XenForo installation.`,
 
   # Print the path of an existing worktree
   cd "$(xf worktree path dev/24x/feature)"`,
-		// This command only dispatches subcommands. Taking a branch here too would
-		// make `xf worktree lst` ambiguous, and cobra would resolve it by silently
-		// creating a branch called "lst" rather than reporting a mistyped
-		// subcommand.
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return nil
 			}
 
-			// `xf worktree help` reads as a request for help. Cobra reserves "help"
-			// at the root only, so it arrives here as an unknown subcommand.
 			if args[0] == "help" {
 				return nil
 			}
@@ -156,9 +166,6 @@ what would be lost. Use --force to remove it anyway.`,
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeFresh, "fresh", false, "install a clean forum instead of cloning the source environment")
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeSkipBuildJS, "skip-build-js", false, "skip building JavaScript for XF and add-ons")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeInstance, "instance", "", "Docker instance name")
-	// JSON must be the only thing on stdout, but setup writes progress there.
-	// Requiring --no-setup keeps the stream machine-readable without routing
-	// every progress message through an injectable writer.
 	worktreeCreateCmd.Flags().BoolVar(&flagWorktreeJSON, "json", false, "output as JSON (requires --no-setup)")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminUser, "admin-user", "", "admin username (default \"admin\")")
 	worktreeCreateCmd.Flags().StringVar(&flagWorktreeAdminPassword, "admin-password", "", "admin password (default \"password\")")
@@ -180,6 +187,7 @@ what would be lost. Use --force to remove it anyway.`,
 	return worktreeCmd
 }
 
+// runWorktreeCreate creates a checkout with the selected setup options.
 func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 	return worktree.CreateWorktree(cmd.Context(), args, worktree.CreateOptions{
 		Base:          flagWorktreeBase,
@@ -195,15 +203,23 @@ func runWorktreeCreate(cmd *cobra.Command, args []string) error {
 		SkipBuildJS:   flagWorktreeSkipBuildJS,
 	})
 }
+
+// runWorktreeList lists worktrees for the current project.
 func runWorktreeList(cmd *cobra.Command, _ []string) error {
 	return worktree.List(cmd.Context(), flagWorktreeJSON)
 }
+
+// runWorktreeListAll lists worktrees across known projects.
 func runWorktreeListAll(_ *cobra.Command, _ []string) error {
 	return worktree.ListAll(flagWorktreeJSON)
 }
+
+// runWorktreePath prints the path of the named worktree.
 func runWorktreePath(cmd *cobra.Command, args []string) error {
 	return worktree.Path(cmd.Context(), args[0])
 }
+
+// runWorktreeRemove removes the named worktree with the selected safeguards.
 func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 	return worktree.RemoveWorktree(cmd.Context(), args[0], worktree.RemoveOptions{
 		Force:          flagWorktreeForce,
@@ -211,4 +227,6 @@ func runWorktreeRemove(cmd *cobra.Command, args []string) error {
 		Verbose:        viper.GetBool("verbose"),
 	})
 }
+
+// runWorktreePrune removes registry entries for missing worktrees.
 func runWorktreePrune(_ *cobra.Command, _ []string) error { return worktree.Prune() }

@@ -2,9 +2,10 @@ package auth
 
 import "time"
 
-// Token represents an OAuth token with expiry information.
+// Token holds OAuth credentials, expiry, issue time, scope, and the issuing
+// base URL. External tokens have no local expiry or refresh metadata and the
+// External marker is not serialized.
 type Token struct {
-	// External tokens have no local expiry or refresh metadata.
 	External     bool      `json:"-"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
@@ -15,12 +16,13 @@ type Token struct {
 	BaseURL      string    `json:"base_url"`
 }
 
-// IsExpired checks if the token has expired, accounting for clock skew.
+// IsExpired reports whether the expiry is less than 30 seconds away or past.
 func (t *Token) IsExpired() bool {
 	return t.IsExpiringSoon(30 * time.Second)
 }
 
-// IsExpiringSoon checks if the token will expire within the given duration.
+// IsExpiringSoon reports whether the expiry is strictly before now plus within.
+// It does not special-case external tokens or a zero expiry.
 func (t *Token) IsExpiringSoon(within time.Duration) bool {
 	return time.Now().Add(within).After(t.ExpiresAt)
 }

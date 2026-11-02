@@ -14,8 +14,11 @@ import (
 // errInvalidArchive indicates the archive is invalid or contains unsafe entries.
 var errInvalidArchive = errors.New("invalid archive")
 
-const maxFileSize = 32 * 1024 * 1024 // 32 MB
+// maxFileSize limits the uncompressed size of each archive entry to 32 MiB.
+const maxFileSize = 32 * 1024 * 1024
 
+// extractFile writes one regular archive entry beneath root, rejecting symlinks
+// and entries larger than maxFileSize even when their declared size is incorrect.
 func extractFile(file *zip.File, root *os.Root, destPath string) error {
 	if file.UncompressedSize64 > maxFileSize {
 		return fmt.Errorf("file %s is too large to extract: %w", file.Name, errInvalidArchive)
@@ -37,8 +40,6 @@ func extractFile(file *zip.File, root *os.Root, destPath string) error {
 
 	defer srcFile.Close()
 
-	// One byte past the limit lets the check below tell an oversized entry
-	// from one that is exactly maxFileSize.
 	limitedReader := io.LimitReader(srcFile, maxFileSize+1)
 
 	destFile, err := root.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
@@ -64,6 +65,7 @@ func extractFile(file *zip.File, root *os.Root, destPath string) error {
 	return nil
 }
 
+// sanitizePath rejects non-local, drive-letter and backslash-containing paths.
 func sanitizePath(name string) (string, error) {
 	if strings.Contains(name, "\\") || hasDriveLetter(name) || !filepath.IsLocal(name) {
 		return "", fmt.Errorf("invalid path in archive: %s: %w", name, errInvalidArchive)
@@ -72,6 +74,7 @@ func sanitizePath(name string) (string, error) {
 	return filepath.Clean(name), nil
 }
 
+// hasDriveLetter reports whether name starts with a Windows drive prefix.
 func hasDriveLetter(name string) bool {
 	if len(name) < 2 || name[1] != ':' {
 		return false
@@ -82,6 +85,7 @@ func hasDriveLetter(name string) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
+// isSymlink reports whether the archive entry represents a symbolic link.
 func isSymlink(file *zip.File) bool {
 	return file.Mode()&os.ModeSymlink != 0
 }
@@ -89,7 +93,8 @@ func isSymlink(file *zip.File) bool {
 // XenForoZip extracts a XenForo ZIP file to the destination.
 // It extracts only files from within the "upload/" directory, stripping that prefix.
 // This handles XenForo's ZIP structure where files are under upload/ but there may
-// be other files like README at the root.
+// be other files like README at the root. Unsafe paths, symlinks, and oversized
+// entries are rejected. onProgress, when non-nil, reports each non-root entry.
 func XenForoZip(zipPath, destDir string, onProgress func(current, total int, filename string)) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {

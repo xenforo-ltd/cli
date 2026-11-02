@@ -45,8 +45,10 @@ const (
 	// downloadTimeout is the timeout for downloading updates.
 	downloadTimeout = 5 * time.Minute
 
-	maxBinarySize = 32 * 1024 * 1024 // 32 MB
+	// maxBinarySize limits an extracted update binary to 32 MiB.
+	maxBinarySize = 32 * 1024 * 1024
 
+	// windowsOS is the runtime operating system name for Windows.
 	windowsOS = "windows"
 )
 
@@ -147,6 +149,8 @@ func (u *updater) update(ctx context.Context, info *updateInfo, progressFn func(
 	return u.updateAtPath(ctx, execPath, info, progressFn)
 }
 
+// updateAtPath downloads, optionally verifies, and replaces the executable.
+// Temporary files reside beside it so replacement renames stay on one filesystem.
 func (u *updater) updateAtPath(ctx context.Context, execPath string, info *updateInfo, progressFn func(downloaded, total int64)) error {
 	if !info.hasUpdate {
 		return fmt.Errorf("no update available: %w", errUpdateFailed)
@@ -156,7 +160,6 @@ func (u *updater) updateAtPath(ctx context.Context, execPath string, info *updat
 		return fmt.Errorf("update asset information is incomplete: %w", errUpdateFailed)
 	}
 
-	// Create a temporary working directory in the binary directory to keep renames atomic.
 	tmpDir, err := os.MkdirTemp(filepath.Dir(execPath), "xf-update-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %w", err)
@@ -233,6 +236,7 @@ func replaceBinaryWindows(newPath, execPath string) error {
 	return nil
 }
 
+// extractBinaryFromArchive extracts a binary from a supported tar.gz or zip archive.
 func extractBinaryFromArchive(archivePath, destDir string) (string, error) {
 	switch {
 	case strings.HasSuffix(archivePath, ".tar.gz"):
@@ -244,6 +248,8 @@ func extractBinaryFromArchive(archivePath, destDir string) (string, error) {
 	}
 }
 
+// extractBinaryFromTarGz extracts recognized regular binary entries with local
+// paths and bounded sizes, then selects the binary for this platform.
 func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 	f, err := os.Open(archivePath)
 	if err != nil {
@@ -306,6 +312,8 @@ func extractBinaryFromTarGz(archivePath, destDir string) (string, error) {
 	return pickExtractedBinary(extracted)
 }
 
+// extractBinaryFromZip extracts recognized binary entries with local paths and
+// bounded sizes, then selects the binary for this platform.
 func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
@@ -362,15 +370,14 @@ func extractBinaryFromZip(archivePath, destDir string) (string, error) {
 }
 
 // writeBinary copies an archive entry to outPath, rejecting entries larger
-// than maxBinarySize.
+// than maxBinarySize. Reading one extra byte distinguishes an oversized entry
+// from one exactly at the limit.
 func writeBinary(outPath string, r io.Reader, name string) error {
 	outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to extract update binary: %w", err)
 	}
 
-	// Read one byte past the limit so the check below can tell an oversized
-	// entry from one that is exactly maxBinarySize.
 	written, err := io.Copy(outFile, io.LimitReader(r, maxBinarySize+1))
 	if err != nil {
 		outFile.Close()
@@ -389,6 +396,7 @@ func writeBinary(outPath string, r io.Reader, name string) error {
 	return nil
 }
 
+// applyBinaryMode applies a nonzero archive mode except on Windows.
 func applyBinaryMode(outPath string, mode os.FileMode) error {
 	if mode == 0 || runtime.GOOS == windowsOS {
 		return nil
@@ -415,6 +423,7 @@ func binaryName(entry string) (string, bool) {
 	}
 }
 
+// runtimeBinaryName returns the expected binary name for the current platform.
 func runtimeBinaryName() string {
 	if runtime.GOOS == windowsOS {
 		return "xf.exe"
@@ -423,6 +432,8 @@ func runtimeBinaryName() string {
 	return "xf"
 }
 
+// pickExtractedBinary prefers the platform binary and falls back to either
+// recognized name, returning an error if neither was extracted.
 func pickExtractedBinary(extracted map[string]string) (string, error) {
 	if binaryPath, ok := extracted[runtimeBinaryName()]; ok {
 		return binaryPath, nil
@@ -439,6 +450,7 @@ func pickExtractedBinary(extracted map[string]string) (string, error) {
 	return "", fmt.Errorf("update archive did not contain xf binary: %w", errUpdateFailed)
 }
 
+// parseChecksumForAsset finds an asset's checksum or accepts a single bare checksum.
 func parseChecksumForAsset(data []byte, assetName string) (string, bool) {
 	singleValueChecksum := ""
 	singleValueCount := 0
@@ -509,6 +521,7 @@ func (u *updater) getLatestRelease(ctx context.Context) (*release, error) {
 	return &rel, nil
 }
 
+// setUserAgent identifies this CLI version in an HTTP request.
 func setUserAgent(req *http.Request) {
 	req.Header.Set("User-Agent", "github.com/xenforo-ltd/cli/"+version.Get().Version)
 }
@@ -619,10 +632,9 @@ func getArchiveAssetNameForPlatform(goos, goarch string) string {
 	return fmt.Sprintf("xf_%s_%s%s", platform, goarch, ext)
 }
 
-// isNewerVersion compares two semantic versions.
-// Returns true if latest is newer than current.
+// isNewerVersion compares numeric version components, padding missing parts
+// with zeros. Development and unknown current versions always permit updates.
 func isNewerVersion(latest, current string) bool {
-	// Handle "dev" version - always consider updates available.
 	if current == "dev" || current == "unknown" {
 		return true
 	}
@@ -630,8 +642,6 @@ func isNewerVersion(latest, current string) bool {
 	latestParts := parseVersion(latest)
 	currentParts := parseVersion(current)
 
-	// Pad the shorter slice with zeros for proper comparison.
-	// This ensures 1.0 == 1.0.0 and 1.0.1 > 1.0
 	maxLen := max(len(currentParts), len(latestParts))
 
 	for i := range maxLen {
@@ -644,6 +654,7 @@ func isNewerVersion(latest, current string) bool {
 	return false
 }
 
+// partAt returns the version component at i or zero beyond the slice.
 func partAt(parts []int, i int) int {
 	if i < len(parts) {
 		return parts[i]

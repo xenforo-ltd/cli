@@ -18,12 +18,11 @@ var (
 	errUnmergedCommits = errors.New("worktree has commits not present on any remote")
 )
 
-// worktreeStatus describes the state of a worktree's working tree and branch.
+// worktreeStatus records modified and untracked paths and commits not reachable
+// from any remote branch.
 type worktreeStatus struct {
-	// modified lists paths with uncommitted changes, including untracked files.
 	modified []string
 
-	// unmergedCommits lists commits not reachable from any remote branch.
 	unmergedCommits []string
 }
 
@@ -60,7 +59,7 @@ func removableError(status worktreeStatus) error {
 	return nil
 }
 
-// remove deletes a worktree and its branch.
+// remove deletes a worktree and its branch or workspace through its backend.
 //
 // Unless force is set, it refuses when the worktree holds uncommitted changes
 // or commits that exist nowhere else, listing what would be lost. Removing
@@ -90,7 +89,7 @@ func remove(ctx context.Context, sourcePath, worktreePath string, force bool) er
 // The set comes from the embedded Docker tree, so it tracks whatever
 // extraction actually writes instead of a hand-maintained list that would
 // quietly fall out of date. Both backends treat these as generated rather than
-// as work the user would lose.
+// as work the user would lose. Paths use forward slashes on every platform.
 func generatedPaths() (map[string]bool, error) {
 	files, err := environment.ListEmbeddedFiles()
 	if err != nil {
@@ -99,7 +98,6 @@ func generatedPaths() (map[string]bool, error) {
 
 	paths := make(map[string]bool, len(files))
 	for _, file := range files {
-		// git and jj report paths with forward slashes on every platform.
 		paths[filepath.ToSlash(file)] = true
 	}
 

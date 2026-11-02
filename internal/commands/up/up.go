@@ -10,6 +10,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run checks Docker availability and starts the environment, optionally detached.
 func Run(ctx context.Context, args []string, detach bool) error {
 	xfDir, err := passthrough.XenForoDir(args)
 	if err != nil {

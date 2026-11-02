@@ -100,9 +100,9 @@ func (p filePattern) matches(rel string, isDir bool) bool {
 	return isDir && doublestar.MatchUnvalidated(p.value, rel+"/")
 }
 
-// mayContain reports whether dir could contain a path matched by p.
+// mayContain reports whether dir could contain a path matched by p. Escaped
+// glob prefixes cannot be compared directly with disk paths.
 func (p filePattern) mayContain(dir string) bool {
-	// Escaped glob prefixes cannot be compared directly with disk paths.
 	if strings.Contains(p.value, `\`) {
 		return true
 	}

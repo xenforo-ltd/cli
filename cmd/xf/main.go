@@ -10,14 +10,14 @@ import (
 	"github.com/xenforo-ltd/cli/internal/cli"
 )
 
+// main exits with the status returned by run.
 func main() {
 	os.Exit(run())
 }
 
+// run dispatches the CLI and records interrupt signals for conventional exit
+// statuses: 130 for SIGINT and 143 for SIGTERM.
 func run() int {
-	// NotifyContext reports only that the context ended, not which signal
-	// ended it, so the signal is recorded here to exit with its conventional
-	// 128+signum status: 130 for SIGINT, 143 for SIGTERM.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 

@@ -99,35 +99,24 @@ func markerExists(path string) (bool, error) {
 // stable, VCS-neutral API -- create, status, remove and the rest -- while Git
 // and Jujutsu each implement the operations in their own terms: a Git branch
 // and worktree, or a Jujutsu workspace.
+// sourceCheckout resolves the original checkout, nameExists checks a branch or
+// workspace name, currentName identifies the current one, and checkouts lists
+// all registered checkouts. create performs only the VCS mutation, while status
+// inspects potential data loss and remove deletes the checkout and its branch
+// or workspace. Callers validate paths and perform removal safety checks.
 type backend interface {
-	// sourceCheckout returns the canonical source checkout containing dir. For
-	// a linked checkout it returns the original checkout, so new checkouts are
-	// siblings of the source rather than nested inside the current one.
 	sourceCheckout(ctx context.Context, dir string) (string, error)
 
-	// nameExists reports whether a branch (Git) or workspace (Jujutsu) named
-	// name already exists in the repository containing repoDir.
 	nameExists(ctx context.Context, repoDir, name string) (bool, error)
 
-	// currentName returns the branch (Git) or workspace (Jujutsu) checked out
-	// at checkoutPath.
 	currentName(ctx context.Context, checkoutPath string) (string, error)
 
-	// checkouts lists every checkout registered with the repository containing
-	// repoDir, including the source checkout itself.
 	checkouts(ctx context.Context, repoDir string) ([]checkout, error)
 
-	// create checks name out at target, based on base when base is non-empty.
-	// It is a VCS mutation only: validating and creating paths is the caller's
-	// job.
 	create(ctx context.Context, source, name, base, target string) error
 
-	// status inspects checkoutPath for work that removal would lose.
 	status(ctx context.Context, checkoutPath string) (worktreeStatus, error)
 
-	// remove deletes the checkout at checkoutPath and its branch or workspace.
-	// force only widens what the VCS will discard; the shared pre-removal
-	// checks are the caller's responsibility.
 	remove(ctx context.Context, source, checkoutPath string, force bool) error
 }
 

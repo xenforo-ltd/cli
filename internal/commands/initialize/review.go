@@ -19,9 +19,12 @@ import (
 )
 
 const (
-	reviewDone   = "__done__"
+	// reviewDone marks the end of an interactive edit selection.
+	reviewDone = "__done__"
+	// versionCount limits the number of recent versions shown in a prompt.
 	versionCount = 10
 
+	// manualVersionLabel offers entry of a version outside the displayed list.
 	manualVersionLabel = "Enter a specific version..."
 )
 
@@ -39,13 +42,17 @@ func sentence(s string) string {
 	return string(r)
 }
 
+// overrideMode selects inferred or explicitly overridden add-on versions.
 type overrideMode int
 
 const (
+	// modeInferred uses the automatically selected version.
 	modeInferred overrideMode = iota
+	// modeOverride uses a user-selected version.
 	modeOverride
 )
 
+// chooseCoreVersionInteractively prompts for a core version and stores it in opts.
 func chooseCoreVersionInteractively(opts *InitOptions) error {
 	v, err := promptVersion(opts.coreVersions, versionPrompt{
 		selectTitle: "Select XenForo version",
@@ -63,6 +70,7 @@ func chooseCoreVersionInteractively(opts *InitOptions) error {
 	return nil
 }
 
+// versionPrompt supplies labels and error context for a version selection.
 type versionPrompt struct {
 	selectTitle string
 	inputTitle  string
@@ -70,6 +78,7 @@ type versionPrompt struct {
 	errSuffix   string
 }
 
+// promptVersion offers recent versions or repeated manual entry until a match is found.
 func promptVersion(versions []customerapi.Version, p versionPrompt) (customerapi.Version, error) {
 	display := buildVersionOptions(versions, versionCount)
 
@@ -120,6 +129,7 @@ func promptVersion(versions []customerapi.Version, p versionPrompt) (customerapi
 	}
 }
 
+// runInteractiveReview lets the user edit and validate setup before proceeding.
 func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	var pendingWarning string
 
@@ -195,6 +205,7 @@ func runInteractiveReview(ctx context.Context, client *customerapi.Client, opts 
 	}
 }
 
+// printReviewSummary displays selections, resolved add-on versions and environment values.
 func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *InitOptions) {
 	licenseDetails := formatLicenseDetails(ctx, client, opts.LicenseKey)
 	titleMap := getProductTitleMapCached(ctx, client, opts)
@@ -254,6 +265,7 @@ func printReviewSummary(ctx context.Context, client *customerapi.Client, opts *I
 	}
 }
 
+// editCoreSetup prompts for the license, products and core version.
 func editCoreSetup(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	if err := editLicense(ctx, client, opts); err != nil {
 		return err
@@ -279,6 +291,7 @@ func editCoreSetup(ctx context.Context, client *customerapi.Client, opts *InitOp
 	return chooseCoreVersionInteractively(opts)
 }
 
+// editAdminSite prompts for administrator credentials and instance name.
 func editAdminSite(opts *InitOptions) error {
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -295,6 +308,7 @@ func editAdminSite(opts *InitOptions) error {
 	return nil
 }
 
+// editLicense selects a downloadable license and clears cached license data.
 func editLicense(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	licenses, err := client.GetLicenses(ctx)
 	if err != nil {
@@ -317,6 +331,7 @@ func editLicense(ctx context.Context, client *customerapi.Client, opts *InitOpti
 	return nil
 }
 
+// editProducts prompts for products available under the selected license.
 func editProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	downloadables, err := client.GetLicenseDownloadables(ctx, opts.LicenseKey)
 	if err != nil {
@@ -333,6 +348,7 @@ func editProducts(ctx context.Context, client *customerapi.Client, opts *InitOpt
 	return nil
 }
 
+// editAddonOverrides lets the user select or clear versions for selected add-ons.
 func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *InitOptions) error {
 	addons := make([]string, 0, len(opts.Products))
 	for _, p := range opts.Products {
@@ -419,6 +435,7 @@ func editAddonOverrides(ctx context.Context, client *customerapi.Client, opts *I
 	}
 }
 
+// chooseOverrideVersion prompts for an available product version and saves its ID.
 func chooseOverrideVersion(ctx context.Context, client *customerapi.Client, opts *InitOptions, product string) error {
 	versions, err := client.GetLicenseVersions(ctx, opts.LicenseKey, product)
 	if err != nil {
@@ -447,6 +464,7 @@ func chooseOverrideVersion(ctx context.Context, client *customerapi.Client, opts
 	return nil
 }
 
+// editEnvValues lets the user add or change environment overrides until done.
 func editEnvValues(opts *InitOptions) error {
 	for {
 		envVals := currentEnvPreview(opts)
@@ -529,6 +547,8 @@ func defaultPHPVersion() string {
 	return defaultPHPVersionFallback
 }
 
+// currentEnvPreview combines instance defaults and overrides for review, hiding
+// contexts and default debug and development values.
 func currentEnvPreview(opts *InitOptions) map[string]string {
 	base := map[string]string{
 		"XF_INSTANCE": opts.InstanceName,

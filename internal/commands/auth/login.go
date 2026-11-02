@@ -11,8 +11,11 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// LoginOptions sets the browser callback timeout in seconds.
 type LoginOptions struct{ Timeout int }
 
+// Login authenticates through a browser using PKCE and stores the resulting token.
+// Browser launch failure leaves the authorization URL available for manual use.
 func Login(commandCtx context.Context, opts LoginOptions) error {
 	store, err := auth.NewWritableStore()
 	if err != nil {
@@ -64,10 +67,6 @@ func Login(commandCtx context.Context, opts LoginOptions) error {
 	spinner.Start()
 
 	if err := auth.OpenBrowser(commandCtx, authURL); err != nil {
-		// Stop the spinner before printing so the warning lands on its own
-		// line instead of being overwritten by the next animation frame.
-		// Restart only if it was animating: without a TTY, Stop is a no-op
-		// and Start would reprint the message.
 		animating := spinner.Animating()
 		spinner.Stop()
 		ui.PrintWarning("Could not open the browser automatically — use the URL above")

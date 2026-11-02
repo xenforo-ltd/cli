@@ -15,7 +15,6 @@ var (
 
 // newBuildCommand builds the build command family.
 func newBuildCommand() *cobra.Command {
-	// buildCmd builds an add-on release from its build.json configuration.
 	buildCmd := &cobra.Command{
 		Use:   "build [addon-id]",
 		Short: "Build an add-on release",
@@ -41,7 +40,6 @@ a Unix timestamp. Source modification times are not retained.`,
 		RunE:    runBuild,
 	}
 
-	// buildJavaScriptCmd builds or watches an add-on's JavaScript without a release.
 	buildJavaScriptCmd := &cobra.Command{
 		Use:   "js [addon-id]",
 		Short: "Build or watch an add-on's JavaScript",

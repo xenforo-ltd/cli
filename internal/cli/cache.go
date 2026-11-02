@@ -8,12 +8,15 @@ import (
 )
 
 var (
-	flagCacheJSON       bool
+	// flagCacheJSON selects JSON cache list output.
+	flagCacheJSON bool
+	// flagCacheLicenseKey filters cache operations by license.
 	flagCacheLicenseKey string
-	flagCacheAll        bool
+	// flagCacheAll confirms removal of all cached downloads.
+	flagCacheAll bool
 )
 
-// newCacheCommand builds the cache command family.
+// newCacheCommand builds the cache command family and rejects unknown subcommands.
 func newCacheCommand() *cobra.Command {
 	cacheCmd := &cobra.Command{
 		Use:   "cache",
@@ -33,8 +36,6 @@ commands to view, manage, and clear the cache.`,
 
   # Clear all cached downloads
   xf cache purge --all`,
-		// See the note on the auth command: NoArgs only takes effect when RunE
-		// is also set.
 		Args:    cobra.NoArgs,
 		GroupID: "maint",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -111,10 +112,15 @@ Useful for scripting or manually inspecting cached files.`,
 	return cacheCmd
 }
 
+// runCacheList displays cached downloads with the selected filter and format.
 func runCacheList(cmd *cobra.Command, args []string) error {
 	return cachecommand.List(cmd.Context(), cachecommand.ListOptions{JSON: flagCacheJSON, LicenseKey: flagCacheLicenseKey})
 }
+
+// runCachePurge removes cached downloads according to the selected scope.
 func runCachePurge(cmd *cobra.Command, args []string) error {
 	return cachecommand.Purge(cmd.Context(), cachecommand.PurgeOptions{LicenseKey: flagCacheLicenseKey, All: flagCacheAll})
 }
+
+// runCachePath prints the cache directory.
 func runCachePath(cmd *cobra.Command, args []string) error { return cachecommand.Path(cmd.Context()) }

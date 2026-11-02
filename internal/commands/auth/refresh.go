@@ -12,6 +12,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Refresh exchanges the stored refresh token for new credentials and saves them.
 func Refresh(ctx context.Context) error {
 	store, err := auth.NewWritableStore()
 	if err != nil {

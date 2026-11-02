@@ -9,10 +9,12 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// PrintSkippedStep displays a numbered step and the reason it was skipped.
 func PrintSkippedStep(current, total int, label, reason string) {
 	ui.Printf("%s %s %s\n", ui.Step(current, total), ui.Bold.Render(label), ui.Dim.Render("(skipped: "+reason+")"))
 }
 
+// PrintStartHint tells the user how to start the environment in dir.
 func PrintStartHint(dir string) {
 	ui.PrintHint("Run " + ui.Command.Render("xf up") + " in " + ui.Path.Render(ui.ShortHome(dir)) + " to start the environment")
 }
@@ -27,6 +29,8 @@ func InstanceTitle(title, instanceName string) string {
 	return fmt.Sprintf("%s [%s]", title, instanceName)
 }
 
+// ChooseBoardURL uses a nonempty detected URL when detection succeeded;
+// otherwise it returns the instance's fallback URL and false.
 func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string, bool) {
 	if detectedErr != nil || strings.TrimSpace(detectedURL) == "" {
 		return environment.FallbackBoardURL(instanceName), false
@@ -40,7 +44,8 @@ func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string
 // Every argument is shell-quoted, so installer values such as the site title
 // cannot inject shell syntax. The password substitution is quoted too, so a
 // password containing spaces or glob characters reaches the installer
-// verbatim.
+// verbatim. Direct expansion also preserves trailing newlines that command
+// substitution would strip.
 //
 // The password is passed through the environment and expanded by sh rather
 // than being interpolated here. That keeps it out of xf's own argv, out of the
@@ -56,13 +61,13 @@ func ChooseBoardURL(instanceName, detectedURL string, detectedErr error) (string
 // stdin or from an environment variable of its own.
 func installShellCommand(installArgs []string) string {
 	command := shellJoinArgs(append([]string{"php", "cmd.php"}, installArgs...))
-	// Expanded directly rather than through $(printenv ...): command
-	// substitution strips trailing newlines, so a password ending in one would
-	// reach the installer altered.
 	return command + ` --password="$XF_INSTALL_PASSWORD"`
 }
 
-// InstallInvocation returns the sh arguments and environment that run xf:install.
+// InstallInvocation returns shell arguments and environment for xf:install.
+// Installer values are shell-quoted, and the password is supplied through
+// XF_INSTALL_PASSWORD rather than host argv. It still appears in PHP argv
+// inside the container.
 func InstallInvocation(user, email, title, siteURL, password string) ([]string, map[string]string) {
 	installArgs := []string{
 		"xf:install",
@@ -77,6 +82,7 @@ func InstallInvocation(user, email, title, siteURL, password string) ([]string, 
 	return []string{"sh", "-c", installShellCommand(installArgs)}, map[string]string{"XF_INSTALL_PASSWORD": password}
 }
 
+// shellJoinArgs quotes each argument as a POSIX shell word and joins them.
 func shellJoinArgs(args []string) string {
 	parts := make([]string, len(args))
 	for i, arg := range args {
@@ -88,14 +94,13 @@ func shellJoinArgs(args []string) string {
 
 // shellQuote renders a string as a single-quoted POSIX shell word.
 //
-// Every argument is quoted unconditionally. Quoting only those that look
-// dangerous is how injection gets through: a value such as
-// `--title=x;rm -rf /` contains no spaces or quotes, so a
-// looks-dangerous test passes it to the shell verbatim.
+// Unconditional quoting protects even values that do not appear dangerous
+// from interpretation as shell syntax.
 func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
 }
 
+// PrintUsefulCommands displays common environment management commands.
 func PrintUsefulCommands() {
 	commands := []ui.KVPair{
 		ui.KV("xf up", "Start the environment"),
@@ -120,6 +125,7 @@ func PrintUsefulCommands() {
 	}
 }
 
+// padRight pads s to the requested display width without truncating it.
 func padRight(s string, width int) string {
 	w := lipgloss.Width(s)
 	if w >= width {

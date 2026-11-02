@@ -30,6 +30,7 @@ This command checks:
 	}
 }
 
+// runDoctor checks system health and dependencies.
 func runDoctor(cmd *cobra.Command, args []string) error {
 	return doctor.Run(cmd.Context())
 }

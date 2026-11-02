@@ -30,6 +30,7 @@ func (t execTask) run(ctx context.Context, root *os.Root) error {
 	return nil
 }
 
+// runOne executes a command on the host or resolves an environment-aware alias.
 func (t execTask) runOne(ctx context.Context, root *os.Root, command []string) error {
 	var dir string
 	var argv []string

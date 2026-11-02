@@ -13,20 +13,16 @@ import (
 	"time"
 )
 
-// lockRetryInterval and lockTimeout bound how long a mutating call waits for
-// another process to release the registry lock, so a crashed process cannot
-// wedge every other xf invocation forever.
 const (
+	// lockRetryInterval is the delay between registry lock attempts.
 	lockRetryInterval = 25 * time.Millisecond
-	lockTimeout       = 5 * time.Second
-	lockStaleAfter    = 30 * time.Second
+	// lockTimeout limits how long a registry lock attempt waits.
+	lockTimeout = 5 * time.Second
+	// lockStaleAfter is the age after which a lock may be reclaimed.
+	lockStaleAfter = 30 * time.Second
 )
 
 // errRegistryCorrupt indicates the registry file exists but cannot be parsed.
-//
-// Mutating calls tolerate this and rebuild from an empty registry, so a damaged
-// file never blocks cleanup. Read failures are not tolerated: they mean the
-// existing entries are unknown rather than absent.
 var errRegistryCorrupt = errors.New("worktree registry is corrupt")
 
 // reservationTimeout is how long a pending reservation survives pruning
@@ -38,31 +34,24 @@ const reservationTimeout = time.Hour
 // instance name.
 var errNameReserved = errors.New("worktree name is already reserved")
 
-// entry records a worktree created by xf.
+// entry records the source checkout and branch, resolved worktree path, branch,
+// Docker instance, cloning state, creation time, and pending reservation state.
+// add clears a pending reservation when the worktree exists.
 type entry struct {
-	// SourcePath is the checkout the worktree was created from.
 	SourcePath string `json:"source_path"`
 
-	// SourceBranch is the branch the source was on at creation time.
 	SourceBranch string `json:"source_branch"`
 
-	// WorktreePath is the resolved location of the worktree.
 	WorktreePath string `json:"worktree_path"`
 
-	// Branch is the branch checked out in the worktree.
 	Branch string `json:"branch"`
 
-	// Instance is the Docker instance name for the worktree.
 	Instance string `json:"instance"`
 
-	// Cloned records whether the environment was cloned from the source.
 	Cloned bool `json:"cloned"`
 
-	// CreatedAt is when the worktree was created.
 	CreatedAt time.Time `json:"created_at"`
 
-	// Pending marks a reservation for a worktree that is still being created.
-	// add clears it by replacing the entry once the worktree exists.
 	Pending bool `json:"pending,omitempty"`
 }
 
@@ -73,13 +62,9 @@ type entry struct {
 // Worktrees can be removed behind xf's back, so callers must reconcile entries
 // against reality rather than trusting the file.
 //
-// A missing registry reads as empty, and the operations that rewrite it --
-// add and remove -- recover from a damaged one by replacing it, so creating
-// and removing worktrees never fail on registry damage. Reading is the
-// exception: all reports a corrupt file rather than silently presenting an
-// empty list, because "no worktrees" and "the record is unreadable" call for
-// different responses from the user. Listing and pruning therefore surface the
-// error and say what to do about it.
+// A missing registry reads as empty. add and remove replace a corrupt registry,
+// but reserve, listing, and pruning report corruption instead of treating
+// unknown entries as absent. Read failures are never treated as empty.
 type registry struct {
 	mu   sync.Mutex
 	path string
@@ -137,6 +122,7 @@ func (r *registry) forSource(sourcePath string) ([]entry, error) {
 }
 
 // add records a worktree, replacing any existing entry for the same path.
+// It replaces a corrupt registry but preserves it on other read failures.
 func (r *registry) add(e entry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -148,10 +134,6 @@ func (r *registry) add(e entry) error {
 
 	defer unlock()
 
-	// A damaged registry must not block recording new work, so parse failures
-	// are treated as an empty registry and overwritten. A read failure is
-	// different: the entries are unreadable rather than absent, and saving
-	// over them would discard every other worktree's record.
 	entries, err := r.load()
 	if err != nil && !errors.Is(err, errRegistryCorrupt) {
 		return err
@@ -213,7 +195,8 @@ func (r *registry) reserve(e entry) error {
 // A pending reservation has no directory yet by design, so it is kept until
 // reservationTimeout has passed. The check runs under the registry lock, so a
 // reservation made while pruning is either seen as pending or not seen at all,
-// never dropped as stale.
+// never dropped as stale. Only confirmed missing paths are removed; permission
+// and I/O errors do not establish absence.
 func (r *registry) prune(now time.Time) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -239,8 +222,6 @@ func (r *registry) prune(now time.Time) (int, error) {
 			continue
 		}
 
-		// Only a confirmed absence is stale: a permission or I/O failure says
-		// nothing about whether the worktree is there.
 		if _, err := os.Stat(e.WorktreePath); errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -257,7 +238,8 @@ func (r *registry) prune(now time.Time) (int, error) {
 }
 
 // remove drops the entry for a worktree path. Removing an absent entry is not
-// an error, so cleanup is idempotent.
+// an error, so cleanup is idempotent. It replaces a corrupt registry but
+// preserves it on other read failures.
 func (r *registry) remove(worktreePath string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -269,13 +251,6 @@ func (r *registry) remove(worktreePath string) error {
 
 	defer unlock()
 
-	// A damaged registry must not block cleanup: worktree removal and prune
-	// have to be able to proceed even when the file cannot be parsed, so a
-	// parse failure is treated the same as an empty registry, as in add.
-	//
-	// Only a parse failure. A permission or I/O error means the existing
-	// entries could not be read at all, and saving over them would delete
-	// every other worktree's record.
 	entries, err := r.load()
 	if err != nil && !errors.Is(err, errRegistryCorrupt) {
 		return err
@@ -300,6 +275,9 @@ func (r *registry) lockPath() string {
 // write the same JSON file with no coordination, silently losing whichever
 // write happened first. A plain O_CREATE|O_EXCL lockfile is used rather than
 // syscall.Flock so the same code works on Windows, where xf also builds.
+// Stale locks are reclaimed by atomic rename. Release also renames the lock
+// before checking its token, restoring it if it belongs to another process.
+// Failed takeover attempts wait until the next retry or the deadline.
 func (r *registry) lock() (func(), error) {
 	dir := filepath.Dir(r.path)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -318,15 +296,6 @@ func (r *registry) lock() (func(), error) {
 			_ = f.Close()
 
 			return func() {
-				// Released by renaming to a private name and deleting that,
-				// rather than reading the token and then removing the path:
-				// between those two steps the lock could be taken over as
-				// stale and recreated by another process, and the remove would
-				// delete a lock that is now theirs.
-				//
-				// Rename is atomic, so at most one process moves this file. If
-				// the content is not ours, it was taken over and is put back
-				// untouched.
 				release := fmt.Sprintf("%s.release.%d", path, os.Getpid())
 				if err := os.Rename(path, release); err != nil {
 					return
@@ -339,7 +308,6 @@ func (r *registry) lock() (func(), error) {
 					return
 				}
 
-				// Someone else's lock: restore it.
 				_ = os.Rename(release, path)
 			}, nil
 		}
@@ -348,19 +316,6 @@ func (r *registry) lock() (func(), error) {
 			return nil, fmt.Errorf("failed to lock worktree registry: %w", err)
 		}
 
-		// A lockfile left behind by a process that crashed before releasing it
-		// would otherwise wedge every future call, so a lock older than
-		// lockStaleAfter is treated as abandoned and cleared.
-		//
-		// The takeover renames rather than removes: rename is atomic, so of
-		// several processes that all see the same stale lock, only the one
-		// whose rename succeeds clears it. Removing directly is a
-		// check-then-act race in which two processes can each delete the
-		// other's fresh lock and both believe they hold it.
-		//
-		// A failed takeover falls through to the deadline check and the sleep
-		// rather than retrying immediately: a lockfile that cannot be removed,
-		// on a read-only parent for instance, would otherwise spin forever.
 		if info, statErr := os.Stat(path); statErr == nil && time.Since(info.ModTime()) > lockStaleAfter {
 			stale := fmt.Sprintf("%s.stale.%d", path, os.Getpid())
 			if renameErr := os.Rename(path, stale); renameErr == nil {
@@ -378,6 +333,7 @@ func (r *registry) lock() (func(), error) {
 	}
 }
 
+// load reads the registry, treating a missing file as empty and reporting corruption.
 func (r *registry) load() ([]entry, error) {
 	data, err := os.ReadFile(r.path)
 	if err != nil {

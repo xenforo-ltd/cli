@@ -39,6 +39,8 @@ func (o Options) composeStepCount() int {
 	return count
 }
 
+// Run refreshes embedded environment files and optionally pulls, builds, and
+// applies images to running containers.
 func Run(ctx context.Context, opts Options) error {
 	composeSteps := opts.composeStepCount()
 	totalSteps := 1 + composeSteps

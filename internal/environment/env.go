@@ -12,7 +12,8 @@ import (
 	"strings"
 )
 
-// ReadEnvFile reads environment variables from an .env file.
+// ReadEnvFile reads environment variables from an .env file, skipping comments
+// and malformed lines and removing matching surrounding quotes from values.
 func ReadEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -37,7 +38,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 
 		before, after, ok := strings.Cut(line, "=")
 		if !ok {
-			continue // Skip malformed lines
+			continue
 		}
 
 		key := strings.TrimSpace(before)
@@ -80,6 +81,7 @@ func WriteEnvFile(path string, values map[string]string) error {
 	return createEnvFile(path, values)
 }
 
+// createEnvFile writes values in key order to a private .env file.
 func createEnvFile(path string, values map[string]string) error {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
@@ -97,6 +99,8 @@ func createEnvFile(path string, values map[string]string) error {
 	return nil
 }
 
+// updateEnvFile updates assignments while preserving unrelated lines and appends
+// missing keys in sorted order.
 func updateEnvFile(path string, values map[string]string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -150,6 +154,8 @@ func quoteEnvValue(value string) string {
 	return value
 }
 
+// needsQuoting reports whether a value contains special characters, except that
+// values containing Compose interpolation syntax are left unquoted.
 func needsQuoting(value string) bool {
 	if strings.Contains(value, "${") {
 		return false
@@ -166,6 +172,7 @@ func needsQuoting(value string) bool {
 // short enough to read.
 const MaxInstanceNameLength = 48
 
+// nonAlphanumeric matches runs replaced by hyphens in instance names.
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
 
 // GenerateInstanceName generates a Docker-safe instance name from a directory name.

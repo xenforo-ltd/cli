@@ -11,18 +11,15 @@ const (
 	codeVerifierBytes = 64
 )
 
-// pkceParams contains the PKCE parameters for an OAuth flow.
+// pkceParams contains a random verifier, its S256 challenge, and random state
+// for CSRF protection in an OAuth flow.
 type pkceParams struct {
-	// codeVerifier is the random string used to generate the challenge.
 	codeVerifier string
 
-	// codeChallenge is the S256 hash of the verifier.
 	codeChallenge string
 
-	// codeChallengeMethod is always "S256".
 	codeChallengeMethod string
 
-	// State is a random string to prevent CSRF attacks.
 	State string
 }
 
@@ -33,7 +30,6 @@ func GeneratePKCE() (*pkceParams, error) {
 
 	codeVerifier := base64URLEncode(verifierBytes)
 
-	// Generate code challenge (S256 = base64url(sha256(verifier)))
 	hash := sha256.Sum256([]byte(codeVerifier))
 	codeChallenge := base64URLEncode(hash[:])
 
@@ -50,6 +46,7 @@ func GeneratePKCE() (*pkceParams, error) {
 	}, nil
 }
 
+// base64URLEncode encodes data using unpadded URL-safe base64.
 func base64URLEncode(data []byte) string {
 	return base64.RawURLEncoding.EncodeToString(data)
 }

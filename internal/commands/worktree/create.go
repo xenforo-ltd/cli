@@ -13,11 +13,16 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// CreateWorktree reserves a name, creates a checkout, and optionally sets up
+// or clones its environment. JSON requires no setup so stdout remains a single
+// document; this is validated before mutation. A failed creation releases its
+// reservation only if no directory remains, protecting its instance name.
+// Registry update failures after creation are warnings, not creation failures.
+// Cloning skips installation to protect imported data and requires containers;
+// no-up skips cloning and warns when an installed source cannot be copied.
+// Fresh-install credentials are not reported for a clone, which retains the
+// source's logins. Setup or cloning errors leave the created worktree in place.
 func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) error {
-	// JSON must be the only thing on stdout, but setup writes progress there.
-	// Requiring --no-setup keeps the stream machine-readable. This runs before
-	// any path resolution or Git state changes so a rejected invocation leaves
-	// nothing behind.
 	if opts.JSON && !opts.NoSetup {
 		return clierror.Usage(fmt.Errorf(
 			"--json requires --no-setup: setup progress is written to stdout and would corrupt the JSON document",
@@ -58,10 +63,6 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 	})
 
 	if err != nil {
-		// Release the name so a retry can use it, unless creation left the
-		// directory behind. chooseName skips that directory for this source,
-		// but only the reservation keeps another checkout from reusing the
-		// instance name.
 		if _, statErr := os.Lstat(reserved.WorktreePath); errors.Is(statErr, fs.ErrNotExist) {
 			if removeErr := reg.remove(reserved.WorktreePath); removeErr != nil {
 				warnRegistryUpdateFailed()
@@ -81,8 +82,6 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 	}
 
 	if err := reg.add(record); err != nil {
-		// The worktree exists and is usable; a registry failure must not
-		// present itself as a failed creation.
 		warnRegistryUpdateFailed()
 	}
 
@@ -95,12 +94,6 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 		})
 	}
 
-	// Cloning imports a database that is already installed, so xf:install must
-	// not run over it: it would wipe the data that was just copied.
-	//
-	// Cloning needs running containers, so --no-up rules it out. Treating the
-	// worktree as cloning anyway would suppress xf:install as well, leaving it
-	// with neither an imported database nor an installed one.
 	cloning := false
 
 	if !opts.Fresh && !opts.NoUp {
@@ -112,10 +105,6 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 		cloning = installed
 	}
 
-	// --no-up on an installed source leaves the worktree configured but with
-	// neither a cloned database nor an installed one, and nothing about a
-	// successful "create" says so. A later "xf up" would then present an empty
-	// board with no explanation, so name the gap and the way to close it.
 	if opts.NoUp && !opts.Fresh && !opts.NoSetup && !opts.JSON {
 		installed, err := sourceIsInstalled(result.sourcePath)
 		if err != nil {
@@ -145,9 +134,6 @@ func CreateWorktree(ctx context.Context, args []string, opts CreateOptions) erro
 			}
 		}
 
-		// Only a fresh install has credentials worth reporting. A cloned
-		// worktree keeps the source's own logins, so printing the defaults
-		// would be wrong.
 		if !cloning && !opts.JSON && !opts.NoUp {
 			ui.Println()
 			ui.InfoBox("Fresh install credentials", []ui.KVPair{

@@ -18,7 +18,6 @@ type unixTime struct {
 func (t *unixTime) UnmarshalJSON(data []byte) error {
 	var timestamp int64
 	if err := json.Unmarshal(data, &timestamp); err != nil {
-		// Try parsing as a regular time string
 		var timeStr string
 		if err := json.Unmarshal(data, &timeStr); err != nil {
 			return fmt.Errorf("failed to parse UnixTime JSON value: %w", err)
@@ -161,6 +160,7 @@ func (c *Client) GetDownloadURL(licenseKey string, downloadID string, versionID 
 	return c.baseURL + "/api/customer-oauth2/license-download?" + downloadParams(licenseKey, downloadID, versionID)
 }
 
+// downloadParams encodes the license, download, and version query parameters.
 func downloadParams(licenseKey, downloadID string, versionID int) string {
 	params := url.Values{}
 	params.Set("license_key", licenseKey)

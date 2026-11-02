@@ -103,7 +103,8 @@ func (c *oauthClient) ExchangeCode(ctx context.Context, code string, pkce *pkceP
 	return c.tokenFromResponse(tokenResp), nil
 }
 
-// RefreshToken refreshes an expired access token.
+// RefreshToken requests a new access token and retains the previous refresh
+// token if the response does not provide a replacement.
 func (c *oauthClient) RefreshToken(ctx context.Context, refreshToken string) (*Token, error) {
 	endpoints := c.config.Endpoints()
 
@@ -126,7 +127,6 @@ func (c *oauthClient) RefreshToken(ctx context.Context, refreshToken string) (*T
 
 	token := c.tokenFromResponse(tokenResp)
 
-	// If no new refresh token was provided, keep the old one
 	if token.RefreshToken == "" {
 		token.RefreshToken = refreshToken
 	}
@@ -175,7 +175,8 @@ func (c *oauthClient) IntrospectToken(ctx context.Context, accessToken string) (
 	return &introspectResp, nil
 }
 
-// RevokeToken revokes an access or refresh token.
+// RevokeToken requests revocation of an access or refresh token and accepts
+// only HTTP 200 as success.
 func (c *oauthClient) RevokeToken(ctx context.Context, token string) error {
 	endpoints := c.config.Endpoints()
 
@@ -190,7 +191,6 @@ func (c *oauthClient) RevokeToken(ctx context.Context, token string) error {
 
 	defer resp.Body.Close()
 
-	// Revocation should return 200 OK even if token was already invalid
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -203,6 +203,7 @@ func (c *oauthClient) RevokeToken(ctx context.Context, token string) error {
 	return nil
 }
 
+// postForm sends an OAuth form request; the caller must close the response body.
 func (c *oauthClient) postForm(ctx context.Context, endpoint string, data url.Values, request, action string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
@@ -219,6 +220,8 @@ func (c *oauthClient) postForm(ctx context.Context, endpoint string, data url.Va
 	return resp, nil
 }
 
+// tokenFromResponse records the configured base URL and calculates expiry
+// from the current time and the response's lifetime in seconds.
 func (c *oauthClient) tokenFromResponse(resp *tokenResponse) *Token {
 	now := time.Now()
 
@@ -320,6 +323,8 @@ func (cs *callbackServer) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// handleCallback redirects the browser to the completion page and sends the
+// callback result without blocking if the result channel is already full.
 func (cs *callbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
@@ -329,7 +334,6 @@ func (cs *callbackServer) handleCallback(w http.ResponseWriter, r *http.Request)
 		Error: query.Get("error"),
 	}
 
-	// Build redirect URL to the completion page on the XenForo site
 	cfg, err := config.Load()
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -346,7 +350,6 @@ func (cs *callbackServer) handleCallback(w http.ResponseWriter, r *http.Request)
 
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 
-	// Send result to channel (CLI continues processing)
 	select {
 	case cs.result <- result:
 	default:

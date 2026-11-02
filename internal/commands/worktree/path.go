@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// Path prints the named worktree's path without decoration for shell use.
 func Path(ctx context.Context, name string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -22,7 +23,6 @@ func Path(ctx context.Context, name string) error {
 		return err
 	}
 
-	// Printed bare, with no decoration, so it can be used directly in a shell.
 	fmt.Println(target)
 
 	return nil

@@ -21,7 +21,9 @@ type uploadSelection struct {
 }
 
 // collectFiles discovers release files, pruning excluded directories, and maps
-// installation-relative destinations to build-root-relative sources.
+// installation-relative destinations to build-root-relative sources. Required
+// metadata bypasses release filters, but explicit additional-file overrides
+// take precedence over the build-root copy.
 func (s uploadSelection) collectFiles(ctx context.Context, root *os.Root) (map[string]string, error) {
 	files, err := collectFilesWhere(ctx, root, ".", func(name string, isDir bool) bool {
 		return !isIgnoredPath(name) && !matchesPatterns(s.blacklist, name, isDir) && s.matchesWhitelist(name, isDir)
@@ -52,8 +54,6 @@ func (s uploadSelection) collectFiles(ctx context.Context, root *os.Root) (map[s
 		return nil, err
 	}
 
-	// Required metadata bypasses release filters. Explicit additional-file
-	// overrides still take precedence over the build-root copy.
 	required := []string{path.Join(s.addOnDir, "addon.json")}
 	if s.composerAutoload != "" {
 		required = append(required, path.Join(s.addOnDir, s.composerAutoload, "installed.json"))

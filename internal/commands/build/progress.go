@@ -70,6 +70,8 @@ type buildProgressWriter struct {
 	output   io.Writer
 }
 
+// Write captures tracked output or forwards it after stopping an active spinner.
+// The spinner stays stopped for the stage so partial lines remain visible.
 func (w buildProgressWriter) Write(data []byte) (int, error) {
 	p := w.progress
 	p.mu.Lock()
@@ -80,8 +82,6 @@ func (w buildProgressWriter) Write(data []byte) (int, error) {
 	}
 
 	if p.spinner != nil && p.spinner.Animating() {
-		// Output can arrive in partial lines. Keep the spinner stopped for the
-		// rest of this stage so its frames cannot erase subprocess output.
 		p.spinner.Stop()
 	}
 

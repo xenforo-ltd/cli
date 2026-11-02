@@ -7,7 +7,8 @@ import (
 	"io"
 )
 
-// ProgressReader tracks read progress from a source reader.
+// ProgressReader tracks bytes read from Reader and calls OnProgress after each
+// nonempty read with the cumulative count and Total, when the callback is set.
 type ProgressReader struct {
 	Reader     io.Reader
 	Total      int64
@@ -16,6 +17,8 @@ type ProgressReader struct {
 	downloaded int64
 }
 
+// Read reads from the source and reports progress; it preserves EOF and wraps
+// other read errors.
 func (pr *ProgressReader) Read(p []byte) (int, error) {
 	n, err := pr.Reader.Read(p)
 	if n > 0 {

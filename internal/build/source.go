@@ -19,6 +19,8 @@ type directoryOpener struct {
 }
 
 // Open opens a native, root-relative path. Callers validate it with Localize.
+// It falls back to the build root for links that leave the cached directory but
+// remain within the build root.
 func (o *directoryOpener) Open(name string) (*os.File, error) {
 	parent := filepath.Dir(name)
 	if parent != o.parent {
@@ -38,7 +40,6 @@ func (o *directoryOpener) Open(name string) (*os.File, error) {
 		if f, err := o.dir.Open(filepath.Base(name)); err == nil {
 			return f, nil
 		}
-		// A link can leave this directory while remaining inside the build root.
 	}
 
 	return o.root.Open(name)

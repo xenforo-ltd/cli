@@ -11,6 +11,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// CheckPrerequisites verifies Docker is running and Docker Compose is available,
+// reporting actionable hints when Docker cannot be used.
 func CheckPrerequisites(ctx context.Context) error {
 	ui.Println(ui.Bold.Render("Checking prerequisites..."))
 	if err := environment.CheckDockerRunning(ctx); err != nil {

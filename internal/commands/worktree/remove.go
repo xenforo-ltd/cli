@@ -8,6 +8,10 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// RemoveWorktree removes a worktree and, unless kept, its containers and
+// volumes. Unless forced, it checks for work that would be lost before
+// destroying the environment. Containers are removed before the checkout
+// because Compose needs its files. Registry update failures are warnings.
 func RemoveWorktree(ctx context.Context, name string, opts RemoveOptions) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -24,18 +28,12 @@ func RemoveWorktree(ctx context.Context, name string, opts RemoveOptions) error 
 		return err
 	}
 
-	// The safety check runs before anything is destroyed. Tearing down first
-	// and refusing afterwards would report that the worktree was kept while
-	// its database and volumes had already been deleted.
 	if !opts.Force {
 		if err := checkRemovable(ctx, target); err != nil {
 			return err
 		}
 	}
 
-	// Containers must be torn down before the directory goes: compose reads
-	// compose.yaml from the worktree to know what it owns, so removing the
-	// files first would strand the containers and volumes.
 	if !opts.KeepContainers {
 		if err := destroyWorktreeEnvironment(ctx, target); err != nil {
 			return err
@@ -47,8 +45,6 @@ func RemoveWorktree(ctx context.Context, name string, opts RemoveOptions) error 
 	}
 
 	if err := forgetWorktree(target); err != nil {
-		// Reported rather than ignored: the worktree is gone but the registry
-		// still lists it, and only this message tells the user why.
 		warnRegistryUpdateFailed()
 
 		if opts.Verbose {
@@ -61,6 +57,7 @@ func RemoveWorktree(ctx context.Context, name string, opts RemoveOptions) error 
 	return nil
 }
 
+// forgetWorktree removes the path from the worktree registry.
 func forgetWorktree(path string) error {
 	reg, err := newRegistry()
 	if err != nil {

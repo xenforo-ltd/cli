@@ -14,10 +14,10 @@ import (
 	"strings"
 )
 
-// result describes a completed export.
+// result describes a completed export. Warnings lists ignored unknown fields,
+// sorted and deduplicated by data type and field name; intentionally omitted
+// stock fields do not produce warnings.
 type result struct {
-	// Warnings lists ignored unknown fields, sorted and deduplicated by data type
-	// and field name. Intentionally omitted stock fields do not produce warnings.
 	Warnings []string
 }
 
@@ -30,6 +30,9 @@ type result struct {
 // phrase versions are preserved. Unknown record fields are ignored and reported
 // in result.Warnings. Unsupported data types and export-handler class extensions
 // are rejected; PHP handlers are not executed.
+//
+// File access is rooted at addOnDir, and _data must not be a symbolic link.
+// Metadata-listed inputs must be regular files within their type directories.
 //
 // Export converts all inputs before writing any files. Each XML file is replaced
 // atomically, but an I/O error or cancellation may leave a partially written set.

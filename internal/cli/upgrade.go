@@ -7,8 +7,11 @@ import (
 )
 
 var (
+	// flagUpgradeLicense selects the license for the upgrade.
 	flagUpgradeLicense string
+	// flagUpgradeVersion selects the target version.
 	flagUpgradeVersion int
+	// flagUpgradeSkipCmd skips the XenForo upgrade command.
 	flagUpgradeSkipCmd bool
 )
 
@@ -48,6 +51,7 @@ key will be detected automatically. Otherwise, use --license to specify it.`,
 	return upgradeCmd
 }
 
+// runUpgrade upgrades the selected installation, defaulting to the current directory.
 func runUpgrade(cmd *cobra.Command, args []string) error {
 	targetPath := "."
 	if len(args) > 0 {

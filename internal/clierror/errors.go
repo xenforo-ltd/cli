@@ -34,9 +34,13 @@ type kindError struct {
 	kind error
 }
 
-func (e *kindError) Error() string   { return e.err.Error() }
+// Error returns the underlying message without the classification text.
+func (e *kindError) Error() string { return e.err.Error() }
+
+// Unwrap exposes both the underlying error and its classification.
 func (e *kindError) Unwrap() []error { return []error{e.err, e.kind} }
 
+// MarkAs formats an error and associates it with kind for errors.Is.
 func MarkAs(kind error, format string, a ...any) error {
 	return &kindError{err: fmt.Errorf(format, a...), kind: kind}
 }
@@ -47,13 +51,18 @@ type hintedError struct {
 	hint string
 }
 
+// Error returns the underlying message without the hint.
 func (e *hintedError) Error() string { return e.err.Error() }
+
+// Unwrap returns the underlying error.
 func (e *hintedError) Unwrap() error { return e.err }
 
+// WithHint attaches a remediation hint to err.
 func WithHint(err error, hint string) error {
 	return &hintedError{err: err, hint: hint}
 }
 
+// HintOf returns the first attached hint in err's chain, or an empty string.
 func HintOf(err error) string {
 	if h, ok := errors.AsType[*hintedError](err); ok {
 		return h.hint
@@ -68,24 +77,32 @@ type usageError struct {
 	err error
 }
 
+// Error returns the underlying message.
 func (e *usageError) Error() string { return e.err.Error() }
 
+// Unwrap returns the underlying error.
 func (e *usageError) Unwrap() error { return e.err }
 
+// Usage marks err as an invocation error for which usage should be printed.
 func Usage(err error) error {
 	return &usageError{err: err}
 }
 
+// IsUsage reports whether err's chain contains an invocation error.
 func IsUsage(err error) bool { _, ok := errors.AsType[*usageError](err); return ok }
 
 // exitCodeError requests a bare process exit with the child's status,
 // printing nothing: the child already reported its own failure.
 type exitCodeError struct{ code int }
 
+// Error describes the requested exit status.
 func (e *exitCodeError) Error() string { return fmt.Sprintf("exit status %d", e.code) }
 
+// WithExitCode requests a silent exit with code, for a child that reported
+// its own failure.
 func WithExitCode(code int) error { return &exitCodeError{code: code} }
 
+// ExitCode returns the requested silent exit status, if present in err's chain.
 func ExitCode(err error) (int, bool) {
 	if e, ok := errors.AsType[*exitCodeError](err); ok {
 		return e.code, true
@@ -96,15 +113,14 @@ func ExitCode(err error) (int, bool) {
 
 // Passthrough converts a child process's non-zero exit into a bare
 // exit-code error (the child already printed its own failure); other errors
-// are wrapped with context.
+// are wrapped with context. Signal-terminated processes have no usable exit
+// status and are wrapped rather than converted.
 func Passthrough(err error, what string) error {
 	if err == nil {
 		return nil
 	}
 
 	if ee, ok := errors.AsType[*exec.ExitError](err); ok {
-		// A process killed by a signal reports -1, which is not a status any
-		// caller can exit with. Those failures are reported normally instead.
 		if code := ee.ExitCode(); code >= 0 {
 			return WithExitCode(code)
 		}

@@ -6,8 +6,10 @@ import (
 )
 
 var (
+	// ErrStoreUnavailable indicates that the credential store cannot be accessed.
 	ErrStoreUnavailable = errors.New("credential storage unavailable")
-	ErrConfigMismatch   = errors.New("authentication configuration mismatch")
+	// ErrConfigMismatch indicates that stored credentials target another configuration.
+	ErrConfigMismatch = errors.New("authentication configuration mismatch")
 
 	// ErrAuthRequired indicates that authentication is required.
 	ErrAuthRequired = errors.New("authentication required")

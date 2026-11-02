@@ -15,58 +15,91 @@ import (
 )
 
 var (
+	// lightDark selects a color for the terminal background.
 	lightDark = lipgloss.LightDark(lipgloss.HasDarkBackground(os.Stdin, os.Stdout))
 
-	colorPrimary   = lipgloss.Blue
+	// colorPrimary is the primary display color.
+	colorPrimary = lipgloss.Blue
+	// colorSecondary is the secondary display color.
 	colorSecondary = lipgloss.Magenta
-	colorAccent    = lipgloss.Cyan
-	colorSuccess   = lipgloss.Green
-	colorWarning   = lipgloss.Yellow
-	colorError     = lipgloss.Red
-	colorInfo      = lipgloss.Cyan
-	colorSubtle    = lightDark(lipgloss.Color("#585858"), lipgloss.Color("#BCBCBC"))
+	// colorAccent is the accent display color.
+	colorAccent = lipgloss.Cyan
+	// colorSuccess is the success display color.
+	colorSuccess = lipgloss.Green
+	// colorWarning is the warning display color.
+	colorWarning = lipgloss.Yellow
+	// colorError is the error display color.
+	colorError = lipgloss.Red
+	// colorInfo is the informational display color.
+	colorInfo = lipgloss.Cyan
+	// colorSubtle adapts the subtle display color to the background.
+	colorSubtle = lightDark(lipgloss.Color("#585858"), lipgloss.Color("#BCBCBC"))
 )
 
+// ansiClearLine clears the current terminal line.
 const ansiClearLine = "\r\033[2K"
 
-// Predefined styles for consistent use across commands.
 var (
-	Bold       = lipgloss.NewStyle().Bold(true)
-	Dim        = lipgloss.NewStyle().Faint(true)             // Terminal's native faint/dim
-	Muted      = lipgloss.NewStyle().Foreground(colorSubtle) // Adaptive subtle color
-	labelStyle = lipgloss.NewStyle().Foreground(colorSubtle) // For labels in key-value pairs
+	// Bold emphasizes text.
+	Bold = lipgloss.NewStyle().Bold(true)
+	// Dim uses the terminal's faint style.
+	Dim = lipgloss.NewStyle().Faint(true)
+	// Muted renders text in an adaptive subtle color.
+	Muted = lipgloss.NewStyle().Foreground(colorSubtle)
+	// labelStyle renders key-value labels in an adaptive subtle color.
+	labelStyle = lipgloss.NewStyle().Foreground(colorSubtle)
 
-	Success   = lipgloss.NewStyle().Foreground(colorSuccess)
-	Warning   = lipgloss.NewStyle().Foreground(colorWarning)
-	Error     = lipgloss.NewStyle().Foreground(colorError)
+	// Success styles successful status output.
+	Success = lipgloss.NewStyle().Foreground(colorSuccess)
+	// Warning styles warning status output.
+	Warning = lipgloss.NewStyle().Foreground(colorWarning)
+	// Error styles error status output.
+	Error = lipgloss.NewStyle().Foreground(colorError)
+	// infoStyle styles informational status output.
 	infoStyle = lipgloss.NewStyle().Foreground(colorInfo)
 
+	// successBold emphasizes successful output.
 	successBold = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
-	ErrorBold   = lipgloss.NewStyle().Foreground(colorError).Bold(true)
+	// ErrorBold emphasizes error output.
+	ErrorBold = lipgloss.NewStyle().Foreground(colorError).Bold(true)
 
+	// Header emphasizes and underlines headings.
 	Header = lipgloss.NewStyle().Bold(true).Underline(true)
 
+	// Command styles command text.
 	Command = lipgloss.NewStyle().Foreground(colorAccent)
-	Path    = lipgloss.NewStyle().Foreground(colorSecondary)
-	URL     = lipgloss.NewStyle().Foreground(colorPrimary).Underline(true)
+	// Path styles filesystem paths.
+	Path = lipgloss.NewStyle().Foreground(colorSecondary)
+	// URL styles URLs.
+	URL = lipgloss.NewStyle().Foreground(colorPrimary).Underline(true)
+	// Version styles version text.
 	Version = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 )
 
-// Indent1 and Indent2 are one and two levels of indentation.
 const (
+	// Indent1 is one level of indentation.
 	Indent1 = "  "
+	// Indent2 is two levels of indentation.
 	Indent2 = "    "
 )
 
 const (
+	// symbolSuccess indicates success.
 	symbolSuccess = "✓"
+	// symbolWarning indicates a warning.
 	symbolWarning = "!"
-	SymbolError   = "✗"
-	symbolInfo    = "•"
+	// SymbolError indicates an error.
+	SymbolError = "✗"
+	// symbolInfo indicates informational output.
+	symbolInfo = "•"
+	// symbolSkipped indicates a skipped operation.
 	symbolSkipped = "-"
+	// symbolPending indicates a pending operation.
 	symbolPending = "○"
-	SymbolArrow   = "→"
-	SymbolBullet  = symbolInfo
+	// SymbolArrow indicates a next step.
+	SymbolArrow = "→"
+	// SymbolBullet is the informational bullet symbol.
+	SymbolBullet = symbolInfo
 )
 
 // Println is a wrapper around lipgloss.Println for color-downsampled output.
@@ -155,7 +188,8 @@ func ShortHome(path string) string {
 }
 
 // FileLink links text to an absolute file path using OSC 8 in interactive
-// terminals. Redirected output keeps the plain text.
+// terminals. Redirected output keeps the plain text. Drive-letter paths gain a
+// leading slash, and paths beginning with two slashes identify a host.
 func FileLink(text, filename string) string {
 	if !isTTY {
 		return text
@@ -168,7 +202,6 @@ func FileLink(text, filename string) string {
 		host, path, _ := strings.Cut(filename[2:], "/")
 		target.Host, target.Path = host, "/"+path
 	case !strings.HasPrefix(filename, "/"):
-		// Windows drive-letter paths need a leading slash in file URLs.
 		target.Path = "/" + filename
 	}
 
@@ -239,16 +272,17 @@ func renderKeyValuePadded(pairs []KVPair, indent string) string {
 	return sb.String()
 }
 
-// Spinner provides a simple terminal spinner.
+// Spinner provides a synchronized terminal spinner. The animation goroutine
+// signals its exit on stopping; nonterminal starts print once without animation.
 type Spinner struct {
 	mu       sync.Mutex
 	interval time.Duration
 	message  string
 	writer   io.Writer
 	done     chan struct{}
-	stopped  chan struct{} // closed by the animation goroutine as it exits
+	stopped  chan struct{}
 	running  bool
-	plain    bool // true when Start ran without a TTY: no animation, no Stop line
+	plain    bool
 	frameIdx int
 }
 
@@ -303,8 +337,6 @@ func (s *Spinner) Start() {
 			s.frameIdx++
 			s.mu.Unlock()
 
-			// Waiting on the ticker and done together keeps Stop responsive:
-			// a plain sleep would make it block for up to a full interval.
 			select {
 			case <-done:
 				return
@@ -315,7 +347,8 @@ func (s *Spinner) Start() {
 }
 
 // Stop stops the spinner and clears the line. It is a no-op if Start ran
-// without a TTY (the message was already printed once, plainly).
+// without a TTY (the message was already printed once, plainly). It waits for
+// the animation goroutine to exit before returning and clearing the line.
 func (s *Spinner) Stop() {
 	s.mu.Lock()
 
@@ -335,9 +368,6 @@ func (s *Spinner) Stop() {
 	close(s.done)
 	s.mu.Unlock()
 
-	// Wait for the animation goroutine to exit before returning, so a
-	// subsequent Start — or any output printed after Stop — cannot be
-	// overwritten by a stale frame from the old goroutine.
 	<-stopped
 
 	s.mu.Lock()
@@ -424,6 +454,7 @@ func (p *ProgressBar) Abandon() {
 	}
 }
 
+// render draws the current progress when the total is positive and stdout is a terminal.
 func (p *ProgressBar) render() {
 	if p.total <= 0 || !isTTY {
 		return
@@ -463,6 +494,7 @@ func FormatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// printStatus prints a message with its status icon.
 func printStatus(status, message string) {
 	lipgloss.Printf("%s %s\n", StatusIcon(status), message)
 }
@@ -516,6 +548,7 @@ func PrintHint(text string) {
 // PrintEmpty prints a standard empty-result line.
 func PrintEmpty(message string) { printStatus("info", message) }
 
+// printBox prints a status message and optional key-value details.
 func printBox(status, message string, details []KVPair) {
 	printStatus(status, message)
 

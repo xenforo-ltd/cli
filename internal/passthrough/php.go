@@ -10,6 +10,9 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// PHP runs PHP in the installation's Docker environment. In debug mode it
+// enables Xdebug and displays only the first PHP argument to avoid exposing
+// inline code or tokens in terminal scrollback and logs.
 func PHP(ctx context.Context, args []string, debug bool) error {
 	xfDir, phpArgs, err := Resolve(args)
 	if err != nil {
@@ -24,9 +27,6 @@ func PHP(ctx context.Context, args []string, debug bool) error {
 	var env map[string]string
 
 	if debug {
-		// Only the first argument is echoed. The remainder routinely carries
-		// inline code (-r) or tokens, and this line ends up in terminal
-		// scrollback and CI logs.
 		label := "Xdebug enabled"
 		if len(phpArgs) > 0 {
 			label += ": " + ui.Command.Render("php "+phpArgs[0])

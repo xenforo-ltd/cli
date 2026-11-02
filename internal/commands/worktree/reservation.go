@@ -24,7 +24,8 @@ const maxReserveAttempts = 10
 //
 // The worktree's name doubles as its instance name unless --instance gave one.
 // An explicit instance is the user's choice, so a clash on it is reported
-// rather than numbered around. The directory is still numbered.
+// rather than numbered around. The directory is still numbered, and does not
+// need to match another environment's instance when one is specified.
 func reserveWorktreeName(ctx context.Context, reg *registry, source, branch, instance string, noSetup bool) (entry, error) {
 	sourceInstance, err := configuredInstance(source)
 	if err != nil {
@@ -52,8 +53,6 @@ func reserveWorktreeName(ctx context.Context, reg *registry, source, branch, ins
 				return reserved, err
 			}
 
-			// With --instance the name is only a directory, so it cannot
-			// clash with another environment's instance.
 			if instance != "" {
 				return false, nil
 			}

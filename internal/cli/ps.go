@@ -25,6 +25,7 @@ If no path is provided, the current directory will be searched for a XenForo ins
 	}
 }
 
+// runPs lists running containers for the selected installation.
 func runPs(cmd *cobra.Command, args []string) error {
 	return ps.Run(cmd.Context(), args)
 }

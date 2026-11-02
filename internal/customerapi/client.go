@@ -27,6 +27,8 @@ var (
 )
 
 // Client is an authenticated HTTP client for the XenForo Customer API.
+// Concurrent refreshes are serialized within a client, and a refresh is
+// skipped if another request has already replaced the stale token.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
@@ -37,6 +39,7 @@ type Client struct {
 	mu sync.Mutex
 }
 
+// tokenStore loads and saves credentials for API requests.
 type tokenStore interface {
 	LoadToken() (*auth.Token, error)
 	SaveToken(token *auth.Token) error
@@ -72,6 +75,7 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
+// userAgent returns the CLI version and platform for API requests.
 func userAgent() string {
 	v := version.Get()
 	return fmt.Sprintf("xenforo-cli/%s (%s/%s)", v.Version, v.OS, v.Arch)
@@ -113,6 +117,9 @@ func (c *Client) getJSON(ctx context.Context, path string, result any) error {
 	return nil
 }
 
+// doWithRetry sends an authenticated request and, when allowRetry is true,
+// refreshes once after a 401 except for external tokens. The caller must close
+// a returned response body.
 func (c *Client) doWithRetry(ctx context.Context, method, path string, body []byte, allowRetry bool) (*http.Response, error) {
 	token, err := c.store.LoadToken()
 	if err != nil {
@@ -165,6 +172,7 @@ func (c *Client) doWithRetry(ctx context.Context, method, path string, body []by
 	return resp, nil
 }
 
+// refreshToken serializes refreshes and skips one if the token has changed.
 func (c *Client) refreshToken(ctx context.Context, staleToken string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

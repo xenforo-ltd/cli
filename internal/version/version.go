@@ -3,11 +3,13 @@ package version
 
 import "runtime"
 
-// Build metadata, set at link time.
 var (
+	// Version is the CLI version, optionally set at link time.
 	Version = "v0.0.0"
-	Commit  = "unknown"
-	Date    = "unknown"
+	// Commit is the source revision, optionally set at link time.
+	Commit = "unknown"
+	// Date is the build date, optionally set at link time.
+	Date = "unknown"
 )
 
 // info contains version and build information.

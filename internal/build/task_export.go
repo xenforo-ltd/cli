@@ -16,6 +16,7 @@ type exportDataTask struct {
 	stderr io.Writer
 }
 
+// run exports release XML and writes any warnings to stderr.
 func (t exportDataTask) run(ctx context.Context, root *os.Root) error {
 	result, err := devoutput.Export(ctx, filepath.Join(root.Name(), filepath.FromSlash(t.dir)))
 	if err != nil {

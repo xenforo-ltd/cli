@@ -97,18 +97,19 @@ func quietExitCode(err error) (int, bool) {
 }
 
 // newRootCommand builds the command tree and registers every command family.
+// TraverseChildren parses root flags before passthrough commands; otherwise
+// their disabled flag parsing would forward those flags to the wrapped tool.
+// Arguments after a passthrough command belong to that tool. Unknown arguments
+// are rejected when a leading flag prevents direct XenForo routing, rather
+// than silently succeeding.
+// Help styling respects the output color profile, and completion is registered
+// after command groups so it remains available for dispatch.
 func newRootCommand(cfg rootConfig) *cobra.Command {
 	var configFile string
 
 	root := &cobra.Command{
-		Use:     "xf",
-		Version: version.Version,
-		// Required by the passthrough commands, which set DisableFlagParsing so
-		// that everything after them reaches the target tool. Without
-		// TraverseChildren, cobra defers parsing the root's persistent flags to
-		// the subcommand, which then forwards them instead: even
-		// `xf --verbose php script.php` would be swallowed, leaving no way to
-		// set xf's own flags on those commands.
+		Use:              "xf",
+		Version:          version.Version,
 		TraverseChildren: true,
 		Short:            "Provision and manage XenForo development environments",
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
@@ -130,12 +131,6 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
 
   # Run a XenForo command in the environment
   xf xf-dev:import`,
-		// Without a Run, cobra answers unknown positional arguments with the
-		// root help and exit 0. That happens when a global flag precedes a
-		// forwarded XenForo command (`xf -v xf-dev:import`): Run only takes the
-		// direct route when the first argument is not a flag, so cobra receives
-		// the command name and finds no subcommand. Fail loudly instead, so
-		// scripts do not see a false success.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -161,12 +156,6 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
 	root.SetHelpCommandGroupID("maint")
 	root.SetCompletionCommandGroupID("maint")
 
-	// Help is written to the configured stdout via fmt, not lipgloss, so it
-	// bypasses lipgloss's writer-side profile detection and piped/redirected
-	// help (e.g. `xf --help | cat`) would carry raw escape codes. Downsample
-	// through lipgloss.Sprint, which applies the same stdout profile detection
-	// as every other styled line (and the stderr error renderer), so help and
-	// errors agree on when to style.
 	cobra.AddTemplateFunc("styleHeading", func(s string) string {
 		return lipgloss.Sprint(ui.Bold.Render(s))
 	})
@@ -211,9 +200,6 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
 		newWorktreeCommand(),
 	)
 
-	// Must run after the subcommands are added and their groups are set: a
-	// root with no other subcommands defers creating the completion command
-	// until it is invoked, which would hide it from dispatch.
 	root.InitDefaultCompletionCmd()
 
 	return root
@@ -224,10 +210,10 @@ so ` + "`xf list`" + ` runs ` + "`cmd.php list`" + ` in the environment.`,
 // By default cobra prints the full usage block for any error returned from RunE,
 // including runtime failures such as Docker being unavailable. That wrongly
 // implies the command was typed incorrectly. Usage is still printed for argument
-// and flag errors, where it is the helpful response.
+// and flag errors, where it is the helpful response. Run prints errors itself,
+// so Cobra's error output is also silenced.
 func configureErrorHandling(cmd *cobra.Command) {
 	cmd.SilenceUsage = true
-	// Run prints errors itself; without this cobra prints them too.
 	cmd.SilenceErrors = true
 
 	if cmd.Args != nil {
@@ -332,18 +318,14 @@ func takesDirectXenForoRoute(firstArg string) bool {
 		firstArg != "help" && firstArg != "--help" && firstArg != "-h"
 }
 
+// handleError renders the error and any hint to w, respecting its color
+// profile. Unless verbose output is enabled, it omits plumbing error clauses.
 func handleError(err error, w io.Writer) {
 	msg := err.Error()
 	if !viper.GetBool("verbose") {
 		msg = firstErrorClause(msg)
 	}
 
-	// Errors belong on the configured stderr, not lipgloss's default stdout
-	// writer, so render through lipgloss.Fprintf: like ui's own Print*
-	// helpers, it downsamples any ANSI in the rendered text (including from
-	// hints built with ui.Command.Render elsewhere) based on the writer's own
-	// profile - a plain write would carry the raw escapes straight through
-	// regardless of NO_COLOR or piping.
 	lipgloss.Fprintf(w, "%s %s\n", ui.ErrorBold.Render(ui.SymbolError), ui.Error.Render(msg))
 
 	if hint := clierror.HintOf(err); hint != "" {
@@ -384,6 +366,7 @@ func firstErrorClause(msg string) string {
 	return strings.Join(parts[:end], ": ")
 }
 
+// plumbingClause reports whether s is an unhelpful error-chain detail.
 func plumbingClause(s string) bool {
 	if strings.HasPrefix(s, "exit status ") {
 		return true
@@ -399,6 +382,7 @@ func plumbingClause(s string) bool {
 	return false
 }
 
+// isKnownCommand reports whether name matches a registered command or alias.
 func isKnownCommand(root *cobra.Command, name string) bool {
 	if found, _, err := root.Find([]string{name}); err == nil && found != nil && found.Name() == name {
 		return true

@@ -12,17 +12,21 @@ import (
 	"strings"
 )
 
+// dockerFS contains the Docker configuration templates shipped with the CLI.
+//
 //go:embed embed/*
 var dockerFS embed.FS
 
 // embedDir is the directory containing embedded Docker configuration files.
 const embedDir = "embed"
 
+// defaultSuffix identifies templates whose existing base files are preserved.
 const defaultSuffix = ".default"
 
 // extractDir extracts embedded Docker files. It returns the paths of any
 // ".default" files written alongside existing, user-modified files so callers
-// can notify the user.
+// can notify the user. Existing non-default files are overwritten only when
+// overwriteBaseFiles is true; default templates always preserve their base files.
 func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) ([]string, error) {
 	entries, err := dockerFS.ReadDir(srcDir)
 	if err != nil {
@@ -77,6 +81,7 @@ func extractDir(srcDir, targetDir, relPath string, overwriteBaseFiles bool) ([]s
 	return written, nil
 }
 
+// extractFile writes an embedded file to its target, creating parent directories.
 func extractFile(srcPath, targetPath string) error {
 	data, err := dockerFS.ReadFile(srcPath)
 	if err != nil {

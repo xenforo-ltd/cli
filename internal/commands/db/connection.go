@@ -12,10 +12,14 @@ import (
 type driver string
 
 const (
-	driverMySQL    driver = "mysql"
+	// driverMySQL identifies MySQL environments.
+	driverMySQL driver = "mysql"
+	// driverPostgres identifies PostgreSQL environments.
 	driverPostgres driver = "postgres"
-	driverMSSQL    driver = "mssql"
-	driverSQLite   driver = "sqlite"
+	// driverMSSQL identifies Microsoft SQL Server environments.
+	driverMSSQL driver = "mssql"
+	// driverSQLite identifies SQLite environments.
+	driverSQLite driver = "sqlite"
 )
 
 // defaultPort returns the TCP port the driver listens on, or 0 for file-based

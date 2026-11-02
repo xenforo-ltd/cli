@@ -34,6 +34,8 @@ func printInstallFailure(ctx context.Context, err error) error {
 	return clierror.Passthrough(err, "xf:install failed")
 }
 
+// formatLicenseDetails returns the license label, falling back to the key when
+// the license cannot be fetched or found.
 func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key string) string {
 	licenses, err := client.GetLicenses(ctx)
 	if err != nil {
@@ -51,6 +53,7 @@ func formatLicenseDetails(ctx context.Context, client *customerapi.Client, key s
 	return key
 }
 
+// getProductTitleMapCached returns product titles, fetching and caching them as needed.
 func getProductTitleMapCached(ctx context.Context, client *customerapi.Client, opts *InitOptions) map[string]string {
 	if len(opts.productTitleMap) > 0 {
 		return opts.productTitleMap
@@ -77,6 +80,7 @@ func formatProductNames(products []string, titleMap map[string]string) string {
 	return strings.Join(names, ", ")
 }
 
+// inferSiteTitleFromEnv returns the configured title without its instance suffix.
 func inferSiteTitleFromEnv(opts *InitOptions) string {
 	title := strings.TrimSpace(opts.envResolved["XF_TITLE"])
 	if title == "" {
@@ -92,6 +96,7 @@ func inferSiteTitleFromEnv(opts *InitOptions) string {
 	return strings.TrimSuffix(title, suffix)
 }
 
+// validateReviewInputs checks credentials and environment values before continuing.
 func validateReviewInputs(opts *InitOptions) error {
 	if err := validatePassword(opts.AdminPassword); err != nil {
 		return err
@@ -122,6 +127,7 @@ func validateReviewInputs(opts *InitOptions) error {
 	return nil
 }
 
+// ensureCoreFirstUnique puts XenForo core first and removes empty or duplicate IDs.
 func ensureCoreFirstUnique(products []string) []string {
 	seen := map[string]bool{}
 	out := []string{"xenforo"}
@@ -140,6 +146,7 @@ func ensureCoreFirstUnique(products []string) []string {
 	return out
 }
 
+// downloadableLicenseOptions lists only licenses that allow downloads.
 func downloadableLicenseOptions(licenses []customerapi.License) []huh.Option[string] {
 	var options []huh.Option[string]
 
@@ -152,6 +159,7 @@ func downloadableLicenseOptions(licenses []customerapi.License) []huh.Option[str
 	return options
 }
 
+// promptProducts asks for add-ons and returns the selection with core first.
 func promptProducts(downloadables *customerapi.LicenseDownloadables, current []string) ([]string, error) {
 	var options []huh.Option[string]
 

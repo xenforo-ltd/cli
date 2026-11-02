@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// List prints registered worktrees for the current source checkout.
 func List(ctx context.Context, json bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {

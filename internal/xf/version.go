@@ -15,45 +15,66 @@ import (
 // stability represents the release stability of a XenForo version.
 type stability string
 
-// stability constants represent different release stages.
 const (
-	stabilityAlpha   stability = "alpha"
-	stabilityBeta    stability = "beta"
-	stabilityRC      stability = "rc"
-	stabilityStable  stability = "stable"
-	stabilityPL      stability = "pl"
+	// stabilityAlpha identifies an alpha release.
+	stabilityAlpha stability = "alpha"
+	// stabilityBeta identifies a beta release.
+	stabilityBeta stability = "beta"
+	// stabilityRC identifies a release candidate.
+	stabilityRC stability = "rc"
+	// stabilityStable identifies a stable release.
+	stabilityStable stability = "stable"
+	// stabilityPL identifies a patch-level release.
+	stabilityPL stability = "pl"
+	// stabilityUnknown identifies an unrecognized stability code.
 	stabilityUnknown stability = "unknown"
 
-	stabilityAlphaNumber  = 1
-	stabilityBetaNumber   = 3
-	stabilityRCNumber     = 5
+	// stabilityAlphaNumber is the alpha stability digit.
+	stabilityAlphaNumber = 1
+	// stabilityBetaNumber is the beta stability digit.
+	stabilityBetaNumber = 3
+	// stabilityRCNumber is the release-candidate stability digit.
+	stabilityRCNumber = 5
+	// stabilityStableNumber is the stable stability digit.
 	stabilityStableNumber = 7
-	stabilityPLNumber     = 9
+	// stabilityPLNumber is the patch-level stability digit.
+	stabilityPLNumber = 9
 )
 
 var (
+	// alphaNumberPattern extracts an alpha release number.
 	alphaNumberPattern = regexp.MustCompile(`alpha\s*(\d+)`)
-	alphaStripPattern  = regexp.MustCompile(`(?i)\s*alpha\s*\d*`)
-	betaNumberPattern  = regexp.MustCompile(`beta\s*(\d+)`)
-	betaStripPattern   = regexp.MustCompile(`(?i)\s*beta\s*\d*`)
-	rcNumberPattern    = regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`)
-	rcStripPattern     = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`)
-	plNumberPattern    = regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`)
-	plStripPattern     = regexp.MustCompile(`(?i)\s*(?:pl|patch level)\s*\d*`)
-	versionStrPattern  = regexp.MustCompile(`public\s+static\s+\$version\s*=\s*['"]([^'"]+)['"]`)
-	versionIDPattern   = regexp.MustCompile(`public\s+static\s+\$versionId\s*=\s*(\d+)`)
+	// alphaStripPattern removes an alpha release suffix.
+	alphaStripPattern = regexp.MustCompile(`(?i)\s*alpha\s*\d*`)
+	// betaNumberPattern extracts a beta release number.
+	betaNumberPattern = regexp.MustCompile(`beta\s*(\d+)`)
+	// betaStripPattern removes a beta release suffix.
+	betaStripPattern = regexp.MustCompile(`(?i)\s*beta\s*\d*`)
+	// rcNumberPattern extracts a release-candidate number.
+	rcNumberPattern = regexp.MustCompile(`(?:rc|release candidate)\s*(\d+)`)
+	// rcStripPattern removes a release-candidate suffix.
+	rcStripPattern = regexp.MustCompile(`(?i)\s*(?:rc|release candidate)\s*\d*`)
+	// plNumberPattern extracts a patch-level number.
+	plNumberPattern = regexp.MustCompile(`(?:pl|patch level)\s*(\d+)`)
+	// plStripPattern removes a patch-level suffix.
+	plStripPattern = regexp.MustCompile(`(?i)\s*(?:pl|patch level)\s*\d*`)
+	// versionStrPattern extracts the version string from XF.php.
+	versionStrPattern = regexp.MustCompile(`public\s+static\s+\$version\s*=\s*['"]([^'"]+)['"]`)
+	// versionIDPattern extracts the version ID from XF.php.
+	versionIDPattern = regexp.MustCompile(`public\s+static\s+\$versionId\s*=\s*(\d+)`)
 )
 
 // Version represents a XenForo version with both string and ID representations.
+// Its ID encodes major, two-digit minor and patch, stability, and release level.
 type Version struct {
-	String    string    // e.g., "2.3.8"
-	ID        int       // e.g., 2030871
-	major     int       // e.g., 2
-	minor     int       // e.g., 3
-	patch     int       // e.g., 8
-	stability stability // alpha, beta, rc, stable, pl
-	stabNum   int       // stability number (1=alpha, 3=beta, 5=rc, 7=stable, 9=pl)
-	plLevel   int       // patch level (0-9)
+	String    string
+	ID        int
+	major     int
+	minor     int
+	patch     int
+	stability stability
+	stabNum   int
+	plLevel   int
 }
 
 // parseVersionString parses a version string into a Version structure.
@@ -121,8 +142,6 @@ func parseVersionString(versionStr string) (*Version, error) {
 		}
 	}
 
-	// Calculate version ID: abbccde
-	// a = major, bb = minor, cc = patch, d = stability, e = pl level
 	v.ID = v.major*1000000 + v.minor*10000 + v.patch*100 + v.stabNum*10 + v.plLevel
 
 	return v, nil
@@ -187,6 +206,8 @@ func DetectVersion(xfDir string) (*Version, error) {
 }
 
 // DetectVersionFS is DetectVersion for a filesystem rooted at the installation.
+// It prefers the numeric ID for parsing but retains the source version string;
+// if no positive ID is found, it parses the version string instead.
 func DetectVersionFS(installation fs.FS) (*Version, error) {
 	file, err := installation.Open("src/XF.php")
 	if err != nil {
@@ -259,16 +280,14 @@ func DetectVersionFS(installation fs.FS) (*Version, error) {
 		versionStr, versionID = metadata.VersionString, metadata.VersionID
 	}
 
-	// Prefer using the version ID as it's more precise
 	if versionID > 0 {
 		v := ParseVersionID(versionID)
 		if versionStr != "" {
-			v.String = versionStr // Use the actual string from the file
+			v.String = versionStr
 		}
 
 		return v, nil
 	}
 
-	// Fall back to parsing the version string
 	return parseVersionString(versionStr)
 }

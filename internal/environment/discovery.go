@@ -19,8 +19,7 @@ func IsOrbStack(ctx context.Context) (bool, error) {
 	return strings.TrimSpace(string(info)) == "OrbStack", nil
 }
 
-// FallbackBoardURL returns the board URL an instance is reachable at when it
-// runs under OrbStack.
+// FallbackBoardURL returns the instance's conventional HTTPS development URL.
 func FallbackBoardURL(instanceName string) string {
 	return fmt.Sprintf("https://%s.xf.local", instanceName)
 }
@@ -82,7 +81,7 @@ func ProjectExists(ctx context.Context, instance string) (bool, error) {
 	return false, nil
 }
 
-// CheckDockerRunning checks if Docker is running.
+// CheckDockerRunning returns an error if docker info fails.
 func CheckDockerRunning(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "docker", "info")
 	if err := cmd.Run(); err != nil {
@@ -92,7 +91,7 @@ func CheckDockerRunning(ctx context.Context) error {
 	return nil
 }
 
-// CheckDockerComposeAvailable checks if Docker Compose is available.
+// CheckDockerComposeAvailable returns an error if docker compose version fails.
 func CheckDockerComposeAvailable(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "docker", "compose", "version")
 	if err := cmd.Run(); err != nil {

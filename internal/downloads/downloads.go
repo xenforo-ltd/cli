@@ -23,17 +23,20 @@ var (
 	errInvalidInput = errors.New("invalid input")
 )
 
+// versionClient retrieves available versions and download metadata for a license.
 type versionClient interface {
 	GetLicenseVersions(ctx context.Context, licenseKey string, downloadID string) (*customerapi.LicenseVersions, error)
 	GetDownloadInfo(ctx context.Context, licenseKey string, downloadID string, versionID int) (*customerapi.DownloadInfo, error)
 }
 
+// downloadClient retrieves version metadata, access tokens, and download URLs.
 type downloadClient interface {
 	versionClient
 	GetAccessToken() (string, error)
 	GetDownloadURL(licenseKey string, downloadID string, versionID int) string
 }
 
+// cacheDownloader looks up, verifies, and downloads cached product archives.
 type cacheDownloader interface {
 	GetEntry(licenseKey string, downloadID, version string) (*cache.Entry, error)
 	Verify(entry *cache.Entry) (bool, error)
@@ -155,6 +158,8 @@ func ResolveSelections(
 	return selections, nil
 }
 
+// resolveAddonSelection selects an add-on version from a non-empty newest-first
+// list, preferring latest for latest core, then an exact version or date match.
 func resolveAddonSelection(sortedAddonVersions []customerapi.Version, selectedCore, latestCore *customerapi.Version, coreVersionString string) (customerapi.Version, string) {
 	latestAddon := sortedAddonVersions[0]
 	if selectedCore != nil && latestCore != nil && selectedCore.VersionID == latestCore.VersionID {
@@ -196,6 +201,8 @@ func SortVersions(v []customerapi.Version) {
 	})
 }
 
+// newestAtOrBefore returns the first version in newest-first order released at
+// or before t, ignoring zero dates. It returns nil if no version qualifies.
 func newestAtOrBefore(sortedVersions []customerapi.Version, t time.Time) *customerapi.Version {
 	if t.IsZero() {
 		return nil
@@ -213,6 +220,8 @@ func newestAtOrBefore(sortedVersions []customerapi.Version, t time.Time) *custom
 	return nil
 }
 
+// normalizeVersion trims and lowercases a version, removes a leading v, and
+// canonicalizes positive integer versions.
 func normalizeVersion(s string) string {
 	s = strings.TrimSpace(strings.ToLower(s))
 
@@ -224,11 +233,14 @@ func normalizeVersion(s string) string {
 	return s
 }
 
-// DownloadSelection downloads a product based on the selection.
+// DownloadSelection returns a cached or newly downloaded archive and its
+// resolved version string. skipCache bypasses the existing cache lookup.
 func DownloadSelection(ctx context.Context, client *customerapi.Client, cacheManager *cache.Manager, licenseKey string, selection selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
 	return downloadSelection(ctx, client, cacheManager, licenseKey, selection, skipCache, progress)
 }
 
+// downloadSelection resolves download metadata and obtains the selected archive
+// from the cache or the customer API, forwarding download progress.
 func downloadSelection(ctx context.Context, client downloadClient, cacheManager cacheDownloader, licenseKey string, selection selection, skipCache bool, progress cache.ProgressCallback) (*cache.Entry, string, error) {
 	info, err := client.GetDownloadInfo(ctx, licenseKey, selection.Product, selection.versionID)
 	if err != nil {

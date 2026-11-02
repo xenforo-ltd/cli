@@ -18,17 +18,20 @@ import (
 	"github.com/xenforo-ltd/cli/internal/version"
 )
 
+// defaultFilename is used when no usable download filename is available.
 const defaultFilename = "download.zip"
 
-// DownloadOptions specifies download parameters.
+// DownloadOptions specifies the license, product, version, URL, and cache
+// behavior. Filename overrides Content-Disposition; an expected checksum is
+// SHA-256 and an expected size of zero means unknown.
 type DownloadOptions struct {
 	LicenseKey       string
-	DownloadID       string // e.g., "xenforo", "xfmg"
+	DownloadID       string
 	Version          string
 	URL              string
-	expectedChecksum string // SHA-256, optional
-	expectedSize     int64  // 0 = unknown
-	Filename         string // overrides Content-Disposition
+	expectedChecksum string
+	expectedSize     int64
+	Filename         string
 	SkipCacheCheck   bool
 }
 
@@ -38,7 +41,8 @@ type DownloadResult struct {
 	WasCached bool
 }
 
-// ProgressCallback reports download progress; total is -1 if unknown.
+// ProgressCallback reports bytes read and the supplied total, which can be
+// nonpositive when the size is unknown.
 type ProgressCallback func(current, total int64)
 
 // Download downloads and caches a file, optionally using an authentication token.
@@ -96,6 +100,7 @@ func (m *Manager) Download(ctx context.Context, opts DownloadOptions, authToken 
 	return &DownloadResult{Entry: entry}, nil
 }
 
+// checkCache returns a verified existing file or an error describing the miss.
 func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 	entry, err := m.GetEntry(opts.LicenseKey, opts.DownloadID, opts.Version)
 	if err != nil {
@@ -122,6 +127,8 @@ func (m *Manager) checkCache(opts DownloadOptions) (*DownloadResult, error) {
 	return &DownloadResult{Entry: entry, WasCached: true}, nil
 }
 
+// doDownloadRequest starts a download with optional bearer authentication.
+// The caller must close the response body.
 func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -146,6 +153,7 @@ func (m *Manager) doDownloadRequest(ctx context.Context, url, authToken string) 
 	return resp, nil
 }
 
+// checkResponseStatus accepts HTTP 200 and classifies authenticated 401 responses.
 func checkResponseStatus(resp *http.Response, authToken string) error {
 	if authToken != "" && resp.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("authentication expired - replace XF_TOKEN if set, otherwise run 'xf auth login': %w", errAuthExpired)
@@ -165,6 +173,7 @@ func checkResponseStatus(resp *http.Response, authToken string) error {
 	return nil
 }
 
+// resolveFilename chooses a sanitized override or response-derived filename.
 func resolveFilename(override string, resp *http.Response, url string) string {
 	filename := override
 	if filename == "" {
@@ -178,6 +187,8 @@ func resolveFilename(override string, resp *http.Response, url string) string {
 	return defaultFilename
 }
 
+// downloadToFile streams to a temporary file, checks an optional SHA-256
+// checksum, and renames the completed file into place.
 func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChecksum string, progress ProgressCallback) error {
 	tmpPath := destPath + ".tmp"
 
@@ -225,6 +236,7 @@ func downloadToFile(destPath string, src io.Reader, totalSize int64, expectedChe
 	return nil
 }
 
+// finalizeEntry computes the checksum and saves metadata for a downloaded file.
 func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, error) {
 	info, err := os.Stat(filePath)
 	if err != nil {
@@ -257,6 +269,7 @@ func (m *Manager) finalizeEntry(opts DownloadOptions, filePath string) (*Entry, 
 	}, nil
 }
 
+// parseFilenameFromResponse chooses a safe Content-Disposition or URL filename.
 func parseFilenameFromResponse(resp *http.Response, url string) string {
 	if _, params, err := mime.ParseMediaType(resp.Header.Get("Content-Disposition")); err == nil {
 		if safe := sanitizeFilename(params["filename"]); safe != "" {
@@ -280,6 +293,7 @@ func parseFilenameFromResponse(resp *http.Response, url string) string {
 	return defaultFilename
 }
 
+// sanitizeFilename extracts a usable base name or returns an empty string.
 func sanitizeFilename(name string) string {
 	clean := filepath.Base(name)
 	if clean == "." || clean == string(filepath.Separator) || clean == "" {

@@ -6,7 +6,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/debug"
 )
 
-// newDebugCommand builds the Xdebug command.
+// newDebugCommand builds the Xdebug command. Arguments and flags after its
+// name belong to XenForo; xf flags must precede it.
 func newDebugCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "debug <command> [args...]",
@@ -23,8 +24,6 @@ This is the equivalent of running with XDEBUG_SESSION=1 to trigger your IDE debu
   # Debug any xf command
   xf debug cron:run
   xf debug user:create --username test`,
-		// Everything after this command belongs to the target tool, including
-		// flags. xf's own flags must be given before the command name.
 		DisableFlagParsing: true,
 		Args:               cobra.MinimumNArgs(1),
 		GroupID:            "run",
@@ -32,6 +31,7 @@ This is the equivalent of running with XDEBUG_SESSION=1 to trigger your IDE debu
 	}
 }
 
+// runDebug forwards a XenForo command with Xdebug enabled.
 func runDebug(cmd *cobra.Command, args []string) error {
 	return debug.Run(cmd.Context(), args)
 }

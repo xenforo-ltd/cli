@@ -29,6 +29,7 @@ func NewStore() (Store, error) {
 	})
 }
 
+// selectStore prefers a valid environment token over the configured file or keychain.
 func selectStore(cfg config.Config, raw string, filePath func() (string, error), keychainStore func() (Store, error)) (Store, error) {
 	if raw != "" {
 		if strings.ContainsFunc(raw, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
@@ -61,6 +62,7 @@ type WritableStore interface {
 	LoadTokenForLogout() (*Token, error)
 }
 
+// errExternallyManaged indicates that an environment token cannot be changed here.
 var errExternallyManaged = fmt.Errorf("XF_TOKEN manages authentication externally; unset XF_TOKEN to manage stored credentials, or replace it with a new access token: %w", errUnsupported)
 
 // NewWritableStore selects persistent storage without relying on display labels.
@@ -78,15 +80,23 @@ func NewWritableStore() (WritableStore, error) {
 	return writable, nil
 }
 
+// environmentStore exposes a read-only token supplied through the environment.
 type environmentStore struct{ token Token }
 
+// Source returns the credential source name.
 func (s *environmentStore) Source() string { return "environment" }
+
+// LoadToken returns a copy of the environment token.
 func (s *environmentStore) LoadToken() (*Token, error) {
 	token := s.token
 	return &token, nil
 }
+
+// SaveToken rejects changes to externally managed credentials.
 func (s *environmentStore) SaveToken(*Token) error { return errExternallyManaged }
-func (s *environmentStore) DeleteToken() error     { return errExternallyManaged }
+
+// DeleteToken rejects removal of externally managed credentials.
+func (s *environmentStore) DeleteToken() error { return errExternallyManaged }
 
 // RequireAuthFrom loads credentials and checks their configured destination.
 func RequireAuthFrom(store Store) (*Token, error) {
@@ -95,7 +105,6 @@ func RequireAuthFrom(store Store) (*Token, error) {
 		return nil, err
 	}
 
-	// Check if token matches current configuration
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load authentication configuration: %w", err)

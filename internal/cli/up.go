@@ -6,6 +6,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/up"
 )
 
+// flagUpDetach selects background container execution.
 var flagUpDetach bool
 
 // newUpCommand builds the up command.
@@ -35,6 +36,7 @@ If no path is provided, the current directory will be searched for a XenForo ins
 	return upCmd
 }
 
+// runUp starts the environment, with --no-detach overriding detached mode.
 func runUp(cmd *cobra.Command, args []string) error {
 	detach := flagUpDetach
 	if cmd.Flags().Changed("no-detach") {

@@ -16,16 +16,13 @@ import (
 
 // WatchOptions controls reporting from [WatchJavaScript].
 // Its zero value discards all output.
+// stdout receives successful build status messages, and Stderr receives errors.
+// OnBuild runs before each build, including the initial build. Its optional
+// completion callback receives the build error or nil on success. Callbacks
+// run serially, and cancellation is reported to the completion callback.
 type WatchOptions struct {
-	// stdout receives successful build status messages.
-	stdout io.Writer
-
-	// Stderr receives build errors.
-	Stderr io.Writer
-
-	// OnBuild runs before each build, including the initial build. Its optional
-	// completion callback receives the build error or nil on success. Callbacks
-	// run serially; cancellation is reported to the completion callback too.
+	stdout  io.Writer
+	Stderr  io.Writer
 	OnBuild func() func(error)
 }
 

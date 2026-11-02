@@ -49,6 +49,7 @@ func LicenseKeys(cmd *cobra.Command, _ []string, _ string) ([]cobra.Completion, 
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
+// licenseDescription combines the product title with the site title or URL.
 func licenseDescription(license customerapi.License) string {
 	site := license.SiteTitle
 
@@ -155,6 +156,7 @@ func DockerContexts(cmd *cobra.Command, _ []string, toComplete string) ([]cobra.
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
+// contextNames returns sorted context names derived from embedded compose files.
 func contextNames() ([]string, error) {
 	files, err := environment.ListEmbeddedFiles()
 	if err != nil {

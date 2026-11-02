@@ -8,8 +8,11 @@ import (
 )
 
 var (
-	flagUpdateSkipPull    bool
-	flagUpdateSkipBuild   bool
+	// flagUpdateSkipPull skips pulling base images.
+	flagUpdateSkipPull bool
+	// flagUpdateSkipBuild skips building images.
+	flagUpdateSkipBuild bool
+	// flagUpdateSkipRestart leaves running containers unchanged.
 	flagUpdateSkipRestart bool
 )
 
@@ -52,6 +55,7 @@ compose reports nothing to do.`,
 	return updateCmd
 }
 
+// runUpdate refreshes environment files and applies the selected image options.
 func runUpdate(cmd *cobra.Command, args []string) error {
 	dir, err := passthrough.XenForoDir(args)
 	if err != nil {

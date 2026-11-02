@@ -7,7 +7,9 @@ import (
 )
 
 var (
-	flagVersionJSON  bool
+	// flagVersionJSON selects JSON version output.
+	flagVersionJSON bool
+	// flagVersionShort selects version-number-only output.
 	flagVersionShort bool
 )
 
@@ -39,6 +41,7 @@ build timestamp when available.`,
 	return versionCmd
 }
 
+// runVersion prints version information in the selected format.
 func runVersion(cmd *cobra.Command, args []string) error {
 	return versioncommand.Run(cmd.Context(), versioncommand.Options{JSON: flagVersionJSON, Short: flagVersionShort})
 }

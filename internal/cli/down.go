@@ -25,6 +25,7 @@ If no path is provided, the current directory will be searched for a XenForo ins
 	}
 }
 
+// runDown stops and removes the environment's containers.
 func runDown(cmd *cobra.Command, args []string) error {
 	return down.Run(cmd.Context(), args)
 }

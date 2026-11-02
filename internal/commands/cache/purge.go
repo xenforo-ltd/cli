@@ -10,11 +10,13 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// PurgeOptions selects a license or all cached downloads for removal.
 type PurgeOptions struct {
 	LicenseKey string
 	All        bool
 }
 
+// Purge removes cached downloads for a license or, when requested, all licenses.
 func Purge(_ context.Context, opts PurgeOptions) error {
 	manager, err := cache.NewManager()
 	if err != nil {
@@ -64,6 +66,7 @@ func Purge(_ context.Context, opts PurgeOptions) error {
 	return nil
 }
 
+// printPurged reports the number and total size of removed downloads.
 func printPurged(entries []*cache.Entry) {
 	ui.SuccessBox(fmt.Sprintf("Purged %s, freeing %s",
 		ui.Plural(len(entries), "cached download", "cached downloads"), ui.FormatBytes(totalSize(entries))), nil)

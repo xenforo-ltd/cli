@@ -44,6 +44,9 @@ func XenForoDir(args []string) (string, error) {
 	return xfDir, nil
 }
 
+// Resolve consumes the first argument if it identifies an installation;
+// otherwise it detects one from the working directory. It removes a leading
+// argument separator from the remaining arguments.
 func Resolve(args []string) (string, []string, error) {
 	if len(args) > 0 {
 		if dir, err := XenForoDir(args[:1]); err == nil {
@@ -59,6 +62,7 @@ func Resolve(args []string) (string, []string, error) {
 	return xfDir, stripSeparator(args), nil
 }
 
+// stripSeparator removes a leading argument separator if present.
 func stripSeparator(args []string) []string {
 	if len(args) > 0 && args[0] == "--" {
 		return args[1:]

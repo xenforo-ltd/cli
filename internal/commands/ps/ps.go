@@ -9,6 +9,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run displays the environment's containers and their states, status, and ports.
 func Run(ctx context.Context, args []string) error {
 	xfDir, err := passthrough.XenForoDir(args)
 	if err != nil {
@@ -40,6 +41,7 @@ func Run(ctx context.Context, args []string) error {
 	return nil
 }
 
+// renderState styles running, failed, and other container states for display.
 func renderState(state string) string {
 	switch state {
 	case "running":

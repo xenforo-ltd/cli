@@ -139,7 +139,8 @@ func (p addOnPaths) rollupFiles(ctx context.Context, files []file, pattern fileP
 // validating them, and returns matches in installation-path order. _files
 // sources take precedence, except that paths in outputs replace matching _files
 // sources. On validation errors, all candidates are retained so watch mode can
-// detect repairs to shadowed inputs as well.
+// detect repairs to shadowed inputs as well. Errors on ancestors of matching
+// inputs are retained, but files excluded by the stage's rules are ignored.
 func (p addOnPaths) scriptFiles(ctx context.Context, files []file, pattern filePattern, outputs []string, include func(string) bool) ([]file, error) {
 	found := make(map[string]file)
 	var candidates []file
@@ -156,8 +157,6 @@ func (p addOnPaths) scriptFiles(ctx context.Context, files []file, pattern fileP
 			}
 
 			matched := pattern.matches(rel, false)
-			// Keep errors for ancestors of matching inputs, but ignore files
-			// excluded by the stage's input rules.
 			if !f.isDir() && !include(f.path) && (f.err == nil || matched) {
 				continue
 			}
@@ -250,7 +249,8 @@ func linkSourceMap(name string, code []byte) []byte {
 // external source map without embedded source contents. Loader, platform,
 // legal comments, and tree shaking keep esbuild's defaults; the transform API
 // never bundles, so tree shaking does not apply. An in-flight transform may
-// continue after ctx is canceled.
+// continue after ctx is canceled. The source map uses the source basename
+// because the source and map are siblings.
 func minifyJavaScript(ctx context.Context, sourcefile, code string) (javascriptOutput, error) {
 	if err := ctx.Err(); err != nil {
 		return javascriptOutput{}, err
@@ -259,7 +259,6 @@ func minifyJavaScript(ctx context.Context, sourcefile, code string) (javascriptO
 	completed := make(chan api.TransformResult, 1)
 	go func() {
 		completed <- api.Transform(code, api.TransformOptions{
-			// The source and map are siblings, so the map needs only the basename.
 			Sourcefile:        path.Base(sourcefile),
 			Target:            api.ES2018,
 			Sourcemap:         api.SourceMapExternal,

@@ -33,7 +33,8 @@ const maxNameAttempts = 1000
 
 // baseName converts a branch name into the preferred name for its worktree.
 //
-// Only the last segment is used, so dev/xfs/slack-unfurl becomes slack-unfurl.
+// The last segment yielding a usable name is used, so dev/xfs/slack-unfurl
+// becomes slack-unfurl and trailing empty or punctuation-only segments are skipped.
 // The prefix in a conventional branch name describes where the work belongs
 // rather than what it is, and repeating it in directory names, URLs and Docker
 // instance names makes all three harder to read.
@@ -46,8 +47,6 @@ const maxNameAttempts = 1000
 // This is deliberately lossy: dev/xfs/slack-unfurl and dev/xf/slack-unfurl
 // both yield slack-unfurl. chooseName resolves that by numbering.
 func baseName(branch string) string {
-	// Take the last segment that yields a name, so a trailing slash or a
-	// segment of only punctuation does not produce an empty one.
 	for _, segment := range slices.Backward(strings.Split(branch, "/")) {
 		name := strings.Trim(unsafeChars.ReplaceAllString(strings.ToLower(segment), "-"), "-")
 		if name != "" {
@@ -81,7 +80,6 @@ func truncateName(name string, limit int) string {
 
 	cut := name[:limit]
 
-	// A cut that lands exactly before a dash already ends on a whole word.
 	if name[limit] != '-' {
 		if i := strings.LastIndex(cut, "-"); i > 0 {
 			cut = cut[:i]

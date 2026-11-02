@@ -8,10 +8,14 @@ import (
 )
 
 var (
+	// flagDownloadLicenseKey selects the license for package downloads.
 	flagDownloadLicenseKey string
-	flagDownloadID         string
-	flagDownloadVersionID  int
-	flagDownloadForce      bool
+	// flagDownloadID selects a package to list versions or download.
+	flagDownloadID string
+	// flagDownloadVersionID selects the version to download.
+	flagDownloadVersionID int
+	// flagDownloadForce bypasses a cached download.
+	flagDownloadForce bool
 )
 
 // newDownloadCommand builds the download command.
@@ -55,6 +59,7 @@ The download command works in stages:
 	return downloadCmd
 }
 
+// runDownload lists packages or versions, or downloads the selected version.
 func runDownload(cmd *cobra.Command, args []string) error {
 	return download.Run(cmd.Context(), download.Options{LicenseKey: flagDownloadLicenseKey, ID: flagDownloadID, VersionID: flagDownloadVersionID, Force: flagDownloadForce})
 }

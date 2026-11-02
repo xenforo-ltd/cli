@@ -15,19 +15,15 @@ import (
 // destroyWorktreeEnvironment removes a worktree's containers and volumes.
 //
 // A worktree that was never set up has no compose configuration, which is not
-// an error: there is simply nothing to tear down.
+// an error: there is simply nothing to tear down. Other inspection failures
+// stop removal to avoid stranding containers and volumes.
 func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error {
 	runner, err := environment.NewRunner(worktreePath)
 	if err != nil {
-		// A worktree that was never set up has nothing to tear down, and a
-		// directory that is already gone cannot have running containers.
 		if errors.Is(err, environment.ErrEnvNotInitialized) || errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 
-		// Any other failure means the environment could not be inspected, not
-		// that it is absent. Continuing would delete the worktree and strand
-		// its containers and volumes, so stop instead.
 		return fmt.Errorf("failed to inspect the worktree environment: %w", err)
 	}
 
@@ -49,12 +45,12 @@ func destroyWorktreeEnvironment(ctx context.Context, worktreePath string) error 
 // installation that can be cloned.
 //
 // A checkout that has never been installed has no database or attachments to
-// copy, so a new worktree gets a fresh install instead.
+// copy, so a new worktree gets a fresh install instead. Both the install lock
+// and Compose configuration must exist; inspection failures other than absence
+// are reported rather than mistaken for a fresh installation.
 func sourceIsInstalled(sourcePath string) (bool, error) {
-	// XenForo writes this once installation completes.
 	markers := []string{
 		filepath.Join(sourcePath, "internal_data", "install-lock.php"),
-		// Without compose configuration there is no database to dump.
 		filepath.Join(sourcePath, "compose.yaml"),
 	}
 
@@ -64,9 +60,6 @@ func sourceIsInstalled(sourcePath string) (bool, error) {
 				return false, nil
 			}
 
-			// A permission or I/O failure is not an absent marker. Treating it
-			// as one would quietly install a fresh forum where the user asked
-			// for a clone of an existing one.
 			return false, fmt.Errorf("failed to inspect %s: %w", marker, err)
 		}
 	}

@@ -94,6 +94,7 @@ func (m *Manager) GetEntry(licenseKey string, downloadID, version string) (*Entr
 	}, nil
 }
 
+// entryVerifier looks up and verifies cached entries.
 type entryVerifier interface {
 	GetEntry(licenseKey string, downloadID, version string) (*Entry, error)
 	Verify(entry *Entry) (bool, error)
@@ -148,7 +149,8 @@ func (m *Manager) saveMetadata(licenseKey string, metadata *entryMetadata) error
 	return nil
 }
 
-// Verify checks if a cached file's checksum is valid.
+// Verify checks a cached file's checksum. An empty checksum is accepted without
+// reading the file.
 func (m *Manager) Verify(entry *Entry) (bool, error) {
 	if entry.Metadata.Checksum == "" {
 		return true, nil
@@ -210,6 +212,7 @@ func (m *Manager) ListForLicense(licenseKey string) ([]*Entry, error) {
 	return entries, nil
 }
 
+// licensePath returns a local path under the cache for a license key.
 func (m *Manager) licensePath(licenseKey string) (string, error) {
 	rel := filepath.Clean(licenseKey)
 	if rel == "." || !filepath.IsLocal(rel) {
@@ -219,6 +222,7 @@ func (m *Manager) licensePath(licenseKey string) (string, error) {
 	return filepath.Join(m.basePath, rel), nil
 }
 
+// walkEntries loads cache metadata below root, treating a missing root as empty.
 func (m *Manager) walkEntries(root string) ([]*Entry, error) {
 	var entries []*Entry
 
@@ -252,6 +256,7 @@ func (m *Manager) walkEntries(root string) ([]*Entry, error) {
 	return entries, nil
 }
 
+// loadEntryFromMetadata reads metadata and derives the license and file paths.
 func (m *Manager) loadEntryFromMetadata(metadataPath string) (*Entry, error) {
 	data, err := os.ReadFile(metadataPath)
 	if err != nil {

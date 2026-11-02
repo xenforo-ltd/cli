@@ -40,7 +40,8 @@ func (gitBackend) sourceCheckout(ctx context.Context, dir string) (string, error
 	return abs, nil
 }
 
-// nameExists reports whether a local branch of the given name exists.
+// nameExists reports whether a local branch of the given name exists. A Git
+// exit status indicating an absent reference is not an error.
 func (gitBackend) nameExists(ctx context.Context, repoDir, branch string) (bool, error) {
 	ref := "refs/heads/" + branch
 
@@ -52,7 +53,6 @@ func (gitBackend) nameExists(ctx context.Context, repoDir, branch string) (bool,
 		return true, nil
 	}
 
-	// show-ref exits 1 when the ref is absent, which is not an error here.
 	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok && exitErr.ExitCode() == 1 {
 		return false, nil
 	}
@@ -88,7 +88,6 @@ func (gitBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, er
 		}
 
 		if ref, ok := strings.CutPrefix(line, "branch "); ok && len(result) > 0 {
-			// Reported as a full ref, e.g. refs/heads/dev/xfs/feature.
 			result[len(result)-1].name = strings.TrimPrefix(ref, "refs/heads/")
 		}
 	}
@@ -96,11 +95,9 @@ func (gitBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, er
 	return result, nil
 }
 
-// create adds a worktree at target on a new branch.
+// create adds a worktree at target on a new branch. A separator prevents a
+// base revision beginning with a dash from being interpreted as an option.
 func (gitBackend) create(ctx context.Context, source, branch, base, target string) error {
-	// "--" keeps git from parsing base as an option: without it a base of
-	// "--force" is accepted as a flag and the worktree silently branches from
-	// HEAD instead of failing.
 	args := []string{"worktree", "add", "--quiet", "-b", branch, "--", target}
 	if base != "" {
 		args = append(args, base)
@@ -110,12 +107,11 @@ func (gitBackend) create(ctx context.Context, source, branch, base, target strin
 }
 
 // status inspects a worktree for work that would be lost by removing it.
+// Generated untracked Docker files are excluded. Unpushed commits are checked
+// only when a remote and HEAD exist. A failure to list remotes is reported.
 func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStatus, error) {
 	var status worktreeStatus
 
-	// --porcelain includes untracked files, which are easy to forget and just
-	// as easy to lose. -z terminates each entry with NUL so paths containing
-	// spaces or newlines survive parsing intact.
 	out, err := vcsOutput(ctx, "git", worktreePath, "status", "--porcelain", "-z")
 	if err != nil {
 		return status, fmt.Errorf("failed to inspect worktree: %w", err)
@@ -127,12 +123,6 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 	}
 
 	for _, entry := range parsePorcelain(out) {
-		// "worktree create" writes the Docker environment into the worktree
-		// itself, so unless the repository happens to ignore every one of those
-		// files they arrive here as untracked changes and removal refuses every
-		// worktree this tool made. The only escape would be --force, which also
-		// disables the unpushed-commit check, so users would learn to always
-		// pass it and lose the protection that matters.
 		if entry.untracked && generated[entry.path] {
 			continue
 		}
@@ -140,30 +130,19 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 		status.modified = append(status.modified, entry.display)
 	}
 
-	// "git remote" with no configured remotes exits 0 with empty output, so a
-	// failure here is a real inspection problem, not the "no remotes" case.
 	remotes, err := vcsOutput(ctx, "git", worktreePath, "remote")
 	if err != nil {
 		return status, fmt.Errorf("failed to list remotes: %w", err)
 	}
 
-	// "Unpushed" is only meaningful when there is somewhere to push to. In a
-	// repository with no remotes every commit is unreachable from a remote, so
-	// the check would flag every worktree and be worse than useless.
 	if strings.TrimSpace(remotes) == "" {
 		return status, nil
 	}
 
-	// An unborn branch (no commits yet) has no HEAD to inspect, and "git log"
-	// on one fails distinctly from a real command failure, so check for that
-	// case explicitly rather than treating every "log" error as "no commits".
 	if _, err := vcsOutput(ctx, "git", worktreePath, "rev-parse", "--verify", "HEAD"); err != nil {
 		return status, nil
 	}
 
-	// Commits reachable from HEAD but from no remote branch exist only here.
-	// HEAD must be named explicitly: "--not --remotes" alone gives git no
-	// starting point and silently lists nothing.
 	commits, err := vcsOutput(ctx, "git", worktreePath, "log", "--oneline", "HEAD", "--not", "--remotes")
 	if err != nil {
 		return status, fmt.Errorf("failed to inspect commit history: %w", err)
@@ -174,7 +153,8 @@ func (gitBackend) status(ctx context.Context, worktreePath string) (worktreeStat
 	return status, nil
 }
 
-// remove deletes a worktree and, best effort, its branch.
+// remove deletes a worktree and, best effort, its branch. It uses Git's safe
+// branch deletion unless forced, protecting unmerged work when no remote exists.
 func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, force bool) error {
 	branch, err := gitBackend{}.currentName(ctx, worktreePath)
 	if err != nil {
@@ -194,14 +174,6 @@ func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, f
 		return nil
 	}
 
-	// Deleting the branch is best effort: the worktree is already gone, and a
-	// branch that will not delete is not worth failing the whole operation for.
-	//
-	// Only --force earns "-D". The pre-flight check cannot see unpushed work in
-	// a repository with no remotes, so an unforced "-D" there would delete a
-	// branch whose commits exist nowhere else. "-d" makes git apply its own
-	// merged-into-HEAD-or-upstream test and refuse otherwise, which costs
-	// nothing: a branch left behind is recoverable, a deleted one is not.
 	deleteFlag := "-d"
 	if force {
 		deleteFlag = "-D"
@@ -214,15 +186,13 @@ func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, f
 	return nil
 }
 
-// porcelainEntry is one record from "git status --porcelain -z".
+// porcelainEntry records a repository-relative path, its original status line,
+// and whether the path is untracked.
 type porcelainEntry struct {
-	// path is the repository-relative path the entry concerns.
 	path string
 
-	// display is the original porcelain line, kept for error messages.
 	display string
 
-	// untracked reports whether git knows nothing about this path.
 	untracked bool
 }
 
@@ -230,6 +200,7 @@ type porcelainEntry struct {
 //
 // Renames and copies emit a second NUL-terminated field for the original path.
 // That field is consumed here rather than being mistaken for another entry.
+// Each record starts with two status codes and a space followed by its path.
 func parsePorcelain(out string) []porcelainEntry {
 	var entries []porcelainEntry
 
@@ -241,11 +212,9 @@ func parsePorcelain(out string) []porcelainEntry {
 			continue
 		}
 
-		// Format is "XY <path>": two status codes, a space, then the path.
 		codes := record[:2]
 		path := record[3:]
 
-		// R and C carry their source path in the following record.
 		if strings.ContainsAny(codes, "RC") {
 			i++
 		}

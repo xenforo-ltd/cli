@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// RunInDir executes argv in the installation's container, or on the host only
+// when the Docker environment is not initialized. workDir is relative to the
+// installation; other runner errors do not trigger a host fallback.
 func RunInDir(ctx context.Context, installationDir, workDir string, stdin io.Reader, stdout, stderr io.Writer, argv ...string) error {
 	if err := ctx.Err(); err != nil {
 		return err

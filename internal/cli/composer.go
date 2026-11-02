@@ -6,7 +6,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/composer"
 )
 
-// newComposerCommand builds the composer passthrough command.
+// newComposerCommand builds the composer passthrough command. Arguments and
+// flags after its name belong to Composer; xf flags must precede it.
 func newComposerCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "composer [path] [args...]",
@@ -29,8 +30,6 @@ flags before the command name, and use 'xf help composer' for this help text.`,
 
   # Run composer in specific directory
   xf composer ./my-project install`,
-		// Everything after this command belongs to the target tool, including
-		// flags. xf's own flags must be given before the command name.
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		GroupID:            "run",
@@ -38,6 +37,7 @@ flags before the command name, and use 'xf help composer' for this help text.`,
 	}
 }
 
+// runComposer forwards arguments to Composer.
 func runComposer(cmd *cobra.Command, args []string) error {
 	return composer.Run(cmd.Context(), args)
 }

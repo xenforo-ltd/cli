@@ -9,11 +9,14 @@ import (
 )
 
 var (
+	// flagAuthStatusJSON selects JSON authentication status output.
 	flagAuthStatusJSON bool
-	flagAuthTimeout    int
+	// flagAuthTimeout sets the login timeout in seconds.
+	flagAuthTimeout int
 )
 
-// newAuthCommand builds the auth command family.
+// newAuthCommand builds the auth command family. Its parent rejects unknown
+// subcommands instead of silently showing help.
 func newAuthCommand() *cobra.Command {
 	authCmd := &cobra.Command{
 		Use:   "auth",
@@ -30,9 +33,6 @@ Tokens use your configured keychain or file store. XF_TOKEN overrides stored cre
 
   # Log out and revoke tokens
   xf auth logout`,
-		// NoArgs rejects an unknown subcommand with cobra's own error. RunE is
-		// required alongside it: without a RunE, cobra skips a parent's Args
-		// validator entirely and silently prints help instead.
 		Args:    cobra.NoArgs,
 		GroupID: "start",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -109,13 +109,20 @@ to manually refresh before the token expires.`,
 	return authCmd
 }
 
+// runAuthLogin starts browser authentication with the configured timeout.
 func runAuthLogin(cmd *cobra.Command, args []string) error {
 	return authcommand.Login(cmd.Context(), authcommand.LoginOptions{Timeout: flagAuthTimeout})
 }
+
+// runAuthStatus displays authentication status in the selected format.
 func runAuthStatus(cmd *cobra.Command, args []string) error {
 	return authcommand.Status(cmd.Context(), authcommand.StatusOptions{JSON: flagAuthStatusJSON})
 }
+
+// runAuthLogout revokes and removes stored credentials.
 func runAuthLogout(cmd *cobra.Command, args []string) error { return authcommand.Logout(cmd.Context()) }
+
+// runAuthRefresh refreshes the stored access token.
 func runAuthRefresh(cmd *cobra.Command, args []string) error {
 	return authcommand.Refresh(cmd.Context())
 }

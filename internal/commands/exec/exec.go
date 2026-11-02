@@ -10,6 +10,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/passthrough"
 )
 
+// Run executes a command in a Docker Compose service with standard streams attached.
 func Run(ctx context.Context, args []string) error {
 	xfDir, execArgs, err := passthrough.Resolve(args)
 	if err != nil {
@@ -32,6 +33,7 @@ func Run(ctx context.Context, args []string) error {
 	return nil
 }
 
+// validateExecInvocation requires both a service and a command.
 func validateExecInvocation(execArgs []string) error {
 	if len(execArgs) < 2 {
 		return clierror.Usage(fmt.Errorf("exec requires <service> <command> [args...]: %w", clierror.ErrInvalidInput))

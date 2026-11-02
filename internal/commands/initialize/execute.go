@@ -33,11 +33,10 @@ const downloadSpinnerStep = 100 * 1024
 //
 // JavaScript always occupies a slot. Container startup, Composer and installation
 // only occupy slots when startup is requested, whether they run or are skipped.
-// The total does not depend on what the downloaded package contains.
+// The total does not depend on what the downloaded package contains. The six
+// base steps cover target preparation, download, extraction, Docker setup,
+// environment configuration and JavaScript build.
 func plannedInitSteps(opts InitOptions) int {
-	// Preparing target directory, Downloading XenForo files, Extracting
-	// XenForo files, Setting up Docker configuration, Configuring
-	// environment, Building JavaScript.
 	const base = 6
 
 	if opts.SkipUp {
@@ -47,6 +46,9 @@ func plannedInitSteps(opts InitOptions) int {
 	return base + 3
 }
 
+// executeInit downloads and configures a fresh installation, optionally starting
+// containers and running Composer and the installer. Metadata failures warn but
+// do not stop setup; Composer's step remains visible even when no manifest exists.
 func executeInit(ctx context.Context, opts *InitOptions) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -130,7 +132,6 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	}
 
 	if err := xf.WriteMetadata(opts.TargetPath, meta); err != nil {
-		// Non-fatal - warn but continue
 		ui.PrintWarning("Could not write metadata")
 	}
 
@@ -179,11 +180,6 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 			ui.PrintWarning("Could not detect the site URL; using " + ui.URL.Render(siteURL))
 		}
 
-		// The Composer step always occupies its slot once containers start,
-		// so the plan stays fixed regardless of what the extracted package
-		// contains. The filesystem is authoritative here: release packages
-		// ship vendor/ prebuilt and no manifest, repository checkouts track
-		// composer.json.
 		ui.Println()
 
 		switch {
@@ -239,6 +235,7 @@ func executeInit(ctx context.Context, opts *InitOptions) error {
 	return nil
 }
 
+// startContainers starts the Compose environment and displays progress or full output.
 func startContainers(ctx context.Context, runner *environment.Runner, verbose bool) error {
 	if verbose {
 		ui.PrintSubstep("Running docker compose up...")
@@ -266,6 +263,7 @@ func startContainers(ctx context.Context, runner *environment.Runner, verbose bo
 	return nil
 }
 
+// installXenForo waits for the database and runs the installer with progress reporting.
 func installXenForo(ctx context.Context, runner *environment.Runner, opts *InitOptions, siteURL string, verbose bool) error {
 	shellInstallArgs, installEnv := setup.InstallInvocation(opts.AdminUser, opts.AdminEmail, opts.SiteTitle, siteURL, opts.AdminPassword)
 
@@ -378,6 +376,9 @@ func prepareTargetDirectory(targetPath string) error {
 	return nil
 }
 
+// downloadProducts resolves and caches selected products, updating the core
+// version string when necessary. Failed progress bars are abandoned rather than
+// finished so they do not report incomplete transfers as complete.
 func downloadProducts(ctx context.Context, client *customerapi.Client, opts *InitOptions, titleMap map[string]string) (map[string]*cache.Entry, error) {
 	cacheManager, err := cache.NewManager()
 	if err != nil {
@@ -433,8 +434,6 @@ func downloadProducts(ctx context.Context, client *customerapi.Client, opts *Ini
 
 		entry, versionStr, err := downloads.DownloadSelection(ctx, client, cacheManager, opts.LicenseKey, selection, false, progress)
 		if err != nil {
-			// Abandon rather than Finish: Finish would paint the bar at 100%
-			// and report a failed transfer as complete.
 			if progressBar != nil {
 				progressBar.Abandon()
 			}
@@ -490,6 +489,7 @@ func normalizeRuntimeStorage(targetPath string) error {
 	return nil
 }
 
+// normalizeRuntimeTree makes directories and regular files writable by the container.
 func normalizeRuntimeTree(root string) error {
 	return filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -513,6 +513,7 @@ func normalizeRuntimeTree(root string) error {
 	})
 }
 
+// configureEnvironment writes instance defaults and resolved overrides to .env.
 func configureEnvironment(opts *InitOptions) error {
 	envPath := filepath.Join(opts.TargetPath, ".env")
 

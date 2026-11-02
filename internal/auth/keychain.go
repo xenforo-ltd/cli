@@ -24,11 +24,8 @@ func newKeychain() *keychain {
 	return &keychain{}
 }
 
-// isAvailable checks if the system keychain is accessible.
+// isAvailable probes the keychain and treats a missing probe key as available.
 func (k *keychain) isAvailable() bool {
-	// Try to access the keychain by getting a non-existent key
-	// If we get ErrNotFound, the keychain is available
-	// If we get a different error, it's unavailable
 	_, err := keyring.Get(keyringService, "__test_availability__")
 
 	return err == nil || errors.Is(err, keyring.ErrNotFound)
@@ -81,8 +78,10 @@ func (k *keychain) DeleteToken() error {
 	return nil
 }
 
+// Source returns the credential source name.
 func (k *keychain) Source() string { return "keychain" }
 
+// keychainUnavailable describes an unavailable keychain and alternatives.
 func keychainUnavailable(cause error) error {
 	if cause != nil {
 		return fmt.Errorf("system keychain is unavailable (%v); Linux requires a running, unlocked Secret Service; select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", cause, ErrStoreUnavailable)
@@ -91,6 +90,7 @@ func keychainUnavailable(cause error) error {
 	return fmt.Errorf("system keychain is unavailable (Linux requires a running, unlocked Secret Service); select XF_AUTH_STORAGE=file or supply XF_TOKEN: %w", ErrStoreUnavailable)
 }
 
+// PrepareLogin checks keychain access before starting authentication.
 func (k *keychain) PrepareLogin() error {
 	if !k.isAvailable() {
 		return keychainUnavailable(nil)
@@ -99,4 +99,5 @@ func (k *keychain) PrepareLogin() error {
 	return nil
 }
 
+// LoadTokenForLogout retrieves credentials for revocation.
 func (k *keychain) LoadTokenForLogout() (*Token, error) { return k.LoadToken() }

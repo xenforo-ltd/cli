@@ -3,15 +3,21 @@ package build
 // Task identifies a stage in the release build pipeline.
 type Task string
 
-// Release build stages, reported only when enabled for the current build.
 const (
+	// TaskComposer identifies dependency installation.
 	TaskComposer Task = "composer"
-	TaskExport   Task = "export"
-	TaskRollup   Task = "rollup"
-	TaskMinify   Task = "minify"
-	TaskExec     Task = "exec"
-	TaskHashes   Task = "hashes"
-	TaskArchive  Task = "archive"
+	// TaskExport identifies development-output export.
+	TaskExport Task = "export"
+	// TaskRollup identifies JavaScript bundling.
+	TaskRollup Task = "rollup"
+	// TaskMinify identifies JavaScript minification.
+	TaskMinify Task = "minify"
+	// TaskExec identifies configured command execution.
+	TaskExec Task = "exec"
+	// TaskHashes identifies file selection and hash manifest creation.
+	TaskHashes Task = "hashes"
+	// TaskArchive identifies release archive creation.
+	TaskArchive Task = "archive"
 )
 
 // WithTaskProgress registers a callback before each task, including file

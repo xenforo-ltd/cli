@@ -6,7 +6,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/compose"
 )
 
-// newComposeCommand builds the compose passthrough command.
+// newComposeCommand builds the compose passthrough command. Arguments and
+// flags after its name belong to Docker Compose; xf flags must precede it.
 func newComposeCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "compose [path] [args...]",
@@ -25,8 +26,6 @@ xf's own flags before the command name, and use 'xf help compose' for this help.
 
   # Execute inside a running service
   xf compose exec xf mysql -u root`,
-		// Everything after this command belongs to the target tool, including
-		// flags. xf's own flags must be given before the command name.
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		GroupID:            "run",
@@ -34,6 +33,7 @@ xf's own flags before the command name, and use 'xf help compose' for this help.
 	}
 }
 
+// runCompose forwards arguments to Docker Compose.
 func runCompose(cmd *cobra.Command, args []string) error {
 	return compose.Run(cmd.Context(), args)
 }

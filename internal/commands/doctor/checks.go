@@ -137,10 +137,12 @@ func (d *doctor) checkAuthentication(source string, token *auth.Token, err error
 	}
 }
 
+// trimNewline removes one trailing newline from command output.
 func trimNewline(output []byte) string {
 	return strings.TrimSuffix(string(output), "\n")
 }
 
+// checkGit records whether Git is available and its version.
 func (d *doctor) checkGit(ctx context.Context) {
 	result := &checkResult{
 		name: "Git",
@@ -161,6 +163,7 @@ func (d *doctor) checkGit(ctx context.Context) {
 	d.results = append(d.results, result)
 }
 
+// checkDocker records Docker availability, version, and daemon status.
 func (d *doctor) checkDocker(ctx context.Context) {
 	result := &checkResult{
 		name: "Docker",
@@ -195,6 +198,7 @@ func (d *doctor) checkDocker(ctx context.Context) {
 	d.results = append(d.results, result)
 }
 
+// checkCacheDirectory creates the cache directory if needed and checks writability.
 func (d *doctor) checkCacheDirectory() {
 	result := &checkResult{
 		name: "Cache Directory",
@@ -269,6 +273,8 @@ func (d *doctor) checkCacheDirectory() {
 	d.results = append(d.results, result)
 }
 
+// checkDiskSpace uses df to check available cache filesystem space and warns
+// below one GiB. It skips the check when df or its output is unavailable.
 func (d *doctor) checkDiskSpace(ctx context.Context) {
 	result := &checkResult{
 		name: "Disk Space",
@@ -285,7 +291,6 @@ func (d *doctor) checkDiskSpace(ctx context.Context) {
 
 	cacheDir := cfg.CachePath
 
-	// Use df command to check disk space (works on macOS and Linux).
 	cmd := exec.CommandContext(ctx, "df", "-k", "--", cacheDir)
 
 	output, err := cmd.Output()
@@ -297,8 +302,6 @@ func (d *doctor) checkDiskSpace(ctx context.Context) {
 		return
 	}
 
-	// Parse df output - second line contains the data.
-	// Format: Filesystem 1K-blocks Used Available Use% Mounted
 	lines := strings.Split(strings.TrimRight(string(output), "\n"), "\n")
 	if len(lines) < 2 {
 		result.status = statusSkipped
@@ -312,7 +315,6 @@ func (d *doctor) checkDiskSpace(ctx context.Context) {
 
 	_, err = fmt.Sscanf(lines[1], "%s %d %d %d", new(string), new(int64), new(int64), &available)
 	if err != nil {
-		// Try alternative parsing for different df output formats.
 		fields := strings.Fields(lines[1])
 		if len(fields) >= 4 {
 			if _, err := fmt.Sscanf(fields[3], "%d", &available); err != nil {
@@ -325,10 +327,9 @@ func (d *doctor) checkDiskSpace(ctx context.Context) {
 		}
 	}
 
-	// available is in 1K blocks, convert to bytes.
 	availableBytes := available * 1024
 
-	const minRequired = 1 * 1024 * 1024 * 1024 // 1 GB
+	const minRequired = 1 * 1024 * 1024 * 1024
 
 	if availableBytes < minRequired {
 		result.status = statusWarning
@@ -342,6 +343,7 @@ func (d *doctor) checkDiskSpace(ctx context.Context) {
 	d.results = append(d.results, result)
 }
 
+// checkNetwork records whether the GitHub and XenForo endpoints are reachable.
 func (d *doctor) checkNetwork(ctx context.Context) {
 	result := &checkResult{
 		name: "Network Connectivity",

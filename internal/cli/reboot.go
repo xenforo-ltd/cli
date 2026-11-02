@@ -25,6 +25,7 @@ If no path is provided, the current directory will be searched for a XenForo ins
 	}
 }
 
+// runReboot restarts the selected Docker environment.
 func runReboot(cmd *cobra.Command, args []string) error {
 	return reboot.Run(cmd.Context(), args)
 }

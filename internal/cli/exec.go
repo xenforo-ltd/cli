@@ -6,7 +6,8 @@ import (
 	commandexec "github.com/xenforo-ltd/cli/internal/commands/exec"
 )
 
-// newExecCommand builds the exec command.
+// newExecCommand builds the exec command. Arguments and flags after its name
+// belong to the target command; xf flags must precede it.
 func newExecCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "exec [path] <service> <command> [args...]",
@@ -22,8 +23,6 @@ If no path is provided, the current directory will be searched for a XenForo ins
 
   # Run arbitrary docker compose command
   xf compose -- exec xf mysql -u root`,
-		// Everything after this command belongs to the target tool, including
-		// flags. xf's own flags must be given before the command name.
 		DisableFlagParsing: true,
 		Args:               cobra.MinimumNArgs(1),
 		GroupID:            "run",
@@ -31,6 +30,7 @@ If no path is provided, the current directory will be searched for a XenForo ins
 	}
 }
 
+// runExec executes a command in a running container.
 func runExec(cmd *cobra.Command, args []string) error {
 	return commandexec.Run(cmd.Context(), args)
 }

@@ -77,7 +77,8 @@ func cloneEnvironment(ctx context.Context, sourcePath, worktreePath string) erro
 //
 // OptionRepository::updateOptions is used rather than a direct UPDATE because
 // it also rebuilds the option cache. Writing the row alone would leave the old
-// URL in service until something else happened to rebuild it.
+// URL in service until something else happened to rebuild it. Both options are
+// updated in one bootstrapped call; the title derives from the current value.
 func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *environment.Runner, label string) {
 	url, err := target.GetURL(ctx)
 	if err != nil || url == "" {
@@ -89,12 +90,6 @@ func retargetBoardIdentity(ctx context.Context, spinner *ui.Spinner, target *env
 
 	spinner.UpdateMessage("Updating board URL and title")
 
-	// Run through XenForo's own bootstrap so the repository and cache rebuild
-	// behave exactly as they do for xf:install.
-	// php -r takes bare statements, without an opening tag.
-	// Both options are set in one call so the option cache rebuilds once. The
-	// title is derived inside PHP because it depends on the current value,
-	// which is only known once XenForo has booted.
 	script := fmt.Sprintf(
 		`require __DIR__ . '/src/XF.php';`+
 			`XF::start(__DIR__);`+
@@ -123,15 +118,14 @@ func phpQuote(value string) string {
 }
 
 // cloneDatabase streams a dump from the source instance into the target's,
-// narrating progress through spinner. It returns the size of the dump.
+// narrating progress through spinner. It returns the size of the dump. The
+// temporary dump has a random name and restrictive permissions to protect its
+// sensitive contents; passwords use environment variables rather than process
+// arguments. The dump uses a single transaction to keep the source usable.
 func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *environment.Runner) (int64, error) {
 	user, password := source.DatabaseCredentials()
 	database := source.DatabaseName()
 
-	// CreateTemp generates an unpredictable name and creates the file mode
-	// 0600. A fixed path in the shared temp directory would leave the whole
-	// forum database, including password hashes, readable by other users on
-	// the host, and would let them pre-create the path as a symlink.
 	dump, err := os.CreateTemp("", "xf-clone-"+target.Instance()+"-*.sql")
 	if err != nil {
 		return 0, fmt.Errorf("failed to export the database: %w", err)
@@ -143,11 +137,8 @@ func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *env
 		_ = os.Remove(dumpPath)
 	}()
 
-	// The password goes in the environment: an argument would be visible to
-	// anything that can list processes in the container.
 	dumpEnv := map[string]string{"MYSQL_PWD": password}
 
-	// --single-transaction keeps the source usable during the dump.
 	dumpCmd := []string{
 		"mariadb-dump",
 		"--user=" + user,
@@ -201,7 +192,8 @@ func cloneDatabase(ctx context.Context, spinner *ui.Spinner, source, target *env
 }
 
 // cloneFiles copies the source's user content into the worktree, narrating
-// progress through spinner. It returns the directories that were copied.
+// progress through spinner. It returns the directories that were copied and
+// limits progress updates to avoid excessive rendering for small files.
 func cloneFiles(ctx context.Context, spinner *ui.Spinner, sourcePath, worktreePath string) ([]string, error) {
 	copied := make([]string, 0, len(clonedDirectories))
 
@@ -217,8 +209,6 @@ func cloneFiles(ctx context.Context, spinner *ui.Spinner, sourcePath, worktreePa
 		var lastReported int
 
 		err := copyTree(ctx, src, filepath.Join(worktreePath, dir), func(done, total int) {
-			// Updating on every file would spend more time rendering than
-			// copying, since code_cache alone is thousands of small files.
 			if total > 0 && (done == total || done-lastReported >= progressUpdateInterval) {
 				lastReported = done
 

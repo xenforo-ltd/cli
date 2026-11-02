@@ -11,9 +11,13 @@ import (
 )
 
 var (
-	envKeyPattern         = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
-	errInvalidEnvFormat   = errors.New("expected KEY=VALUE")
-	errInvalidEnvKey      = errors.New("must match ^[A-Z][A-Z0-9_]*$")
+	// envKeyPattern restricts environment keys to uppercase letters, digits and underscores.
+	envKeyPattern = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+	// errInvalidEnvFormat reports an assignment without an equals sign.
+	errInvalidEnvFormat = errors.New("expected KEY=VALUE")
+	// errInvalidEnvKey reports a key outside the allowed syntax.
+	errInvalidEnvKey = errors.New("must match ^[A-Z][A-Z0-9_]*$")
+	// errNewlinesNotAllowed reports a multiline environment value.
 	errNewlinesNotAllowed = errors.New("newlines are not allowed")
 )
 
@@ -69,6 +73,7 @@ func parseEnvFlags(entries []string) (map[string]string, error) {
 	return values, nil
 }
 
+// parseEnvAssignment splits and trims a KEY=VALUE assignment and validates its key.
 func parseEnvAssignment(s string) (key, value string, err error) {
 	key, value, ok := strings.Cut(s, "=")
 	if !ok {
@@ -92,7 +97,7 @@ func validateEnvKey(key string) error {
 	return nil
 }
 
-// mergeEnvMaps merges multiple environment maps with priority order.
+// mergeEnvMaps combines values with flags taking precedence over file and base values.
 func mergeEnvMaps(base, fromFile, fromFlags map[string]string) map[string]string {
 	merged := map[string]string{}
 

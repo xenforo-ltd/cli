@@ -6,6 +6,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/completion"
 )
 
+// initOptions holds the flags for environment initialization.
 var initOptions initialize.InitOptions
 
 // legacyInitContexts holds values of the deprecated --contexts flag, which is
@@ -100,6 +101,8 @@ You can override either value via --env-file/--env.`,
 	return initCmd
 }
 
+// runInit initializes the target directory, defaulting to the current directory.
+// Deprecated comma-separated contexts are appended after repeated --context values.
 func runInit(cmd *cobra.Command, args []string) error {
 	opts := initOptions
 	opts.TargetPath = "."
@@ -107,8 +110,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 		opts.TargetPath = args[0]
 	}
 
-	// --contexts kept the comma-separated spelling, so append its values after
-	// the repeated --context ones. The flag itself announces the deprecation.
 	opts.Contexts = append(opts.Contexts, legacyInitContexts...)
 
 	return initialize.Run(cmd.Context(), &opts)

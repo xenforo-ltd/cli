@@ -9,6 +9,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run prints system health results and counts skipped checks separately.
+// It returns an exit-status error when any check fails.
 func Run(ctx context.Context) error {
 	doc := newDoctor()
 
@@ -59,8 +61,6 @@ func Run(ctx context.Context) error {
 
 	total := len(results)
 
-	// Skipped checks neither passed nor failed, so they are always reported
-	// separately rather than folded into the passed count.
 	skippedSuffix := ""
 	if skipped > 0 {
 		skippedSuffix = fmt.Sprintf(", %d skipped", skipped)

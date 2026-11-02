@@ -12,6 +12,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run retrieves account licenses and prints them as JSON or a human-readable list.
 func Run(ctx context.Context, jsonOutput bool) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
@@ -120,11 +121,13 @@ func licenseStatusIcon(lic customerapi.License) string {
 	}
 }
 
+// printLicenseCount prints the number of licenses in a listing.
 func printLicenseCount(count int) {
 	ui.PrintInfo("Found " + ui.Plural(count, "license", "licenses"))
 	ui.Println()
 }
 
+// runLicensesTable prints a compact license table and a detailed-view hint.
 func runLicensesTable(licenses []customerapi.License) {
 	printLicenseCount(len(licenses))
 
@@ -171,12 +174,14 @@ func runLicensesTable(licenses []customerapi.License) {
 	ui.PrintHint("Run " + ui.Command.Render("xf licenses -v") + " for detailed license information")
 }
 
+// formatLicenseSite returns the site title and URL, substituting missing values.
 func formatLicenseSite(lic customerapi.License) (string, string) {
 	placeholder := ui.Dim.Render("—")
 
 	return cmp.Or(lic.SiteTitle, placeholder), cmp.Or(lic.SiteURL, placeholder)
 }
 
+// runLicensesVerbose prints license details and any extras.
 func runLicensesVerbose(licenses []customerapi.License) {
 	printLicenseCount(len(licenses))
 

@@ -10,6 +10,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/passthrough"
 )
 
+// Run forwards arguments and standard streams to Docker Compose in the environment.
 func Run(ctx context.Context, args []string) error {
 	xfDir, composeArgs, err := passthrough.Resolve(args)
 	if err != nil {

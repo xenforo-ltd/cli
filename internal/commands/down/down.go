@@ -10,6 +10,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run stops the Docker environment without deleting its database or other volumes.
 func Run(ctx context.Context, args []string) error {
 	xfDir, err := passthrough.XenForoDir(args)
 	if err != nil {
@@ -23,8 +24,6 @@ func Run(ctx context.Context, args []string) error {
 
 	ui.PrintInfo("Stopping Docker environment " + ui.Bold.Render(runner.Instance()))
 
-	// No --volumes: the database and other volume data survive a later start,
-	// unlike Destroy.
 	if err := runner.Compose(ctx, os.Stdin, os.Stdout, os.Stderr, "down"); err != nil {
 		return fmt.Errorf("failed to stop Docker environment: %w", err)
 	}

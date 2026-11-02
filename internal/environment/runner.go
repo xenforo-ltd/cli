@@ -112,6 +112,7 @@ func (r *Runner) ExecInput(ctx context.Context, service string, env map[string]s
 	return r.runDockerCommandWithEnvAndIO(ctx, env, stdin, os.Stdout, os.Stderr, args...)
 }
 
+// buildExecArgs builds a non-interactive Compose exec invocation with environment names.
 func (r *Runner) buildExecArgs(service string, env map[string]string, cmd []string) []string {
 	args := r.buildComposeArgs()
 	args = append(args, "exec", "-T")
@@ -143,6 +144,9 @@ func (r *Runner) ExecOrRun(ctx context.Context, service string, env map[string]s
 	return r.execOrRunInDir(ctx, service, "", env, stdin, stdout, stderr, cmd...)
 }
 
+// execOrRunInDir executes in a running service or starts a one-off container.
+// If the service stops between the check and exec, it retries with run. Captured
+// stderr is forwarded for all other outcomes, including successful commands.
 func (r *Runner) execOrRunInDir(ctx context.Context, service, workDir string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	running, err := r.IsServiceRunning(ctx, service)
 	if err != nil {
@@ -171,9 +175,6 @@ func (r *Runner) execOrRunInDir(ctx context.Context, service, workDir string, en
 		return r.run(ctx, service, workDir, env, stdin, stdout, stderr, cmd...)
 	}
 
-	// stderr is captured only to detect the not-running case above. For any
-	// other result, forward it: successful commands also write diagnostics
-	// and progress to stderr.
 	if stderrOutput != "" {
 		if _, writeErr := io.WriteString(stderr, stderrOutput); writeErr != nil && err == nil {
 			return writeErr
@@ -183,6 +184,7 @@ func (r *Runner) execOrRunInDir(ctx context.Context, service, workDir string, en
 	return err
 }
 
+// run executes a command in a disposable Compose service container.
 func (r *Runner) run(ctx context.Context, service, workDir string, env map[string]string, stdin io.Reader, stdout, stderr io.Writer, cmd ...string) error {
 	args := r.buildComposeArgs()
 	args = append(args, "run", "--rm")
@@ -292,6 +294,7 @@ func appendEnvVars(args []string, env map[string]string, flagFormat string) []st
 	return args
 }
 
+// appendWorkDir adds a Compose working-directory option when workDir is nonempty.
 func appendWorkDir(args []string, workDir string) []string {
 	if workDir == "" {
 		return args
@@ -377,6 +380,7 @@ func (r *Runner) HasRunningServices(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// isNotRunningExecError recognizes Compose errors caused by a stopped or missing container.
 func isNotRunningExecError(err error, stderr string) bool {
 	msg := strings.ToLower(err.Error() + " " + stderr)
 

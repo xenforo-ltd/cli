@@ -7,13 +7,14 @@ import (
 	"github.com/xenforo-ltd/cli/internal/customerapi"
 )
 
-// displayVersion represents a version option for display.
+// displayVersion pairs a version ID with its display label.
 type displayVersion struct {
 	value int
 	label string
 }
 
-// buildVersionOptions builds display options for a version selection.
+// buildVersionOptions labels up to maxVersion entries, marking the first as
+// latest and unstable entries as pre-releases. A nonpositive limit selects all.
 func buildVersionOptions(versions []customerapi.Version, maxVersion int) []displayVersion {
 	if len(versions) == 0 {
 		return nil
@@ -46,7 +47,7 @@ func buildVersionOptions(versions []customerapi.Version, maxVersion int) []displ
 	return out
 }
 
-// resolveVersionInput resolves a version input string to a full version.
+// resolveVersionInput matches an ID or version string, ignoring case and a v prefix.
 func resolveVersionInput(input string, versions []customerapi.Version) (customerapi.Version, bool) {
 	input = strings.TrimSpace(strings.ToLower(input))
 

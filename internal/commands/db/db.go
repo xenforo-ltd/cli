@@ -13,8 +13,11 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Options selects whether to print the database connection URL instead of opening it.
 type Options struct{ PrintURL bool }
 
+// DB opens the environment database in TablePlus or prints its connection URL.
+// The printed URL includes the local development password for use by clients.
 func DB(ctx context.Context, args []string, opts Options) error {
 	xfDir, err := passthrough.XenForoDir(args)
 	if err != nil {
@@ -36,8 +39,6 @@ func DB(ctx context.Context, args []string, opts Options) error {
 			return err
 		}
 
-		// The URL carries the local development password so it can be piped
-		// straight into a database client.
 		// codeql[go/clear-text-logging] --print-url is an explicit request to expose it.
 		fmt.Println(info.urlString())
 		return nil

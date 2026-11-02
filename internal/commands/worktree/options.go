@@ -4,18 +4,23 @@ import (
 	"github.com/xenforo-ltd/cli/internal/setup"
 )
 
-// Defaults for the throwaway installation a worktree gets.
 const (
-	defaultWorktreeAdminUser     = "admin"
+	// defaultWorktreeAdminUser is the default user for a fresh worktree installation.
+	defaultWorktreeAdminUser = "admin"
+	// defaultWorktreeAdminPassword is the default password for a fresh installation.
 	defaultWorktreeAdminPassword = "password"
-	defaultWorktreeAdminEmail    = "admin@example.com"
+	// defaultWorktreeAdminEmail is the default email for a fresh installation.
+	defaultWorktreeAdminEmail = "admin@example.com"
 )
 
+// CreateOptions controls the base revision, environment setup, credentials,
+// instance, output format, and cloning behavior of a new worktree.
 type CreateOptions struct {
 	Base, AdminUser, AdminPassword, AdminEmail, Title, Instance string
 	NoSetup, NoUp, JSON, Fresh, SkipBuildJS                     bool
 }
 
+// RemoveOptions controls forced removal, container retention, and error detail.
 type RemoveOptions struct {
 	Force          bool
 	KeepContainers bool
@@ -26,12 +31,9 @@ type RemoveOptions struct {
 //
 // cloning reports whether the source environment will be copied in, which
 // suppresses xf:install: the imported database is already installed, and
-// reinstalling would wipe the data that was just copied.
+// reinstalling would wipe the data that was just copied. Fresh installations
+// use fixed default credentials unless overridden; clones retain source logins.
 func worktreeInitOptions(result *backendResult, cloning bool, opts CreateOptions) *setup.Options {
-	// A worktree is a disposable development environment, so a fresh install
-	// uses fixed credentials rather than prompting. Knowing the login without
-	// being asked is the point: one command produces a usable forum. A cloned
-	// worktree keeps the source's own credentials.
 	return &setup.Options{
 		TargetPath:      result.path,
 		InstanceName:    result.instance,

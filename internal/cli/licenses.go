@@ -6,6 +6,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/licenses"
 )
 
+// flagLicensesJSON selects JSON license output.
 var flagLicensesJSON bool
 
 // newLicensesCommand builds the licenses command.
@@ -35,6 +36,7 @@ and available extras (add-ons).`,
 	return licensesCmd
 }
 
+// runLicenses lists the account's licenses in the selected format.
 func runLicenses(cmd *cobra.Command, args []string) error {
 	return licenses.Run(cmd.Context(), flagLicensesJSON)
 }

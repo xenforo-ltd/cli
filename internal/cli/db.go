@@ -7,10 +7,12 @@ import (
 )
 
 var (
+	// flagDBPrintURL selects URL output instead of opening a client.
 	flagDBPrintURL bool
 )
 
-// newDBCommand builds the db command family.
+// newDBCommand builds the db command family. Arguments and flags after shell
+// belong to the database client; xf flags must precede that command.
 func newDBCommand() *cobra.Command {
 	dbCmd := &cobra.Command{
 		Use:     "db [path]",
@@ -51,8 +53,6 @@ command name, and use 'xf help db shell' for this help.`,
 
   # Run a query and exit
   xf db shell -e 'show tables;'`,
-		// Everything after this command belongs to the wrapped client, including
-		// flags. xf's own flags must be given before the command name.
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE:               runDBShell,
@@ -64,7 +64,10 @@ command name, and use 'xf help db shell' for this help.`,
 	return dbCmd
 }
 
+// runDB opens the database or prints its connection URL.
 func runDB(cmd *cobra.Command, args []string) error {
 	return dbcommand.DB(cmd.Context(), args, dbcommand.Options{PrintURL: flagDBPrintURL})
 }
+
+// runDBShell forwards arguments to the database client in its container.
 func runDBShell(cmd *cobra.Command, args []string) error { return dbcommand.Shell(cmd.Context(), args) }

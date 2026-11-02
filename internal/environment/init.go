@@ -9,7 +9,9 @@ import (
 	"strings"
 )
 
-// InitOptions contains options for initializing a Docker environment.
+// InitOptions controls Docker configuration extraction. OverwriteExisting replaces
+// existing base files, but not files generated from default templates. Contexts
+// are written only when initialization creates a new .env file.
 type InitOptions struct {
 	OverwriteExisting bool
 	Contexts          []string
@@ -17,7 +19,8 @@ type InitOptions struct {
 
 // Init initializes the Docker environment in a XenForo directory. It returns
 // the paths of any ".default" files written alongside existing, user-modified
-// files so callers can notify the user.
+// files so callers can notify the user. A pre-existing .env is not changed;
+// instance and context defaults are applied only to a newly created .env.
 func Init(xfDir string, opts InitOptions) (written []string, err error) {
 	xfPath := filepath.Join(xfDir, "src", "XF.php")
 	if _, statErr := os.Stat(xfPath); statErr != nil {
@@ -28,9 +31,6 @@ func Init(xfDir string, opts InitOptions) (written []string, err error) {
 		return nil, fmt.Errorf("cannot access src/XF.php: %w", statErr)
 	}
 
-	// Extraction creates .env from .env.default, so its presence afterwards
-	// cannot distinguish a new environment from one the user already had.
-	// Record it beforehand to avoid overwriting a user's configuration.
 	envPath := filepath.Join(xfDir, ".env")
 	newEnv := false
 	if _, statErr := os.Stat(envPath); statErr != nil {

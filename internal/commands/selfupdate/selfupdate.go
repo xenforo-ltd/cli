@@ -7,6 +7,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run checks for a CLI update and installs it unless checkOnly is set.
 func Run(ctx context.Context, checkOnly bool) error {
 	u := newUpdater()
 

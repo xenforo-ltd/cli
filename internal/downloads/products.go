@@ -11,6 +11,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// ProductTitles returns licensed product titles, falling back to the XenForo
+// core title alone if the downloadable products cannot be retrieved.
 func ProductTitles(ctx context.Context, client *customerapi.Client, licenseKey string) map[string]string {
 	out := map[string]string{
 		"xenforo": "XenForo",
@@ -38,6 +40,8 @@ func ProductTitle(titles map[string]string, product string) string {
 	return product
 }
 
+// LicenseLabel formats the license key with its site title and URL, or its
+// product title if neither site field is available.
 func LicenseLabel(lic customerapi.License) string {
 	var parts []string
 	if lic.SiteTitle != "" {
@@ -59,6 +63,9 @@ func LicenseLabel(lic customerapi.License) string {
 	return fmt.Sprintf("%s (%s)", lic.LicenseKey, strings.Join(parts, " - "))
 }
 
+// ExtractCachedFiles extracts cached archives into targetPath, processing core
+// first and other products in unspecified order. It stops at the first error;
+// files extracted earlier are not rolled back.
 func ExtractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, titleMap map[string]string, verb string) error {
 	if entry, ok := cachedFiles["xenforo"]; ok {
 		if err := extractEntry(entry, targetPath, "xenforo", "XenForo core", verb); err != nil {
@@ -81,6 +88,7 @@ func ExtractCachedFiles(cachedFiles map[string]*cache.Entry, targetPath string, 
 	return nil
 }
 
+// extractEntry extracts an archive while reporting progress and completion.
 func extractEntry(entry *cache.Entry, targetPath, product, title, verb string) error {
 	startMessage := "Extracting " + title
 	progressLabel := startMessage

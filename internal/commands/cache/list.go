@@ -12,11 +12,13 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// ListOptions selects JSON output and an optional license filter.
 type ListOptions struct {
 	JSON       bool
 	LicenseKey string
 }
 
+// List prints cached downloads, optionally filtered by license.
 func List(_ context.Context, opts ListOptions) error {
 	manager, err := cache.NewManager()
 	if err != nil {

@@ -10,11 +10,13 @@ import (
 	"github.com/xenforo-ltd/cli/internal/version"
 )
 
+// Options selects JSON or short version output.
 type Options struct {
 	JSON  bool
 	Short bool
 }
 
+// Run prints the CLI version and, unless short output is selected, build details.
 func Run(_ context.Context, options Options) error {
 	info := version.Get()
 	if options.Short {

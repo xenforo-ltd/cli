@@ -63,6 +63,7 @@ func (r *Runner) WaitForDatabase(ctx context.Context, checkInterval time.Duratio
 	return fmt.Errorf("timed out waiting for database to be ready: %w", errTimeout)
 }
 
+// escapePHPString escapes backslashes and quotes for a single-quoted PHP string.
 func escapePHPString(value string) string {
 	value = strings.ReplaceAll(value, "\\", "\\\\")
 	return strings.ReplaceAll(value, "'", "\\'")

@@ -25,16 +25,14 @@ type worktreeOutput struct {
 // worktreeState reports whether a registered worktree still exists on disk.
 //
 // The value is unstyled so it can go straight into JSON; renderWorktreeState
-// colours it for the table.
+// colours it for the table. Inspection failures other than absence return
+// unknown rather than claiming the worktree is usable.
 func worktreeState(worktreePath string) string {
 	if _, err := os.Stat(worktreePath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return "missing"
 		}
 
-		// A permission or I/O failure says nothing about whether the worktree
-		// is there. Reporting "ok" would claim it is usable on the strength of
-		// a check that never completed.
 		return "unknown"
 	}
 
@@ -60,11 +58,9 @@ func renderWorktreeState(state string) string {
 // printWorktrees renders entries, reconciling them against the filesystem.
 //
 // The registry is a record, not the source of truth: worktrees get removed
-// outside xf, so entries are checked rather than trusted.
+// outside xf, so entries are checked rather than trusted in both output formats.
 func printWorktrees(entries []entry, jsonOutput bool) error {
 	if jsonOutput {
-		// The same reconciliation the table performs, so machine consumers
-		// are not told about worktrees that no longer exist on disk.
 		type worktreeListEntry struct {
 			entry
 
@@ -107,6 +103,7 @@ func printWorktrees(entries []entry, jsonOutput bool) error {
 	return nil
 }
 
+// printJSON writes an indented JSON document to the output stream.
 func printJSON(v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

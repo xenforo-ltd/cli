@@ -12,9 +12,12 @@ import (
 )
 
 var (
+	// cacheOnce limits configuration unmarshalling to the first Load call.
 	cacheOnce sync.Once
-	cache     Config
-	errCache  error
+	// cache holds the configuration unmarshalled by the first Load call.
+	cache Config
+	// errCache holds the error from the first configuration unmarshalling.
+	errCache error
 
 	// initMu guards Init, which configures viper's package-level singleton.
 	// Concurrent callers — notably parallel tests that each run the CLI —
@@ -22,21 +25,17 @@ var (
 	initMu sync.Mutex
 )
 
-// Config holds all CLI configuration values.
+// Config holds CLI settings for output, interaction, cache, credential storage,
+// and OAuth endpoints and credentials.
 type Config struct {
-	// Verbose enables detailed output.
 	Verbose bool `json:"verbose" mapstructure:"verbose"`
 
-	// NoInteraction disables interactive prompts.
 	NoInteraction bool `json:"no_interaction" mapstructure:"no_interaction"`
 
-	// CachePath is the directory for cached downloads.
 	CachePath string `json:"cache_path" mapstructure:"cache_path"`
 
-	// Auth selects the persistent credential store.
 	Auth authConfig `json:"auth" mapstructure:"auth"`
 
-	// OAuth holds OAuth-related settings.
 	OAuth OAuthConfig `json:"oauth" mapstructure:"oauth"`
 }
 
@@ -59,18 +58,15 @@ func AuthFilePath() (string, error) {
 	return filepath.Join(dir, "xf", "auth.json"), nil
 }
 
-// OAuthConfig holds OAuth endpoint and client configuration.
+// OAuthConfig holds the OAuth base URL, client ID, requested scopes, and local
+// callback path.
 type OAuthConfig struct {
-	// BaseURL is the base URL for OAuth endpoints.
 	BaseURL string `json:"base_url" mapstructure:"base_url"`
 
-	// ClientID is the OAuth client identifier.
 	ClientID string `json:"client_id" mapstructure:"client_id"`
 
-	// Scopes are the OAuth scopes to request.
 	Scopes []string `json:"scopes" mapstructure:"scopes"`
 
-	// RedirectPath is the local callback path for the OAuth flow.
 	RedirectPath string `json:"redirect_path" mapstructure:"redirect_path"`
 }
 
@@ -94,7 +90,8 @@ func (cfg *OAuthConfig) Endpoints() *oauthEndpoints {
 	}
 }
 
-// Init sets up the configuration system and reads the config file if it exists.
+// Init configures Viper defaults and environment bindings and reads the config
+// file. It serializes access to Viper and returns file-reading errors.
 func Init(configFile string) error {
 	initMu.Lock()
 	defer initMu.Unlock()
@@ -139,12 +136,10 @@ func Init(configFile string) error {
 	return nil
 }
 
-// Load reads the configuration from the config file.
+// Load unmarshals configuration once and returns the cached result. It shares
+// Init's lock to protect Viper's package-level state during unmarshalling.
 func Load() (Config, error) {
 	cacheOnce.Do(func() {
-		// Unmarshal reads the same package-level viper instance that Init
-		// writes, so it takes the same lock: without it, a caller loading
-		// config while another initializes it races on that shared state.
 		initMu.Lock()
 		defer initMu.Unlock()
 

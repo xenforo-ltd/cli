@@ -11,6 +11,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run displays logs for selected Compose services, optionally following new output.
 func Run(ctx context.Context, args []string, follow bool) error {
 	xfDir, services, err := passthrough.Resolve(args)
 	if err != nil {

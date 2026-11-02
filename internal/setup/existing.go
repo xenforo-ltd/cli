@@ -15,6 +15,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Options controls setup of an existing installation, including container
+// startup, optional build and install steps, and resolved environment overrides.
 type Options struct {
 	TargetPath      string
 	InstanceName    string
@@ -30,6 +32,9 @@ type Options struct {
 	SkipInstall     bool
 }
 
+// Existing configures Docker for an existing XenForo installation and optionally
+// starts containers and installs dependencies or XenForo. It updates opts with
+// the selected instance name and site title.
 func Existing(ctx context.Context, opts *Options) error {
 	ui.Println(ui.Header.Render("Initializing Docker environment"))
 	ui.Println()
@@ -101,6 +106,8 @@ func Existing(ctx context.Context, opts *Options) error {
 	return nil
 }
 
+// startAndInstall starts containers, detects the URL, and runs enabled install
+// steps. Its boolean result reports whether the returned URL was detected.
 func startAndInstall(ctx context.Context, opts *Options, verbose bool) (string, bool, error) {
 	runner, err := environment.NewRunner(opts.TargetPath)
 	if err != nil {
@@ -142,6 +149,8 @@ func startAndInstall(ctx context.Context, opts *Options, verbose bool) (string, 
 	return siteURL, urlDetected, nil
 }
 
+// configureExistingEnv writes defaults and resolved overrides to .env, deriving
+// an instance name when none was provided.
 func configureExistingEnv(opts *Options) error {
 	envPath := filepath.Join(opts.TargetPath, ".env")
 	if opts.InstanceName == "" {
@@ -176,6 +185,7 @@ func configureExistingEnv(opts *Options) error {
 	return nil
 }
 
+// validateAdminDetails reports missing credentials required for installation.
 func validateAdminDetails(opts *Options) error {
 	var missing []string
 	if opts.AdminUser == "" {
@@ -197,6 +207,8 @@ func validateAdminDetails(opts *Options) error {
 	return nil
 }
 
+// installExistingXenForo waits for the database and runs the installer with the
+// supplied credentials, displaying progress unless verbose output is enabled.
 func installExistingXenForo(ctx context.Context, runner *environment.Runner, opts *Options, siteURL string, verbose bool) error {
 	if err := runner.WaitForDatabase(ctx, 2*time.Second); err != nil {
 		return fmt.Errorf("failed waiting for database to become ready: %w", err)

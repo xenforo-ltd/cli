@@ -9,17 +9,13 @@ import (
 	"strings"
 )
 
-// Jujutsu output is parsed with explicit templates rather than the default
-// human-readable formatting, so a change to jj's display or the user's color
-// and template configuration cannot silently corrupt the parse. "\0" separates
-// fields because a path may contain spaces or newlines.
 const (
-	// stringify() prints a value without jj's display quoting, which would
-	// otherwise turn a workspace name beginning with a dash, such as "--foo",
-	// into the literal `"--foo"` and stop it matching or being forgotten.
+	// jjWorkspaceTemplate emits unquoted workspace names and roots separated by NUL.
 	jjWorkspaceTemplate = `stringify(name) ++ "\0" ++ stringify(root) ++ "\0"`
-	jjDiffTemplate      = `status_char ++ "\0" ++ path ++ "\0"`
-	jjCommitTemplate    = `commit_id.short() ++ " " ++ description.first_line() ++ "\n"`
+	// jjDiffTemplate emits status and path fields separated by NUL.
+	jjDiffTemplate = `status_char ++ "\0" ++ path ++ "\0"`
+	// jjCommitTemplate emits a short commit ID and first description line.
+	jjCommitTemplate = `commit_id.short() ++ " " ++ description.first_line() ++ "\n"`
 
 	// jjUnmergedRevset selects revisions reachable from the working-copy commit
 	// but from no remote bookmark. The working-copy commit itself is excluded:
@@ -45,7 +41,8 @@ type jjBackend struct{}
 // child workspaces xf created. Those live directly under the source's
 // "<source>.worktrees" directory, so a workspace found there is anchored to the
 // sibling source instead, which keeps new workspaces beside the original and
-// survives the source workspace being renamed.
+// survives the source workspace being renamed. The candidate must be a
+// registered workspace, not merely a similarly named directory.
 func (jjBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
 	out, err := vcsOutput(ctx, "jj", dir, "workspace", "root")
 	if err != nil {
@@ -64,9 +61,6 @@ func (jjBackend) sourceCheckout(ctx context.Context, dir string) (string, error)
 
 	candidate := strings.TrimSuffix(parent, worktreesSuffix)
 
-	// Confirm the candidate is a registered workspace in this repository before
-	// treating it as the source: an arbitrary workspace that merely happens to
-	// sit under a ".worktrees" directory is still its own source.
 	workspaces, err := jjWorkspaces(ctx, abs)
 	if err != nil {
 		return "", fmt.Errorf("failed to list workspaces: %w", err)
@@ -138,12 +132,11 @@ func (jjBackend) create(ctx context.Context, source, name, base, target string) 
 }
 
 // status inspects a workspace for work that would be lost by removing it.
+// Generated Docker additions are excluded. Unpushed commits are checked only
+// when a remote exists; a failure to list remotes is reported.
 func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatus, error) {
 	var status worktreeStatus
 
-	// jj tracks every file in the working copy, so a file Git would call
-	// untracked arrives here as an addition. Additions to the generated Docker
-	// environment are filtered below, mirroring Git's untracked-file treatment.
 	out, err := vcsOutput(ctx, "jj", worktreePath, "diff", "--template", jjDiffTemplate)
 	if err != nil {
 		return status, fmt.Errorf("failed to inspect workspace: %w", err)
@@ -162,15 +155,11 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatu
 		status.modified = append(status.modified, entry.display)
 	}
 
-	// "jj git remote list" prints nothing when no remote is configured, so a
-	// failure here is a real inspection problem, not the "no remotes" case.
 	remotes, err := vcsOutput(ctx, "jj", worktreePath, "git", "remote", "list")
 	if err != nil {
 		return status, fmt.Errorf("failed to list remotes: %w", err)
 	}
 
-	// As with Git, "unpushed" is only meaningful when there is somewhere to
-	// push to.
 	if strings.TrimSpace(remotes) == "" {
 		return status, nil
 	}
@@ -196,6 +185,7 @@ func (jjBackend) status(ctx context.Context, worktreePath string) (worktreeStatu
 // The workspace is forgotten before its directory is removed so a cleanup
 // failure leaves an ordinary directory rather than live metadata pointing at a
 // partially deleted checkout.
+// A separator protects workspace names that start with a dash.
 func (jjBackend) remove(ctx context.Context, sourcePath, worktreePath string, _ bool) error {
 	name, err := owner(ctx, jjBackend{}, sourcePath, worktreePath)
 	if err != nil {
@@ -220,8 +210,6 @@ func (jjBackend) remove(ctx context.Context, sourcePath, worktreePath string, _ 
 		return fmt.Errorf("refusing to remove the source workspace %s", worktreePath)
 	}
 
-	// "--" makes a workspace name beginning with a dash a value rather than an
-	// option, matching the protection create gets from "--name=".
 	if err := vcsRun(ctx, "jj", sourcePath, "forget workspace", "workspace", "forget", "--", name); err != nil {
 		return err
 	}
@@ -261,15 +249,13 @@ func jjWorkspaces(ctx context.Context, dir string) ([]jjWorkspace, error) {
 	return workspaces, nil
 }
 
-// jjDiffEntry is one changed file from "jj diff".
+// jjDiffEntry records a workspace-relative path, its status for display, and
+// whether the file is new to the working-copy commit.
 type jjDiffEntry struct {
-	// path is the workspace-relative path the entry concerns.
 	path string
 
-	// display is the status code and path, kept for error messages.
 	display string
 
-	// added reports whether the file is new to the working-copy commit.
 	added bool
 }
 

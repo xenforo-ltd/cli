@@ -7,7 +7,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/phpdebug"
 )
 
-// newPHPCommand builds the php passthrough command.
+// newPHPCommand builds the php passthrough command. Arguments and flags after
+// its name belong to PHP; xf flags must precede it.
 func newPHPCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "php [path] [args...]",
@@ -29,8 +30,6 @@ before the command name, and use 'xf help php' for this help text.`,
 
   # Enable xf verbose output (before the command name)
   xf --verbose php my-script.php`,
-		// Everything after this command belongs to the target tool, including
-		// flags. xf's own flags must be given before the command name.
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		GroupID:            "run",
@@ -40,7 +39,8 @@ before the command name, and use 'xf help php' for this help text.`,
 	}
 }
 
-// newPHPDebugCommand builds the php-debug command.
+// newPHPDebugCommand builds the php-debug passthrough command. Arguments and
+// flags after its name belong to PHP; xf flags must precede it.
 func newPHPDebugCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "php-debug [path] [args...]",
@@ -51,8 +51,6 @@ If no path is provided, the current directory will be searched for a XenForo ins
 All arguments are passed to PHP.`,
 		Example: `  # Run PHP script with Xdebug
   xf php-debug my-script.php`,
-		// Everything after this command belongs to the target tool, including
-		// flags. xf's own flags must be given before the command name.
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		GroupID:            "run",

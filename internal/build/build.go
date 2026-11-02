@@ -14,16 +14,12 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
-// buildResult describes a completed release.
+// buildResult describes a completed release. ZipPath is the absolute archive
+// path; FileCount and TotalSize count its files and their uncompressed bytes,
+// excluding the generated hash manifest.
 type buildResult struct {
-	// ZipPath is the absolute path to the release archive.
-	ZipPath string
-
-	// FileCount counts archived files other than the generated hash manifest.
+	ZipPath   string
 	FileCount int
-
-	// TotalSize is the total uncompressed size of the files counted by FileCount,
-	// in bytes.
 	TotalSize int64
 }
 

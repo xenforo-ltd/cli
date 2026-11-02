@@ -43,7 +43,8 @@ func (f file) regular() error {
 
 // collectFilesWhere collects start and selected descendants in path order,
 // following symlinks within root. Rejected directories are not traversed.
-// Entry errors are recorded for callers; cancellation stops collection.
+// Links are resolved through the build root, not the entry's parent. Entry
+// errors are recorded for callers; cancellation stops collection.
 func collectFilesWhere(ctx context.Context, root *os.Root, start string, include func(string, bool) bool) ([]file, error) {
 	var files []file
 	var active []file
@@ -95,7 +96,6 @@ func collectFilesWhere(ctx context.Context, root *os.Root, start string, include
 
 			info, err := entry.Info()
 			if err == nil && info.Mode()&os.ModeSymlink != 0 {
-				// Resolve links through the build root, not the entry's parent.
 				info, err = root.Stat(filepath.FromSlash(child))
 			}
 
@@ -148,7 +148,8 @@ func openInstallation(ctx context.Context, name string) (*os.Root, error) {
 	return root, nil
 }
 
-// readFile reads the contents of a regular file within root.
+// readFile reads the contents of a regular file within root. Its buffer leaves
+// space for the final EOF read required by ReadFrom.
 func readFile(ctx context.Context, root fileSource, name string) ([]byte, error) {
 	f, info, err := openRegular(ctx, root, name)
 	if err != nil {
@@ -158,7 +159,6 @@ func readFile(ctx context.Context, root fileSource, name string) ([]byte, error)
 	defer f.Close()
 
 	var buffer bytes.Buffer
-	// ReadFrom needs MinRead bytes of spare capacity for its final EOF read.
 	if size := info.Size(); size > 0 && size <= int64(math.MaxInt-bytes.MinRead) {
 		buffer.Grow(int(size) + bytes.MinRead)
 	}

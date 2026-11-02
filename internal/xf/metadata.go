@@ -10,30 +10,25 @@ import (
 	"time"
 )
 
+// metadataFilename is the installation's CLI metadata file name.
 const metadataFilename = ".xf.json"
 
 // Metadata stores CLI-specific information about a XenForo installation.
-// This file is created during `init` and used by `upgrade` to remember settings.
+// It records the license key, Docker instance name, installed products and
+// version, and creation and update times for use by init and upgrade.
 type Metadata struct {
-	// LicenseKey is the license key used for this installation
 	LicenseKey string `json:"license_key"`
 
-	// InstanceName is the Docker instance name
 	InstanceName string `json:"instance_name"`
 
-	// InstalledProducts tracks which products were installed
 	InstalledProducts []string `json:"installed_products"`
 
-	// InstalledVersion is the version that was installed
 	InstalledVersion string `json:"installed_version"`
 
-	// InstalledVersionID is the version ID that was installed
 	InstalledVersionID int `json:"installed_version_id"`
 
-	// CreatedAt is when the installation was created
 	CreatedAt time.Time `json:"created_at"`
 
-	// UpdatedAt is when the metadata was last updated
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -63,7 +58,8 @@ func ReadMetadata(xfDir string) (*Metadata, error) {
 	return &meta, nil
 }
 
-// WriteMetadata writes metadata to the metadata file.
+// WriteMetadata updates the timestamps and writes metadata with mode 0600
+// when creating the file. Existing file permissions are not changed.
 func WriteMetadata(xfDir string, meta *Metadata) error {
 	metaPath := metadataPath(xfDir)
 

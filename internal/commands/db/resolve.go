@@ -8,6 +8,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// databaseService is the Compose service used for supported database connections.
 const databaseService = "mysql"
 
 // resolveDatabaseInfo turns the environment's contexts and credentials into a

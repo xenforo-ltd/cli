@@ -28,52 +28,43 @@ var (
 	errNotXenForo = errors.New("not a XenForo directory")
 )
 
-// backendOptions describes a worktree to create.
+// backendOptions describes the source, branch or Jujutsu workspace, directory
+// name, base revision, and Docker instance for a worktree. The directory name
+// defaults to a choice based on the branch, the base to the source's current
+// revision, and the instance to the directory name.
 type backendOptions struct {
-	// sourcePath is the checkout to branch from.
 	sourcePath string
 
-	// branch is the branch (Git) or workspace (Jujutsu) to create in the new
-	// checkout.
 	branch string
 
-	// name names the new directory. Defaults to chooseName's choice for
-	// branch.
 	name string
 
-	// base is the revision to base the new checkout on, interpreted with the
-	// selected backend's revision syntax. Defaults to the source's current HEAD.
 	base string
 
-	// instance overrides the Docker instance name, which defaults to name.
 	instance string
 }
 
-// backendResult describes a created worktree.
+// backendResult records the worktree path and branch, source path and branch,
+// Docker instance, and creation time of a created worktree.
 type backendResult struct {
-	// path is the worktree location.
 	path string
 
-	// branch is the branch checked out in the worktree.
 	branch string
 
-	// sourcePath is the checkout it was created from.
 	sourcePath string
 
-	// sourceBranch is the branch the source was on at creation time.
 	sourceBranch string
 
-	// instance is the Docker instance name for the worktree.
 	instance string
 
-	// createdAt is when the worktree was created.
 	createdAt time.Time
 }
 
 // preflight validates a request without changing anything.
 //
-// It runs before any mutation so that a rejected request leaves no partial
-// state behind: no directory, no branch, no registry entry.
+// It does not mutate the repository or filesystem. The directory name must be
+// a single safe path segment and its target must not already exist. A caller
+// may already have reserved the name in the registry.
 func preflight(ctx context.Context, b backend, sourcePath, branch, name string) error {
 	if strings.TrimSpace(branch) == "" {
 		return fmt.Errorf("%w: branch name is empty", errInvalidBranch)
@@ -93,14 +84,10 @@ func preflight(ctx context.Context, b backend, sourcePath, branch, name string) 
 		return fmt.Errorf("%w: %s", errBranchExists, branch)
 	}
 
-	// The name becomes a path segment, so it must not be able to name a
-	// different directory.
 	if name == "" || name == "." || name == ".." || name != filepath.Base(name) || strings.ContainsAny(name, `/\`) {
 		return fmt.Errorf("%w: %q is not a usable worktree name", errInvalidBranch, name)
 	}
 
-	// chooseName skips occupied directories, but a name supplied by the caller
-	// has not been checked, and something can appear between the two.
 	target := filepath.Join(worktreesDir(sourcePath), name)
 	if _, err := os.Lstat(target); err == nil {
 		return fmt.Errorf("%w: %s", errWorktreeExists, target)
@@ -114,7 +101,8 @@ func preflight(ctx context.Context, b backend, sourcePath, branch, name string) 
 // create makes a worktree on a new branch.
 //
 // It does not configure Docker or install anything; that is the caller's job.
-// Pre-flight runs first, so a failure here leaves the source checkout untouched.
+// Pre-flight runs before the backend creates the checkout. A failed backend
+// creation removes the parent directory if it is empty.
 func create(ctx context.Context, opts backendOptions) (*backendResult, error) {
 	b, source, err := resolveSource(ctx, opts.sourcePath)
 	if err != nil {
@@ -149,7 +137,6 @@ func create(ctx context.Context, opts backendOptions) (*backendResult, error) {
 	}
 
 	if err := b.create(ctx, source, opts.branch, opts.base, target); err != nil {
-		// Leave no empty container directory behind after a failure.
 		_ = os.Remove(filepath.Dir(target))
 
 		return nil, err

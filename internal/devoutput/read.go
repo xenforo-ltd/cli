@@ -95,7 +95,8 @@ func ndjsonMetadata(data []byte) (map[string]record, error) {
 
 // read loads and converts the metadata-listed files for d beneath root/_output.
 // It validates known fields, collects warnings for unknown fields, and returns
-// elements in the definition's sort order, using keys when no order is defined.
+// elements in the definition's sort order, using keys when no order is defined
+// and filenames to break ties.
 func (d definition) read(ctx context.Context, root *os.Root, warnings map[string]bool) ([]xmlElement, error) {
 	directory := filepath.Join("_output", d.directory)
 	source, err := root.OpenRoot(directory)

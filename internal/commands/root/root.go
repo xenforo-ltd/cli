@@ -17,10 +17,12 @@ import (
 // context so that cancellation reaches the child process.
 type commandFunc func(ctx context.Context, name string, args ...string) *exec.Cmd
 
+// Run forwards a direct XenForo command to the environment or local PHP.
 func Run(ctx context.Context, args []string) error {
 	return runAsXenForoCommand(ctx, args, exec.CommandContext)
 }
 
+// runAsXenForoCommand uses Docker when initialized and otherwise runs local PHP.
 func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -51,6 +53,8 @@ func runAsXenForoCommand(ctx context.Context, args []string, cmdFn commandFunc) 
 	return nil
 }
 
+// runAsLocalXenForoCommand runs cmd.php with local PHP and standard streams.
+// On cancellation it reports the context error instead of the child's signal.
 func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, cmdFn commandFunc) error {
 	cmdArgs := append([]string{"cmd.php"}, args...)
 	cmd := cmdFn(ctx, "php", cmdArgs...)
@@ -60,8 +64,6 @@ func runAsLocalXenForoCommand(ctx context.Context, xfDir string, args []string, 
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		// The child is killed when the context ends, so report why it stopped
-		// rather than the resulting signal.
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}

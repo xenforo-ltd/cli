@@ -10,6 +10,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Options selects a license, download and version, and whether to bypass cache.
 type Options struct {
 	LicenseKey string
 	ID         string
@@ -17,6 +18,7 @@ type Options struct {
 	Force      bool
 }
 
+// Run lists available downloads or versions, or downloads a selected version.
 func Run(ctx context.Context, options Options) error {
 	client, err := customerapi.NewClient()
 	if err != nil {
@@ -37,6 +39,7 @@ func Run(ctx context.Context, options Options) error {
 	return performDownload(ctx, client, options.LicenseKey, options.ID, options.VersionID, options.Force)
 }
 
+// listDownloadables displays the packages available for a license.
 func listDownloadables(ctx context.Context, client *customerapi.Client, licenseKey string) error {
 	spinner := ui.NewSpinner("Fetching downloads for " + licenseKey)
 	spinner.Start()
@@ -69,6 +72,7 @@ func listDownloadables(ctx context.Context, client *customerapi.Client, licenseK
 	return nil
 }
 
+// listVersions displays the available versions of a licensed package.
 func listVersions(ctx context.Context, client *customerapi.Client, licenseKey string, downloadID string) error {
 	spinner := ui.NewSpinner("Fetching versions for " + downloadID)
 	spinner.Start()
@@ -103,6 +107,8 @@ func listVersions(ctx context.Context, client *customerapi.Client, licenseKey st
 	return nil
 }
 
+// performDownload retrieves a version into the cache, reusing a valid entry
+// unless forced, and clears progress output before reporting an error.
 func performDownload(ctx context.Context, client *customerapi.Client, licenseKey string, downloadID string, versionID int, force bool) error {
 	spinner := ui.NewSpinner("Fetching download info for " + downloadID)
 	spinner.Start()
@@ -180,8 +186,6 @@ func performDownload(ctx context.Context, client *customerapi.Client, licenseKey
 
 	result, err := cacheManager.Download(ctx, opts, accessToken, progress)
 	if err != nil {
-		// The bar's render leaves the cursor on its line, so the error would be
-		// appended to the partial bar without this.
 		if progressBar != nil {
 			progressBar.Abandon()
 		}

@@ -11,6 +11,9 @@ import (
 	"github.com/xenforo-ltd/cli/internal/xf"
 )
 
+// Run executes a XenForo command with Xdebug enabled. It displays only the
+// command name, not arguments that may contain credentials, and reports
+// cancellation instead of the terminated process's exit status.
 func Run(ctx context.Context, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -27,14 +30,9 @@ func Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to initialize Docker Compose runner: %w", err)
 	}
 
-	// Only the command name is echoed. Arguments routinely carry passwords and
-	// tokens, and this line ends up in terminal scrollback and CI logs.
 	ui.PrintInfo("Xdebug enabled: " + ui.Command.Render(args[0]))
 
 	if err := runner.ExecOrRun(ctx, "xf", map[string]string{"XDEBUG_SESSION": "1"}, os.Stdin, os.Stdout, os.Stderr, append([]string{"php", "cmd.php"}, args...)...); err != nil {
-		// A cancelled command reports an exit status of -1, which is not a
-		// status any caller should receive. Report the cancellation itself so
-		// the interrupt exit code is used.
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}

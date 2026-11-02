@@ -7,6 +7,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Prune removes stale registry entries and reports the number removed.
 func Prune() error {
 	registry, err := newRegistry()
 	if err != nil {

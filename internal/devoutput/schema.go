@@ -47,14 +47,12 @@ const (
 // omission selects which values are omitted from release XML.
 type omission uint8
 
-// Omission rules:
-//
-//   - keep retains every value.
-//   - emptyString omits JSON empty strings.
-//   - emptyValue omits values recognized by isEmpty.
 const (
+	// keep retains every value.
 	keep omission = iota
+	// emptyString omits JSON empty strings.
 	emptyString
+	// emptyValue omits values recognized by isEmpty.
 	emptyValue
 )
 

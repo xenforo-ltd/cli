@@ -34,9 +34,10 @@ func ShouldRunComposer(targetPath string) bool {
 // the root composer install does not build. XenForo loads them for every
 // installed add-on that sets composer_autoload, so a checkout without them
 // fails to boot as soon as the add-on is installed, for example after cloning
-// a database.
+// a database. Add-on IDs have one or two path components. A project is pending
+// only when its required autoload_namespaces.php is confirmed absent; unknown
+// file states are skipped rather than risking an install over an existing loader.
 func pendingAddOnComposerProjects(root string) []string {
-	// Add-on IDs are either Name or Vendor/Name.
 	rootFS := os.DirFS(root)
 	var manifests []string
 
@@ -69,9 +70,6 @@ func pendingAddOnComposerProjects(root string) []string {
 			continue
 		}
 
-		// XenForo requires this file first, so its absence is what fails. Any
-		// other error leaves the state unknown, and installing over a loader
-		// that may exist is worse than skipping.
 		loader := filepath.Join(dir, filepath.FromSlash(addOn.ComposerAutoload), "autoload_namespaces.php")
 		if _, err := os.Stat(loader); !errors.Is(err, fs.ErrNotExist) {
 			continue

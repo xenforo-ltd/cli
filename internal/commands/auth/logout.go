@@ -11,6 +11,8 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Logout removes stored credentials after best-effort server revocation.
+// An already absent token is not an error.
 func Logout(ctx context.Context) error {
 	store, err := auth.NewWritableStore()
 	if err != nil {

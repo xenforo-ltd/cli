@@ -10,6 +10,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/ui"
 )
 
+// Run stops and restarts the Docker environment, then reports its URL if available.
 func Run(ctx context.Context, args []string) error {
 	xfDir, err := passthrough.XenForoDir(args)
 	if err != nil {

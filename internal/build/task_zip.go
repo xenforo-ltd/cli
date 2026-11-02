@@ -30,7 +30,8 @@ type zipTask struct {
 }
 
 // run writes upload files and the hash manifest beneath "upload/", with
-// _no_upload contents at the archive root.
+// _no_upload contents at the archive root. Entries are sorted by archive path,
+// and the completed archive replaces its destination atomically.
 func (t *zipTask) run(ctx context.Context, root *os.Root) error {
 	collected, err := t.selection.collectNoUpload(ctx, root)
 	if err != nil {
@@ -139,8 +140,9 @@ func (s uploadSelection) collectNoUpload(ctx context.Context, root *os.Root) ([]
 	})
 }
 
-// addFileToArchive adds source as name with normalized permissions and the given
-// timestamp, and returns its uncompressed size.
+// addFileToArchive adds source as name with the given timestamp and deflate
+// compression, returning its uncompressed size. Permissions are 0755 if any
+// source execute bit is set, and 0644 otherwise. Copying uses the shared buffer.
 func addFileToArchive(ctx context.Context, root fileSource, zw *zip.Writer, name, source string, timestamp time.Time, buffer []byte) (int64, error) {
 	f, info, err := openRegular(ctx, root, source)
 	if err != nil {
@@ -167,7 +169,6 @@ func addFileToArchive(ctx context.Context, root fileSource, zw *zip.Writer, name
 		return 0, fmt.Errorf("creating ZIP entry %s: %w", name, err)
 	}
 
-	// Hide File.WriteTo so CopyBuffer uses the archive's shared buffer.
 	n, err := io.CopyBuffer(w, struct{ io.Reader }{f}, buffer)
 	if err != nil {
 		return 0, fmt.Errorf("writing ZIP entry %s: %w", name, err)

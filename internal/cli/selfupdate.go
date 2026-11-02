@@ -6,6 +6,7 @@ import (
 	"github.com/xenforo-ltd/cli/internal/commands/selfupdate"
 )
 
+// selfUpdateCheckOnly selects an update check without installation.
 var selfUpdateCheckOnly bool
 
 // newSelfUpdateCommand builds the self-update command.
@@ -33,6 +34,7 @@ Use --check-only to just check if an update is available without installing.`,
 	return selfUpdateCmd
 }
 
+// runSelfUpdate checks for and optionally installs a CLI update.
 func runSelfUpdate(cmd *cobra.Command, args []string) error {
 	return selfupdate.Run(cmd.Context(), selfUpdateCheckOnly)
 }

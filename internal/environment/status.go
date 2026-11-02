@@ -102,6 +102,7 @@ func (pub composePortPublisher) text() string {
 }
 
 // PSInfo returns container status parsed from `docker compose ps --format json`.
+// Docker stderr is included in errors when available to preserve diagnostics.
 func (r *Runner) PSInfo(ctx context.Context) ([]containerInfo, error) {
 	cmd := r.composeCommand(ctx, "ps", "--format", "json")
 
@@ -111,8 +112,6 @@ func (r *Runner) PSInfo(ctx context.Context) ([]containerInfo, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		// stderr carries the useful diagnosis (bad compose file, daemon not
-		// running); without it the caller only sees "exit status N".
 		if detail := bytes.TrimSpace(stderr.Bytes()); len(detail) > 0 {
 			return nil, contextError(ctx, fmt.Errorf("docker command failed: %w: %s", err, detail))
 		}
