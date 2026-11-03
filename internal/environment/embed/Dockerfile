@@ -221,8 +221,19 @@ RUN --mount=type=bind,from=ghcr.io/php/pie:bin,source=/pie,target=/usr/local/bin
         libtool \
         linux-headers \
     ; \
-    pie install --no-interaction --no-cache "xdebug/xdebug:${PHP_VERSION_XDEBUG}"; \
-    rm -rf /tmp/pie; \
+    if [ "$(php-config --vernum)" -lt 80100 ]; then \
+        if [ "$(php-config --vernum)" -lt 80000 ]; then \
+            PHP_VERSION_XDEBUG_LEGACY=3.1.6; \
+        else \
+            PHP_VERSION_XDEBUG_LEGACY=3.4.7; \
+        fi; \
+        pecl install "xdebug-${PHP_VERSION_XDEBUG_LEGACY}"; \
+        docker-php-ext-enable xdebug; \
+        rm -rf /tmp/pear; \
+    else \
+        pie install --no-interaction --no-cache "xdebug/xdebug:${PHP_VERSION_XDEBUG}"; \
+        rm -rf /tmp/pie; \
+    fi; \
     apk del .php-deps-xdebug-build;
 
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
