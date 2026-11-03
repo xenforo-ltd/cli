@@ -45,8 +45,7 @@ func (gitBackend) sourceCheckout(ctx context.Context, dir string) (string, error
 func (gitBackend) nameExists(ctx context.Context, repoDir, branch string) (bool, error) {
 	ref := "refs/heads/" + branch
 
-	cmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", ref)
-	cmd.Dir = repoDir
+	cmd := vcsCommand(ctx, "git", repoDir, "show-ref", "--verify", "--quiet", ref)
 
 	err := cmd.Run()
 	if err == nil {
@@ -179,8 +178,7 @@ func (gitBackend) remove(ctx context.Context, sourcePath, worktreePath string, f
 		deleteFlag = "-D"
 	}
 
-	del := exec.CommandContext(ctx, "git", "branch", deleteFlag, branch)
-	del.Dir = sourcePath
+	del := vcsCommand(ctx, "git", sourcePath, "branch", deleteFlag, branch)
 	_ = del.Run()
 
 	return nil
