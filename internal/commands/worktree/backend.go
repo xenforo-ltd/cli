@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -215,11 +216,39 @@ func resolveSymlinks(path string) string {
 	return filepath.Clean(path)
 }
 
+// gitLocationVariables lists the environment variables that make Git locate a
+// repository without regard to the working directory.
+var gitLocationVariables = []string{
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	"GIT_COMMON_DIR",
+	"GIT_PREFIX",
+}
+
+// vcsCommand returns a command that runs tool in dir. For Git, the command's
+// environment omits gitLocationVariables.
+func vcsCommand(ctx context.Context, tool, dir string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, tool, args...)
+	cmd.Dir = dir
+
+	if tool == "git" {
+		cmd.Env = slices.DeleteFunc(os.Environ(), func(v string) bool {
+			key, _, _ := strings.Cut(v, "=")
+
+			return slices.Contains(gitLocationVariables, key)
+		})
+	}
+
+	return cmd
+}
+
 // vcsOutput runs a version control tool in dir and returns its trimmed
 // standard output. A cancelled context is reported in place of the exec error.
 func vcsOutput(ctx context.Context, tool, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, tool, args...)
-	cmd.Dir = dir
+	cmd := vcsCommand(ctx, tool, dir, args...)
 
 	out, err := cmd.Output()
 	if err != nil {
@@ -237,8 +266,7 @@ func vcsOutput(ctx context.Context, tool, dir string, args ...string) (string, e
 // the error names action and carries the tool's combined output; a cancelled
 // context is reported in place of both.
 func vcsRun(ctx context.Context, tool, dir, action string, args ...string) error {
-	cmd := exec.CommandContext(ctx, tool, args...)
-	cmd.Dir = dir
+	cmd := vcsCommand(ctx, tool, dir, args...)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
