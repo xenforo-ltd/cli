@@ -71,6 +71,8 @@ func NewRunner(xfDir string) (*Runner, error) {
 		if contextsStr != "" {
 			contexts = strings.Split(contextsStr, ":")
 		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("failed to read %s: %w", envPath, err)
 	}
 
 	return &Runner{
