@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-11-03
+
+### Features
+
+- *(worktree)* Adopt existing checkouts
+
+### Bug fixes
+
+- *(docker)* Restore legacy PHP Xdebug support
+- *(environment)* Report unreadable `.env` files
+- *(github)* Remove duplicate security link
+- *(worktree)* Ignore Git location variables
+- *(worktree)* Read jj state without snapshots
+- *(worktree)* Parse Git worktree paths with NUL
+- *(worktree)* Resolve symlinks in registry paths
+
+### Refactor
+
+- *(devoutput)* Drop unused `keep` omission
+
+### Documentation
+
+- Consolidate comments into doc comments
+- Clarify project contribution guidance
+- Improve CLI usage documentation
+- Align support and issue guidance
+
+### Style
+
+- Improve spacing after closing braces
+- Format YAML consistently
+
 ## [0.5.0] - 2026-11-02
 
 ### Features
@@ -636,6 +668,7 @@ All notable changes to this project will be documented in this file.
 - Include zip and unzip tools in image
 - Introduce XF CLI tool
 
+[0.5.1]: https://github.com/xenforo-ltd/cli/compare/v0.5.0..0.5.1
 [0.5.0]: https://github.com/xenforo-ltd/cli/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/xenforo-ltd/cli/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/xenforo-ltd/cli/compare/v0.2.2..v0.3.0
