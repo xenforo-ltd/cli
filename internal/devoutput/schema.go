@@ -44,14 +44,13 @@ const (
 	commas
 )
 
-// omission selects which values are omitted from release XML.
+// omission selects which values are omitted from release XML. The zero
+// value keeps every value.
 type omission uint8
 
 const (
-	// keep retains every value.
-	keep omission = iota
 	// emptyString omits JSON empty strings.
-	emptyString
+	emptyString omission = iota + 1
 	// emptyValue omits values recognized by isEmpty.
 	emptyValue
 )
