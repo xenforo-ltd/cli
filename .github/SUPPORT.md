@@ -2,16 +2,9 @@
 
 ## Getting help
 
-For help with the XenForo CLI:
-
-1. **Review documentation**: Check the README for common solutions.
-2. **Ask a question**: Use the [development discussions forum](https://xenforo.com/community/forums/xenforo-development-discussions.34/) for usage and help questions.
-3. **Report a bug or request a feature**: Check [existing issues](https://github.com/xenforo-ltd/cli/issues), then open a [new issue](https://github.com/xenforo-ltd/cli/issues/new) if needed. For bug reports, include:
-
-    - A clear description of the problem.
-    - Steps to reproduce.
-    - Your operating system and CLI version.
-    - Any relevant error output.
+- Read the [README](../README.md) for CLI documentation.
+- Use the [development discussions forum](https://xenforo.com/community/forums/xenforo-development-discussions.34/) for usage and help questions.
+- For bugs or feature requests, search [existing issues](https://github.com/xenforo-ltd/cli/issues), then open a [new issue](https://github.com/xenforo-ltd/cli/issues/new) if needed.
 
 ## Reporting bugs
 
@@ -20,18 +13,16 @@ Include:
 - The exact command you ran.
 - Expected and actual behavior.
 - Full error output.
-- Your system information.
+- The output of `xf version --json`, which includes operating system information.
+
+Do not include tokens, passwords, license keys, or private data in reports or
+output.
 
 ## Security issues
 
 Do not open public issues for security vulnerabilities. Instead, contact the
 maintainers privately as described in [SECURITY.md](SECURITY.md).
 
-## Community
+## Contributing
 
-- [Development discussions forum](https://xenforo.com/community/forums/xenforo-development-discussions.34/): Questions and general discussion.
-- [GitHub Issues](https://github.com/xenforo-ltd/cli/issues): Bug reports and feature requests.
-
-## Version support
-
-Check the package documentation for the currently supported versions.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes.

@@ -3,11 +3,12 @@ description: Suggest an improvement
 type: Feature
 
 body:
-  - id: note
-    type: markdown
+  - type: markdown
     attributes:
       value: |
-        Thank you for suggesting an improvement.
+        Thank you for suggesting an improvement. Please search [existing issues](https://github.com/xenforo-ltd/cli/issues) first.
+        For help questions, see [support](https://github.com/xenforo-ltd/cli/blob/main/.github/SUPPORT.md).
+        Report vulnerabilities through a [private security report](https://github.com/xenforo-ltd/cli/security/advisories/new).
 
   - id: problem
     type: textarea

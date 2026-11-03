@@ -3,11 +3,13 @@ description: Report a reproducible problem
 type: Bug
 
 body:
-  - id: note
-    type: markdown
+  - type: markdown
     attributes:
       value: |
-        Thank you for reporting a bug.
+        Thank you for reporting a bug. Please search [existing issues](https://github.com/xenforo-ltd/cli/issues) first.
+        For help questions, see [support](https://github.com/xenforo-ltd/cli/blob/main/.github/SUPPORT.md).
+        Report vulnerabilities through a [private security report](https://github.com/xenforo-ltd/cli/security/advisories/new).
+        Do not include passwords, tokens, license keys, or private data in your report or output.
 
   - id: summary
     type: textarea
