@@ -70,23 +70,32 @@ func (gitBackend) currentName(ctx context.Context, repoDir string) (string, erro
 }
 
 // checkouts lists the repository's worktrees with the branch each has checked
-// out.
+// out. Git before 2.36 rejects -z as a usage error, so the listing then falls
+// back to newline-separated fields, which cannot represent a path containing a
+// newline.
 func (gitBackend) checkouts(ctx context.Context, repoDir string) ([]checkout, error) {
-	out, err := vcsOutput(ctx, "git", repoDir, "worktree", "list", "--porcelain")
+	separator := "\x00"
+
+	out, err := vcsOutput(ctx, "git", repoDir, "worktree", "list", "--porcelain", "-z")
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok && exitErr.ExitCode() == 129 {
+		separator = "\n"
+		out, err = vcsOutput(ctx, "git", repoDir, "worktree", "list", "--porcelain")
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
 	var result []checkout
 
-	for line := range strings.SplitSeq(out, "\n") {
-		if path, ok := strings.CutPrefix(line, "worktree "); ok {
+	for field := range strings.SplitSeq(out, separator) {
+		if path, ok := strings.CutPrefix(field, "worktree "); ok {
 			result = append(result, checkout{path: path})
 
 			continue
 		}
 
-		if ref, ok := strings.CutPrefix(line, "branch "); ok && len(result) > 0 {
+		if ref, ok := strings.CutPrefix(field, "branch "); ok && len(result) > 0 {
 			result[len(result)-1].name = strings.TrimPrefix(ref, "refs/heads/")
 		}
 	}
