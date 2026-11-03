@@ -44,7 +44,7 @@ type jjBackend struct{}
 // survives the source workspace being renamed. The candidate must be a
 // registered workspace, not merely a similarly named directory.
 func (jjBackend) sourceCheckout(ctx context.Context, dir string) (string, error) {
-	out, err := vcsOutput(ctx, "jj", dir, "workspace", "root")
+	out, err := jjReadOutput(ctx, dir, "workspace", "root")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine the current workspace: %w", err)
 	}
@@ -89,7 +89,7 @@ func (jjBackend) nameExists(ctx context.Context, repoDir, name string) (bool, er
 
 // currentName returns the name of the workspace checked out at checkoutPath.
 func (jjBackend) currentName(ctx context.Context, checkoutPath string) (string, error) {
-	root, err := vcsOutput(ctx, "jj", checkoutPath, "workspace", "root")
+	root, err := jjReadOutput(ctx, checkoutPath, "workspace", "root")
 	if err != nil {
 		return "", fmt.Errorf("failed to determine current workspace: %w", err)
 	}
@@ -229,7 +229,7 @@ type jjWorkspace struct {
 
 // jjWorkspaces lists the repository's workspaces with their roots.
 func jjWorkspaces(ctx context.Context, dir string) ([]jjWorkspace, error) {
-	out, err := vcsOutput(ctx, "jj", dir, "workspace", "list", "--template", jjWorkspaceTemplate)
+	out, err := jjReadOutput(ctx, dir, "workspace", "list", "--template", jjWorkspaceTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -281,4 +281,14 @@ func parseJJDiff(out string) []jjDiffEntry {
 	}
 
 	return entries
+}
+
+// jjReadOnlyArgs are the global options for jj commands that only read the
+// repository. They skip the working-copy snapshot and disable the pager and
+// color.
+var jjReadOnlyArgs = []string{"--ignore-working-copy", "--at-operation=@", "--no-pager", "--color=never"}
+
+// jjReadOutput is like vcsOutput for jj, with jjReadOnlyArgs before args.
+func jjReadOutput(ctx context.Context, dir string, args ...string) (string, error) {
+	return vcsOutput(ctx, "jj", dir, slices.Concat(jjReadOnlyArgs, args)...)
 }
