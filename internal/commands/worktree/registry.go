@@ -108,12 +108,12 @@ func (r *registry) forSource(sourcePath string) ([]entry, error) {
 		return nil, err
 	}
 
-	want := filepath.Clean(sourcePath)
+	want := resolveSymlinks(sourcePath)
 
 	var matched []entry
 
 	for _, e := range entries {
-		if filepath.Clean(e.SourcePath) == want {
+		if resolveSymlinks(e.SourcePath) == want {
 			matched = append(matched, e)
 		}
 	}
@@ -139,15 +139,17 @@ func (r *registry) add(e entry) error {
 		return err
 	}
 
-	want := filepath.Clean(e.WorktreePath)
+	want := resolveSymlinks(e.WorktreePath)
+	same := func(x entry) bool { return resolveSymlinks(x.WorktreePath) == want }
 
-	if i := slices.IndexFunc(entries, func(x entry) bool { return filepath.Clean(x.WorktreePath) == want }); i >= 0 {
-		entries[i] = e
-	} else {
-		entries = append(entries, e)
+	i := slices.IndexFunc(entries, same)
+	if i < 0 {
+		return r.save(append(entries, e))
 	}
 
-	return r.save(entries)
+	entries[i] = e
+
+	return r.save(append(entries[:i+1], slices.DeleteFunc(entries[i+1:], same)...))
 }
 
 // reserve records entry before its worktree exists, unless another entry
@@ -256,8 +258,8 @@ func (r *registry) remove(worktreePath string) error {
 		return err
 	}
 
-	want := filepath.Clean(worktreePath)
-	kept := slices.DeleteFunc(entries, func(e entry) bool { return filepath.Clean(e.WorktreePath) == want })
+	want := resolveSymlinks(worktreePath)
+	kept := slices.DeleteFunc(entries, func(e entry) bool { return resolveSymlinks(e.WorktreePath) == want })
 
 	return r.save(kept)
 }
